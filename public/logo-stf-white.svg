@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 360" width="1000" height="360" fill="none">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400;700;800;900&amp;family=Outfit:wght@200;300;700;800;900&amp;display=swap');
+    .stf-bold { font-family: 'Montserrat', 'Outfit', sans-serif; font-weight: 900; font-size: 135px; fill: #FFFFFF; letter-spacing: -2px; }
+    .group-light { font-family: 'Outfit', 'Montserrat', sans-serif; font-weight: 200; font-size: 135px; fill: none; stroke: #FFFFFF; stroke-width: 3.5px; letter-spacing: -1px; }
+    .sa-bold { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 26px; fill: #FFFFFF; }
+    .sub-brand { font-family: 'Montserrat', 'Outfit', sans-serif; font-weight: 400; font-size: 58px; fill: #FFFFFF; letter-spacing: 2px; }
+    .ela-brand { font-family: 'Outfit', 'Montserrat', sans-serif; font-weight: 900; font-size: 78px; fill: #FFFFFF; letter-spacing: -1px; }
+    .man-brand { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 42px; fill: #FFFFFF; letter-spacing: 3px; }
+    .dot { font-size: 58px; fill: #FFFFFF; }
+    .divider { stroke: #FFFFFF; stroke-width: 3px; opacity: 0.95; }
+  </style>
+
+  <!-- TOP LINE: STF GROUP S.A. -->
+  <g transform="translate(140, 125)">
+    <text x="0" y="0" class="stf-bold">STF</text>
+    <text x="270" y="0" class="group-light">GROUP</text>
+    <text x="655" y="-5" class="sa-bold">S.A.</text>
+  </g>
+
+  <!-- MIDDLE DIVIDER -->
+  <line x1="20" y1="165" x2="980" y2="165" class="divider" />
+
+  <!-- BOTTOM LINE: STUDIO F • ela • STUDIO F MAN -->
+  <g transform="translate(20, 275)">
+    <!-- STUDIO F -->
+    <text x="0" y="0" class="sub-brand">STUDIO F</text>
+    
+    <!-- DOT -->
+    <circle cx="395" cy="-20" r="7" fill="#FFFFFF" />
+    
+    <!-- ela -->
+    <text x="420" y="8" class="ela-brand">ela</text>
+    
+    <!-- DOT -->
+    <circle cx="595" cy="-20" r="7" fill="#FFFFFF" />
+    
+    <!-- STUDIO F -->
+    <text x="630" y="0" class="sub-brand">STUDIO F</text>
+    
+    <!-- MAN (centered under second STUDIO F) -->
+    <text x="750" y="58" class="man-brand">MAN</text>
+  </g>
+</svg>
