@@ -1,10 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   MessageSquare, Send, AlertTriangle, Users, CheckCircle2, 
   ExternalLink, X, Clock, Layers, Sparkles, PhoneCall, Copy, Check
 } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
-import { UsuarioSTF, USUARIOS_STF_MAESTROS } from '../../services/authService';
+import { 
+  UsuarioSTF, 
+  getUsuariosList, 
+  subscribeUsuariosList, 
+  syncUsuariosFromSheets,
+  formatWhatsAppNumber 
+} from '../../services/authService';
 
 export interface DestinatarioWhatsApp {
   id: string;
@@ -12,32 +18,8 @@ export interface DestinatarioWhatsApp {
   rol: string;
   area: string;
   telefono: string; // Formato con código país: +57 300 123 4567
+  whatsappDigits?: string; // Solo números para wa.me (ej: 573116795548)
 }
-
-export const DESTINATARIOS_WHATSAPP_DEFAULT: DestinatarioWhatsApp[] = [
-  { id: 'ediaz', nombre: 'Edwin Díaz', rol: 'Administrador', area: 'Calidad', telefono: '+57 318 456 7890' },
-  { id: '1111', nombre: 'Auditor Calidad Principal', rol: 'Operario', area: 'Calidad', telefono: '+57 315 234 5678' },
-  { id: '3333', nombre: 'Jefe de Planta Colfactory', rol: 'Lavandería', area: 'Lavandería', telefono: '+57 317 890 1234' },
-  { id: '2222', nombre: 'Calidad ZF (Atelier)', rol: 'Operario', area: 'Calidad ZF', telefono: '+57 312 456 7891' },
-  { id: '4321', nombre: 'Libia Laboratorio Textil', rol: 'Administrador', area: 'Calidad', telefono: '+57 316 345 6789' },
-  { id: '4444', nombre: 'Camila Zouein', rol: 'Cliente ELA', area: 'Colecciones', telefono: '+57 310 567 8902' },
-  { id: '9999', nombre: 'Jesús Salcedo', rol: 'Cliente SF', area: 'Colecciones', telefono: '+57 312 678 9013' },
-  { id: '5555', nombre: 'Robert Daza', rol: 'Cliente SF', area: 'Colecciones', telefono: '+57 314 789 0124' },
-  { id: '6666', nombre: 'Luisa Medina', rol: 'Cliente ELA', area: 'Colecciones', telefono: '+57 311 890 1235' },
-  { id: '7777', nombre: 'Valentina Giraldo', rol: 'Cliente Outlet', area: 'Colecciones', telefono: '+57 313 901 2346' },
-  { id: '8888', nombre: 'Paola Jaramillo', rol: 'Lavandería', area: 'Lavandería', telefono: '+57 319 012 3456' },
-  { id: '1107529604', nombre: 'Didier Muñoz', rol: 'Operario', area: 'Calidad ZF', telefono: '+57 318 123 4567' },
-  { id: '1114392241', nombre: 'Andrés Felipe Tascón', rol: 'Operario', area: 'Calidad', telefono: '+57 314 567 8902' },
-  { id: '1004670524', nombre: 'Dilan Soto', rol: 'Operario', area: 'Calidad', telefono: '+57 310 678 9013' },
-  { id: '1010159672', nombre: 'Jhon Eyder', rol: 'Operario', area: 'Calidad', telefono: '+57 311 789 0124' },
-  { id: '1118309204', nombre: 'Wilmer Maya', rol: 'Operario', area: 'Calidad', telefono: '+57 313 890 1235' },
-  { id: '1107047649', nombre: 'Juan David Cortez', rol: 'Operario', area: 'Calidad', telefono: '+57 318 901 2346' },
-  { id: '1005829307', nombre: 'Jhon Freddy González', rol: 'Operario', area: 'Calidad', telefono: '+57 317 012 3457' },
-  { id: '1006099840', nombre: 'Sebastián Herrera', rol: 'Operario', area: 'Calidad ZF', telefono: '+57 315 123 4568' },
-  { id: '66997344', nombre: 'Sandra Vanegas', rol: 'Lavandería', area: 'Lavandería', telefono: '+57 316 234 5679' },
-  { id: '66826345', nombre: 'Ana Milena García', rol: 'Lavandería', area: 'Lavandería', telefono: '+57 319 345 6780' },
-  { id: '1130643859', nombre: 'Jhonatan Pinzón', rol: 'Lavandería', area: 'Lavandería', telefono: '+57 318 456 7891' }
-];
 
 interface WhatsAppEmergencyAlertModalProps {
   isOpen: boolean;
@@ -52,6 +34,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
   solicitudes = [],
   currentUser
 }) => {
+  const [usuarios, setUsuarios] = useState<UsuarioSTF[]>(getUsuariosList);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string>('TODOS');
   const [selectedOpMotivo, setSelectedOpMotivo] = useState<string>('GENERAL');
   const [customOpText, setCustomOpText] = useState<string>('');
@@ -59,8 +42,31 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
   const [copiedPreview, setCopiedPreview] = useState<boolean>(false);
   const [sentCount, setSentCount] = useState<number>(0);
 
-  // Destinatarios list
-  const destinatarios = DESTINATARIOS_WHATSAPP_DEFAULT;
+  // Subscribe to real-time user updates & sync from Google Sheets
+  useEffect(() => {
+    const unsub = subscribeUsuariosList((latest) => {
+      setUsuarios(latest);
+    });
+    if (isOpen) {
+      syncUsuariosFromSheets();
+    }
+    return unsub;
+  }, [isOpen]);
+
+  // Dynamic Destinatarios list from Google Sheets
+  const destinatarios: DestinatarioWhatsApp[] = useMemo(() => {
+    return usuarios.map(u => {
+      const phoneInfo = formatWhatsAppNumber(u.telefono || u.whatsapp || '');
+      return {
+        id: u.id,
+        nombre: u.nombre,
+        rol: u.rol,
+        area: u.area,
+        telefono: phoneInfo.display || (u.telefono || '+57 300 000 0000'),
+        whatsappDigits: phoneInfo.cleanDigits || (u.whatsapp || '')
+      };
+    });
+  }, [usuarios]);
 
   // Active OPs in delay or alert
   const opsEnAlerta = useMemo(() => {
@@ -70,8 +76,15 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
   if (!isOpen) return null;
 
   // Helper: Clean phone number to pure digits
-  const cleanPhoneNumber = (phone: string): string => {
-    return phone.replace(/[^0-9]/g, '');
+  const cleanPhoneNumber = (phone: string, digitsFallback?: string): string => {
+    if (digitsFallback && digitsFallback.trim()) {
+      return digitsFallback.replace(/\D/g, '');
+    }
+    const clean = phone.replace(/\D/g, '');
+    if (clean.length === 10 && clean.startsWith('3')) {
+      return `57${clean}`;
+    }
+    return clean;
   };
 
   // Helper: Format Motivo text
@@ -115,8 +128,8 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
   };
 
   // Helper: Build Direct WhatsApp URL
-  const buildWhatsAppUrl = (phone: string, recipientName: string): string => {
-    const cleanPhone = cleanPhoneNumber(phone);
+  const buildWhatsAppUrl = (phone: string, recipientName: string, digitsFallback?: string): string => {
+    const cleanPhone = cleanPhoneNumber(phone, digitsFallback);
     const message = buildWhatsAppMessage(recipientName);
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
@@ -127,7 +140,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
       // Send to all: open with slight interval
       destinatarios.forEach((dest, idx) => {
         setTimeout(() => {
-          const url = buildWhatsAppUrl(dest.telefono, dest.nombre);
+          const url = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.whatsappDigits);
           window.open(url, '_blank');
         }, idx * 600);
       });
@@ -135,7 +148,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     } else {
       const dest = destinatarios.find(d => d.id === selectedRecipientId);
       if (dest) {
-        const url = buildWhatsAppUrl(dest.telefono, dest.nombre);
+        const url = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.whatsappDigits);
         window.open(url, '_blank');
         setSentCount(prev => prev + 1);
       }
@@ -154,7 +167,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
   };
 
   const previewName = selectedRecipientId === 'TODOS'
-    ? 'Todos los Destinatarios (22 Contactos)'
+    ? `Todos los Destinatarios (${destinatarios.length} Contactos)`
     : (destinatarios.find(d => d.id === selectedRecipientId)?.nombre || 'Destinatario');
 
   return (
@@ -177,7 +190,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
                 </span>
               </div>
               <p className="text-xs text-zinc-300 dark:text-zinc-600 mt-0.5">
-                Envío instantáneo de notificaciones operativas con enlace directo oficial.
+                Envío instantáneo sincronizado en tiempo real con la hoja <strong>USUARIOS</strong> (Columna F).
               </p>
             </div>
           </div>
@@ -202,7 +215,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
                 DESTINATARIO DE LA ALERTA:
               </span>
               <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal">
-                {destinatarios.length} contactos disponibles
+                {destinatarios.length} contactos en Google Sheets
               </span>
             </label>
 
@@ -212,9 +225,9 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
               className="w-full bg-[#12231c] dark:bg-zinc-50 border-2 border-emerald-500/50 dark:border-zinc-300 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono font-bold text-white dark:text-zinc-950 focus:outline-none focus:border-emerald-400 cursor-pointer shadow-inner"
             >
               <option value="TODOS" className="bg-[#0b1411] text-emerald-300 font-black py-2">
-                📢 Enviar a Todos ({destinatarios.length} Usuarios Registrados)
+                📢 Enviar a Todos ({destinatarios.length} Usuarios Registrados en Google Sheets)
               </option>
-              <optgroup label="── Contactos Individuales ──" className="bg-[#0b1411] text-zinc-300">
+              <optgroup label="── Contactos Registrados en Base de Datos (Columna F WhatsApp) ──" className="bg-[#0b1411] text-zinc-300">
                 {destinatarios.map((dest) => (
                   <option key={dest.id} value={dest.id} className="bg-[#0b1411] text-white py-1">
                     {dest.nombre} ({dest.telefono}) - {dest.area} [{dest.rol}]

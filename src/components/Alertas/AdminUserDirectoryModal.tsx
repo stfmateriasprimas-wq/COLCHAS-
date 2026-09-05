@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, X, Search, Check, Mail, Shield, User, ArrowRight, 
   Sparkles, CheckSquare, Square, Send
 } from 'lucide-react';
-import { UsuarioSTF, USUARIOS_STF_MAESTROS } from '../../services/authService';
+import { UsuarioSTF, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets } from '../../services/authService';
 import { SolicitudColcha } from '../../types';
 
 interface AdminUserDirectoryModalProps {
@@ -19,10 +19,21 @@ export const AdminUserDirectoryModal: React.FC<AdminUserDirectoryModalProps> = (
   delayedOps,
   onDispatchAlertToSelectedUsers
 }) => {
+  const [usuarios, setUsuarios] = useState<UsuarioSTF[]>(getUsuariosList);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(() => 
-    USUARIOS_STF_MAESTROS.map(u => u.id)
+    getUsuariosList().map(u => u.id)
   );
+
+  useEffect(() => {
+    const unsub = subscribeUsuariosList((latest) => {
+      setUsuarios(latest);
+    });
+    if (isOpen) {
+      syncUsuariosFromSheets();
+    }
+    return unsub;
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -33,22 +44,23 @@ export const AdminUserDirectoryModal: React.FC<AdminUserDirectoryModalProps> = (
   };
 
   const handleSelectAll = () => {
-    setSelectedUserIds(USUARIOS_STF_MAESTROS.map(u => u.id));
+    setSelectedUserIds(usuarios.map(u => u.id));
   };
 
   const handleDeselectAll = () => {
     setSelectedUserIds([]);
   };
 
-  const filteredUsers = USUARIOS_STF_MAESTROS.filter(u => {
+  const filteredUsers = usuarios.filter(u => {
     const q = searchTerm.toLowerCase().trim();
     if (!q) return true;
     return (
       u.nombre.toLowerCase().includes(q) ||
       u.id.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
       u.rol.toLowerCase().includes(q) ||
-      u.area.toLowerCase().includes(q)
+      u.area.toLowerCase().includes(q) ||
+      (u.telefono && u.telefono.toLowerCase().includes(q))
     );
   });
 
@@ -120,7 +132,7 @@ export const AdminUserDirectoryModal: React.FC<AdminUserDirectoryModalProps> = (
                 onClick={handleSelectAll}
                 className="px-3 py-1 rounded-xl bg-zinc-800 dark:bg-zinc-200 hover:bg-zinc-700 text-zinc-200 dark:text-zinc-800 font-bold transition cursor-pointer"
               >
-                Seleccionar Todos ({USUARIOS_STF_MAESTROS.length})
+                Seleccionar Todos ({usuarios.length})
               </button>
               <button
                 type="button"

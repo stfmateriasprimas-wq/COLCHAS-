@@ -17,7 +17,7 @@ import { LoginScreen } from './components/Auth/LoginScreen';
 import { UserProfileModal } from './components/Auth/UserProfileModal';
 import { FloatingAiVoiceButton } from './components/Common/FloatingAiVoiceButton';
 import { StatSectionTabType } from './services/aiVoiceService';
-import { UsuarioSTF } from './services/authService';
+import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList } from './services/authService';
 import { SolicitudColcha, MonitoreoItem, KpiMetrics, SectorType, DictamenType } from './types';
 import { 
   fetchMonitoreoSheet, 
@@ -124,9 +124,10 @@ export function App() {
   const loadAllLiveData = async (isBackground: boolean = false) => {
     if (!isBackground) setIsSyncing(true);
     try {
-      const [monitoreoData, baseDatosData] = await Promise.all([
+      const [monitoreoData, baseDatosData, usuariosData] = await Promise.all([
         fetchMonitoreoSheet(),
-        fetchBaseDeDatosSheet()
+        fetchBaseDeDatosSheet(),
+        syncUsuariosFromSheets()
       ]);
 
       if (monitoreoData.length > 0) setMonitoreoList(monitoreoData);

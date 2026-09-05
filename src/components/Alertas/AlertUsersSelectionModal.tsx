@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, Mail, Check, X, Search, CheckSquare, Square, 
   Send, AlertTriangle, ShieldCheck, UserCheck, Plus, Sparkles
 } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
-import { UsuarioSTF, USUARIOS_STF_MAESTROS } from '../../services/authService';
+import { UsuarioSTF, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets } from '../../services/authService';
 
 interface AlertUsersSelectionModalProps {
   isOpen: boolean;
@@ -23,9 +23,11 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
   currentUser,
   onAlertSent
 }) => {
+  const [usuarios, setUsuarios] = useState<UsuarioSTF[]>(getUsuariosList);
+
   // Recipient user IDs selected (defaults to all or key managers)
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(() => {
-    return USUARIOS_STF_MAESTROS.map(u => u.id);
+    return getUsuariosList().map(u => u.id);
   });
 
   // Custom additional emails
@@ -41,18 +43,29 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
   const [userSearch, setUserSearch] = useState('');
   const [areaFilter, setAreaFilter] = useState<string>('TODAS');
 
+  useEffect(() => {
+    const unsub = subscribeUsuariosList((latest) => {
+      setUsuarios(latest);
+    });
+    if (isOpen) {
+      syncUsuariosFromSheets();
+    }
+    return unsub;
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   // Filter users
-  const filteredUsers = USUARIOS_STF_MAESTROS.filter(u => {
+  const filteredUsers = usuarios.filter(u => {
     if (areaFilter !== 'TODAS' && u.area !== areaFilter) return false;
     const q = userSearch.toLowerCase().trim();
     if (!q) return true;
     return (
       u.nombre.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
       u.area.toLowerCase().includes(q) ||
-      u.rol.toLowerCase().includes(q)
+      u.rol.toLowerCase().includes(q) ||
+      (u.telefono && u.telefono.toLowerCase().includes(q))
     );
   });
 
@@ -65,7 +78,7 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
 
   // Select all / none
   const handleSelectAll = () => {
-    setSelectedUserIds(USUARIOS_STF_MAESTROS.map(u => u.id));
+    setSelectedUserIds(usuarios.map(u => u.id));
   };
 
   const handleDeselectAll = () => {
@@ -91,7 +104,7 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
 
   // Gather all recipient emails
   const getSelectedEmails = (): string[] => {
-    const userEmails = USUARIOS_STF_MAESTROS
+    const userEmails = usuarios
       .filter(u => selectedUserIds.includes(u.id))
       .map(u => u.email)
       .filter(Boolean);
@@ -131,7 +144,7 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
                   SELECCIONAR DESTINATARIOS DE ALERTA
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-rose-600 text-white uppercase">
-                  USUARIOS ({USUARIOS_STF_MAESTROS.length})
+                  USUARIOS ({usuarios.length})
                 </span>
               </div>
               <p className="text-xs text-zinc-400 dark:text-zinc-600 font-sans">
@@ -215,7 +228,7 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono font-black uppercase text-zinc-400 dark:text-zinc-600">
-                  DESTINATARIOS SELECCIONADOS ({recipientCount} DE {USUARIOS_STF_MAESTROS.length + customEmailList.length})
+                  DESTINATARIOS SELECCIONADOS ({recipientCount} DE {usuarios.length + customEmailList.length})
                 </span>
               </div>
 

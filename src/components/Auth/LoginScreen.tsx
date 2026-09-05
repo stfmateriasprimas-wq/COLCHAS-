@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { ShieldCheck, UserCheck, AlertCircle, Users, X, ArrowRight, KeyRound, ChevronRight, Sparkles } from 'lucide-react';
-import { UsuarioSTF, USUARIOS_STF_MAESTROS, isAdminUser } from '../../services/authService';
+import React, { useState, useEffect } from 'react';
+import { ShieldCheck, UserCheck, AlertCircle, Users, X, ArrowRight, KeyRound, ChevronRight, Sparkles, RefreshCw } from 'lucide-react';
+import { UsuarioSTF, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets, isAdminUser } from '../../services/authService';
 import { STFLogo } from '../Common/STFLogo';
 import { AdminPasswordModal } from './AdminPasswordModal';
 
@@ -9,11 +9,21 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+  const [usuarios, setUsuarios] = useState<UsuarioSTF[]>(getUsuariosList);
   const [userIdInput, setUserIdInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [showDirectoryModal, setShowDirectoryModal] = useState(false);
   const [directorySearch, setDirectorySearch] = useState('');
   const [pendingAdminUser, setPendingAdminUser] = useState<UsuarioSTF | null>(null);
+
+  // Subscribe to live user updates & fetch latest from Sheets
+  useEffect(() => {
+    const unsub = subscribeUsuariosList((latestUsers) => {
+      setUsuarios(latestUsers);
+    });
+    syncUsuariosFromSheets();
+    return unsub;
+  }, []);
 
   const handleLoginSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -23,8 +33,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       return;
     }
 
-    const foundUser = USUARIOS_STF_MAESTROS.find(
-      u => u.id.toLowerCase() === query || u.nombre.toLowerCase().includes(query) || u.email.toLowerCase().includes(query)
+    const currentUsers = getUsuariosList();
+    const foundUser = currentUsers.find(
+      u => u.id.toLowerCase() === query || u.nombre.toLowerCase().includes(query) || (u.email && u.email.toLowerCase().includes(query))
     );
 
     if (foundUser) {
@@ -35,7 +46,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         onLoginSuccess(foundUser);
       }
     } else {
-      setErrorMsg(`El usuario o ID "${userIdInput}" no se encuentra en la base de datos de STF Group.`);
+      setErrorMsg(`El usuario o documento "${userIdInput}" no se encuentra en la base de datos de STF Group.`);
     }
   };
 
@@ -50,7 +61,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const filteredDirectory = USUARIOS_STF_MAESTROS.filter(u => {
+  const filteredDirectory = usuarios.filter(u => {
     const q = directorySearch.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -58,7 +69,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       u.nombre.toLowerCase().includes(q) ||
       u.rol.toLowerCase().includes(q) ||
       u.area.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q)
+      (u.email && u.email.toLowerCase().includes(q)) ||
+      (u.telefono && u.telefono.toLowerCase().includes(q))
     );
   });
 
@@ -206,7 +218,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     BASE DE DATOS STF
                   </span>
                   <span className="text-xs text-zinc-400 font-bold">
-                    {USUARIOS_STF_MAESTROS.length} Perfiles Registrados
+                    {usuarios.length} Perfiles Registrados
                   </span>
                 </div>
                 <h3 className="text-base font-black text-white brand-title mt-1">

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, X, Search, CheckCircle2, FlaskConical, Droplets, Layers, 
-  Lock, Mail, ArrowRight, Check, MapPin
+  Lock, Mail, ArrowRight, Check, MapPin, MessageSquare, Phone
 } from 'lucide-react';
-import { UsuarioSTF, USUARIOS_STF_MAESTROS, isAdminUser } from '../../services/authService';
+import { UsuarioSTF, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets, isAdminUser } from '../../services/authService';
 import { AdminPasswordModal } from './AdminPasswordModal';
 
 interface UserProfileModalProps {
@@ -21,17 +21,28 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   onSelectUser
 }) => {
+  const [usuarios, setUsuarios] = useState<UsuarioSTF[]>(getUsuariosList);
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingAdminUser, setPendingAdminUser] = useState<UsuarioSTF | null>(null);
 
+  useEffect(() => {
+    const unsub = subscribeUsuariosList((latest) => {
+      setUsuarios(latest);
+    });
+    if (isOpen) {
+      syncUsuariosFromSheets();
+    }
+    return unsub;
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   // Counts for tabs
-  const countCalidad = USUARIOS_STF_MAESTROS.filter(u => u.rol === 'OPERARIO' || u.area.includes('CALIDAD')).length;
-  const countAdmin = USUARIOS_STF_MAESTROS.filter(u => u.rol === 'ADMINISTRADOR').length;
-  const countLavanderia = USUARIOS_STF_MAESTROS.filter(u => u.rol === 'LAVANDERÍA' || u.area === 'LAVANDERÍA').length;
-  const countColecciones = USUARIOS_STF_MAESTROS.filter(u => u.area === 'COLECCIONES' || u.rol.startsWith('CLIENTE')).length;
+  const countCalidad = usuarios.filter(u => u.rol === 'OPERARIO' || u.area.includes('CALIDAD')).length;
+  const countAdmin = usuarios.filter(u => u.rol === 'ADMINISTRADOR').length;
+  const countLavanderia = usuarios.filter(u => u.rol === 'LAVANDERÍA' || u.area === 'LAVANDERÍA').length;
+  const countColecciones = usuarios.filter(u => u.area === 'COLECCIONES' || u.rol.startsWith('CLIENTE')).length;
 
   // Initials generator
   const getInitials = (user: UsuarioSTF): string => {
@@ -77,7 +88,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   // Filtering logic
-  const filteredUsers = USUARIOS_STF_MAESTROS.filter(u => {
+  const filteredUsers = usuarios.filter(u => {
     // Tab filter
     if (activeCategory === 'CALIDAD' && !(u.rol === 'OPERARIO' || u.area.includes('CALIDAD'))) return false;
     if (activeCategory === 'ADMIN' && u.rol !== 'ADMINISTRADOR') return false;
@@ -92,7 +103,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       u.id.toLowerCase().includes(q) ||
       u.rol.toLowerCase().includes(q) ||
       u.area.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q)
+      (u.email && u.email.toLowerCase().includes(q)) ||
+      (u.telefono && u.telefono.toLowerCase().includes(q))
     );
   });
 
@@ -112,7 +124,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   Directorio de Perfiles Autorizados
                 </h3>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-sky-950/80 dark:bg-sky-100 text-sky-400 dark:text-sky-800 border border-sky-500/40 dark:border-sky-300">
-                  {USUARIOS_STF_MAESTROS.length} Perfiles
+                  {usuarios.length} Perfiles
                 </span>
               </div>
               <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
@@ -169,7 +181,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               }`}
             >
               <Users className="w-3.5 h-3.5" />
-              <span>Todos ({USUARIOS_STF_MAESTROS.length})</span>
+              <span>Todos ({usuarios.length})</span>
             </button>
 
             {/* Tab 2: Calidad & Operarios */}
@@ -316,10 +328,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       </div>
 
                       {/* Email Row */}
-                      <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500 mt-3 truncate font-mono">
-                        <Mail className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">{user.email}</span>
-                      </div>
+                      {user.email && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500 mt-3 truncate font-mono">
+                          <Mail className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{user.email}</span>
+                        </div>
+                      )}
+
+                      {/* WhatsApp Row */}
+                      {user.telefono && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 dark:text-emerald-700 mt-1 truncate font-mono">
+                          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                          <span>WhatsApp: {user.telefono}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Bottom Action Footer */}
@@ -355,7 +377,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* MODAL FOOTER */}
         <div className="p-4 sm:p-5 border-t border-zinc-800 dark:border-zinc-200 bg-zinc-900/90 dark:bg-zinc-100 flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-600 font-mono">
           <span>
-            Mostrando <strong>{filteredUsers.length}</strong> de <strong>{USUARIOS_STF_MAESTROS.length}</strong> perfiles corporativos
+            Mostrando <strong>{filteredUsers.length}</strong> de <strong>{usuarios.length}</strong> perfiles corporativos
           </span>
           <button
             type="button"
