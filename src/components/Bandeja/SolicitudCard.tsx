@@ -2,7 +2,7 @@ import React from 'react';
 import { Eye, Printer, ArrowRight, Camera, Calendar, Clock, Trash2, CheckCircle2 } from 'lucide-react';
 import { SolicitudColcha, SectorType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { UsuarioSTF } from '../../services/authService';
+import { UsuarioSTF, isAdminUser } from '../../services/authService';
 
 interface SolicitudCardProps {
   solicitud: SolicitudColcha;
@@ -302,8 +302,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               <span>IMPRIMIR</span>
             </button>
 
-            {/* BOTÓN ELIMINAR (EDWIN - ADMINISTRADOR / HISTORIAL RECUPERABLE) */}
-            {onDelete && (
+            {/* BOTÓN ELIMINAR (EXCLUSIVO PERFIL ADMINISTRADOR EDWIN) */}
+            {isAdminUser(currentUser) && onDelete && (
               <button
                 type="button"
                 onClick={() => onDelete(solicitud)}
@@ -315,8 +315,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               </button>
             )}
 
-            {/* BOTÓN FINALIZAR (VERDE - PASO AUTOMÁTICO A FINALIZADOS EN SISTEMA Y BASE DE DATOS) */}
-            {solicitud.estado !== 'FINALIZADO' && onFinalizar && (
+            {/* BOTÓN FINALIZAR (EXCLUSIVO PERFIL ADMINISTRADOR EDWIN) */}
+            {isAdminUser(currentUser) && solicitud.estado !== 'FINALIZADO' && onFinalizar && (
               <button
                 type="button"
                 onClick={() => onFinalizar(solicitud)}
