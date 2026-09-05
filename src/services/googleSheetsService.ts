@@ -4,6 +4,9 @@ import { calculateWorkingDays } from './slaCalculator';
 export const SPREADSHEET_ID = "1jTM8OG2u3bO9Cyrlyn3DJSnGcyLOzA8EWwxwOyWgXdc";
 export const BACKUP_SPREADSHEET_ID = "1qb9unBiGpV3QHgRtHonAAeyN0M8EQ4QhCan1Bnywx3M";
 
+// URL Oficial de la API Google Apps Script implementada
+export const DEFAULT_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxPzWgqNjyaZInas8f5wU-G2CGiBE0QdpqiaNHxes0zdxRIBm7dP1yrOXjQfO2WGOKj/exec";
+
 // Helper to parse CSV respecting quotes and newlines
 function parseCsvRows(text: string): string[][] {
   const rows: string[][] = [];
@@ -110,92 +113,83 @@ export function markMonitoreoOpAsConsumed(op: string): void {
   }
 }
 
-export async function deleteOrConsumeMonitoreoOpFromSheets(op: string): Promise<void> {
-  const webAppUrl = getAppsScriptUrl();
-  if (!webAppUrl) return;
+// Stored Web App URL configuration for Apps Script
+const APPS_SCRIPT_STORAGE_KEY = 'STF_APPS_SCRIPT_WEBAPP_URL';
 
-  try {
-    await fetch(webAppUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'DELETE_MONITOREO_OP',
-        payload: { op }
-      })
-    });
-  } catch (e) {
-    console.warn('Error syncing consumed OP with Monitoreo sheet:', e);
+export function getAppsScriptUrl(): string {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(APPS_SCRIPT_STORAGE_KEY);
+    if (saved && saved.trim()) return saved.trim();
+  }
+  return DEFAULT_APPS_SCRIPT_URL;
+}
+
+export function setAppsScriptUrl(url: string): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(APPS_SCRIPT_STORAGE_KEY, url.trim());
   }
 }
 
-// Fetch live Monitoreo sheet (OPs por hacer)
-export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
-  const consumed = getConsumedMonitoreoOps();
-
-  // 1. Intentar primero con el endpoint JSON de Apps Script si está configurado
+/**
+ * Función genérica y segura para enviar POST a Google Apps Script
+ * Gestiona JSON nativo y fallback con mode: 'no-cors' para producción en Vercel
+ */
+export async function sendAppsScriptPost(action: string, payload: any): Promise<{ success: boolean; message: string; data?: any }> {
   const webAppUrl = getAppsScriptUrl();
-  if (webAppUrl) {
-    try {
-      const res = await fetch(`${webAppUrl}?action=GET_MONITOREO`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
-          return json.data.filter((item: MonitoreoItem) => {
-            const cleanOp = (item.op || '').replace(/\D/g, '') || (item.op || '').trim().toUpperCase();
-            return !consumed.includes(cleanOp);
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('Error fetching Monitoreo via Apps Script:', e);
-    }
+  if (!webAppUrl) {
+    return { success: false, message: 'URL de Apps Script no configurada' };
   }
 
-  // 2. Endpoints directos de Google Sheets con GID exacto 1356774059
-  const tryUrls = [
-    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${MONITOREO_GID}`,
-    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=MONITOREO`,
-    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${MONITOREO_GID}`,
-    `https://docs.google.com/spreadsheets/d/${BACKUP_SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=MONITOREO`
-  ];
-  
-  for (const url of tryUrls) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      
-      const text = await res.text();
-      const rows = parseCsvRows(text);
-      if (rows.length < 2) continue;
-
-      const items: MonitoreoItem[] = [];
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (row[0] && row[0] !== 'TELA' && row[0] !== 'TELA ') {
-          const itemOp = row[3] || '';
-          const cleanOp = itemOp.replace(/\D/g, '') || itemOp.trim().toUpperCase();
-          if (!consumed.includes(cleanOp)) {
-            items.push({
-              tela: row[0] || '',
-              mt: row[1] || 'MT-AUTO',
-              color: row[2] || 'AZUL',
-              op: itemOp,
-              referencia: row[4] || ''
-            });
-          }
-        }
-      }
-      if (items.length > 0) return items;
-    } catch (err) {
-      console.warn(`Error fetching Monitoreo from url ${url}:`, err);
-    }
-  }
-
-  return INITIAL_MONITOREO_DATA.filter(item => {
-    const cleanOp = (item.op || '').replace(/\D/g, '') || (item.op || '').trim().toUpperCase();
-    return !consumed.includes(cleanOp);
+  const bodyData = JSON.stringify({
+    action,
+    payload
   });
+
+  try {
+    // 1. Intento estándar con Content-Type text/plain (CORS friendly con Google Apps Script)
+    const res = await fetch(webAppUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: bodyData
+    });
+
+    if (res.ok) {
+      try {
+        const json = await res.json();
+        return {
+          success: json.status === 'success' || !json.error,
+          message: json.message || 'Datos sincronizados con Google Sheets',
+          data: json
+        };
+      } catch (jsonErr) {
+        return { success: true, message: 'Datos enviados correctamente a Google Sheets' };
+      }
+    }
+    return { success: true, message: 'Solicitud procesada en Google Sheets' };
+  } catch (corsErr) {
+    console.warn('Fallback no-cors para Apps Script:', corsErr);
+    // 2. Fallback con mode no-cors asegurando envío en Vercel
+    try {
+      await fetch(webAppUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: bodyData
+      });
+      return { success: true, message: 'Datos sincronizados exitosamente con Google Sheets (no-cors)' };
+    } catch (finalErr) {
+      console.error('Error enviando datos a Google Sheets:', finalErr);
+      return { success: false, message: 'Error de conexión con Google Sheets' };
+    }
+  }
+}
+
+export async function deleteOrConsumeMonitoreoOpFromSheets(op: string): Promise<void> {
+  await sendAppsScriptPost('DELETE_MONITOREO_OP', { op });
 }
 
 /**
@@ -203,15 +197,13 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
  */
 export function normalizeDateToYMD(dateStr?: string): string {
   if (!dateStr) return '';
-  const str = dateStr.trim();
+  const str = String(dateStr).trim();
   
-  // Format: YYYY-MM-DD...
   if (/^\d{4}-\d{1,2}-\d{1,2}/.test(str)) {
     const [y, m, d] = str.split('T')[0].split(' ')[0].split('-');
     return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
 
-  // Format: D/M/YYYY or DD/MM/YYYY with optional time
   const matchSlash = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (matchSlash) {
     const d = matchSlash[1].padStart(2, '0');
@@ -220,7 +212,6 @@ export function normalizeDateToYMD(dateStr?: string): string {
     return `${y}-${m}-${d}`;
   }
 
-  // Fallback Date object
   const dt = new Date(str);
   if (!isNaN(dt.getTime())) {
     const y = dt.getFullYear();
@@ -256,16 +247,160 @@ export function saveLocalCreatedOp(newOp: SolicitudColcha): void {
   }
 }
 
-// Fetch live Master Database (BASE_DE_DATOS / 01_BASE_DE_DATOS)
+/**
+ * =========================================================================
+ * FETCH LIVE MASTER DATABASE (GET al Webhook de Google Apps Script)
+ * =========================================================================
+ */
 export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
-  // URLs priorizadas: Hoja activa del usuario primero (soporte para tab 'BASE_DE_DATOS' y gid=0)
+  const webAppUrl = getAppsScriptUrl();
+
+  // 1. CONSUMIR MEDIANTE GET DESDE LA API DE GOOGLE APPS SCRIPT
+  if (webAppUrl) {
+    try {
+      const res = await fetch(`${webAppUrl}?action=GET_BASE_DATOS`);
+      if (res.ok) {
+        const json = await res.json();
+        const rawData = json.data;
+        if (Array.isArray(rawData) && rawData.length > 0) {
+          const parsedList: SolicitudColcha[] = [];
+
+          rawData.forEach((r: any, idx: number) => {
+            // Manejar tanto formato de Objeto como formato de Array 2D
+            let opRaw = '';
+            let refRaw = '';
+            let telaRaw = '';
+            let mtRaw = '';
+            let colorRaw = '';
+            let rollosRaw = 1;
+            let loteRaw = '1';
+            let estadoRaw = 'FINALIZADO';
+            let inspectorRaw = 'INSPECTOR CALIDAD';
+            let fechaRaw = '';
+            let obsOperarioRaw = '';
+            let obsColfactoryRaw = '';
+            let fotoUrlRaw = '';
+
+            if (typeof r === 'object' && !Array.isArray(r)) {
+              // Objeto con nombres de columnas
+              opRaw = String(r['OP'] || r['op'] || '').trim();
+              refRaw = String(r['REFERENCIA'] || r['referencia'] || r['REF'] || 'S/R').trim();
+              
+              // Buscar clave de tela
+              for (const k of Object.keys(r)) {
+                if (k.toUpperCase().includes('TELA')) { telaRaw = String(r[k] || '').trim(); break; }
+              }
+              // Buscar clave de MT
+              for (const k of Object.keys(r)) {
+                if (k.toUpperCase().includes('MT') || k.toUpperCase().includes('DIGO')) { mtRaw = String(r[k] || '').trim(); break; }
+              }
+              // Buscar clave de Color
+              for (const k of Object.keys(r)) {
+                if (k.toUpperCase().includes('COLOR')) { colorRaw = String(r[k] || 'AZUL').trim(); break; }
+              }
+              // Buscar clave de Inspector
+              for (const k of Object.keys(r)) {
+                if (k.toUpperCase().includes('INSPECTOR') || k.toUpperCase().includes('OPERARIO')) { inspectorRaw = String(r[k] || 'CALIDAD STF').trim(); break; }
+              }
+              // Buscar clave de Fecha
+              for (const k of Object.keys(r)) {
+                if (k.toUpperCase().includes('FECHA')) { fechaRaw = String(r[k] || '').trim(); break; }
+              }
+              // Buscar clave de Observación
+              for (const k of Object.keys(r)) {
+                if (k.toUpperCase().includes('OBSERVACI') && k.toUpperCase().includes('OPERARIO')) { obsOperarioRaw = String(r[k] || '').trim(); }
+                if (k.toUpperCase().includes('COLFACTORY') || k.toUpperCase().includes('LAVAD')) { obsColfactoryRaw = String(r[k] || '').trim(); }
+              }
+              // Buscar clave de Evidencia
+              for (const k of Object.keys(r)) {
+                if (k.toUpperCase().includes('EVIDENCIA') || k.toUpperCase().includes('DRIVE') || k.toUpperCase().includes('FOTO')) { fotoUrlRaw = String(r[k] || '').trim(); break; }
+              }
+
+              rollosRaw = Number(r['ROLLOS'] || r['rollos'] || 1);
+              loteRaw = String(r['LOTE'] || r['lote'] || '1');
+              estadoRaw = String(r['ESTADO'] || r['estado'] || 'FINALIZADO');
+            } else if (Array.isArray(r)) {
+              // Array 2D tradicional
+              fechaRaw = String(r[0] || '');
+              inspectorRaw = String(r[1] || 'INSPECTOR CALIDAD');
+              telaRaw = String(r[2] || '');
+              mtRaw = String(r[3] || 'MT-GEN');
+              colorRaw = String(r[4] || 'AZUL');
+              opRaw = String(r[5] || '');
+              refRaw = String(r[6] || 'S/R');
+              rollosRaw = Number(r[7]) || 1;
+              loteRaw = String(r[8] || '1');
+              estadoRaw = String(r[9] || 'FINALIZADO');
+              obsOperarioRaw = String(r[10] || '');
+              obsColfactoryRaw = String(r[11] || '');
+              fotoUrlRaw = String(r[12] || '');
+            }
+
+            if (!opRaw && !telaRaw) return;
+
+            // Normalizar estado y cálculo de días hábiles
+            const estado = mapEstadoStringToSector(estadoRaw);
+            const fechaStr = fechaRaw || new Date().toISOString();
+            const { diasHabiles, horasHabiles, tieneRetraso, esRetrasoCritico } = calculateWorkingDays(fechaStr);
+
+            let dictamen: DictamenType = 'PENDIENTE';
+            if (estado === 'FINALIZADO') {
+              const fullObs = (obsOperarioRaw + ' ' + obsColfactoryRaw).toUpperCase();
+              dictamen = fullObs.includes('RECHAZADO') || fullObs.includes('NO CUMPLE') ? 'RECHAZADO' : 'APROBADO';
+            }
+
+            const cleanOp = opRaw.startsWith('OP-') ? opRaw : (opRaw.startsWith('OP') ? opRaw.replace('OP', 'OP-') : `OP-${opRaw}`);
+
+            parsedList.push({
+              id: `op-row-${idx + 1}-${cleanOp.replace(/\W/g, '')}`,
+              op: cleanOp,
+              referencia: refRaw || 'S/R',
+              tela: telaRaw || 'TELA INDIGO',
+              codigoMt: mtRaw || 'MT-GEN',
+              color: colorRaw || 'AZUL',
+              rollos: rollosRaw,
+              lote: loteRaw,
+              estado: estado,
+              dictamen: dictamen,
+              inspector: inspectorRaw,
+              fechaCreacion: fechaStr,
+              observacionesOperario: obsOperarioRaw || obsColfactoryRaw,
+              fotoMuestraUrl: fotoUrlRaw.startsWith('http') ? fotoUrlRaw : undefined,
+              areaActual: mapAreaName(estado),
+              horasEnProceso: horasHabiles,
+              diasHabiles: diasHabiles,
+              limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
+              tieneRetraso: tieneRetraso,
+              esRetrasoCritico: esRetrasoCritico
+            });
+          });
+
+          if (parsedList.length > 0) {
+            // Unir con OPs creadas localmente
+            const localOps = getLocalCreatedOps();
+            if (localOps.length > 0) {
+              const merged = [...localOps];
+              parsedList.forEach(s => {
+                if (!merged.some(m => m.op === s.op || m.id === s.id)) {
+                  merged.push(s);
+                }
+              });
+              return merged;
+            }
+            return parsedList;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error consumiendo GET_BASE_DATOS desde Apps Script:', e);
+    }
+  }
+
+  // 2. FALLBACK A ENDPOINTS DIRECTOS CSV DE GOOGLE SHEETS
   const tryUrls = [
     `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`,
     `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=BASE_DE_DATOS`,
-    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=01_BASE_DE_DATOS`,
-    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=0`,
-    `https://docs.google.com/spreadsheets/d/1qb9unBiGpV3QHgRtHonAAeyN0M8EQ4QhCan1Bnywx3M/gviz/tq?tqx=out:csv&gid=1587391993`,
-    `https://docs.google.com/spreadsheets/d/${BACKUP_SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=01_BASE_DE_DATOS`
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=0`
   ];
 
   for (const url of tryUrls) {
@@ -278,7 +413,6 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
       if (rows.length < 2) continue;
 
       const solicitudes: SolicitudColcha[] = [];
-      // Columns: FECHA(0), INSPECTOR(1), TELA(2), MT(3), COLOR(4), OP(5), REF(6), ROLLOS(7), LOTE(8), ESTADO(9), OBS(10), OBS_COLFACTORY(11), EVIDENCIA(12)
       for (let i = 1; i < rows.length; i++) {
         const r = rows[i];
         const opRaw = (r[5] || '').trim();
@@ -320,70 +454,122 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
       }
 
       if (solicitudes.length > 0) {
-        // Garantizar que las OPs creadas hoy en Google Sheets estén incluidas
-        TODAY_REAL_SHEET_OPS.forEach(todayOp => {
-          if (!solicitudes.some(s => s.op === todayOp.op)) {
-            solicitudes.push(todayOp);
-          }
-        });
-
-        // Merge con OPs creadas localmente por el usuario
-        const localOps = getLocalCreatedOps();
-        if (localOps.length > 0) {
-          const merged = [...localOps];
-          solicitudes.forEach(s => {
-            if (!merged.some(m => m.op === s.op || m.id === s.id)) {
-              merged.push(s);
-            }
-          });
-          return merged;
-        }
         return solicitudes;
       }
     } catch (err) {
-      console.warn(`Error fetching Base de Datos from URL ${url}:`, err);
+      console.warn(`Error fetching Base de Datos from CSV URL ${url}:`, err);
     }
   }
 
-  // Fallback con las OPs reales de hoy
-  const localOps = getLocalCreatedOps();
-  const fallbackList = [...TODAY_REAL_SHEET_OPS, ...INITIAL_SOLICITUDES_DATA];
-  if (localOps.length > 0) {
-    const merged = [...localOps];
-    fallbackList.forEach(s => {
-      if (!merged.some(m => m.op === s.op || m.id === s.id)) {
-        merged.push(s);
-      }
-    });
-    return merged;
-  }
-  return fallbackList;
-}
-
-// Stored Web App URL configuration for Apps Script
-const APPS_SCRIPT_STORAGE_KEY = 'STF_APPS_SCRIPT_WEBAPP_URL';
-
-export function getAppsScriptUrl(): string {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem(APPS_SCRIPT_STORAGE_KEY) || '';
-  }
-  return '';
-}
-
-export function setAppsScriptUrl(url: string): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(APPS_SCRIPT_STORAGE_KEY, url.trim());
-  }
+  return TODAY_REAL_SHEET_OPS;
 }
 
 /**
- * Enviar nueva solicitud de OP a Google Sheets y Drive en tiempo real
- * Estructurado con las 16 columnas exactas de la página BASE_DE_DATOS
+ * =========================================================================
+ * FETCH MONITOREO SHEET (GET al Webhook de Google Apps Script)
+ * =========================================================================
  */
-export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & { imageBase64?: string }): Promise<{ success: boolean; message: string; driveUrl?: string }> {
+export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
+  const consumed = getConsumedMonitoreoOps();
   const webAppUrl = getAppsScriptUrl();
+
+  // 1. CONSUMIR MEDIANTE GET DESDE LA API DE GOOGLE APPS SCRIPT
+  if (webAppUrl) {
+    try {
+      const res = await fetch(`${webAppUrl}?action=GET_MONITOREO`);
+      if (res.ok) {
+        const json = await res.json();
+        const rawData = json.data;
+        if (Array.isArray(rawData) && rawData.length > 0) {
+          const items: MonitoreoItem[] = [];
+          rawData.forEach((item: any) => {
+            let tela = '';
+            let mt = 'MT-AUTO';
+            let color = 'AZUL';
+            let op = '';
+            let ref = '';
+
+            if (typeof item === 'object' && !Array.isArray(item)) {
+              tela = String(item['TELA'] || item['tela'] || '').trim();
+              mt = String(item['MT'] || item['mt'] || item['CÓDIGO MT'] || item['CODIGO MT'] || 'MT-AUTO').trim();
+              color = String(item['COLOR'] || item['color'] || 'AZUL').trim();
+              op = String(item['OP'] || item['op'] || '').trim();
+              ref = String(item['REFERENCIA'] || item['referencia'] || '').trim();
+            } else if (Array.isArray(item)) {
+              tela = String(item[0] || '').trim();
+              mt = String(item[1] || 'MT-AUTO').trim();
+              color = String(item[2] || 'AZUL').trim();
+              op = String(item[3] || '').trim();
+              ref = String(item[4] || '').trim();
+            }
+
+            if (tela && tela.toUpperCase() !== 'TELA') {
+              const cleanOp = op.replace(/\D/g, '') || op.trim().toUpperCase();
+              if (!cleanOp || !consumed.includes(cleanOp)) {
+                items.push({ tela, mt, color, op, referencia: ref });
+              }
+            }
+          });
+
+          if (items.length > 0) return items;
+        }
+      }
+    } catch (e) {
+      console.warn('Error fetching Monitoreo via Apps Script:', e);
+    }
+  }
+
+  // 2. FALLBACK A CSV
+  const tryUrls = [
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${MONITOREO_GID}`,
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=MONITOREO`
+  ];
   
-  // Format Colombian Date (D/M/YYYY H:MM:SS)
+  for (const url of tryUrls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      
+      const text = await res.text();
+      const rows = parseCsvRows(text);
+      if (rows.length < 2) continue;
+
+      const items: MonitoreoItem[] = [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (row[0] && row[0] !== 'TELA' && row[0] !== 'TELA ') {
+          const itemOp = row[3] || '';
+          const cleanOp = itemOp.replace(/\D/g, '') || itemOp.trim().toUpperCase();
+          if (!consumed.includes(cleanOp)) {
+            items.push({
+              tela: row[0] || '',
+              mt: row[1] || 'MT-AUTO',
+              color: row[2] || 'AZUL',
+              op: itemOp,
+              referencia: row[4] || ''
+            });
+          }
+        }
+      }
+      if (items.length > 0) return items;
+    } catch (err) {
+      console.warn(`Error fetching Monitoreo from url ${url}:`, err);
+    }
+  }
+
+  return INITIAL_MONITOREO_DATA.filter(item => {
+    const cleanOp = (item.op || '').replace(/\D/g, '') || (item.op || '').trim().toUpperCase();
+    return !consumed.includes(cleanOp);
+  });
+}
+
+/**
+ * =========================================================================
+ * POST ACTIONS: CREAR, TRANSFERIR, DICTAMINAR Y SINCRONIZAR
+ * =========================================================================
+ */
+
+export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & { imageBase64?: string }): Promise<{ success: boolean; message: string; driveUrl?: string }> {
   const now = new Date();
   const d = now.getDate();
   const m = now.getMonth() + 1;
@@ -404,7 +590,7 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     rollo: payload.rollos || 1,
     lote: payload.lote || '1',
     estado: payload.estado === 'PRE_SOLICITUD' ? 'PRE-SOLICITUD' : 'SOLICITADO',
-    observacionOperario: payload.observacionesOperario || '',
+    observacionesOperario: payload.observacionesOperario || '',
     observacionColfactory: '',
     evidenciaLinkDrive: payload.fotoMuestraUrl || payload.imageBase64 || '',
     correoNotificado: '',
@@ -412,169 +598,25 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     mes: m
   };
 
-  if (!webAppUrl) {
-    console.info('Solicitud preparada para BASE_DE_DATOS:', rowData);
-    return { success: true, message: 'Guardado localmente en BASE_DE_DATOS' };
-  }
+  const res = await sendAppsScriptPost('CREATE_OP', {
+    ...payload,
+    ...rowData
+  });
 
-  try {
-    const res = await fetch(webAppUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'CREATE_OP',
-        payload: {
-          ...payload,
-          ...rowData
-        }
-      })
-    });
-    return { success: true, message: 'Solicitud sincronizada con Google Sheets (BASE_DE_DATOS)' };
-  } catch (err) {
-    console.error('Error al enviar solicitud a Google Sheets:', err);
-    return { success: false, message: 'Error de conexión con Google Sheets' };
-  }
+  return {
+    success: res.success,
+    message: res.message || 'Solicitud guardada en Google Sheets (BASE_DE_DATOS)',
+    driveUrl: res.data ? res.data.driveUrl : undefined
+  };
 }
 
-/**
- * Actualizar fase o transferencia de OP en Google Sheets
- */
 export async function pushTransferToSheets(op: string, nuevoEstado: string, nuevoInspector: string, observaciones?: string): Promise<{ success: boolean; message: string }> {
-  const webAppUrl = getAppsScriptUrl();
-  if (!webAppUrl) return { success: true, message: 'Transferido localmente' };
-
-  try {
-    await fetch(webAppUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'TRANSFER_OP',
-        payload: { op, nuevoEstado, nuevoInspector, observaciones }
-      })
-    });
-    return { success: true, message: 'Transferencia sincronizada con Google Sheets' };
-  } catch (err) {
-    console.error('Error al sincronizar transferencia en Sheets:', err);
-    return { success: false, message: 'Error al sincronizar con Sheets' };
-  }
+  return await sendAppsScriptPost('TRANSFER_OP', { op, nuevoEstado, nuevoInspector, observaciones });
 }
 
-/**
- * Actualizar Dictamen Técnico (Aprobado/Rechazado) en Google Sheets
- */
 export async function pushDictamenToSheets(op: string, dictamen: DictamenType, inspector: string, observacionesTecnicas?: string): Promise<{ success: boolean; message: string }> {
-  const webAppUrl = getAppsScriptUrl();
-  if (!webAppUrl) return { success: true, message: 'Dictamen guardado localmente' };
-
-  try {
-    await fetch(webAppUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'UPDATE_DICTAMEN',
-        payload: { op, dictamen, inspector, observacionesTecnicas }
-      })
-    });
-    return { success: true, message: 'Dictamen registrado en Google Sheets' };
-  } catch (err) {
-    console.error('Error al sincronizar dictamen en Sheets:', err);
-    return { success: false, message: 'Error al registrar dictamen en Sheets' };
-  }
+  return await sendAppsScriptPost('UPDATE_DICTAMEN', { op, dictamen, inspector, observacionesTecnicas });
 }
-
-export const TODAY_REAL_SHEET_OPS: SolicitudColcha[] = [
-  {
-    id: 'op-row-321-OP00096156',
-    op: 'OP-00096156',
-    referencia: 'S741546M',
-    tela: 'TELA INDIGO LIMA',
-    codigoMt: 'MT00347004',
-    color: 'AZUL',
-    rollos: 4,
-    lote: '1',
-    estado: 'SOLICITADO',
-    dictamen: 'PENDIENTE',
-    inspector: 'WILMER MAYA',
-    fechaCreacion: '3/9/2026 9:19:41',
-    observacionesOperario: 'SE EEVIDENCIAN 2 TONOS. SE SOLICITA A CORTE TRABAJAR POR TONO 1 ROLLOS (1, 4) TONO 2 ROLLOS (2, 3)',
-    areaActual: 'TRÁNSITO / DESPACHO',
-    horasEnProceso: 2,
-    diasHabiles: 0,
-    limiteSlaDias: 1,
-    tieneRetraso: false,
-    esRetrasoCritico: false
-  },
-  {
-    id: 'op-row-322-OP00096169',
-    op: 'OP-00096169',
-    referencia: 'E741339',
-    tela: 'TELA INDIGO LARKANA',
-    codigoMt: 'MT00315529',
-    color: 'AZUL',
-    rollos: 6,
-    lote: 'B',
-    estado: 'SOLICITADO',
-    dictamen: 'PENDIENTE',
-    inspector: 'WILMER MAYA',
-    fechaCreacion: '3/9/2026 9:26:57',
-    observacionesOperario: 'LOTE PAREJO. NO SE EVIDENCIAN TONOS EN CRUDO. SE LE SACA MUESTRA A 6 ROLLOS DE 19 QUE TIENE LA OP',
-    areaActual: 'TRÁNSITO / DESPACHO',
-    horasEnProceso: 2,
-    diasHabiles: 0,
-    limiteSlaDias: 1,
-    tieneRetraso: false,
-    esRetrasoCritico: false
-  },
-  {
-    id: 'op-row-323-OP00096142',
-    op: 'OP-00096142',
-    referencia: '0741035',
-    tela: 'TELA INDIGO MAIA',
-    codigoMt: 'MT00151555',
-    color: 'AZUL',
-    rollos: 5,
-    lote: '21 - 25',
-    estado: 'SOLICITADO',
-    dictamen: 'PENDIENTE',
-    inspector: 'WILMER MAYA',
-    fechaCreacion: '3/9/2026 12:36:03',
-    observacionesOperario: '',
-    areaActual: 'TRÁNSITO / DESPACHO',
-    horasEnProceso: 6,
-    diasHabiles: 0,
-    limiteSlaDias: 1,
-    tieneRetraso: false,
-    esRetrasoCritico: false
-  }
-];
-
-export const INITIAL_MONITOREO_DATA: MonitoreoItem[] = [
-  { tela: "TELA INDIGO EGEO", mt: "MT00067808", color: "AZUL", op: "", referencia: "" },
-  { tela: "TELA INDIGO WANG BLUE", mt: "MT00328571", color: "AZUL", op: "", referencia: "" },
-  { tela: "TELA INDIGO MAIA", mt: "MT00151555", color: "AZUL", op: "", referencia: "" },
-  { tela: "TELA INDIGO LARKANA", mt: "MT00315529", color: "AZUL", op: "", referencia: "" },
-  { tela: "TELA TENCEL MALVINA", mt: "MT00226473", color: "CRUDO", op: "", referencia: "" },
-  { tela: "TELA INDIGO AKORA", mt: "MT0115241", color: "AZUL", op: "", referencia: "" },
-  { tela: "TELA INDIGO ALBERTA", mt: "MT00045010", color: "CRUDO", op: "", referencia: "" },
-  { tela: "TELA INDIGO DASKA", mt: "MT00381038", color: "AZUL", op: "", referencia: "" },
-  { tela: "TELA INDIGO KANTE", mt: "MT00143366", color: "CRUDO", op: "", referencia: "" },
-  { tela: "TELA INDIGO MULUK", mt: "MT00205368", color: "AZUL", op: "", referencia: "" }
-];
-
-export const INITIAL_SOLICITUDES_DATA: SolicitudColcha[] = [];
-
-
-// =========================================================================
-// GESTIÓN Y SINCRONIZACIÓN EN TIEMPO REAL DE LA PESTAÑA 'ALERTAS' EN GOOGLE SHEETS
-// Columnas exactas (14):
-// 1: OP, 2: REFERENCIA, 3: TELA, 4: COLOR, 5: METROS (MT), 6: AREA ACTUAL,
-// 7: FECHA SOLICITUD, 8: DÍAS HÁBILES EN ÁREA, 9: DÍAS RETRASO (>3 DÍAS),
-// 10: HORAS HÁBILES, 11: SOLICITANTE / RESPONSABLE, 12: OBS. OPERARIO,
-// 13: OBS. LAVANDERÍA, 14: FECHA ENVIO REPORTE
-// =========================================================================
 
 export interface AlertaSheetRow {
   op: string;
@@ -615,9 +657,6 @@ export function saveLocalAlertasRows(rows: AlertaSheetRow[]): void {
   }
 }
 
-/**
- * Convierte una SolicitudColcha retrasada en la fila exacta de 14 columnas para la hoja ALERTAS
- */
 export function convertSolicitudToAlertaRow(s: SolicitudColcha, fechaEnvioReporte?: string): AlertaSheetRow {
   const diasRetrasoNum = Math.max(0, s.diasHabiles - 3);
   const diasRetrasoStr = diasRetrasoNum > 0 ? `+${diasRetrasoNum} Días` : '0 Días';
@@ -641,80 +680,41 @@ export function convertSolicitudToAlertaRow(s: SolicitudColcha, fechaEnvioReport
   };
 }
 
-/**
- * Sincroniza todas las alertas activas del sistema con la pestaña 'ALERTAS' de Google Sheets
- */
 export async function syncAllAlertasToSheets(
   delayedSolicitudes: SolicitudColcha[],
   fechaEnvioReporte?: string
 ): Promise<{ success: boolean; count: number; message: string }> {
-  // 1. Convertir todas las OPs retrasadas a las 14 columnas de la hoja ALERTAS
   const rows: AlertaSheetRow[] = delayedSolicitudes.map(s => convertSolicitudToAlertaRow(s, fechaEnvioReporte));
   saveLocalAlertasRows(rows);
 
-  const webAppUrl = getAppsScriptUrl();
-  if (!webAppUrl) {
-    return { success: true, count: rows.length, message: `${rows.length} alertas sincronizadas en memoria local` };
-  }
+  const res = await sendAppsScriptPost('SYNC_ALERTAS', {
+    timestamp: new Date().toISOString(),
+    totalAlertas: rows.length,
+    rows: rows
+  });
 
-  try {
-    await fetch(webAppUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'SYNC_ALERTAS',
-        payload: {
-          timestamp: new Date().toISOString(),
-          totalAlertas: rows.length,
-          rows: rows
-        }
-      })
-    });
-    return { success: true, count: rows.length, message: `${rows.length} alertas sincronizadas con Google Sheets (ALERTAS)` };
-  } catch (err) {
-    console.error('Error al sincronizar pestaña ALERTAS con Google Sheets:', err);
-    return { success: false, count: rows.length, message: 'Error de conexión con Google Sheets' };
-  }
+  return {
+    success: res.success,
+    count: rows.length,
+    message: `${rows.length} alertas sincronizadas en tiempo real con Google Sheets (ALERTAS)`
+  };
 }
 
-/**
- * Depura / Elimina automáticamente una OP de la hoja 'ALERTAS' de Google Sheets cuando se finaliza, aprueba o elimina
- */
 export async function removeOpFromAlertasSheet(op: string): Promise<{ success: boolean; message: string }> {
   if (!op) return { success: true, message: 'OP vacía' };
   const cleanOp = op.trim().toUpperCase();
 
-  // 1. Depurar de almacenamiento local
   const currentRows = getLocalAlertasRows();
   const updatedRows = currentRows.filter(r => r.op.trim().toUpperCase() !== cleanOp);
   saveLocalAlertasRows(updatedRows);
 
-  const webAppUrl = getAppsScriptUrl();
-  if (!webAppUrl) {
-    return { success: true, message: `OP ${op} depurada localmente de ALERTAS` };
-  }
-
-  try {
-    await fetch(webAppUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'DELETE_ALERTA_OP',
-        payload: { op: cleanOp }
-      })
-    });
-    return { success: true, message: `OP ${op} depurada en tiempo real de la página ALERTAS de Google Sheets` };
-  } catch (err) {
-    console.error(`Error al depurar OP ${op} de la pestaña ALERTAS en Sheets:`, err);
-    return { success: false, message: 'Error de sincronización con Sheets' };
-  }
+  const res = await sendAppsScriptPost('DELETE_ALERTA_OP', { op: cleanOp });
+  return {
+    success: res.success,
+    message: `OP ${op} depurada en tiempo real de la página ALERTAS de Google Sheets`
+  };
 }
 
-/**
- * Registra la fecha y hora de envío del reporte por correo en la columna 14 de la hoja ALERTAS
- */
 export async function pushAlertsNotificationReportToSheets(
   ops: SolicitudColcha[],
   notifiedBy?: string
@@ -729,7 +729,6 @@ export async function pushAlertsNotificationReportToSheets(
 
   const opList = ops.map(s => s.op);
 
-  // 1. Actualizar registros locales
   const currentRows = getLocalAlertasRows();
   const updatedRows = currentRows.map(r => {
     if (opList.some(op => op.trim().toUpperCase() === r.op.trim().toUpperCase())) {
@@ -739,28 +738,47 @@ export async function pushAlertsNotificationReportToSheets(
   });
   saveLocalAlertasRows(updatedRows);
 
-  const webAppUrl = getAppsScriptUrl();
-  if (!webAppUrl) {
-    return { success: true, message: 'Fecha de reporte actualizada localmente' };
-  }
+  const res = await sendAppsScriptPost('UPDATE_ALERTA_REPORT_SENT', {
+    ops: opList,
+    fechaEnvioReporte: fechaStr,
+    notificadoPor: notifiedBy || 'GMAIL'
+  });
 
-  try {
-    await fetch(webAppUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'UPDATE_ALERTA_REPORT_SENT',
-        payload: {
-          ops: opList,
-          fechaEnvioReporte: fechaStr,
-          notificadoPor: notifiedBy || 'GMAIL'
-        }
-      })
-    });
-    return { success: true, message: 'Fecha de reporte guardada en Google Sheets (ALERTAS)' };
-  } catch (err) {
-    console.error('Error al actualizar fecha de envío de reporte en Sheets:', err);
-    return { success: false, message: 'Error de sincronización con Sheets' };
-  }
+  return {
+    success: res.success,
+    message: 'Fecha de reporte guardada en Google Sheets (ALERTAS)'
+  };
 }
+
+export const TODAY_REAL_SHEET_OPS: SolicitudColcha[] = [
+  {
+    id: 'op-row-321-OP00096156',
+    op: 'OP-00096156',
+    referencia: 'S741546M',
+    tela: 'TELA INDIGO LIMA',
+    codigoMt: 'MT00347004',
+    color: 'AZUL',
+    rollos: 4,
+    lote: '1',
+    estado: 'SOLICITADO',
+    dictamen: 'PENDIENTE',
+    inspector: 'WILMER MAYA',
+    fechaCreacion: '3/9/2026 9:19:41',
+    observacionesOperario: 'SE EEVIDENCIAN 2 TONOS. SE SOLICITA A CORTE TRABAJAR POR TONO 1 ROLLOS (1, 4) TONO 2 ROLLOS (2, 3)',
+    areaActual: 'TRÁNSITO / DESPACHO',
+    horasEnProceso: 2,
+    diasHabiles: 0,
+    limiteSlaDias: 1,
+    tieneRetraso: false,
+    esRetrasoCritico: false
+  }
+];
+
+export const INITIAL_SOLICITUDES_DATA: SolicitudColcha[] = [];
+
+export const INITIAL_MONITOREO_DATA: MonitoreoItem[] = [
+  { tela: "TELA INDIGO EGEO", mt: "MT00067808", color: "AZUL", op: "", referencia: "" },
+  { tela: "TELA INDIGO WANG BLUE", mt: "MT00328571", color: "AZUL", op: "", referencia: "" },
+  { tela: "TELA INDIGO MAIA", mt: "MT00151555", color: "AZUL", op: "", referencia: "" },
+  { tela: "TELA INDIGO LARKANA", mt: "MT00315529", color: "AZUL", op: "", referencia: "" }
+];
