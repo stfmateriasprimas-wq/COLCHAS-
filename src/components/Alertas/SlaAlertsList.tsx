@@ -4,7 +4,7 @@ import {
   CheckCircle2, Users, ChevronUp, ChevronDown, Mail,
   RefreshCw, FileSpreadsheet, Eye, Trash2, Sparkles,
   Plane, Droplets, Check, ShieldCheck, Layers, CheckSquare, Square,
-  ExternalLink, Download, Settings
+  ExternalLink, Download, Settings, MessageSquare
 } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
 import { SubNavTabs } from '../Navigation/SubNavTabs';
@@ -22,6 +22,7 @@ import { exportAlertasToExcel } from '../../services/exportService';
 import { notificationService } from '../../services/notificationService';
 import { AlertUsersSelectionModal } from './AlertUsersSelectionModal';
 import { SheetsSyncConfigModal } from './SheetsSyncConfigModal';
+import { WhatsAppEmergencyAlertModal } from './WhatsAppEmergencyAlertModal';
 
 interface SlaAlertsListProps {
   solicitudes: SolicitudColcha[];
@@ -61,6 +62,9 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
 
   // Modal State for Sheets Sync Webhook Configuration
   const [isSheetsConfigModalOpen, setIsSheetsConfigModalOpen] = useState(false);
+
+  // Modal State for WhatsApp Emergency Alerts (wa.me)
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
 
   // All active items in the system with delay (> 3 days) and not finalized
   const allAlerts = solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO');
@@ -326,6 +330,17 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
                 >
                   <Mail className="w-4 h-4" />
                   <span>Enviar Alerta ({selectedOpsList.length > 0 ? `${selectedOpsList.length} Selec.` : `${allAlerts.length} OPs`})</span>
+                </button>
+
+                {/* BOTÓN ALERTAS WHATSAPP DIRECTO */}
+                <button
+                  type="button"
+                  onClick={() => setIsWhatsAppModalOpen(true)}
+                  title="Enviar Alerta de Emergencia por WhatsApp (wa.me)"
+                  className="px-3.5 py-2 rounded-2xl bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-400 dark:text-emerald-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-md hover:scale-105 active:scale-95"
+                >
+                  <MessageSquare className="w-4 h-4 text-emerald-400" />
+                  <span>WhatsApp</span>
                 </button>
 
                 {/* FLECHA 1: BOTÓN USUARIOS (22) */}
@@ -717,6 +732,14 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
           setSyncFeedback(`✓ ¡Conexión en tiempo real activa! ${count} OPs de alerta sincronizadas con Google Sheets.`);
           setTimeout(() => setSyncFeedback(null), 10000);
         }}
+      />
+
+      {/* MODAL PARA ALERTAS DE EMERGENCIA POR WHATSAPP (WA.ME) */}
+      <WhatsAppEmergencyAlertModal
+        isOpen={isWhatsAppModalOpen}
+        onClose={() => setIsWhatsAppModalOpen(false)}
+        solicitudes={solicitudes}
+        currentUser={currentUser}
       />
 
       {/* 5. FLOATING QUICK SCROLL PILL */}
