@@ -10,7 +10,7 @@ import { SolicitudColcha } from '../../types';
 import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { FloatingScrollPill } from '../Common/FloatingScrollPill';
 import { TabType } from '../Navigation';
-import { UsuarioSTF } from '../../services/authService';
+import { UsuarioSTF, isAdminUser } from '../../services/authService';
 import { 
   SPREADSHEET_ID,
   getAppsScriptUrl,
@@ -314,49 +314,54 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
 
           {/* TOP RIGHT ACTION BUTTONS */}
           <div className="flex items-center gap-2.5 flex-wrap shrink-0">
-            {/* ENVIAR ALERTA BUTTON */}
-            <button
-              type="button"
-              onClick={() => setIsUsersModalOpen(true)}
-              disabled={allAlerts.length === 0}
-              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-mono text-xs font-black uppercase flex items-center gap-2 transition cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95 disabled:opacity-50"
-            >
-              <Mail className="w-4 h-4" />
-              <span>Enviar Alerta ({selectedOpsList.length > 0 ? `${selectedOpsList.length} Selec.` : `${allAlerts.length} OPs`})</span>
-            </button>
+            {/* ADMIN ONLY ACTIONS: ENVIAR ALERTA, USUARIOS, SHEETS, ENGRANAJE */}
+            {isAdminUser(currentUser) && (
+              <>
+                {/* ENVIAR ALERTA BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => setIsUsersModalOpen(true)}
+                  disabled={allAlerts.length === 0}
+                  className="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-mono text-xs font-black uppercase flex items-center gap-2 transition cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95 disabled:opacity-50"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>Enviar Alerta ({selectedOpsList.length > 0 ? `${selectedOpsList.length} Selec.` : `${allAlerts.length} OPs`})</span>
+                </button>
 
-            {/* FLECHA 1: BOTÓN USUARIOS (22) PARA SELECCIONAR DESTINATARIOS Y ENVIAR OP SELECCIONADAS O TOTAL */}
-            <button
-              type="button"
-              onClick={() => setIsUsersModalOpen(true)}
-              title="Flecha 1: Seleccionar usuarios y enviar OPs seleccionadas o total"
-              className="px-3.5 py-2 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-400 dark:text-amber-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-md hover:scale-105 active:scale-95"
-            >
-              <Users className="w-4 h-4" />
-              <span>Usuarios (22)</span>
-            </button>
+                {/* FLECHA 1: BOTÓN USUARIOS (22) */}
+                <button
+                  type="button"
+                  onClick={() => setIsUsersModalOpen(true)}
+                  title="Seleccionar usuarios y enviar OPs seleccionadas o total"
+                  className="px-3.5 py-2 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-400 dark:text-amber-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-md hover:scale-105 active:scale-95"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Usuarios (22)</span>
+                </button>
 
-            {/* FLECHA 2: BOTÓN SHEETS (AUTOMATIZAR) PARA ALIMENTAR Y ACTUALIZAR EN TIEMPO REAL */}
-            <button
-              type="button"
-              onClick={handleLiveSheetsSync}
-              disabled={isSyncingSheets}
-              title="Flecha 2: Automatizar - Alimentar y actualizar en tiempo real la base de datos de Google Sheets (pestaña ALERTAS) con todo lo que hay en el sistema"
-              className="px-3.5 py-2 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border-2 border-emerald-500/50 text-emerald-400 dark:text-emerald-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${isSyncingSheets ? 'animate-spin text-emerald-300' : ''}`} />
-              <span>{isSyncingSheets ? 'Sincronizando...' : 'Sheets'}</span>
-            </button>
+                {/* FLECHA 2: BOTÓN SHEETS (AUTOMATIZAR) */}
+                <button
+                  type="button"
+                  onClick={handleLiveSheetsSync}
+                  disabled={isSyncingSheets}
+                  title="Automatizar - Alimentar y actualizar en tiempo real la base de datos de Google Sheets (pestaña ALERTAS)"
+                  className="px-3.5 py-2 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border-2 border-emerald-500/50 text-emerald-400 dark:text-emerald-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSyncingSheets ? 'animate-spin text-emerald-300' : ''}`} />
+                  <span>{isSyncingSheets ? 'Sincronizando...' : 'Sheets'}</span>
+                </button>
 
-            {/* BOTÓN ENGRANAJE CONFIGURACIÓN SHEETS */}
-            <button
-              type="button"
-              onClick={() => setIsSheetsConfigModalOpen(true)}
-              title="Configurar enlace y webhook de Google Sheets"
-              className="p-2 rounded-2xl bg-zinc-900/90 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-400 hover:text-white dark:hover:text-zinc-950 transition cursor-pointer"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
+                {/* BOTÓN ENGRANAJE CONFIGURACIÓN SHEETS */}
+                <button
+                  type="button"
+                  onClick={() => setIsSheetsConfigModalOpen(true)}
+                  title="Configurar enlace y webhook de Google Sheets"
+                  className="p-2 rounded-2xl bg-zinc-900/90 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-400 hover:text-white dark:hover:text-zinc-950 transition cursor-pointer"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+              </>
+            )}
 
             {/* OCULTAR DETALLE TOGGLE BUTTON */}
             <button
@@ -487,40 +492,45 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsUsersModalOpen(true)}
-            disabled={isSyncingSheets || filteredAlerts.length === 0}
-            className="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-mono text-xs font-black uppercase flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95 disabled:opacity-50 shrink-0"
-          >
-            <Mail className="w-4 h-4" />
-            <span>Notificar estas {selectedOpIds.length > 0 ? `${selectedOpIds.length} OPs Seleccionadas` : `${filteredAlerts.length} OPs`} por Gmail</span>
-          </button>
+          {isAdminUser(currentUser) && (
+            <button
+              type="button"
+              onClick={() => setIsUsersModalOpen(true)}
+              disabled={isSyncingSheets || filteredAlerts.length === 0}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-mono text-xs font-black uppercase flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95 disabled:opacity-50 shrink-0"
+            >
+              <Mail className="w-4 h-4" />
+              <span>Notificar estas {selectedOpIds.length > 0 ? `${selectedOpIds.length} OPs Seleccionadas` : `${filteredAlerts.length} OPs`} por Gmail</span>
+            </button>
+          )}
         </div>
 
-        {/* 5. MASTER TABLE OF ALERTS (WITH CHECKBOXES & EXACT 14 COLUMNS) */}
+        {/* 5. MASTER TABLE OF ALERTS (WITH SCROLLBAR & STICKY HEADER) */}
         {isDetailVisible && (
-          <div className="rounded-2xl border border-zinc-800 dark:border-zinc-200 overflow-hidden bg-[#070406] dark:bg-white">
-            <div className="overflow-x-auto">
+          <div className="rounded-2xl border border-zinc-800 dark:border-zinc-200 overflow-hidden bg-[#070406] dark:bg-white shadow-xl">
+            {/* Scrollable Container with dedicated max height and custom scrollbar */}
+            <div className="overflow-x-auto max-h-[500px] overflow-y-auto custom-scroll">
               <table className="w-full text-left text-xs font-mono border-collapse">
                 
-                {/* Header Row */}
-                <thead>
-                  <tr className="bg-zinc-950 dark:bg-zinc-100 border-b border-zinc-800 dark:border-zinc-200 text-zinc-400 dark:text-zinc-600 text-[10px] uppercase font-black">
-                    <th className="py-3 px-3 w-8 text-center">
-                      <button
-                        type="button"
-                        onClick={handleToggleSelectAllVisible}
-                        title="Seleccionar / Desmarcar todas las OPs visibles"
-                        className="p-1 rounded hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
-                      >
-                        {areAllVisibleSelected ? (
-                          <CheckSquare className="w-4 h-4 text-rose-500" />
-                        ) : (
-                          <Square className="w-4 h-4 text-zinc-500" />
-                        )}
-                      </button>
-                    </th>
+                {/* Header Row (Sticky) */}
+                <thead className="sticky top-0 z-20 bg-zinc-950 dark:bg-zinc-100 shadow-md">
+                  <tr className="border-b border-zinc-800 dark:border-zinc-200 text-zinc-400 dark:text-zinc-600 text-[10px] uppercase font-black">
+                    {isAdminUser(currentUser) && (
+                      <th className="py-3 px-3 w-8 text-center">
+                        <button
+                          type="button"
+                          onClick={handleToggleSelectAllVisible}
+                          title="Seleccionar / Desmarcar todas las OPs visibles"
+                          className="p-1 rounded hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+                        >
+                          {areAllVisibleSelected ? (
+                            <CheckSquare className="w-4 h-4 text-rose-500" />
+                          ) : (
+                            <Square className="w-4 h-4 text-zinc-500" />
+                          )}
+                        </button>
+                      </th>
+                    )}
                     <th className="py-3 px-3.5 whitespace-nowrap">OP</th>
                     <th className="py-3 px-3.5 whitespace-nowrap">REFERENCIA</th>
                     <th className="py-3 px-3.5 whitespace-nowrap">TELA / COLOR / MTS</th>
@@ -537,7 +547,7 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
                 <tbody className="divide-y divide-zinc-900 dark:divide-zinc-200">
                   {filteredAlerts.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="py-10 text-center text-zinc-500 dark:text-zinc-400 text-xs font-sans">
+                      <td colSpan={isAdminUser(currentUser) ? 10 : 9} className="py-10 text-center text-zinc-500 dark:text-zinc-400 text-xs font-sans">
                         ✓ No se encontraron alertas activas para el filtro seleccionado.
                       </td>
                     </tr>
@@ -553,24 +563,26 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
                           key={item.id}
                           className={`transition-colors group text-zinc-200 dark:text-zinc-800 ${
                             isSelected 
-                              ? 'bg-rose-950/40 dark:bg-rose-100/60' 
-                              : 'hover:bg-rose-950/20 dark:hover:bg-rose-50/50'
+                              ? 'bg-rose-950/40 dark:bg-rose-50/80 border-l-4 border-rose-500' 
+                              : 'hover:bg-zinc-900/60 dark:hover:bg-zinc-50'
                           }`}
                         >
-                          {/* Row Checkbox */}
-                          <td className="py-3 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleOpSelection(item)}
-                              className="p-1 rounded hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
-                            >
-                              {isSelected ? (
-                                <CheckSquare className="w-4 h-4 text-rose-500" />
-                              ) : (
-                                <Square className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
-                              )}
-                            </button>
-                          </td>
+                          {/* Column 0: Checkbox (Solo Admin) */}
+                          {isAdminUser(currentUser) && (
+                            <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleOpSelection(item)}
+                                className="p-1 rounded hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-rose-500" />
+                                ) : (
+                                  <Square className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
+                                )}
+                              </button>
+                            </td>
+                          )}
 
                           {/* Column 1: OP Pill */}
                           <td className="py-3 px-3.5 whitespace-nowrap font-black">
@@ -642,8 +654,8 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
                                 <span>FICHA</span>
                               </button>
 
-                              {/* DEPURAR / FINALIZAR BUTTON */}
-                              {onFinalizarOp && (
+                              {/* DEPURAR / FINALIZAR BUTTON (SOLO ADMINISTRADOR EDWIN) */}
+                              {isAdminUser(currentUser) && onFinalizarOp && (
                                 <button
                                   type="button"
                                   onClick={() => handleDepurarAlerta(item)}
