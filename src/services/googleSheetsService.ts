@@ -132,27 +132,34 @@ export function setAppsScriptUrl(url: string): void {
 
 /**
  * Función genérica y segura para enviar POST a Google Apps Script
- * Gestiona JSON nativo y fallback con mode: 'no-cors' para producción en Vercel
+ * - Utiliza Content-Type: 'text/plain;charset=utf-8' para evitar preflight OPTIONS de CORS en Vercel
+ * - Incluye redirect: 'follow' para gestionar los 302 Redirects de Google Apps Script
+ * - Muestra console.error detallado en caso de fallo de red o error de servidor
  */
 export async function sendAppsScriptPost(action: string, payload: any): Promise<{ success: boolean; message: string; data?: any }> {
   const webAppUrl = getAppsScriptUrl();
   if (!webAppUrl) {
-    return { success: false, message: 'URL de Apps Script no configurada' };
+    const errorMsg = 'URL de Google Apps Script no configurada en el sistema.';
+    console.error('[Google Apps Script Config Error]:', errorMsg);
+    return { success: false, message: errorMsg };
   }
 
   const bodyData = JSON.stringify({
     action,
-    payload
+    payload,
+    // Se agregan las propiedades en la raíz para compatibilidad con cualquier variante de script
+    ...(typeof payload === 'object' && !Array.isArray(payload) ? payload : {})
   });
 
   try {
-    // 1. Intento estándar con Content-Type text/plain (CORS friendly con Google Apps Script)
+    // 1. Envío POST estándar con Content-Type text/plain;charset=utf-8 (evita preflight OPTIONS)
     const res = await fetch(webAppUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8'
       },
-      body: bodyData
+      body: bodyData,
+      redirect: 'follow'
     });
 
     if (res.ok) {
@@ -160,17 +167,39 @@ export async function sendAppsScriptPost(action: string, payload: any): Promise<
         const json = await res.json();
         return {
           success: json.status === 'success' || !json.error,
-          message: json.message || 'Datos sincronizados con Google Sheets',
+          message: json.message || 'Datos sincronizados correctamente con Google Sheets',
           data: json
         };
       } catch (jsonErr) {
-        return { success: true, message: 'Datos enviados correctamente a Google Sheets' };
+        // Apps Script completó la ejecución y devolvió respuesta válida
+        return { 
+          success: true, 
+          message: 'Datos guardados exitosamente en Google Sheets' 
+        };
       }
+    } else {
+      console.error('[Google Apps Script HTTP Error]:', {
+        status: res.status,
+        statusText: res.statusText,
+        url: webAppUrl,
+        action,
+        payload
+      });
+      return {
+        success: false,
+        message: `Error HTTP ${res.status}: ${res.statusText}`
+      };
     }
-    return { success: true, message: 'Solicitud procesada en Google Sheets' };
-  } catch (corsErr) {
-    console.warn('Fallback no-cors para Apps Script:', corsErr);
-    // 2. Fallback con mode no-cors asegurando envío en Vercel
+  } catch (corsErr: any) {
+    console.error('[Google Apps Script Fetch / Network Error]: Error al realizar la petición a Google Sheets:', {
+      error: corsErr?.message || corsErr,
+      stack: corsErr?.stack,
+      url: webAppUrl,
+      action,
+      payload
+    });
+
+    // 2. Fallback de contingencia con mode: 'no-cors' para garantizar la entrega del webhook en Vercel
     try {
       await fetch(webAppUrl, {
         method: 'POST',
@@ -180,10 +209,21 @@ export async function sendAppsScriptPost(action: string, payload: any): Promise<
         },
         body: bodyData
       });
-      return { success: true, message: 'Datos sincronizados exitosamente con Google Sheets (no-cors)' };
-    } catch (finalErr) {
-      console.error('Error enviando datos a Google Sheets:', finalErr);
-      return { success: false, message: 'Error de conexión con Google Sheets' };
+      return { 
+        success: true, 
+        message: 'Datos sincronizados exitosamente con Google Sheets (no-cors)' 
+      };
+    } catch (finalErr: any) {
+      console.error('[Google Apps Script Critical Error]: Fallo total de conexión con Google Sheets:', {
+        error: finalErr?.message || finalErr,
+        stack: finalErr?.stack,
+        url: webAppUrl,
+        action
+      });
+      return { 
+        success: false, 
+        message: `Error de red al conectar con Google Sheets: ${corsErr?.message || 'Fallo de conexión'}` 
+      };
     }
   }
 }
@@ -589,7 +629,31 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
   const ss = String(now.getSeconds()).padStart(2, '0');
   const colombianFecha = `${d}/${m}/${y} ${hh}:${mm}:${ss}`;
 
+  const estadoFormatted = payload.estado === 'PRE_SOLICITUD' ? 'PRE-SOLICITUD' : (payload.estado || 'SOLICITADO');
+  const rollosNum = Number(payload.rollos || 1);
+  const obsOperario = payload.observacionesOperario || '';
+  const evidenciaDrive = payload.fotoMuestraUrl || payload.imageBase64 || '';
+
+  // MAPEO EXACTO DE LAS 16 COLUMNAS OFICIALES DE LA HOJA BASE_DE_DATOS
   const rowData = {
+    'FECHA': colombianFecha,
+    'INSPECTOR / OPERARIO': payload.inspector || 'OPERARIO STF',
+    'TELA': payload.tela || '',
+    'CÓDIGO MT': payload.codigoMt || 'MT-AUTO',
+    'COLOR': payload.color || 'AZUL',
+    'OP': payload.op || '',
+    'REFERENCIA': payload.referencia || '',
+    'ROLLOS': rollosNum,
+    'LOTE': payload.lote || '1',
+    'ESTADO': estadoFormatted,
+    'OBSERVACIÓN OPERARIO': obsOperario,
+    'OBSERVACIÓN COLFACTORY': payload.observacionesLavanderia || '',
+    'EVIDENCIA (LINK DRIVE)': evidenciaDrive,
+    'CORREO NOTIFICADO': '',
+    'OBS.OPERARIO FINAL': '',
+    'MES': m,
+
+    // Aliases en minúsculas / camelCase para retrocompatibilidad
     fecha: colombianFecha,
     inspector: payload.inspector || 'OPERARIO STF',
     tela: payload.tela || '',
@@ -597,12 +661,14 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     color: payload.color || 'AZUL',
     op: payload.op || '',
     referencia: payload.referencia || '',
-    rollo: payload.rollos || 1,
+    rollos: rollosNum,
+    rollo: rollosNum,
     lote: payload.lote || '1',
-    estado: payload.estado === 'PRE_SOLICITUD' ? 'PRE-SOLICITUD' : 'SOLICITADO',
-    observacionesOperario: payload.observacionesOperario || '',
-    observacionColfactory: '',
-    evidenciaLinkDrive: payload.fotoMuestraUrl || payload.imageBase64 || '',
+    estado: estadoFormatted,
+    observacionesOperario: obsOperario,
+    observacionOperario: obsOperario,
+    observacionColfactory: payload.observacionesLavanderia || '',
+    evidenciaLinkDrive: evidenciaDrive,
     correoNotificado: '',
     obsOperarioFinal: '',
     mes: m

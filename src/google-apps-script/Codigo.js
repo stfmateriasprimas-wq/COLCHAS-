@@ -244,38 +244,52 @@ function doPost(e) {
       }
 
       var now = new Date();
-      var fechaFormatted = opData.fecha || Utilities.formatDate(now, 'America/Bogota', 'd/M/yyyy HH:mm:ss');
-      var mesNumero = opData.mes || (now.getMonth() + 1);
+      var fechaFormatted = opData['FECHA'] || opData.fecha || Utilities.formatDate(now, 'America/Bogota', 'd/M/yyyy HH:mm:ss');
+      var inspectorVal = opData['INSPECTOR / OPERARIO'] || opData.inspector || 'OPERARIO STF';
+      var telaVal = opData['TELA'] || opData.tela || '';
+      var mtVal = opData['CÓDIGO MT'] || opData.codigoMt || opData['CODIGO MT'] || '';
+      var colorVal = opData['COLOR'] || opData.color || 'AZUL';
+      var opVal = opData['OP'] || opData.op || '';
+      var refVal = opData['REFERENCIA'] || opData.referencia || '';
+      var rollosVal = Number(opData['ROLLOS'] || opData.rollos || opData.rollo || 1);
+      var loteVal = opData['LOTE'] || opData.lote || '1';
+      var estadoVal = opData['ESTADO'] || opData.estado || 'SOLICITADO';
+      var obsOpVal = opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || opData.observacionOperario || '';
+      var obsColVal = opData['OBSERVACIÓN COLFACTORY'] || opData.observacionColfactory || '';
+      var evidenciaVal = driveUrl || opData['EVIDENCIA (LINK DRIVE)'] || '';
+      var correoVal = opData['CORREO NOTIFICADO'] || opData.correoNotificado || '';
+      var obsFinalVal = opData['OBS.OPERARIO FINAL'] || opData.obsOperarioFinal || '';
+      var mesNumero = Number(opData['MES'] || opData.mes || (now.getMonth() + 1));
 
       var newRow = [
         fechaFormatted,
-        opData.inspector || 'OPERARIO STF',
-        opData.tela || '',
-        opData.codigoMt || '',
-        opData.color || 'AZUL',
-        opData.op || '',
-        opData.referencia || '',
-        Number(opData.rollos || opData.rollo || 1),
-        opData.lote || '1',
-        opData.estado || 'SOLICITADO',
-        opData.observacionesOperario || opData.observacionOperario || '',
-        opData.observacionColfactory || '',
-        driveUrl,
-        opData.correoNotificado || '',
-        opData.obsOperarioFinal || '',
+        inspectorVal,
+        telaVal,
+        mtVal,
+        colorVal,
+        opVal,
+        refVal,
+        rollosVal,
+        loteVal,
+        estadoVal,
+        obsOpVal,
+        obsColVal,
+        evidenciaVal,
+        correoVal,
+        obsFinalVal,
         mesNumero
       ];
 
       sheetBd.appendRow(newRow);
 
       // Consumir OP de la hoja MONITOREO si existía
-      if (opData.op) {
-        removeOpFromMonitoreoSheet(ss, opData.op);
+      if (opVal) {
+        removeOpFromMonitoreoSheet(ss, opVal);
       }
 
       return createJsonResponse({
         status: 'success',
-        message: 'Solicitud ' + opData.op + ' ingresada correctamente en BASE_DE_DATOS',
+        message: 'Solicitud ' + opVal + ' ingresada correctamente en BASE_DE_DATOS',
         driveUrl: driveUrl
       });
     }
