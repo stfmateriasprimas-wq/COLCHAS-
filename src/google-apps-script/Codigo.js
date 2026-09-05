@@ -82,7 +82,17 @@ function doGet(e) {
 
     // 1. GET_MONITOREO: Obtiene listado de OPs pendientes por hacer
     if (action === 'GET_MONITOREO') {
-      var sheetMon = ss.getSheetByName(SHEET_MONITOREO) || ss.getSheetByName('monitoreo') || ss.getSheets()[1];
+      var sheetMon = null;
+      var sheets = ss.getSheets();
+      for (var s = 0; s < sheets.length; s++) {
+        if (sheets[s].getSheetId() === 1356774059 || sheets[s].getName().trim().toUpperCase() === 'MONITOREO') {
+          sheetMon = sheets[s];
+          break;
+        }
+      }
+      if (!sheetMon) {
+        sheetMon = ss.getSheetByName(SHEET_MONITOREO) || ss.getSheetByName('monitoreo');
+      }
       if (!sheetMon) {
         return createJsonResponse({ status: 'error', message: 'Hoja MONITOREO no encontrada' });
       }
@@ -90,9 +100,10 @@ function doGet(e) {
       var items = [];
       for (var i = 1; i < values.length; i++) {
         var row = values[i];
-        if (row[0] && String(row[0]).trim().toUpperCase() !== 'TELA' && String(row[0]).trim() !== '') {
+        var rawTela = String(row[0] || '').trim();
+        if (rawTela && rawTela.toUpperCase() !== 'TELA') {
           items.push({
-            tela: String(row[0] || '').trim(),
+            tela: rawTela,
             mt: String(row[1] || 'MT-AUTO').trim(),
             color: String(row[2] || 'AZUL').trim(),
             op: String(row[3] || '').trim(),

@@ -473,55 +473,10 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
   const consumed = getConsumedMonitoreoOps();
   const webAppUrl = getAppsScriptUrl();
 
-  // 1. CONSUMIR MEDIANTE GET DESDE LA API DE GOOGLE APPS SCRIPT
-  if (webAppUrl) {
-    try {
-      const res = await fetch(`${webAppUrl}?action=GET_MONITOREO`);
-      if (res.ok) {
-        const json = await res.json();
-        const rawData = json.data;
-        if (Array.isArray(rawData) && rawData.length > 0) {
-          const items: MonitoreoItem[] = [];
-          rawData.forEach((item: any) => {
-            let tela = '';
-            let mt = 'MT-AUTO';
-            let color = 'AZUL';
-            let op = '';
-            let ref = '';
-
-            if (typeof item === 'object' && !Array.isArray(item)) {
-              tela = String(item['TELA'] || item['tela'] || '').trim();
-              mt = String(item['MT'] || item['mt'] || item['CÓDIGO MT'] || item['CODIGO MT'] || 'MT-AUTO').trim();
-              color = String(item['COLOR'] || item['color'] || 'AZUL').trim();
-              op = String(item['OP'] || item['op'] || '').trim();
-              ref = String(item['REFERENCIA'] || item['referencia'] || '').trim();
-            } else if (Array.isArray(item)) {
-              tela = String(item[0] || '').trim();
-              mt = String(item[1] || 'MT-AUTO').trim();
-              color = String(item[2] || 'AZUL').trim();
-              op = String(item[3] || '').trim();
-              ref = String(item[4] || '').trim();
-            }
-
-            if (tela && tela.toUpperCase() !== 'TELA') {
-              const cleanOp = op.replace(/\D/g, '') || op.trim().toUpperCase();
-              if (!cleanOp || !consumed.includes(cleanOp)) {
-                items.push({ tela, mt, color, op, referencia: ref });
-              }
-            }
-          });
-
-          if (items.length > 0) return items;
-        }
-      }
-    } catch (e) {
-      console.warn('Error fetching Monitoreo via Apps Script:', e);
-    }
-  }
-
-  // 2. FALLBACK A CSV
+  // 1. INTENTO DIRECTO A ENDPOINTS CSV DE LA HOJA OFICIAL MONITOREO (GID=1356774059)
   const tryUrls = [
     `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${MONITOREO_GID}`,
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${MONITOREO_GID}`,
     `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=MONITOREO`
   ];
   
@@ -537,29 +492,84 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
       const items: MonitoreoItem[] = [];
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        if (row[0] && row[0] !== 'TELA' && row[0] !== 'TELA ') {
-          const itemOp = row[3] || '';
+        const rawTela = (row[0] || '').trim();
+        if (rawTela && rawTela.toUpperCase() !== 'TELA') {
+          const itemOp = (row[3] || '').trim();
           const cleanOp = itemOp.replace(/\D/g, '') || itemOp.trim().toUpperCase();
-          if (!consumed.includes(cleanOp)) {
+          if (!cleanOp || !consumed.includes(cleanOp)) {
             items.push({
-              tela: row[0] || '',
-              mt: row[1] || 'MT-AUTO',
-              color: row[2] || 'AZUL',
+              tela: rawTela,
+              mt: (row[1] || 'MT-AUTO').trim(),
+              color: (row[2] || 'AZUL').trim(),
               op: itemOp,
-              referencia: row[4] || ''
+              referencia: (row[4] || '').trim()
             });
           }
         }
       }
       if (items.length > 0) return items;
     } catch (err) {
-      console.warn(`Error fetching Monitoreo from url ${url}:`, err);
+      console.warn(`Error fetching Monitoreo from CSV url ${url}:`, err);
+    }
+  }
+
+  // 2. CONSUMIR MEDIANTE GET DESDE LA API DE GOOGLE APPS SCRIPT (VALIDANDO QUE SEA LA HOJA MONITOREO)
+  if (webAppUrl) {
+    try {
+      const res = await fetch(`${webAppUrl}?action=GET_MONITOREO`);
+      if (res.ok) {
+        const json = await res.json();
+        const rawData = json.data;
+        if (Array.isArray(rawData) && rawData.length > 0) {
+          // Validar que no sea accidentalmente la hoja BASE_DE_DATOS
+          const isBaseDeDatos = rawData.some((r: any) => 
+            (typeof r === 'object' && ('FECHA' in r || 'ESTADO' in r || 'INSPECTOR / OPERARIO' in r || 'OBSERVACIÓN OPERARIO' in r || '_rowId' in r)) ||
+            (Array.isArray(r) && r.length > 8)
+          );
+
+          if (!isBaseDeDatos) {
+            const items: MonitoreoItem[] = [];
+            rawData.forEach((item: any) => {
+              let tela = '';
+              let mt = 'MT-AUTO';
+              let color = 'AZUL';
+              let op = '';
+              let ref = '';
+
+              if (typeof item === 'object' && !Array.isArray(item)) {
+                tela = String(item['TELA'] || item['tela'] || item['TELA '] || '').trim();
+                mt = String(item['MT'] || item['mt'] || item['CÓDIGO MT'] || item['CODIGO MT'] || 'MT-AUTO').trim();
+                color = String(item['COLOR'] || item['color'] || 'AZUL').trim();
+                op = String(item['OP'] || item['op'] || '').trim();
+                ref = String(item['REFERENCIA'] || item['referencia'] || '').trim();
+              } else if (Array.isArray(item)) {
+                tela = String(item[0] || '').trim();
+                mt = String(item[1] || 'MT-AUTO').trim();
+                color = String(item[2] || 'AZUL').trim();
+                op = String(item[3] || '').trim();
+                ref = String(item[4] || '').trim();
+              }
+
+              if (tela && tela.toUpperCase() !== 'TELA') {
+                const cleanOp = op.replace(/\D/g, '') || op.trim().toUpperCase();
+                if (!cleanOp || !consumed.includes(cleanOp)) {
+                  items.push({ tela, mt, color, op, referencia: ref });
+                }
+              }
+            });
+
+            if (items.length > 0) return items;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error fetching Monitoreo via Apps Script:', e);
     }
   }
 
   return INITIAL_MONITOREO_DATA.filter(item => {
     const cleanOp = (item.op || '').replace(/\D/g, '') || (item.op || '').trim().toUpperCase();
-    return !consumed.includes(cleanOp);
+    return !cleanOp || !consumed.includes(cleanOp);
   });
 }
 

@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, Table, X, Check, ArrowRight } from 'lucide-react';
+import { Search, Sparkles, Table, X, Check, ArrowRight, RefreshCw } from 'lucide-react';
 import { MonitoreoItem } from '../../types';
 
 interface SmartOpSearchProps {
   monitoreoList: MonitoreoItem[];
   onSelectOp: (item: MonitoreoItem) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
-export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({ monitoreoList, onSelectOp }) => {
+export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({ 
+  monitoreoList, 
+  onSelectOp,
+  onRefresh,
+  isRefreshing = false
+}) => {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
@@ -59,15 +66,31 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({ monitoreoList, onS
             </div>
           </div>
 
-          {/* Button: VER OPS POR HACER */}
-          <button
-            type="button"
-            onClick={() => setShowTableModal(true)}
-            className="px-3.5 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-200 dark:text-zinc-800 text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-sm self-start sm:self-auto"
-          >
-            <Table className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
-            <span>VER OPS POR HACER ({monitoreoList.length})</span>
-          </button>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                title="Actualizar datos de la hoja Monitoreo"
+                className="p-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-300 dark:text-zinc-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Actualizar</span>
+              </button>
+            )}
+
+            {/* Button: VER OPS POR HACER */}
+            <button
+              type="button"
+              onClick={() => setShowTableModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-200 dark:text-zinc-800 text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+            >
+              <Table className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
+              <span>VER OPS POR HACER ({monitoreoList.length})</span>
+            </button>
+          </div>
         </div>
 
         {/* Predictive Search Bar */}
@@ -174,13 +197,27 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({ monitoreoList, onS
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowTableModal(false)}
-                className="text-zinc-400 hover:text-white dark:text-zinc-600 dark:hover:text-zinc-950 p-2 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {onRefresh && (
+                  <button
+                    type="button"
+                    onClick={onRefresh}
+                    disabled={isRefreshing}
+                    title="Recargar datos de Monitoreo"
+                    className="px-3 py-2 rounded-xl bg-zinc-800 dark:bg-zinc-200 hover:bg-zinc-700 dark:hover:bg-zinc-300 text-zinc-200 dark:text-zinc-800 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <span className="hidden sm:inline">Recargar</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowTableModal(false)}
+                  className="text-zinc-400 hover:text-white dark:text-zinc-600 dark:hover:text-zinc-950 p-2 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Search Bar */}

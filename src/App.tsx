@@ -377,6 +377,8 @@ export function App() {
               currentUser={currentUser}
               onCancel={() => setActiveTab('dashboard')}
               onSubmit={handleAddNewSolicitud}
+              onRefreshMonitoreo={() => loadAllLiveData(false)}
+              isSyncing={isSyncing}
             />
           </div>
         )}

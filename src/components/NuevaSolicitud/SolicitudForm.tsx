@@ -9,13 +9,17 @@ interface SolicitudFormProps {
   currentUser?: UsuarioSTF | null;
   onCancel: () => void;
   onSubmit: (nuevaColcha: SolicitudColcha) => void;
+  onRefreshMonitoreo?: () => void;
+  isSyncing?: boolean;
 }
 
 export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   monitoreoList,
   currentUser,
   onCancel,
-  onSubmit
+  onSubmit,
+  onRefreshMonitoreo,
+  isSyncing = false
 }) => {
   const [tela, setTela] = useState('');
   const [mt, setMt] = useState('');
@@ -186,7 +190,12 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
         </div>
 
         {/* Smart search predictive box with "Ver OPs por Hacer" button */}
-        <SmartOpSearch monitoreoList={monitoreoList} onSelectOp={handleSelectOpFromSearch} />
+        <SmartOpSearch 
+          monitoreoList={monitoreoList} 
+          onSelectOp={handleSelectOpFromSearch} 
+          onRefresh={onRefreshMonitoreo}
+          isRefreshing={isSyncing}
+        />
 
         {/* Inputs Grid */}
         <div className="space-y-4">
