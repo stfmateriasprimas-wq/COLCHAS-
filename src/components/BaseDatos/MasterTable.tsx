@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Search, Download, RefreshCw, ExternalLink, Filter, 
+  Search, RefreshCw, ExternalLink, Filter, 
   Trash2, Wrench, Code2, CheckCircle2, XCircle, Clock, Eye, Printer, AlertTriangle, ArrowRight
 } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
@@ -42,7 +42,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
   const [filterArea, setFilterArea] = useState<string>('TODAS');
   const [filterEstado, setFilterEstado] = useState<string>('TODOS');
 
-  const GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/1qb9unBiGpV3QHgRtHonAAeyN0M8EQ4QhCan1Bnywx3M/edit?gid=1587391993#gid=1587391993";
+  const GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/1jTM8OG2u3bO9Cyrlyn3DJSnGcyLOzA8EWwxwOyWgXdc/edit?usp=sharing";
 
   // Dynamic counts
   const totalHistorico = solicitudes.length;
@@ -108,33 +108,6 @@ export const MasterTable: React.FC<MasterTableProps> = ({
     return getOpChronologicalTimestamp(b) - getOpChronologicalTimestamp(a);
   });
 
-  const handleExportCSV = () => {
-    const headers = ["OP", "Referencia", "Tela", "Código MT", "Color", "Rollos", "Lote", "Estado", "Área", "Inspector", "Dictamen", "Fecha Creación"];
-    const rows = filteredData.map(d => [
-      `"${d.op}"`,
-      `"${d.referencia}"`,
-      `"${d.tela}"`,
-      `"${d.codigoMt}"`,
-      `"${d.color}"`,
-      d.rollos,
-      `"${d.lote || ''}"`,
-      `"${d.estado}"`,
-      `"${d.areaActual}"`,
-      `"${d.inspector}"`,
-      `"${d.dictamen || ''}"`,
-      `"${d.fechaCreacion}"`
-    ]);
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `STF_Base_De_Datos_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in duration-200 select-none pb-12 relative font-sans">
       
@@ -157,7 +130,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                 ● HOJA 01_BASE_DE_DATOS • EN TIEMPO REAL
               </span>
               <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
-                Firestore Cloud DB & Google Sheets (ID: 1qb9unBiGp...)
+                Google Sheets Oficial (ID: 1jTM8OG2u3b...)
               </span>
             </div>
 
@@ -169,26 +142,18 @@ export const MasterTable: React.FC<MasterTableProps> = ({
             </p>
           </div>
 
-          {/* Action Buttons (Solo ABRIR GOOGLE SHEETS y EXPORTAR EXCEL) */}
+          {/* Action Button (Abrir BASE_DE_DATOS) */}
           <div className="flex items-center gap-2.5 flex-wrap">
             <a
               href={GOOGLE_SHEETS_URL}
               target="_blank"
               rel="noreferrer"
               className="px-4 py-2 rounded-2xl bg-cyan-950/80 dark:bg-cyan-50 border border-cyan-500/50 dark:border-cyan-300 text-cyan-300 dark:text-cyan-800 hover:bg-cyan-900/60 dark:hover:bg-cyan-100 text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
+              title="Abrir base de datos oficial en Google Sheets"
             >
               <ExternalLink className="w-4 h-4" />
-              <span>ABRIR GOOGLE SHEETS</span>
+              <span>Abrir BASE_DE_DATOS</span>
             </a>
-
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-sm hover:scale-105 active:scale-95 duration-150"
-            >
-              <Download className="w-4 h-4" />
-              <span>EXPORTAR EXCEL</span>
-            </button>
           </div>
 
         </div>
