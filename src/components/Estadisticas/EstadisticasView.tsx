@@ -7,7 +7,7 @@ import {
   Droplets, Eye, Sliders
 } from 'lucide-react';
 import { SolicitudColcha, KpiMetrics } from '../../types';
-import { USUARIOS_STF_MAESTROS, UsuarioSTF } from '../../services/authService';
+import { USUARIOS_STF_MAESTROS, UsuarioSTF, isAdminUser } from '../../services/authService';
 import { normalizeDateToYMD } from '../../services/googleSheetsService';
 import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { FloatingScrollPill } from '../Common/FloatingScrollPill';
@@ -622,29 +622,32 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
-            {/* BUTTON 1: REPORTE COMITÉ (EXCEL/PDF) */}
-            <button
-              type="button"
-              onClick={() => setIsReporteComiteOpen(true)}
-              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 active:scale-95 text-white font-black text-xs font-mono tracking-wide flex items-center gap-2 transition cursor-pointer shadow-lg shadow-indigo-600/30"
-              title="Abrir ventana de exportación de reportes oficiales para comité de calidad"
-            >
-              <FileText className="w-4 h-4" />
-              <span>REPORTE COMITÉ (EXCEL/PDF)</span>
-            </button>
+          {/* BOTONES ADMINISTRATIVOS EXCLUSIVOS PARA EDWIN */}
+          {isAdminUser(currentUser) && (
+            <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
+              {/* BUTTON 1: REPORTE COMITÉ (EXCEL/PDF) */}
+              <button
+                type="button"
+                onClick={() => setIsReporteComiteOpen(true)}
+                className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 active:scale-95 text-white font-black text-xs font-mono tracking-wide flex items-center gap-2 transition cursor-pointer shadow-lg shadow-indigo-600/30"
+                title="Abrir ventana de exportación de reportes oficiales para comité de calidad"
+              >
+                <FileText className="w-4 h-4" />
+                <span>REPORTE COMITÉ (EXCEL/PDF)</span>
+              </button>
 
-            {/* BUTTON 2: PARÁMETROS (EDWIN) */}
-            <button
-              type="button"
-              onClick={() => setIsAdminParametrosOpen(true)}
-              className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-black text-xs font-mono tracking-wide flex items-center gap-2 transition cursor-pointer shadow-md"
-              title="Configurar parámetros de medición, SLA y metas del administrador"
-            >
-              <Sliders className="w-4 h-4" />
-              <span>PARÁMETROS (EDWIN)</span>
-            </button>
-          </div>
+              {/* BUTTON 2: PARÁMETROS (EDWIN) */}
+              <button
+                type="button"
+                onClick={() => setIsAdminParametrosOpen(true)}
+                className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-black text-xs font-mono tracking-wide flex items-center gap-2 transition cursor-pointer shadow-md"
+                title="Configurar parámetros de medición, SLA y metas del administrador"
+              >
+                <Sliders className="w-4 h-4" />
+                <span>PARÁMETROS (EDWIN)</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 4 INTERACTIVE TOP KPI TABS (SWITCHES VIEWS) */}
@@ -761,20 +764,8 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                 </p>
               </div>
 
-              {/* Action Buttons & Futuristic Dropdown Date Picker */}
+              {/* Futuristic Dropdown Date Picker */}
               <div className="flex items-center gap-2.5 self-start lg:self-center flex-wrap relative">
-                <button
-                  type="button"
-                  onClick={onSyncSheets}
-                  disabled={isSyncing}
-                  className={`px-4 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-2xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-indigo-600/20 hover:scale-105 active:scale-95 duration-150 ${
-                    isSyncing ? 'opacity-70 cursor-wait' : ''
-                  }`}
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>{isSyncing ? 'SINCRONIZANDO...' : 'SINCRONIZAR SHEETS'}</span>
-                </button>
-
                 {/* Futuristic Dropdown Date Capsule */}
                 <div className="relative">
                   <div className="flex items-center bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-700/80 dark:border-zinc-300 rounded-2xl p-1 text-xs shadow-inner">
@@ -987,14 +978,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                   </h4>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => alert(`Reporte de ${currentDailyData.dayName} exportado a CSV.`)}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-sm hover:scale-105 active:scale-95 duration-150 self-start sm:self-auto"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Exportar Reporte (CSV)</span>
-                </button>
+                {/* Eliminado botón Exportar Reporte CSV */}
               </div>
 
               {/* 4 Selected Day Metrics */}
