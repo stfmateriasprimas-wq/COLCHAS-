@@ -289,3 +289,18 @@ export async function syncUsuariosFromSheets(): Promise<UsuarioSTF[]> {
   }
   return getUsuariosList();
 }
+
+
+/**
+ * Busca un usuario por ID / documento / nombre insensible a mayúsculas
+ */
+export function findUserByIdOrDocOrName(query: string): UsuarioSTF | undefined {
+  if (!query || !query.trim()) return undefined;
+  const list = getUsuariosList();
+  const q = query.trim().toLowerCase();
+  return list.find(u => 
+    u.id.toLowerCase() === q ||
+    u.nombre.toLowerCase() === q ||
+    u.nombre.toLowerCase().includes(q)
+  );
+}

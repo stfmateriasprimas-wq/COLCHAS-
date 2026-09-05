@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   MessageSquare, Send, AlertTriangle, Users, CheckCircle2, 
-  ExternalLink, X, Clock, Layers, Sparkles, PhoneCall, Copy, Check
+  ExternalLink, X, Clock, Layers, Sparkles, PhoneCall, Copy, Check,
+  Flame, ShieldAlert, Link as LinkIcon
 } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
 import { 
@@ -95,8 +96,51 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     return selectedOpMotivo;
   };
 
-  // Helper: Build WhatsApp formatted message
-  const buildWhatsAppMessage = (recipientName: string): string => {
+  // Helper: Build Direct Magic Auto-Login Link
+  const buildDirectMagicLink = (userId?: string): string => {
+    const origin = typeof window !== 'undefined' && window.location.origin 
+      ? window.location.origin 
+      : 'https://remix-stf-group-quality-control-5.vercel.app';
+
+    const params = new URLSearchParams();
+    if (userId && userId !== 'TODOS') {
+      params.set('user', userId);
+    }
+    
+    // Extraer número de OP limpio si existe
+    let targetOp = '';
+    if (selectedOpMotivo && selectedOpMotivo !== 'GENERAL') {
+      const match = selectedOpMotivo.match(/OP-?(\d+)/i) || selectedOpMotivo.match(/(\d{4,})/);
+      if (match && match[1]) {
+        targetOp = match[1];
+      } else {
+        const digits = selectedOpMotivo.replace(/\D/g, '');
+        if (digits) targetOp = digits;
+      }
+    }
+    
+    if (!targetOp && customOpText.trim()) {
+      const customMatch = customOpText.match(/OP-?(\d+)/i) || customOpText.match(/(\d{4,})/);
+      if (customMatch && customMatch[1]) {
+        targetOp = customMatch[1];
+      } else {
+        const digits = customOpText.replace(/\D/g, '');
+        if (digits) targetOp = digits;
+      }
+    }
+
+    if (targetOp) {
+      params.set('op', targetOp);
+      params.set('tab', 'solicitudes');
+    } else {
+      params.set('tab', 'alertas');
+    }
+
+    return `${origin}/?${params.toString()}`;
+  };
+
+  // Helper: Build WhatsApp formatted message (Con estilo de alerta roja vibrante y auto-login)
+  const buildWhatsAppMessage = (recipientName: string, recipientId?: string): string => {
     const now = new Date();
     const formattedDate = now.toLocaleDateString('es-CO', {
       day: '2-digit',
@@ -109,38 +153,46 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
       hour12: true
     });
 
-    let msg = `🚨 *ALERTA DE EMERGENCIA - SISTEMA STF COLCHAS* 🚨\n\n`;
+    const motivoText = getMotivoLabel();
+    const magicLink = buildDirectMagicLink(recipientId);
+    const issuerName = currentUser?.nombre ? `${currentUser.nombre} (${currentUser.rol || 'STF'})` : 'EDWIN DIAZ (ADMINISTRADOR)';
+
+    let msg = `🔴 *ALERTA COLCHAS - STF GROUP* 🔴\n`;
+    msg += `🚨 *NOTIFICACIÓN DE EMERGENCIA* 🚨\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `👤 *Destinatario:* ${recipientName}\n`;
-    msg += `📋 *OP / Motivo:* ${getMotivoLabel()}\n`;
+    msg += `📋 *OP / Motivo:* ${motivoText}\n`;
 
     if (detalleAdicional.trim()) {
       msg += `📝 *Detalle:* ${detalleAdicional.trim()}\n`;
     }
 
-    if (currentUser?.nombre) {
-      msg += `📢 *Emitido por:* ${currentUser.nombre} (${currentUser.rol || 'STF'})\n`;
-    }
-
-    msg += `📅 *Fecha y Hora:* ${formattedDate}, ${formattedTime}\n\n`;
-    msg += `⚠️ _Por favor atender esta notificación con prioridad en la línea de producción._`;
+    msg += `📢 *Emitido por:* ${issuerName}\n`;
+    msg += `📅 *Fecha:* ${formattedDate}, ${formattedTime}\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🔗 *ACCESO DIRECTO A LA OP:*\n`;
+    msg += `👉 ${magicLink}\n`;
+    msg += `_(Toca el enlace para abrir la orden técnica sin contraseña)_\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `⚠️ _Por favor atender esta notificación con máxima prioridad en la línea de producción._`;
 
     return msg;
   };
 
   // Helper: Build Direct WhatsApp URL
-  const buildWhatsAppUrl = (phone: string, recipientName: string, digitsFallback?: string): string => {
+  const buildWhatsAppUrl = (phone: string, recipientName: string, recipientId?: string, digitsFallback?: string): string => {
     const cleanPhone = cleanPhoneNumber(phone, digitsFallback);
-    const message = buildWhatsAppMessage(recipientName);
+    const message = buildWhatsAppMessage(recipientName, recipientId);
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
   // Single or Broadcast WhatsApp trigger
   const handleSendWhatsApp = () => {
     if (selectedRecipientId === 'TODOS') {
-      // Send to all: open with slight interval
+      // Modo difusión masiva: cada destinatario recibe su enlace personalizado con su ID
       destinatarios.forEach((dest, idx) => {
         setTimeout(() => {
-          const url = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.whatsappDigits);
+          const url = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits);
           window.open(url, '_blank');
         }, idx * 600);
       });
@@ -148,7 +200,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     } else {
       const dest = destinatarios.find(d => d.id === selectedRecipientId);
       if (dest) {
-        const url = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.whatsappDigits);
+        const url = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits);
         window.open(url, '_blank');
         setSentCount(prev => prev + 1);
       }
@@ -157,18 +209,24 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
   // Copy Preview Message to Clipboard
   const handleCopyMessage = () => {
-    const targetName = selectedRecipientId === 'TODOS' 
-      ? 'Equipo de Planta STF' 
-      : (destinatarios.find(d => d.id === selectedRecipientId)?.nombre || 'Usuario');
-    const msg = buildWhatsAppMessage(targetName);
+    const targetUser = selectedRecipientId === 'TODOS' 
+      ? undefined 
+      : destinatarios.find(d => d.id === selectedRecipientId);
+    const targetName = targetUser ? targetUser.nombre : 'Equipo de Planta STF';
+    const targetId = targetUser ? targetUser.id : undefined;
+    const msg = buildWhatsAppMessage(targetName, targetId);
     navigator.clipboard.writeText(msg);
     setCopiedPreview(true);
     setTimeout(() => setCopiedPreview(false), 2500);
   };
 
+  const previewUser = selectedRecipientId === 'TODOS'
+    ? destinatarios[0]
+    : destinatarios.find(d => d.id === selectedRecipientId);
   const previewName = selectedRecipientId === 'TODOS'
     ? `Todos los Destinatarios (${destinatarios.length} Contactos)`
-    : (destinatarios.find(d => d.id === selectedRecipientId)?.nombre || 'Destinatario');
+    : (previewUser?.nombre || 'Destinatario');
+  const previewId = selectedRecipientId === 'TODOS' ? undefined : previewUser?.id;
 
   return (
     <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-200">
@@ -186,11 +244,11 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
                   ALERTAS DE EMERGENCIA POR WHATSAPP
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-emerald-500 text-black uppercase">
-                  DIRECT WA.ME
+                  AUTO-LOGIN DIRECTO
                 </span>
               </div>
               <p className="text-xs text-zinc-300 dark:text-zinc-600 mt-0.5">
-                Envío instantáneo sincronizado en tiempo real con la hoja <strong>USUARIOS</strong> (Columna F).
+                Envío instantáneo sincronizado con la hoja <strong>USUARIOS</strong> (Columna F).
               </p>
             </div>
           </div>
@@ -311,12 +369,12 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             />
           </div>
 
-          {/* 4. VISTA PREVIA DEL MENSAJE WHATSAPP */}
+          {/* 4. VISTA PREVIA DEL MENSAJE WHATSAPP (CON FORMATO ROJO Y ENLACE MÁGICO) */}
           <div className="p-4 rounded-2xl bg-[#08130e] dark:bg-emerald-50/50 border border-emerald-500/40 dark:border-emerald-200 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono font-black text-emerald-400 dark:text-emerald-800 uppercase flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
-                VISTA PREVIA DEL FORMATO WHATSAPP:
+                VISTA PREVIA DEL MENSAJE OFICIAL:
               </span>
               <button
                 type="button"
@@ -328,8 +386,8 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
               </button>
             </div>
 
-            <div className="p-3 rounded-xl bg-black/40 dark:bg-white text-xs font-mono text-emerald-200 dark:text-zinc-800 whitespace-pre-line border border-emerald-500/20 dark:border-zinc-200 leading-relaxed select-text">
-              {buildWhatsAppMessage(previewName)}
+            <div className="p-3.5 rounded-xl bg-black/60 dark:bg-white text-xs font-mono text-emerald-100 dark:text-zinc-800 whitespace-pre-line border border-emerald-500/30 dark:border-zinc-200 leading-relaxed select-text shadow-inner">
+              {buildWhatsAppMessage(previewName, previewId)}
             </div>
           </div>
 
@@ -338,7 +396,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 dark:text-amber-800 text-xs font-mono flex items-start gap-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <strong>Modo Difusión Masiva:</strong> Al pulsar enviar, se abrirá la interfaz de WhatsApp para cada uno de los <strong>{destinatarios.length} usuarios registrados</strong> secuencialmente.
+                <strong>Modo Difusión Masiva:</strong> Al pulsar enviar, se abrirá la interfaz de WhatsApp para cada uno de los <strong>{destinatarios.length} usuarios registrados</strong> con su enlace personalizado de acceso directo.
               </div>
             </div>
           )}

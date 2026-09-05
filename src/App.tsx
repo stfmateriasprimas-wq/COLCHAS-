@@ -63,8 +63,25 @@ export function App() {
     }
   }, [isDarkMode]);
 
-  // Authentication State
+  // Authentication State with Magic Auto-Login Support
   const [currentUser, setCurrentUser] = useState<UsuarioSTF | null>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const userParam = urlParams.get('user');
+      if (userParam) {
+        const initialUsers = getUsuariosList();
+        const cleanUser = userParam.trim().toLowerCase();
+        const found = initialUsers.find(u => 
+          u.id.toLowerCase() === cleanUser || 
+          u.nombre.toLowerCase() === cleanUser ||
+          u.nombre.toLowerCase().includes(cleanUser)
+        );
+        if (found) {
+          localStorage.setItem('stf_colchas_user', JSON.stringify(found));
+          return found;
+        }
+      }
+    }
     const saved = localStorage.getItem('stf_colchas_user');
     if (saved) {
       try {
@@ -75,6 +92,8 @@ export function App() {
     }
     return null;
   });
+
+  const hasProcessedUrlOpRef = React.useRef(false);
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [monitoreoList, setMonitoreoList] = useState<MonitoreoItem[]>(INITIAL_MONITOREO_DATA);
@@ -117,6 +136,50 @@ export function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Parse and handle incoming URL query parameters for Magic Auto-Login and Direct OP viewing
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const userParam = urlParams.get('user');
+    const opParam = urlParams.get('op');
+    const tabParam = urlParams.get('tab') as TabType | null;
+
+    // 1. Auto-login if user is specified in the URL
+    if (userParam) {
+      const currentUsers = getUsuariosList();
+      const cleanUser = userParam.trim().toLowerCase();
+      const found = currentUsers.find(u => 
+        u.id.toLowerCase() === cleanUser || 
+        u.nombre.toLowerCase() === cleanUser ||
+        u.nombre.toLowerCase().includes(cleanUser)
+      );
+      if (found && (!currentUser || currentUser.id !== found.id)) {
+        setCurrentUser(found);
+        localStorage.setItem('stf_colchas_user', JSON.stringify(found));
+      }
+    }
+
+    // 2. Direct tab navigation
+    if (tabParam && ['dashboard', 'solicitudes', 'alertas', 'basedatos', 'estadisticas'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+
+    // 3. Open OP Detail Modal automatically if op param is specified
+    if (opParam && solicitudes.length > 0 && !hasProcessedUrlOpRef.current) {
+      const cleanTargetOp = opParam.replace(/\D/g, '') || opParam.trim().toUpperCase();
+      const match = solicitudes.find(s => 
+        s.op.replace(/\D/g, '') === cleanTargetOp || 
+        s.op.trim().toUpperCase() === opParam.trim().toUpperCase() ||
+        s.op.trim().toUpperCase().includes(opParam.trim().toUpperCase())
+      );
+      if (match) {
+        setSelectedColchaDetail(match);
+        hasProcessedUrlOpRef.current = true;
+        notificationService.playAlertSound('NOTIFICACION');
+      }
+    }
+  }, [solicitudes, currentUser]);
+
   // State for Delete & Finalize Confirmation Modals
   const [confirmDeleteOp, setConfirmDeleteOp] = useState<SolicitudColcha | null>(null);
   const [confirmFinalizarOp, setConfirmFinalizarOp] = useState<SolicitudColcha | null>(null);
@@ -140,6 +203,24 @@ export function App() {
         const delayedOps = activeOnly.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO');
         if (delayedOps.length > 0) {
           syncAllAlertasToSheets(delayedOps);
+        }
+      }
+
+      // Check URL user against freshly synced Google Sheets users
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const userParam = urlParams.get('user');
+        if (userParam && usuariosData && usuariosData.length > 0) {
+          const cleanUser = userParam.trim().toLowerCase();
+          const match = usuariosData.find(u => 
+            u.id.toLowerCase() === cleanUser || 
+            u.nombre.toLowerCase() === cleanUser ||
+            u.nombre.toLowerCase().includes(cleanUser)
+          );
+          if (match) {
+            setCurrentUser(match);
+            localStorage.setItem('stf_colchas_user', JSON.stringify(match));
+          }
         }
       }
     } catch (err) {
