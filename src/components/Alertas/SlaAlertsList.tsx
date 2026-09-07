@@ -13,6 +13,7 @@ import { TabType } from '../Navigation';
 import { UsuarioSTF, isAdminUser } from '../../services/authService';
 import { 
   SPREADSHEET_ID,
+  sendAutomatedAlertsEmail,
   getAppsScriptUrl,
   syncAllAlertasToSheets, 
   removeOpFromAlertasSheet, 
@@ -185,23 +186,14 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
     setSyncFeedback(`✓ Reporte de ${count} OP(s) enviado a ${recipients.length} usuario(s) y registrado en la hoja ALERTAS de Google Sheets`);
     setTimeout(() => setSyncFeedback(null), 8000);
 
-    // Prepare mailto link with all selected user emails
-    const toEmails = recipients.join(',');
-    const subject = encodeURIComponent(`[ALERTA SLA STF GROUP] ${count} Órdenes de Producción con Retraso en Planta`);
-    const bodyLines = [
-      `INFORME OFICIAL DE DESVIACIÓN SLA EN PLANTA STF GROUP`,
-      `Total Órdenes: ${count} OP(s)`,
-      `Fecha de Reporte: ${fechaReporte}`,
-      `Emitido por: ${currentUser ? `${currentUser.nombre} (${currentUser.rol})` : 'Auditoría Calidad STF'}`,
-      `--------------------------------------------------`,
-      ...sentOps.map((op, idx) => 
-        `${idx + 1}. OP-${op.op} | Ref: ${op.referencia} | Tela: ${op.tela} | Área: ${op.areaActual} | Días Hábiles: ${op.diasHabiles} Días (+${Math.max(0, op.diasHabiles - 3)}d SLA) | Responsable: ${op.inspector}`
-      ),
-      `--------------------------------------------------`,
-      `Sistema de Colchas STF: ${window.location.origin}`
-    ];
-    const body = encodeURIComponent(bodyLines.join('\n'));
-    window.open(`mailto:${toEmails}?subject=${subject}&body=${body}`, '_blank');
+    // Envío 100% automático por correo electrónico vía backend (sin ventanas emergentes manuales)
+    const senderTitle = currentUser ? `${currentUser.nombre} (${currentUser.rol || 'STF'})` : 'EDWIN DIAZ (ADMINISTRADOR)';
+    await sendAutomatedAlertsEmail({
+      recipients,
+      ops: sentOps,
+      senderName: senderTitle,
+      fechaReporte
+    });
   };
 
   // Depurar / Finalizar OP directamente desde la tabla de Alertas

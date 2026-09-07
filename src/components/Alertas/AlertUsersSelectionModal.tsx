@@ -42,6 +42,7 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
   // Search filter for users
   const [userSearch, setUserSearch] = useState('');
   const [areaFilter, setAreaFilter] = useState<string>('TODAS');
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeUsuariosList((latest) => {
@@ -111,7 +112,7 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
     return Array.from(new Set([...userEmails, ...customEmailList]));
   };
 
-  const handleExecuteSend = () => {
+  const handleExecuteSend = async () => {
     const recipientEmails = getSelectedEmails();
     if (recipientEmails.length === 0) {
       alert('Por favor selecciona al menos un usuario o ingresa un correo destinatario.');
@@ -122,8 +123,15 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
       return;
     }
 
-    onAlertSent(recipientEmails, opsToSend);
-    onClose();
+    setIsSending(true);
+    try {
+      await onAlertSent(recipientEmails, opsToSend);
+      onClose();
+    } catch (err) {
+      console.error('Error enviando alerta por correo:', err);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const recipientCount = getSelectedEmails().length;
@@ -380,11 +388,20 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
             <button
               type="button"
               onClick={handleExecuteSend}
-              disabled={recipientCount === 0 || opsToSend.length === 0}
-              className="flex-1 sm:flex-none px-5 py-2.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-mono text-xs font-black uppercase flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95 disabled:opacity-40"
+              disabled={recipientCount === 0 || opsToSend.length === 0 || isSending}
+              className="flex-1 sm:flex-none px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-mono text-xs font-black uppercase flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95 disabled:opacity-50"
             >
-              <Send className="w-4 h-4" />
-              <span>Enviar Alerta por Correo</span>
+              {isSending ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Enviando Automático...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  <span>Enviar Alerta por Correo</span>
+                </>
+              )}
             </button>
           </div>
         </div>

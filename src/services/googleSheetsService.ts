@@ -858,3 +858,65 @@ export const INITIAL_MONITOREO_DATA: MonitoreoItem[] = [
   { tela: "TELA INDIGO MAIA", mt: "MT00151555", color: "AZUL", op: "", referencia: "" },
   { tela: "TELA INDIGO LARKANA", mt: "MT00315529", color: "AZUL", op: "", referencia: "" }
 ];
+
+
+export interface AutomatedAlertEmailPayload {
+  recipients: string[];
+  ops: SolicitudColcha[];
+  senderName?: string;
+  subject?: string;
+  fechaReporte?: string;
+  appUrl?: string;
+}
+
+/**
+ * Envío 100% automático del reporte oficial por correo mediante el backend de Google Apps Script
+ * Sin abrir ventanas emergentes del cliente ni popups manuales.
+ */
+export async function sendAutomatedAlertsEmail(
+  payload: AutomatedAlertEmailPayload
+): Promise<{ success: boolean; message: string; count: number }> {
+  const origin = typeof window !== 'undefined' && window.location.origin
+    ? window.location.origin
+    : 'https://remix-stf-group-quality-control-5.vercel.app';
+  
+  const now = new Date();
+  const d = now.getDate();
+  const m = now.getMonth() + 1;
+  const y = now.getFullYear();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const fechaStr = payload.fechaReporte || `${d}/${m}/${y} ${hh}:${mm}`;
+
+  const cleanPayload = {
+    recipients: payload.recipients,
+    ops: payload.ops.map(o => ({
+      op: o.op,
+      referencia: o.referencia,
+      tela: o.tela,
+      color: o.color,
+      rollos: o.rollos,
+      codigoMt: o.codigoMt,
+      areaActual: o.areaActual,
+      diasHabiles: o.diasHabiles,
+      inspector: o.inspector,
+      observacionesOperario: o.observacionesOperario || '',
+      observacionesLavanderia: o.observacionesLavanderia || ''
+    })),
+    senderName: payload.senderName || 'EDWIN DIAZ (ADMINISTRADOR)',
+    fechaReporte: fechaStr,
+    subject: payload.subject || `🚨 [ALERTA SLA STF GROUP] ${payload.ops.length} Órdenes de Producción con Retraso`,
+    appUrl: `${origin}/?tab=alertas`
+  };
+
+  // Registrar fecha en el almacenamiento local y en Google Sheets
+  pushAlertsNotificationReportToSheets(payload.ops, `${cleanPayload.senderName} -> ${payload.recipients.length} usuarios`);
+
+  const res = await sendAppsScriptPost('SEND_ALERTA_EMAIL', cleanPayload);
+
+  return {
+    success: res.success,
+    count: payload.recipients.length,
+    message: `Alerta oficial enviada automáticamente a ${payload.recipients.length} destinatario(s)`
+  };
+}

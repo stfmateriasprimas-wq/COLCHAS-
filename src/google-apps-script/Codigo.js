@@ -405,7 +405,138 @@ function doPost(e) {
       return createJsonResponse({ status: 'success', message: 'OP removida de MONITOREO' });
     }
 
-    return createJsonResponse({ status: 'error', message: 'Acción POST no reconocida: ' + action });
+        // -----------------------------------------------------------------------
+    // ACCIÓN 8: SEND_ALERTA_EMAIL (Envío 100% Automático de Correo HTML vía MailApp)
+    // -----------------------------------------------------------------------
+    if (action === 'SEND_ALERTA_EMAIL') {
+      var recipientsList = payload.recipients || [];
+      if (!Array.isArray(recipientsList)) {
+        recipientsList = String(recipientsList).split(',').map(function(e) { return e.trim(); }).filter(Boolean);
+      }
+      
+      if (recipientsList.length === 0) {
+        return createJsonResponse({ status: 'error', message: 'No se especificaron destinatarios' });
+      }
+
+      var opsList = payload.ops || [];
+      var senderName = payload.senderName || 'EDWIN DIAZ (ADMINISTRADOR)';
+      var fechaReporte = payload.fechaReporte || Utilities.formatDate(new Date(), 'America/Bogota', 'd/M/yyyy HH:mm:ss');
+      var appUrl = payload.appUrl || 'https://remix-stf-group-quality-control-5.vercel.app/?tab=alertas';
+      var subject = payload.subject || ('🚨 [ALERTA SLA - STF GROUP] ' + opsList.length + ' Órdenes de Producción con Retraso');
+
+      // Construcción del cuerpo HTML del correo
+      var htmlRows = '';
+      for (var r = 0; r < opsList.length; r++) {
+        var item = opsList[r];
+        var itemOp = item.op || '';
+        var itemRef = item.referencia || 'S/R';
+        var itemTela = item.tela || '';
+        var itemArea = item.areaActual || 'PLANTA';
+        var itemDias = item.diasHabiles || 0;
+        var retrasoDias = Math.max(0, itemDias - 3);
+        var itemObs = item.observacionesOperario || item.observacionesLavanderia || 'En seguimiento';
+        var itemColor = item.color || '';
+        var itemRollos = item.rollos || 1;
+
+        var rowBg = (r % 2 === 0) ? '#ffffff' : '#f9fafb';
+        htmlRows += '<tr style="background-color: ' + rowBg + '; border-bottom: 1px solid #e5e7eb;">';
+        htmlRows += '<td style="padding: 10px 8px; font-weight: 900; font-family: monospace; color: #111827;">OP-' + itemOp + '</td>';
+        htmlRows += '<td style="padding: 10px 8px; color: #374151;"><strong>' + itemRef + '</strong><br/><span style="font-size: 11px; color: #6b7280;">' + itemTela + ' (' + itemColor + ') - ' + itemRollos + ' rls</span></td>';
+        htmlRows += '<td style="padding: 10px 8px; font-size: 11px; color: #4b5563;">' + itemArea + '</td>';
+        htmlRows += '<td style="padding: 10px 8px; font-weight: bold; color: #111827; text-align: center;">' + itemDias + ' Días</td>';
+        htmlRows += '<td style="padding: 10px 8px; font-weight: 900; color: #dc2626; text-align: center;">+' + retrasoDias + 'd Retraso</td>';
+        htmlRows += '<td style="padding: 10px 8px; font-size: 11px; color: #4b5563;">' + itemObs + '</td>';
+        htmlRows += '</tr>';
+      }
+
+      var htmlBody = '<!DOCTYPE html>' +
+        '<html lang="es"><head><meta charset="utf-8"></head><body style="margin: 0; padding: 20px; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;">' +
+        '<div style="max-width: 720px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">' +
+        
+        // Header
+        '<div style="background: linear-gradient(135deg, #881337 0%, #4c0519 100%); padding: 24px; color: #ffffff; text-align: center;">' +
+        '<h1 style="margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">STF GROUP S.A.</h1>' +
+        '<p style="margin: 4px 0 0 0; font-size: 13px; font-weight: bold; color: #fecdd3; letter-spacing: 0.5px;">INFORME OFICIAL DE CALIDAD • ALERTA DE DESVIACIÓN SLA EN PLANTA</p>' +
+        '</div>' +
+
+        // Summary Bar
+        '<div style="padding: 16px 24px; background-color: #fff1f2; border-bottom: 1px solid #fecdd3;">' +
+        '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">' +
+        '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">📊 Órdenes con Retraso:</td><td style="padding: 3px 0; font-weight: 900; color: #881337; text-align: right;">' + opsList.length + ' OP(s) Críticas</td></tr>' +
+        '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">👤 Emitido por:</td><td style="padding: 3px 0; font-weight: bold; color: #111827; text-align: right;">' + senderName + '</td></tr>' +
+        '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">📅 Fecha de Notificación:</td><td style="padding: 3px 0; font-family: monospace; color: #374151; text-align: right;">' + fechaReporte + '</td></tr>' +
+        '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">👥 Destinatarios:</td><td style="padding: 3px 0; font-size: 12px; color: #4b5563; text-align: right;">' + recipientsList.length + ' Contacto(s) Registrados</td></tr>' +
+        '</table>' +
+        '</div>' +
+
+        // Table Content
+        '<div style="padding: 20px 24px;">' +
+        '<h2 style="font-size: 13px; font-weight: 900; text-transform: uppercase; color: #881337; margin: 0 0 12px 0; letter-spacing: 0.5px;">📋 Detalle de Órdenes Notificadas</h2>' +
+        '<table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">' +
+        '<thead>' +
+        '<tr style="background-color: #f3f4f6; border-bottom: 2px solid #d1d5db;">' +
+        '<th style="padding: 8px; font-weight: 800; color: #374151;">OP</th>' +
+        '<th style="padding: 8px; font-weight: 800; color: #374151;">Referencia / Tela</th>' +
+        '<th style="padding: 8px; font-weight: 800; color: #374151;">Área</th>' +
+        '<th style="padding: 8px; font-weight: 800; color: #374151; text-align: center;">Días</th>' +
+        '<th style="padding: 8px; font-weight: 800; color: #dc2626; text-align: center;">Retraso SLA</th>' +
+        '<th style="padding: 8px; font-weight: 800; color: #374151;">Observación</th>' +
+        '</tr>' +
+        '</thead>' +
+        '<tbody>' + htmlRows + '</tbody>' +
+        '</table>' +
+        '</div>' +
+
+        // Action CTA
+        '<div style="padding: 10px 24px 24px 24px; text-align: center;">' +
+        '<a href="' + appUrl + '" style="display: inline-block; background-color: #881337; color: #ffffff; font-weight: bold; font-size: 13px; text-decoration: none; padding: 12px 28px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px;">🚀 Abrir Sistema de Trazabilidad Colchas</a>' +
+        '<p style="margin: 12px 0 0 0; font-size: 11px; color: #6b7280;">Este es un mensaje automático enviado por el Sistema de Control de Calidad STF Group S.A.</p>' +
+        '</div>' +
+
+        // Footer
+        '<div style="background-color: #f9fafb; border-top: 1px solid #e5e7eb; padding: 12px 24px; text-align: center; font-size: 11px; color: #6b7280;">' +
+        '© 2026 STF GROUP S.A. • Todos los derechos reservados.' +
+        '</div>' +
+
+        '</div></body></html>';
+
+      // Envío de correo electrónico a los destinatarios mediante MailApp
+      try {
+        var toEmailsString = recipientsList.join(',');
+        MailApp.sendEmail({
+          to: toEmailsString,
+          subject: subject,
+          htmlBody: htmlBody,
+          name: 'ALERTA COLCHAS - STF GROUP'
+        });
+      } catch (mailErr) {
+        console.error('Error enviando correo con MailApp:', mailErr);
+      }
+
+      // Actualizar columna 14 en la hoja ALERTAS
+      var sheetAlRep = ss.getSheetByName(SHEET_ALERTAS);
+      if (sheetAlRep) {
+        var opsToUpdate = (opsList || []).map(function(o) { return String(o.op || o).trim().toUpperCase().replace('OP-', ''); });
+        var lastRowRep = sheetAlRep.getLastRow();
+        if (lastRowRep > 1) {
+          var opColVals = sheetAlRep.getRange(2, 1, lastRowRep - 1, 1).getValues();
+          for (var k = 0; k < opColVals.length; k++) {
+            var curClean = String(opColVals[k][0] || '').trim().toUpperCase().replace('OP-', '');
+            if (opsToUpdate.indexOf(curClean) !== -1) {
+              sheetAlRep.getRange(k + 2, 14).setValue(fechaReporte + ' (' + recipientsList.length + ' usuarios)');
+            }
+          }
+        }
+      }
+
+      return createJsonResponse({
+        status: 'success',
+        message: 'Correo enviado exitosamente a ' + recipientsList.length + ' destinatario(s)',
+        sentCount: recipientsList.length
+      });
+    }
+
+return createJsonResponse({ status: 'error', message: 'Acción POST no reconocida: ' + action });
 
   } catch (err) {
     return createJsonResponse({ status: 'error', message: err.toString() });
