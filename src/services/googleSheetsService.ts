@@ -265,6 +265,44 @@ export function normalizeDateToYMD(dateStr?: string): string {
 // Local storage key for real-time newly created / modified OPs
 const LOCAL_CREATED_OPS_KEY = 'STF_LOCAL_CREATED_OPS';
 
+/**
+ * Normaliza y valida URLs de evidencias fotográficas (Base64, Google Drive, URLs públicas)
+ * Garantiza compatibilidad universal en dispositivos móviles y navegadores web
+ */
+export function normalizeImageUrl(rawUrl?: string): string | undefined {
+  if (!rawUrl || typeof rawUrl !== 'string') return undefined;
+  const str = rawUrl.trim();
+  if (!str) return undefined;
+
+  // 1. URLs de datos Base64 o blobs locales
+  if (str.startsWith('data:image/') || str.startsWith('blob:')) {
+    return str;
+  }
+
+  // 2. Enlaces de Google Drive -> Convertir a URL de miniatura de alta resolución (w1200) accesible universalmente
+  if (str.includes('drive.google.com') || str.includes('googleusercontent.com')) {
+    const driveMatch = str.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+                       str.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+                       str.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch && driveMatch[1]) {
+      const fileId = driveMatch[1];
+      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`;
+    }
+  }
+
+  // 3. URLs HTTP/HTTPS tradicionales
+  if (str.startsWith('http://') || str.startsWith('https://')) {
+    return str;
+  }
+
+  // 4. Cadenas Base64 sin prefijo MIME
+  if (str.length > 100 && (str.startsWith('/9j/') || str.startsWith('iVBORw0KGgo'))) {
+    return `data:image/jpeg;base64,${str}`;
+  }
+
+  return undefined;
+}
+
 export function getLocalCreatedOps(): SolicitudColcha[] {
   if (typeof window !== 'undefined') {
     const raw = localStorage.getItem(LOCAL_CREATED_OPS_KEY);
@@ -405,7 +443,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               inspector: inspectorRaw,
               fechaCreacion: fechaStr,
               observacionesOperario: obsOperarioRaw || obsColfactoryRaw,
-              fotoMuestraUrl: fotoUrlRaw.startsWith('http') ? fotoUrlRaw : undefined,
+              fotoMuestraUrl: normalizeImageUrl(fotoUrlRaw),
               areaActual: mapAreaName(estado),
               horasEnProceso: horasHabiles,
               diasHabiles: diasHabiles,
@@ -483,7 +521,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           inspector: r[1] || 'INSPECTOR CALIDAD',
           fechaCreacion: fechaStr,
           observacionesOperario: r[10] || r[11] || '',
-          fotoMuestraUrl: r[12] && r[12].startsWith('http') ? r[12] : undefined,
+          fotoMuestraUrl: normalizeImageUrl(r[12]),
           areaActual: mapAreaName(estado),
           horasEnProceso: horasHabiles,
           diasHabiles: diasHabiles,

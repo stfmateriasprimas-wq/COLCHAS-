@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
+import { normalizeImageUrl } from '../../services/googleSheetsService';
 
 interface PublicOpViewProps {
   opNumber: string;
@@ -41,6 +42,11 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
       return cleanOp === cleanTargetOp || s.op.toUpperCase().includes(cleanTargetOp);
     });
   }, [solicitudes, cleanTargetOp]);
+
+  // Normalized display photo URL (Base64, Google Drive, Direct HTTP)
+  const displayPhotoUrl = useMemo(() => {
+    return normalizeImageUrl(colcha?.fotoMuestraUrl);
+  }, [colcha?.fotoMuestraUrl]);
 
   const stages: { id: SectorType; label: string; icon: string; desc: string }[] = [
     { id: 'PRE_SOLICITUD', label: '1. Atelier / Corte', icon: '✂️', desc: 'Muestra cortada y preparada' },
@@ -307,16 +313,19 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                   <span className="text-[10px] font-mono text-zinc-400">MUESTRA FÍSICA</span>
                 </div>
 
-                {colcha.fotoMuestraUrl ? (
+                {displayPhotoUrl ? (
                   <div className="space-y-2.5">
                     <div 
                       onClick={() => setIsPhotoZoomed(true)}
                       className="relative rounded-2xl overflow-hidden border-2 border-zinc-800 dark:border-zinc-200 bg-black aspect-video group cursor-pointer shadow-inner"
                     >
                       <img 
-                        src={colcha.fotoMuestraUrl} 
+                        src={displayPhotoUrl} 
                         alt={`Muestra OP ${colcha.op}`} 
                         className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          console.warn('Error loading image in PublicOpView', e);
+                        }}
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs gap-1.5">
                         <Maximize2 className="w-4 h-4" />
@@ -388,7 +397,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
       </main>
 
       {/* 3. PHOTO ZOOM MODAL */}
-      {isPhotoZoomed && colcha?.fotoMuestraUrl && (
+      {isPhotoZoomed && displayPhotoUrl && (
         <div 
           onClick={() => setIsPhotoZoomed(false)}
           className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
@@ -402,7 +411,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
               <X className="w-6 h-6" />
             </button>
             <img 
-              src={colcha.fotoMuestraUrl} 
+              src={displayPhotoUrl} 
               alt={`Muestra OP ${colcha.op}`}
               className="max-h-[85vh] w-auto object-contain rounded-2xl shadow-2xl border border-zinc-800"
             />
