@@ -564,15 +564,37 @@ function createJsonResponse(obj) {
 
 function removeOpFromMonitoreoSheet(ss, op) {
   if (!op) return;
-  var sheetMon = ss.getSheetByName(SHEET_MONITOREO) || ss.getSheetByName('monitoreo');
+  var sheetMon = null;
+  var sheets = ss.getSheets();
+  for (var s = 0; s < sheets.length; s++) {
+    if (sheets[s].getSheetId() === 1356774059 || sheets[s].getName().trim().toUpperCase() === 'MONITOREO') {
+      sheetMon = sheets[s];
+      break;
+    }
+  }
+  if (!sheetMon) {
+    sheetMon = ss.getSheetByName(SHEET_MONITOREO) || ss.getSheetByName('monitoreo');
+  }
   if (!sheetMon) return;
-  var target = String(op).trim().toUpperCase().replace('OP-', '').replace(/\D/g, '');
+
+  var cleanTarget = String(op).trim().toUpperCase();
+  var targetDigits = cleanTarget.replace(/\D/g, '');
   var lastRow = sheetMon.getLastRow();
+
   if (lastRow > 1) {
-    var vals = sheetMon.getRange(2, 4, lastRow - 1, 1).getValues(); // Columna OP
+    var vals = sheetMon.getRange(2, 1, lastRow - 1, 5).getValues(); // Columnas A a E (TELA, MT, COLOR, OP, REFERENCIA)
     for (var i = vals.length - 1; i >= 0; i--) {
-      var cur = String(vals[i][0] || '').trim().toUpperCase().replace('OP-', '').replace(/\D/g, '');
-      if (cur === target && target !== '') {
+      var rowOp = String(vals[i][3] || '').trim().toUpperCase(); // Columna D: OP
+      var rowOpDigits = rowOp.replace(/\D/g, '');
+      
+      var isMatch = false;
+      if (rowOp && cleanTarget && (rowOp === cleanTarget || rowOp.replace('OP-', '') === cleanTarget.replace('OP-', ''))) {
+        isMatch = true;
+      } else if (targetDigits && rowOpDigits && targetDigits === rowOpDigits && targetDigits !== '') {
+        isMatch = true;
+      }
+
+      if (isMatch) {
         sheetMon.deleteRow(i + 2);
       }
     }

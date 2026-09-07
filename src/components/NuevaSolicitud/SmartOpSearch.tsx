@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, Table, X, Check, ArrowRight, RefreshCw } from 'lucide-react';
+import { Search, Sparkles, Table, X, Check, ArrowRight, RefreshCw, Layers, CheckCircle2 } from 'lucide-react';
 import { MonitoreoItem } from '../../types';
 
 interface SmartOpSearchProps {
@@ -19,6 +19,9 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
   const [modalSearch, setModalSearch] = useState('');
+
+  // Total OPs with assigned number vs total rows
+  const opsWithNumber = monitoreoList.filter(m => Boolean(m.op && m.op.trim()));
 
   const filtered = query.trim() === '' ? [] : monitoreoList.filter(item => 
     (item.op && item.op.toLowerCase().includes(query.toLowerCase())) ||
@@ -42,55 +45,60 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
 
   return (
     <>
-      <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xl text-white dark:text-zinc-950">
+      <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl text-white dark:text-zinc-950">
         
-        {/* Top Header Row with Google Sheets Monitoreo Badge & "Ver OPs por Hacer" button */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start sm:items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-950/60 dark:bg-emerald-100 border border-emerald-500/40 dark:border-emerald-300 text-emerald-400 dark:text-emerald-700 shrink-0">
+        {/* Top Header Row with Perfectly Aligned Button and Badge */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 border-b border-zinc-800/80 dark:border-zinc-200 pb-3.5">
+          
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-950/70 dark:bg-emerald-100 border border-emerald-500/40 dark:border-emerald-300 text-emerald-400 dark:text-emerald-700 flex items-center justify-center shrink-0 shadow-md shadow-emerald-950/30">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white dark:text-zinc-950">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white dark:text-zinc-950 font-mono">
                   BÚSQUEDA INTELIGENTE DE OP
                 </h4>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-[#072417] dark:bg-emerald-50 text-emerald-400 dark:text-emerald-700 border border-emerald-500/40 dark:border-emerald-300">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[#072417] dark:bg-emerald-50 text-emerald-400 dark:text-emerald-700 border border-emerald-500/40 dark:border-emerald-300">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                  <span className="tracking-wide">GOOGLE SHEETS MONITOREO</span>
+                  <span>GOOGLE SHEETS MONITOREO</span>
                 </div>
               </div>
-              <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-0.5">
-                Filtra OPs en tiempo real ({monitoreoList.length} sincronizadas de la hoja oficial)
+              <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-0.5 font-sans">
+                Filtra OPs en tiempo real ({opsWithNumber.length} asignadas • {monitoreoList.length} en hoja oficial)
               </p>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/* Action Buttons: Perfectly Aligned, Sleek and Horizontal */}
+          <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
             {onRefresh && (
               <button
                 type="button"
                 onClick={onRefresh}
                 disabled={isRefreshing}
                 title="Actualizar datos de la hoja Monitoreo"
-                className="p-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-300 dark:text-zinc-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                className="px-3 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-300 dark:text-zinc-700 text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Actualizar</span>
               </button>
             )}
 
-            {/* Button: VER OPS POR HACER */}
+            {/* BOTÓN OFICIAL: VER OPS POR HACER (DISEÑO CORPORATIVO Y ELEGANTE) */}
             <button
               type="button"
               onClick={() => setShowTableModal(true)}
-              className="px-3.5 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-200 dark:text-zinc-800 text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-500 hover:from-emerald-500 hover:to-green-400 text-black font-mono font-black text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 duration-150 whitespace-nowrap"
             >
-              <Table className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
-              <span>VER OPS POR HACER ({monitoreoList.length})</span>
+              <Table className="w-4 h-4 fill-black text-black shrink-0" />
+              <span>VER OPs POR HACER</span>
+              <span className="px-2 py-0.5 rounded-full bg-black/20 text-black font-black text-[11px] font-mono">
+                {opsWithNumber.length > 0 ? opsWithNumber.length : monitoreoList.length}
+              </span>
             </button>
           </div>
+
         </div>
 
         {/* Predictive Search Bar */}
@@ -104,8 +112,8 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
                 setIsOpen(true);
               }}
               onFocus={() => setIsOpen(true)}
-              placeholder="Escribe N° de OP (Ej: OP-4821, 95976), Tela, Referencia o Cód. MT..."
-              className="w-full bg-zinc-950 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 hover:border-zinc-700 dark:hover:border-zinc-300 focus:border-amber-500 rounded-xl pl-11 pr-10 py-3 text-xs sm:text-sm text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none transition shadow-inner"
+              placeholder="Escribe N° de OP (Ej: OP-122564, OP-669), Tela, Referencia o Cód. MT..."
+              className="w-full bg-zinc-950 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 hover:border-zinc-700 dark:hover:border-zinc-300 focus:border-emerald-500 rounded-2xl pl-11 pr-10 py-3 text-xs sm:text-sm text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none transition shadow-inner font-mono"
             />
             <Search className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute left-4 pointer-events-none" />
             
@@ -125,10 +133,10 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
 
           {/* Dropdown Options */}
           {isOpen && query.trim() !== '' && (
-            <div className="absolute top-full left-0 right-0 mt-1.5 bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-2xl shadow-2xl z-40 max-h-60 overflow-y-auto custom-scroll divide-y divide-zinc-800 dark:divide-zinc-200 text-white dark:text-zinc-950">
+            <div className="absolute top-full left-0 right-0 mt-1.5 bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-2xl shadow-2xl z-40 max-h-64 overflow-y-auto custom-scroll divide-y divide-zinc-800 dark:divide-zinc-200 text-white dark:text-zinc-950">
               {filtered.length === 0 ? (
-                <div className="p-4 text-xs text-zinc-400 dark:text-zinc-600 text-center">
-                  No se encontraron OPs pendientes que coincidan con la búsqueda.
+                <div className="p-4 text-xs text-zinc-400 dark:text-zinc-600 text-center font-mono">
+                  No se encontraron OPs pendientes en Monitoreo que coincidan.
                 </div>
               ) : (
                 filtered.map((item, idx) => (
@@ -154,7 +162,7 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
                         )}
                         <span className="text-white dark:text-zinc-950 font-bold">{item.tela}</span>
                       </div>
-                      <div className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                      <div className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 font-mono">
                         {item.referencia && <>Ref: <strong className="text-white dark:text-zinc-950">{item.referencia}</strong> • </>}Color: <strong className="text-zinc-200 dark:text-zinc-800">{item.color}</strong>
                       </div>
                     </div>
@@ -162,7 +170,7 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
                       <span className="text-[10px] font-mono bg-zinc-950 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 px-2 py-0.5 rounded border border-zinc-800 dark:border-zinc-300">
                         {item.mt}
                       </span>
-                      <ArrowRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-amber-400 transition" />
+                      <ArrowRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-emerald-400 transition" />
                     </div>
                   </div>
                 ))
@@ -173,28 +181,33 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
 
       </div>
 
-      {/* MODAL: VER TODAS LAS OPS POR HACER (MONITOREO) */}
+      {/* MODAL: VER TODAS LAS OPS POR HACER (HOJA MONITOREO) */}
       {showTableModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-white dark:text-zinc-950">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200 select-none">
+          <div className="bg-[#0c1017] dark:bg-white border-2 border-emerald-500/70 rounded-3xl max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden text-white dark:text-zinc-950">
             
             {/* Modal Header */}
-            <div className="p-5 border-b border-zinc-800 dark:border-zinc-200 bg-zinc-900/80 dark:bg-zinc-100 flex items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="bg-emerald-500/20 text-emerald-400 dark:text-emerald-700 border border-emerald-500/40 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                    HOJA MONITOREO
-                  </span>
-                  <span className="text-xs text-zinc-400 dark:text-zinc-600 font-bold font-mono">
-                    {monitoreoList.length} OPs Pendientes
-                  </span>
+            <div className="p-5 border-b border-zinc-800 dark:border-zinc-200 bg-gradient-to-r from-emerald-950/70 via-[#0c1017] to-emerald-950/70 dark:from-emerald-50 dark:via-white dark:to-emerald-50 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 dark:text-emerald-700 shrink-0">
+                  <Table className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-black text-white dark:text-zinc-950 brand-title mt-1">
-                  Listado Maestro de OPs por Hacer
-                </h3>
-                <p className="text-xs text-zinc-400 dark:text-zinc-600">
-                  Selecciona cualquier fila para autocompletar automáticamente el formulario de registro.
-                </p>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="bg-emerald-500 text-black text-[9px] font-mono font-black px-2 py-0.5 rounded-full uppercase">
+                      HOJA MONITOREO
+                    </span>
+                    <span className="text-xs text-zinc-300 dark:text-zinc-700 font-bold font-mono">
+                      {opsWithNumber.length} OPs Asignadas • {monitoreoList.length} Registros
+                    </span>
+                  </div>
+                  <h3 className="text-base font-black text-white dark:text-zinc-950 brand-title mt-0.5">
+                    Listado Maestro de OPs por Hacer
+                  </h3>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-600">
+                    Al seleccionar y registrar una OP, esta se eliminará automáticamente de la hoja <strong>MONITOREO</strong>.
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -204,7 +217,7 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
                     onClick={onRefresh}
                     disabled={isRefreshing}
                     title="Recargar datos de Monitoreo"
-                    className="px-3 py-2 rounded-xl bg-zinc-800 dark:bg-zinc-200 hover:bg-zinc-700 dark:hover:bg-zinc-300 text-zinc-200 dark:text-zinc-800 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                    className="px-3 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-200 dark:text-zinc-800 text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
                     <span className="hidden sm:inline">Recargar</span>
@@ -228,7 +241,7 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
                   value={modalSearch}
                   onChange={(e) => setModalSearch(e.target.value)}
                   placeholder="Buscar en Monitoreo por N° de OP, Tela, Referencia o Código MT..."
-                  className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-200 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white dark:text-zinc-950 placeholder-zinc-400 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white dark:text-zinc-950 placeholder-zinc-400 focus:outline-none focus:border-emerald-500 font-mono"
                 />
                 <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-3" />
               </div>
@@ -237,7 +250,7 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
             {/* Table Content */}
             <div className="overflow-y-auto flex-1 custom-scroll p-4">
               <table className="w-full text-left text-xs text-zinc-300 dark:text-zinc-700">
-                <thead className="bg-zinc-900 dark:bg-zinc-100 text-[10px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider sticky top-0">
+                <thead className="bg-zinc-900 dark:bg-zinc-100 text-[10px] font-mono font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider sticky top-0">
                   <tr>
                     <th className="p-3 rounded-l-xl">OP</th>
                     <th className="p-3">Tela Textil STF</th>
@@ -250,32 +263,38 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
                 <tbody className="divide-y divide-zinc-800/60 dark:divide-zinc-200 font-medium">
                   {modalFiltered.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-zinc-400 dark:text-zinc-600 text-xs">
+                      <td colSpan={6} className="p-8 text-center text-zinc-400 dark:text-zinc-600 text-xs font-mono">
                         No se encontraron registros en la hoja de Monitoreo.
                       </td>
                     </tr>
                   ) : (
                     modalFiltered.map((item, i) => (
-                      <tr key={i} className="hover:bg-zinc-900/80 dark:hover:bg-zinc-100 transition group">
-                        <td className="p-3 font-mono font-bold">
+                      <tr key={i} className="hover:bg-zinc-900/80 dark:hover:bg-zinc-100 transition group font-mono">
+                        <td className="p-3 font-bold">
                           {item.op ? (
-                            <span className="font-black text-amber-400 dark:text-amber-600">{item.op}</span>
+                            <span className="font-black text-amber-400 dark:text-amber-600 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30">
+                              {item.op}
+                            </span>
                           ) : (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 dark:bg-zinc-200 text-zinc-400 dark:text-zinc-600 font-mono">
                               Por asignar
                             </span>
                           )}
                         </td>
-                        <td className="p-3 font-bold text-white dark:text-zinc-950">{item.tela}</td>
-                        <td className="p-3 font-mono text-zinc-300 dark:text-zinc-600 font-bold">{item.mt}</td>
+                        <td className="p-3 font-bold text-white dark:text-zinc-950 font-sans">{item.tela}</td>
+                        <td className="p-3 text-zinc-300 dark:text-zinc-600 font-bold">{item.mt}</td>
                         <td className="p-3">
                           <span className="inline-flex items-center gap-1.5 font-bold text-xs">
                             <span className={`w-2 h-2 rounded-full ${item.color === 'AZUL' ? 'bg-blue-500' : 'bg-amber-400'}`}></span>
                             {item.color}
                           </span>
                         </td>
-                        <td className="p-3 font-mono text-zinc-300 dark:text-zinc-700">
-                          {item.referencia || <span className="text-zinc-500 italic text-[11px] font-sans">Pendiente</span>}
+                        <td className="p-3 text-zinc-300 dark:text-zinc-700">
+                          {item.referencia ? (
+                            <strong className="text-white dark:text-zinc-950">{item.referencia}</strong>
+                          ) : (
+                            <span className="text-zinc-500 italic text-[11px] font-sans">Pendiente</span>
+                          )}
                         </td>
                         <td className="p-3 text-right">
                           <button
@@ -284,9 +303,9 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
                               onSelectOp(item);
                               setShowTableModal(false);
                             }}
-                            className="px-3.5 py-1.5 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 text-xs font-black transition cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                            className="px-3.5 py-1.5 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 text-xs font-black transition cursor-pointer shadow-sm hover:scale-105 active:scale-95 uppercase tracking-wide"
                           >
-                            Seleccionar
+                            Cargar
                           </button>
                         </td>
                       </tr>
@@ -298,7 +317,7 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
 
             {/* Modal Footer */}
             <div className="p-4 border-t border-zinc-800 dark:border-zinc-200 bg-zinc-900/80 dark:bg-zinc-100 flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-600 font-mono">
-              <span>Mostrando {modalFiltered.length} de {monitoreoList.length} OPs pendientes</span>
+              <span>Mostrando {modalFiltered.length} de {monitoreoList.length} filas en Monitoreo</span>
               <button
                 type="button"
                 onClick={() => setShowTableModal(false)}

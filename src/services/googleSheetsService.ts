@@ -514,10 +514,11 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
   const webAppUrl = getAppsScriptUrl();
 
   // 1. INTENTO DIRECTO A ENDPOINTS CSV DE LA HOJA OFICIAL MONITOREO (GID=1356774059)
+  const timestamp = Date.now();
   const tryUrls = [
-    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${MONITOREO_GID}`,
-    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${MONITOREO_GID}`,
-    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=MONITOREO`
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${MONITOREO_GID}&t=${timestamp}`,
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${MONITOREO_GID}&t=${timestamp}`,
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=MONITOREO&t=${timestamp}`
   ];
   
   for (const url of tryUrls) {
