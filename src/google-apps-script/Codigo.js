@@ -578,20 +578,31 @@ function removeOpFromMonitoreoSheet(ss, op) {
   if (!sheetMon) return;
 
   var cleanTarget = String(op).trim().toUpperCase();
+  var cleanTargetNoPrefix = cleanTarget.replace(/^OP-?/, '');
   var targetDigits = cleanTarget.replace(/\D/g, '');
   var lastRow = sheetMon.getLastRow();
+  var lastCol = Math.max(5, sheetMon.getLastColumn());
 
   if (lastRow > 1) {
-    var vals = sheetMon.getRange(2, 1, lastRow - 1, 5).getValues(); // Columnas A a E (TELA, MT, COLOR, OP, REFERENCIA)
+    var vals = sheetMon.getRange(2, 1, lastRow - 1, lastCol).getValues();
     for (var i = vals.length - 1; i >= 0; i--) {
-      var rowOp = String(vals[i][3] || '').trim().toUpperCase(); // Columna D: OP
-      var rowOpDigits = rowOp.replace(/\D/g, '');
-      
+      var rowVals = vals[i];
       var isMatch = false;
-      if (rowOp && cleanTarget && (rowOp === cleanTarget || rowOp.replace('OP-', '') === cleanTarget.replace('OP-', ''))) {
-        isMatch = true;
-      } else if (targetDigits && rowOpDigits && targetDigits === rowOpDigits && targetDigits !== '') {
-        isMatch = true;
+
+      // Buscar coincidencia en todas las columnas de la fila (OP, TELA, REF)
+      for (var c = 0; c < rowVals.length; c++) {
+        var cellVal = String(rowVals[c] || '').trim().toUpperCase();
+        var cellNoPrefix = cellVal.replace(/^OP-?/, '');
+        var cellDigits = cellVal.replace(/\D/g, '');
+
+        if (cellVal && (cellVal === cleanTarget || cellNoPrefix === cleanTargetNoPrefix)) {
+          isMatch = true;
+          break;
+        }
+        if (targetDigits && cellDigits && targetDigits === cellDigits && targetDigits.length >= 3) {
+          isMatch = true;
+          break;
+        }
       }
 
       if (isMatch) {
