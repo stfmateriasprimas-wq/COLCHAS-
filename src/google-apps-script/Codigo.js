@@ -65,9 +65,20 @@ function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('🚀 STF GROUP')
     .addItem('⚡ Sincronizar y Alimentar Hoja ALERTAS', 'syncAlertasFromBaseDeDatos')
+    .addItem('🗑️ Auto-Eliminar OPs ya Realizadas de MONITOREO', 'cleanMonitoreoMenuAction')
     .addItem('🧹 Dar Formato Profesional a Todas las Hojas', 'formatAllSheets')
     .addItem('📁 Crear / Verificar Carpeta en Google Drive', 'getOrCreateDriveFolder')
     .addToUi();
+
+  // Depuración automática en segundo plano al abrir la hoja de cálculo
+  var ss = getTargetSpreadsheet();
+  autoCleanMonitoreoFromBaseDeDatos(ss);
+}
+
+function cleanMonitoreoMenuAction() {
+  var ss = getTargetSpreadsheet();
+  var removed = autoCleanMonitoreoFromBaseDeDatos(ss);
+  SpreadsheetApp.getActiveSpreadsheet().toast('Se depuraron ' + (removed || 0) + ' OPs de la hoja MONITOREO', '🚀 STF GROUP');
 }
 
 /**
@@ -609,6 +620,72 @@ function removeOpFromMonitoreoSheet(ss, op) {
         sheetMon.deleteRow(i + 2);
       }
     }
+  }
+}
+
+/**
+ * Cruza todas las OPs registradas en BASE_DE_DATOS contra MONITOREO
+ * y elimina automáticamente cualquier fila de MONITOREO que ya haya sido ingresada al sistema.
+ */
+function autoCleanMonitoreoFromBaseDeDatos(ss) {
+  try {
+    var sheetBd = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+    var sheetMon = getMonitoreoSheet(ss);
+    if (!sheetBd || !sheetMon) return 0;
+
+    var lastRowBd = sheetBd.getLastRow();
+    if (lastRowBd <= 1) return 0;
+
+    // 1. Obtener listado de todas las OPs registradas en BASE_DE_DATOS (Columna F = index 6)
+    var bdValues = sheetBd.getRange(2, 6, lastRowBd - 1, 1).getValues();
+    var registeredMap = {};
+    for (var b = 0; b < bdValues.length; b++) {
+      var opVal = String(bdValues[b][0] || '').trim().toUpperCase();
+      if (opVal) {
+        registeredMap[opVal] = true;
+        registeredMap[opVal.replace(/^OP-?/, '')] = true;
+        var digits = opVal.replace(/\D/g, '');
+        if (digits) registeredMap[digits] = true;
+      }
+    }
+
+    // 2. Recorrer MONITOREO y eliminar las OPs coincidentes
+    var lastRowMon = sheetMon.getLastRow();
+    var lastColMon = Math.max(5, sheetMon.getLastColumn());
+    var deletedCount = 0;
+
+    if (lastRowMon > 1) {
+      var monValues = sheetMon.getRange(2, 1, lastRowMon - 1, lastColMon).getValues();
+      for (var m = monValues.length - 1; m >= 0; m--) {
+        var row = monValues[m];
+        var isMatch = false;
+
+        for (var c = 0; c < row.length; c++) {
+          var cellVal = String(row[c] || '').trim().toUpperCase();
+          var cellNoPrefix = cellVal.replace(/^OP-?/, '');
+          var cellDigits = cellVal.replace(/\D/g, '');
+
+          if (cellVal && (registeredMap[cellVal] || registeredMap[cellNoPrefix])) {
+            isMatch = true;
+            break;
+          }
+          if (cellDigits && cellDigits.length >= 3 && registeredMap[cellDigits]) {
+            isMatch = true;
+            break;
+          }
+        }
+
+        if (isMatch) {
+          sheetMon.deleteRow(m + 2);
+          deletedCount++;
+        }
+      }
+    }
+
+    return deletedCount;
+  } catch (e) {
+    console.error('Error en autoCleanMonitoreoFromBaseDeDatos:', e);
+    return 0;
   }
 }
 
