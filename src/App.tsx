@@ -26,6 +26,7 @@ import {
   pushSolicitudToSheets, 
   pushTransferToSheets, 
   pushDictamenToSheets, 
+  pushOpPhotoToSheets,
   saveLocalCreatedOp,
   markMonitoreoOpAsConsumed,
   deleteOrConsumeMonitoreoOpFromSheets,
@@ -432,9 +433,11 @@ export function App() {
   };
 
   // Update photo handler
-  const handleUpdateOpPhoto = (solicitudId: string, photoUrl: string) => {
+  const handleUpdateOpPhoto = async (solicitudId: string, photoUrl: string) => {
+    let targetOpNumber = '';
     setSolicitudes(prev => prev.map(item => {
       if (item.id === solicitudId) {
+        targetOpNumber = item.op;
         const updated = { ...item, fotoMuestraUrl: photoUrl };
         if (selectedColchaDetail && selectedColchaDetail.id === solicitudId) {
           setSelectedColchaDetail(updated);
@@ -443,6 +446,10 @@ export function App() {
       }
       return item;
     }));
+
+    if (targetOpNumber) {
+      await pushOpPhotoToSheets(targetOpNumber, photoUrl);
+    }
   };
 
   // SI ACCEDE POR CÓDIGO QR PÚBLICO -> MOSTRAR VISTA DE TRAZABILIDAD SIN LOGIN

@@ -3,6 +3,7 @@ import { Camera, Printer, ArrowLeft, CheckCircle2, Trash2, Sliders, Sparkles, Ma
 import { MonitoreoItem, SolicitudColcha, SectorType } from '../../types';
 import { SmartOpSearch } from './SmartOpSearch';
 import { UsuarioSTF, isUserFromZonaFranca } from '../../services/authService';
+import { compressImageFile } from '../../services/googleSheetsService';
 
 interface SolicitudFormProps {
   monitoreoList: MonitoreoItem[];
@@ -87,14 +88,19 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 1000, 0.75);
+        setPhotoUrl(compressed);
+      } catch (err) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPhotoUrl(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

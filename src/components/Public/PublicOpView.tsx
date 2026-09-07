@@ -3,11 +3,12 @@ import {
   QrCode, RefreshCw, CheckCircle2, AlertTriangle, Clock, 
   Layers, User, Calendar, Droplets, Microscope, Sparkles, 
   ShieldCheck, ArrowRight, ExternalLink, Image as ImageIcon,
-  Check, X, ChevronRight, Eye, LogIn, Sun, Moon, Maximize2
+  Check, X, ChevronRight, Eye, LogIn, Sun, Moon, Maximize2,
+  Camera, Upload
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { normalizeImageUrl } from '../../services/googleSheetsService';
+import { normalizeImageUrl, compressImageFile, pushOpPhotoToSheets, saveLocalCreatedOp } from '../../services/googleSheetsService';
 
 interface PublicOpViewProps {
   opNumber: string;
@@ -43,10 +44,39 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     });
   }, [solicitudes, cleanTargetOp]);
 
+  const [localPhoto, setLocalPhoto] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadSuccessToast, setUploadSuccessToast] = useState(false);
+
   // Normalized display photo URL (Base64, Google Drive, Direct HTTP)
   const displayPhotoUrl = useMemo(() => {
+    if (localPhoto) return localPhoto;
     return normalizeImageUrl(colcha?.fotoMuestraUrl);
-  }, [colcha?.fotoMuestraUrl]);
+  }, [localPhoto, colcha?.fotoMuestraUrl]);
+
+  const handleMobilePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !colcha) return;
+    setIsUploadingPhoto(true);
+    try {
+      const compressed = await compressImageFile(file, 1000, 0.75);
+      setLocalPhoto(compressed);
+
+      // Guardar localmente
+      const updatedColcha = { ...colcha, fotoMuestraUrl: compressed };
+      saveLocalCreatedOp(updatedColcha);
+
+      // Sincronizar en tiempo real con Google Sheets
+      await pushOpPhotoToSheets(colcha.op, compressed);
+
+      setUploadSuccessToast(true);
+      setTimeout(() => setUploadSuccessToast(false), 4000);
+    } catch (err) {
+      console.error('Error al subir foto desde el móvil:', err);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const stages: { id: SectorType; label: string; icon: string; desc: string }[] = [
     { id: 'PRE_SOLICITUD', label: '1. Atelier / Corte', icon: '✂️', desc: 'Muestra cortada y preparada' },
@@ -314,7 +344,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                 </div>
 
                 {displayPhotoUrl ? (
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
                     <div 
                       onClick={() => setIsPhotoZoomed(true)}
                       className="relative rounded-2xl overflow-hidden border-2 border-zinc-800 dark:border-zinc-200 bg-black aspect-video group cursor-pointer shadow-inner"
@@ -332,19 +362,60 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                         <span>Toca para Ampliar</span>
                       </div>
                     </div>
-                    <p className="text-[11px] text-zinc-400 dark:text-zinc-600 text-center font-mono">
-                      ✓ Fotografía de colcha registrada en línea de producción.
-                    </p>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <p className="text-[11px] text-zinc-400 dark:text-zinc-600 font-mono">
+                        ✓ Fotografía de colcha registrada en planta.
+                      </p>
+
+                      {/* Re-take / Update Photo Button */}
+                      <label className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 dark:bg-zinc-100 hover:bg-zinc-700 dark:hover:bg-zinc-200 text-zinc-200 dark:text-zinc-800 text-[11px] font-bold cursor-pointer transition border border-zinc-700 dark:border-zinc-300 shrink-0">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handleMobilePhotoUpload}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <Camera className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
+                        <span>{isUploadingPhoto ? 'Guardando...' : 'Cambiar Foto'}</span>
+                      </label>
+                    </div>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border-2 border-dashed border-zinc-800 dark:border-zinc-300 p-8 text-center space-y-2 bg-zinc-950/50 dark:bg-zinc-50">
-                    <ImageIcon className="w-10 h-10 text-zinc-600 dark:text-zinc-400 mx-auto" />
-                    <span className="text-xs font-bold text-zinc-400 dark:text-zinc-600 block">
-                      Sin Fotografía Adjunta
-                    </span>
-                    <p className="text-[10px] text-zinc-500 max-w-xs mx-auto">
-                      La muestra física se encuentra en tránsito y aún no ha sido fotografiada en planta.
-                    </p>
+                  <div className="rounded-2xl border-2 border-dashed border-zinc-800 dark:border-zinc-300 p-6 sm:p-8 text-center space-y-4 bg-zinc-950/50 dark:bg-zinc-50">
+                    <div className="w-12 h-12 rounded-2xl bg-zinc-900 dark:bg-zinc-200 flex items-center justify-center mx-auto text-zinc-500 dark:text-zinc-600">
+                      <Camera className="w-6 h-6 text-emerald-400 dark:text-emerald-600" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-zinc-300 dark:text-zinc-700 block">
+                        Sin Fotografía Adjunta
+                      </span>
+                      <p className="text-[10px] text-zinc-500 max-w-xs mx-auto mt-0.5">
+                        Toma una fotografía de la muestra física con tu cámara para anexarla en tiempo real a esta OP.
+                      </p>
+                    </div>
+
+                    {/* Prominent Take Photo Button */}
+                    <label className="relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-500 hover:from-emerald-500 hover:to-green-400 text-black font-mono font-black text-xs cursor-pointer shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleMobilePhotoUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <Camera className="w-4 h-4 fill-black text-black" />
+                      <span>{isUploadingPhoto ? 'GUARDANDO EN NUBE...' : 'TOMAR FOTO CON LA CÁMARA'}</span>
+                    </label>
+                  </div>
+                )}
+
+                {/* Upload Success Toast */}
+                {uploadSuccessToast && (
+                  <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs font-bold font-mono flex items-center gap-2 animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>✓ Fotografía guardada y sincronizada con Google Sheets</span>
                   </div>
                 )}
               </div>

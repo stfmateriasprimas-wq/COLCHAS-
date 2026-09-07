@@ -416,6 +416,40 @@ function doPost(e) {
       return createJsonResponse({ status: 'success', message: 'OP removida de MONITOREO' });
     }
 
+    // -----------------------------------------------------------------------
+    // ACCIÓN 8: UPDATE_OP_PHOTO (Guardar o actualizar foto desde móvil / app)
+    // -----------------------------------------------------------------------
+    if (action === 'UPDATE_OP_PHOTO') {
+      var sheetBdPhoto = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+      var targetOpPhoto = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
+      var photoData = payload.fotoMuestraUrl || payload.imageBase64 || '';
+      var driveUrl = photoData;
+
+      if (photoData && photoData.length > 50 && photoData.indexOf('data:image/') === 0) {
+        driveUrl = saveImageToDrive(photoData, 'OP_' + targetOpPhoto + '.jpg');
+      }
+
+      var lastRowBdPhoto = sheetBdPhoto.getLastRow();
+      var foundRowPhoto = -1;
+      if (lastRowBdPhoto > 1) {
+        var opValsPhoto = sheetBdPhoto.getRange(2, 6, lastRowBdPhoto - 1, 1).getValues();
+        for (var p = 0; p < opValsPhoto.length; p++) {
+          var curCleanOp = String(opValsPhoto[p][0] || '').trim().toUpperCase().replace(/^OP-?/, '');
+          if (curCleanOp === targetOpPhoto) {
+            foundRowPhoto = p + 2;
+            break;
+          }
+        }
+      }
+
+      if (foundRowPhoto !== -1) {
+        sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(driveUrl || photoData);
+        return createJsonResponse({ status: 'success', message: 'Fotografía actualizada en BASE_DE_DATOS', driveUrl: driveUrl });
+      } else {
+        return createJsonResponse({ status: 'error', message: 'OP no encontrada para actualizar foto' });
+      }
+    }
+
         // -----------------------------------------------------------------------
     // ACCIÓN 8: SEND_ALERTA_EMAIL (Envío 100% Automático de Correo HTML vía MailApp)
     // -----------------------------------------------------------------------
