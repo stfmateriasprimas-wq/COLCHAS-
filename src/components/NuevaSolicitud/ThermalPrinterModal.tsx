@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Printer, X, Copy, ExternalLink, Check, ShieldCheck, User, Camera } from 'lucide-react';
+import { Printer, X, Copy, ExternalLink, Check, ShieldCheck, User, Camera, Download, FileText } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
-import { generateColchaPdfTicket } from '../../services/exportService';
+import { generateColchaPdfTicket, printColchaDirectTicket } from '../../services/exportService';
 
 interface ThermalPrinterModalProps {
   colcha: SolicitudColcha | null;
@@ -14,7 +14,12 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
 
   if (!colcha) return null;
 
-  const publicLink = `${window.location.origin}/trazabilidad/${colcha.op}`;
+  const origin = typeof window !== 'undefined' && window.location.origin
+    ? window.location.origin
+    : 'https://remix-stf-group-quality-control-5.vercel.app';
+  
+  // Enlace oficial de trazabilidad pública sin necesidad de inicio de sesión
+  const publicLink = `${origin}/?op=${encodeURIComponent(colcha.op)}&view=public`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicLink);
@@ -22,8 +27,23 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePrintLabel = () => {
-    // Generate standard 100x100mm PDF or trigger native print dialog
+  const handlePrintLabelDirect = () => {
+    // Extraer QR SVG codificado en base64 para resolución nítida
+    const svgElem = document.getElementById('thermal-label-qr-svg');
+    let qrDataUrl = '';
+    if (svgElem) {
+      try {
+        const svgXml = new XMLSerializer().serializeToString(svgElem);
+        qrDataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgXml)));
+      } catch (e) {
+        console.warn('Could not serialize SVG QR, fallback to URL API', e);
+      }
+    }
+    // Disparar comando directo de impresión nativa
+    printColchaDirectTicket(colcha, qrDataUrl);
+  };
+
+  const handleDownloadPdfBackup = () => {
     generateColchaPdfTicket(colcha);
   };
 
@@ -75,7 +95,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
               <span className="bg-zinc-900 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 px-2.5 py-1 rounded-md text-zinc-300 dark:text-zinc-700">
                 FORMATO 4" X 4" (100 X 100 MM)
               </span>
-              <p className="mt-1">Alineado y calibrado para impresoras térmicas (Zebra, Sato, etc.)</p>
+              <p className="mt-1">Alineado y calibrado para comando directo de impresión térmica (Zebra, Sato, etc.)</p>
             </div>
 
             {/* Physical Label Simulation Card */}
@@ -128,13 +148,15 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                     </div>
                   </div>
 
-                  {/* Right: High-contrast QR */}
+                  {/* Right: High-contrast QR with public URL */}
                   <div className="col-span-5 flex flex-col items-center justify-center text-center">
                     <div className="p-1 border border-zinc-400 rounded bg-white">
                       <QRCodeSVG
-                        value={`https://stfgroup.com/op/${colcha.op}`}
+                        id="thermal-label-qr-svg"
+                        value={publicLink}
                         size={64}
-                        level="H"
+                        level="M"
+                        includeMargin={false}
                       />
                     </div>
                     <span className="text-[7px] font-black text-zinc-700 tracking-tighter mt-0.5 uppercase">
@@ -334,21 +356,35 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
         </div>
 
         {/* Modal Bottom Actions */}
-        <div className="p-4 sm:p-5 border-t border-zinc-800 dark:border-zinc-200 bg-zinc-900/80 dark:bg-zinc-100 flex items-center justify-end gap-3 text-white dark:text-zinc-950">
+        <div className="p-4 sm:p-5 border-t border-zinc-800 dark:border-zinc-200 bg-zinc-900/80 dark:bg-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-white dark:text-zinc-950">
           <button
-            onClick={onClose}
-            className="px-6 py-3 rounded-2xl bg-zinc-800 dark:bg-zinc-200 hover:bg-zinc-700 dark:hover:bg-zinc-300 text-white dark:text-zinc-950 text-xs font-extrabold transition cursor-pointer"
+            type="button"
+            onClick={handleDownloadPdfBackup}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-zinc-800/80 dark:bg-zinc-200 hover:bg-zinc-700 dark:hover:bg-zinc-300 text-zinc-300 dark:text-zinc-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+            title="Descargar archivo PDF de 100x100mm"
           >
-            CANCELAR / VOLVER
+            <Download className="w-3.5 h-3.5" />
+            <span>Descargar PDF 4x4"</span>
           </button>
 
-          <button
-            onClick={handlePrintLabel}
-            className="px-8 py-3 rounded-2xl bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 text-xs font-black flex items-center gap-2 shadow-xl transition transform active:scale-95 cursor-pointer"
-          >
-            <Printer className="w-4 h-4" />
-            <span>IMPRIMIR ETIQUETA AHORA</span>
-          </button>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              onClick={onClose}
+              className="flex-1 sm:flex-none px-6 py-3 rounded-2xl bg-zinc-800 dark:bg-zinc-200 hover:bg-zinc-700 dark:hover:bg-zinc-300 text-white dark:text-zinc-950 text-xs font-extrabold transition cursor-pointer"
+            >
+              CANCELAR / VOLVER
+            </button>
+
+            {/* BOTÓN OFICIAL CON COMANDO DIRECTO DE IMPRESIÓN */}
+            <button
+              type="button"
+              onClick={handlePrintLabelDirect}
+              className="flex-1 sm:flex-none px-8 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-400 hover:from-emerald-400 hover:to-green-300 text-black font-black font-mono text-xs flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 transition transform active:scale-95 cursor-pointer uppercase tracking-wider"
+            >
+              <Printer className="w-4 h-4 fill-black" />
+              <span>IMPRIMIR ETIQUETA AHORA</span>
+            </button>
+          </div>
         </div>
 
       </div>

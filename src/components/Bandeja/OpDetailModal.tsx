@@ -30,7 +30,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   if (!solicitud) return null;
 
   const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://remix-stf-group-quality-control-5.vercel.app';
-  const publicUrl = `${origin}/?op=${encodeURIComponent(solicitud.op)}&tab=solicitudes`;
+  const publicUrl = `${origin}/?op=${encodeURIComponent(solicitud.op)}&view=public`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicUrl);

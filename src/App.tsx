@@ -5,6 +5,7 @@ import { CleanLandingView } from './components/Dashboard/CleanLandingView';
 import { AreaOpsModal } from './components/Dashboard/AreaOpsModal';
 import { SolicitudForm } from './components/NuevaSolicitud/SolicitudForm';
 import { ThermalPrinterModal } from './components/NuevaSolicitud/ThermalPrinterModal';
+import { PublicOpView } from './components/Public/PublicOpView';
 import { BandejaView } from './components/Bandeja/BandejaView';
 import { TransferModal } from './components/Bandeja/TransferModal';
 import { OpDetailModal } from './components/Bandeja/OpDetailModal';
@@ -62,6 +63,27 @@ export function App() {
       localStorage.setItem('stf_colchas_theme', 'light');
     }
   }, [isDarkMode]);
+
+  // Public QR View State (Acceso público sin inicio de sesión)
+  const [publicOpNumber, setPublicOpNumber] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get('view');
+      const op = params.get('op');
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      if (pathParts[0] === 'trazabilidad' || pathParts[0] === 'op') {
+        return pathParts[1] || null;
+      }
+      if (view === 'public' && op) {
+        return op;
+      }
+      // Si entra por QR y no tiene sesión iniciada
+      if (op && !params.get('user') && !localStorage.getItem('stf_colchas_user')) {
+        return op;
+      }
+    }
+    return null;
+  });
 
   // Authentication State with Magic Auto-Login Support
   const [currentUser, setCurrentUser] = useState<UsuarioSTF | null>(() => {
@@ -143,6 +165,12 @@ export function App() {
     const userParam = urlParams.get('user');
     const opParam = urlParams.get('op');
     const tabParam = urlParams.get('tab') as TabType | null;
+    const viewParam = urlParams.get('view');
+
+    // 0. Detect Public View Mode
+    if (opParam && (viewParam === 'public' || (!currentUser && !userParam && !localStorage.getItem('stf_colchas_user')))) {
+      setPublicOpNumber(opParam);
+    }
 
     // 1. Auto-login if user is specified in the URL
     if (userParam) {
@@ -416,6 +444,26 @@ export function App() {
       return item;
     }));
   };
+
+  // SI ACCEDE POR CÓDIGO QR PÚBLICO -> MOSTRAR VISTA DE TRAZABILIDAD SIN LOGIN
+  if (publicOpNumber) {
+    return (
+      <PublicOpView
+        opNumber={publicOpNumber}
+        solicitudes={solicitudes}
+        isSyncing={isSyncing}
+        onRefreshData={() => loadAllLiveData(false)}
+        onGoToLogin={() => {
+          setPublicOpNumber(null);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('view');
+          window.history.replaceState({}, '', url.toString());
+        }}
+        isDarkMode={isDarkMode}
+        onToggleTheme={() => setIsDarkMode(prev => !prev)}
+      />
+    );
+  }
 
   // IF NOT AUTHENTICATED -> SHOW LOGIN SCREEN
   if (!currentUser) {
