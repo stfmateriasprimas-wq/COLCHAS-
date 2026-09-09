@@ -131,47 +131,59 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
               <div className="bg-white p-1.5 border-[3.5px] border-black rounded-sm shadow-md aspect-square select-none max-w-[390px] mx-auto w-full">
                 <div
                   id="thermal-label-container"
-                  className="bg-white text-black p-3 border-[1.5px] border-black h-full flex flex-col justify-between font-sans select-none"
+                  className="bg-white text-black p-3 border-[1.5px] border-black h-full flex flex-col justify-between select-none"
+                  style={{ fontFamily: "'Montserrat', 'Outfit', -apple-system, sans-serif" }}
                 >
-                  {/* Header */}
-                  <div className="text-center border-b-2 border-black pb-1.5">
-                    <h3 className="text-base sm:text-lg font-black tracking-widest text-black uppercase font-sans">
-                      COLCHAS STF
-                    </h3>
-                    <div className="text-xs sm:text-sm font-black tracking-wide font-mono mt-0.5 text-black">
+                  {/* Cuadro Amarillo: Logo Oficial COLCHAS STF */}
+                  <div className="text-center border-b-2 border-black pb-1">
+                    <div className="flex items-center justify-center gap-1.5 leading-none" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
+                      <span className="text-lg sm:text-xl uppercase tracking-tight text-black" style={{ fontWeight: 200 }}>
+                        COLCHAS
+                      </span>
+                      <span className="text-lg sm:text-xl uppercase tracking-tight text-black" style={{ fontWeight: 900 }}>
+                        STF
+                      </span>
+                    </div>
+                    <div className="text-[6.5px] sm:text-[7.5px] tracking-[0.2em] text-black uppercase mt-0.5 font-normal" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
+                      PRODUCTO OFICIAL - STF GROUP
+                    </div>
+                    <div className="text-xs sm:text-[12px] font-bold tracking-[0.06em] mt-0.5 text-black" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
                       {colcha.op} / {refDisplay}
                     </div>
                   </div>
 
-                  {/* Tela Box */}
-                  <div className="border-[1.5px] border-black px-2 py-1 text-center text-[10px] sm:text-[11px] font-black uppercase tracking-tight bg-white my-1">
-                    TELA: {colcha.tela.toUpperCase()}
+                  {/* Recuadro de Tela */}
+                  <div className="border-[1.5px] border-black px-2 py-1 text-center text-[10px] sm:text-[11px] uppercase bg-white my-1" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
+                    <span className="font-black tracking-wider text-black mr-1.5">TELA:</span>
+                    <span className="font-light tracking-[0.08em] text-black">{colcha.tela.toUpperCase()}</span>
                   </div>
 
                   {/* Middle Data & QR */}
                   <div className="grid grid-cols-12 gap-2 items-center flex-1 my-1">
                     
                     {/* Left: Metadata list */}
-                    <div className="col-span-7 space-y-1 text-[10px] sm:text-[11px] font-bold">
+                    {/* Recuadro Verde: Rótulos en negrilla (estilo 'ela') */}
+                    {/* Recuadro Rojo: Valores en tipografía delgada no en negrilla (estilo 'STUDIO F') */}
+                    <div className="col-span-7 space-y-1 text-[10px] sm:text-[11px]">
                       <div className="flex justify-between border-b border-zinc-200 pb-0.5">
-                        <span className="text-zinc-700 font-black">COLOR:</span>
-                        <span className="text-black font-black">{colcha.color.toUpperCase()}</span>
+                        <span className="text-black font-black tracking-wider">COLOR:</span>
+                        <span className="text-black font-light tracking-[0.06em]">{colcha.color.toUpperCase()}</span>
                       </div>
                       <div className="flex justify-between border-b border-zinc-200 pb-0.5">
-                        <span className="text-zinc-700 font-black">ROLLOS:</span>
-                        <span className="text-black font-black">{colcha.rollos} rls</span>
+                        <span className="text-black font-black tracking-wider">ROLLOS:</span>
+                        <span className="text-black font-light tracking-[0.06em]">{colcha.rollos} rls</span>
                       </div>
                       <div className="flex justify-between border-b border-zinc-200 pb-0.5">
-                        <span className="text-zinc-700 font-black">METRAJE:</span>
-                        <span className="text-black font-mono font-black">{mtDisplay}</span>
+                        <span className="text-black font-black tracking-wider">METRAJE:</span>
+                        <span className="text-black font-light tracking-[0.06em]">{mtDisplay}</span>
                       </div>
                       <div className="flex justify-between border-b border-zinc-200 pb-0.5">
-                        <span className="text-zinc-700 font-black">LOTES:</span>
-                        <span className="text-black font-black">{loteDisplay}</span>
+                        <span className="text-black font-black tracking-wider">LOTES:</span>
+                        <span className="text-black font-light tracking-[0.06em]">{loteDisplay}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-zinc-700 font-black">DICTAMEN:</span>
-                        <span className="text-black font-black">{colcha.dictamen.toUpperCase()}</span>
+                        <span className="text-black font-black tracking-wider">DICTAMEN:</span>
+                        <span className="text-black font-light tracking-[0.06em]">{colcha.dictamen.toUpperCase()}</span>
                       </div>
                     </div>
 
@@ -192,7 +204,8 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                           }}
                         />
                       </div>
-                      <span className="text-[7.5px] font-black text-black tracking-tighter mt-1 uppercase leading-tight">
+                      {/* Recuadro Rojo 2: Texto QR delgado no en negrilla (estilo 'STUDIO F') */}
+                      <span className="text-[7.5px] font-light text-black tracking-[0.1em] mt-1 uppercase leading-tight" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
                         ESCANEAR QR<br/>TRAZABILIDAD
                       </span>
                     </div>
@@ -201,13 +214,15 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
 
                   {/* Footer Observations */}
                   <div className="border-t-[1.5px] border-dashed border-black pt-1 text-[9px] space-y-0.5">
-                    <span className="font-black text-black block text-[9.5px] uppercase tracking-wide">
+                    {/* Recuadro Verde 2: Título observación en negrilla (estilo 'ela') */}
+                    <span className="font-black text-black block text-[9.5px] uppercase tracking-wider" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
                       {obsTitle}
                     </span>
-                    <p className="text-black font-black text-[9px] leading-snug line-clamp-2 uppercase">
+                    {/* Recuadro Rojo 3: Contenido observación delgado no en negrilla (estilo 'STUDIO F') */}
+                    <p className="text-black font-light text-[9px] leading-snug line-clamp-2 uppercase tracking-[0.04em]" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
                       {obsToShow}
                     </p>
-                    <div className="text-[7.5px] font-mono text-zinc-600 pt-0.5 border-t border-zinc-300 text-center tracking-tight">
+                    <div className="text-[7.5px] text-zinc-600 pt-0.5 border-t border-zinc-300 text-center tracking-wider font-light" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
                       ID: STF-OP-{cleanOpDigits} • Impreso: {printDateStr}
                     </div>
                   </div>
