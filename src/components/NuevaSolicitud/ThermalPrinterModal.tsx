@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Printer, X, Copy, ExternalLink, Check, ShieldCheck, User, Camera, Download, FileText } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
 import { generateColchaPdfTicket, printColchaDirectTicket, getCleanFinalQualityObservation } from '../../services/exportService';
-import { generatePublicTrackingUrl } from '../../services/qrTrackingService';
+import { generatePublicTrackingUrl, generatePublicTrackingUrlAsync } from '../../services/qrTrackingService';
 
 const STF_QR_LOGO_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23000000"/><rect x="4" y="4" width="92" height="92" rx="16" fill="%23000000" stroke="%23ffffff" stroke-width="4"/><text x="50" y="65" font-size="38" font-family="Arial, Helvetica, sans-serif" font-weight="900" fill="%23ffffff" text-anchor="middle" letter-spacing="-1">STF</text></svg>`;
 
@@ -14,11 +14,25 @@ interface ThermalPrinterModalProps {
 
 export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha, onClose }) => {
   const [copied, setCopied] = useState(false);
+  const [asyncTrackingUrl, setAsyncTrackingUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (!colcha) return;
+    let isMounted = true;
+    generatePublicTrackingUrlAsync(colcha).then((url) => {
+      if (isMounted && url) {
+        setAsyncTrackingUrl(url);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [colcha]);
 
   if (!colcha) return null;
 
   // Enlace oficial de trazabilidad pública con carga de datos completa codificada (resiliente para móviles)
-  const publicLink = generatePublicTrackingUrl(colcha);
+  const publicLink = asyncTrackingUrl || generatePublicTrackingUrl(colcha);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicLink);

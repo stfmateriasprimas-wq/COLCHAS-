@@ -45,7 +45,7 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
     }
 
     // 2. Base64 strings without MIME prefix
-    if (str.length > 100 && (str.startsWith('/9j/') || str.startsWith('iVBORw0KGgo') || str.startsWith('R0lGOD'))) {
+    if (str.length > 50 && (str.startsWith('/9j/') || str.startsWith('iVBORw0KGgo') || str.startsWith('R0lGOD') || str.startsWith('UklGR') || str.startsWith('AAAA'))) {
       return { candidates: ['data:image/jpeg;base64,' + str], driveId: null, isDrive: false };
     }
 
@@ -81,7 +81,10 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
   // Reset state when rawUrl changes
   useEffect(() => {
     setCandidateIndex(0);
-    setIsLoading(candidates.length > 0);
+    const hasCandidates = candidates.length > 0;
+    const isLocalDataUrl = hasCandidates && (candidates[0].startsWith('data:image/') || candidates[0].startsWith('blob:'));
+    // Local data URLs decode immediately in browser, so don't lock with loading spinner
+    setIsLoading(hasCandidates && !isLocalDataUrl);
     setHasFailedAll(false);
   }, [candidates]);
 
@@ -180,7 +183,7 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
       <img
         src={currentUrl}
         alt={alt}
-        crossOrigin="anonymous"
+        crossOrigin={currentUrl.startsWith('http') ? 'anonymous' : undefined}
         referrerPolicy="no-referrer"
         loading="eager"
         decoding="async"

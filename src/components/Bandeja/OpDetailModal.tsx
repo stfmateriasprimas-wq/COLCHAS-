@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, Calendar, Clock, Printer, Camera, CheckCircle2, 
   ExternalLink, Copy, Check, FileText, Send, Share2, 
@@ -11,6 +11,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto } from '../../services/googleSheetsService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
+import { generatePublicTrackingUrl, generatePublicTrackingUrlAsync } from '../../services/qrTrackingService';
 
 interface OpDetailModalProps {
   solicitud: SolicitudColcha | null;
@@ -33,15 +34,33 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   
   const [fotoCalidadLocal, setFotoCalidadLocal] = useState<string | null>(null);
   const [isUploadingCalidad, setIsUploadingCalidad] = useState(false);
+  const [asyncPublicUrl, setAsyncPublicUrl] = useState<string>('');
   const calidadFileInputRef = useRef<HTMLInputElement>(null);
+
+  const fotoMuestraUrl = solicitud?.fotoMuestraUrl;
+  const fotoCalidadUrl = fotoCalidadLocal || solicitud?.fotoCalidadUrl;
+
+  useEffect(() => {
+    if (!solicitud) return;
+    let isMounted = true;
+    const currentOp: SolicitudColcha = {
+      ...solicitud,
+      fotoCalidadUrl: fotoCalidadUrl
+    };
+    generatePublicTrackingUrlAsync(currentOp).then(url => {
+      if (isMounted && url) {
+        setAsyncPublicUrl(url);
+      }
+    });
+    return () => { isMounted = false; };
+  }, [solicitud, fotoCalidadUrl]);
 
   if (!solicitud) return null;
 
-  const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://colchas.vercel.app';
-  const publicUrl = `${origin}/?op=${encodeURIComponent(solicitud.op)}&view=public`;
-
-  const fotoMuestraUrl = solicitud.fotoMuestraUrl;
-  const fotoCalidadUrl = fotoCalidadLocal || solicitud.fotoCalidadUrl;
+  const publicUrl = asyncPublicUrl || generatePublicTrackingUrl({
+    ...solicitud,
+    fotoCalidadUrl: fotoCalidadUrl
+  });
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicUrl);

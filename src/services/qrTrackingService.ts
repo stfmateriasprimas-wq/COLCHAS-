@@ -1,4 +1,4 @@
-﻿import { SolicitudColcha, SectorType, DictamenType } from '../types';
+import { SolicitudColcha, SectorType, DictamenType } from '../types';
 import { calculateWorkingDays } from './slaCalculator';
 import { formatOpCode, mapAreaName } from './googleSheetsService';
 
@@ -22,6 +22,56 @@ export interface CompactOpQrPayload {
 }
 
 /**
+ * Comprime de forma ultra eficiente una imagen base64 a un micro-thumbnail (~450-700 bytes)
+ * garantizando que quepa perfectamente dentro del código QR sin sobrecargarlo.
+ */
+export function createMicroThumbnail(dataUrl?: string, maxDimension: number = 64, quality: number = 0.35): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    if (!dataUrl || typeof window === 'undefined') return resolve(dataUrl);
+    if (dataUrl.startsWith('http')) return resolve(dataUrl);
+    if (dataUrl.length < 800) return resolve(dataUrl);
+
+    try {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          let w = img.width;
+          let h = img.height;
+          if (w > h) {
+            if (w > maxDimension) {
+              h = Math.round((h * maxDimension) / w);
+              w = maxDimension;
+            }
+          } else {
+            if (h > maxDimension) {
+              w = Math.round((w * maxDimension) / h);
+              h = maxDimension;
+            }
+          }
+          canvas.width = Math.max(8, w);
+          canvas.height = Math.max(8, h);
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const micro = canvas.toDataURL('image/jpeg', quality);
+            resolve(micro);
+          } else {
+            resolve(dataUrl);
+          }
+        } catch (e) {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    } catch (err) {
+      resolve(dataUrl);
+    }
+  });
+}
+
+/**
  * Genera el enlace público oficial de trazabilidad con la carga útil completa codificada.
  * Esto garantiza que al escanear el QR desde CUALQUIER teléfono móvil o dispositivo externo,
  * la información completa de la OP (datos técnicos, observaciones y fotos) se visualice
@@ -36,10 +86,10 @@ export function generatePublicTrackingUrl(colcha: SolicitudColcha): string {
 
   const cleanOp = formatOpCode(colcha.op);
 
-  // Incluir fotos si son URLs HTTP/HTTPS o cadenas compactas
-  const isUrlOrShort = (url?: string) => Boolean(url && (url.startsWith('http') || url.length < 500));
-  const f1 = isUrlOrShort(colcha.fotoMuestraUrl) ? colcha.fotoMuestraUrl : undefined;
-  const f2 = isUrlOrShort(colcha.fotoCalidadUrl) ? colcha.fotoCalidadUrl : undefined;
+  // Incluir fotos si son URLs HTTP/HTTPS o cadenas compactas (hasta 2,500 caracteres)
+  const isEligiblePhoto = (url?: string) => Boolean(url && (url.startsWith('http') || url.length <= 2500));
+  const f1 = isEligiblePhoto(colcha.fotoMuestraUrl) ? colcha.fotoMuestraUrl : undefined;
+  const f2 = isEligiblePhoto(colcha.fotoCalidadUrl) ? colcha.fotoCalidadUrl : undefined;
 
   const compact: CompactOpQrPayload = {
     o: cleanOp,
@@ -69,6 +119,30 @@ export function generatePublicTrackingUrl(colcha: SolicitudColcha): string {
     console.warn('Error encoding QR payload:', e);
     return `${origin}/?op=${encodeURIComponent(cleanOp)}&view=public`;
   }
+}
+
+/**
+ * Genera de forma asíncrona el enlace QR asegurando que las fotos base64 se compriman
+ * automáticamente a micro-thumbnails antes de codificarse en el enlace.
+ */
+export async function generatePublicTrackingUrlAsync(colcha: SolicitudColcha): Promise<string> {
+  if (!colcha || !colcha.op) return 'https://colchas.vercel.app';
+
+  let f1 = colcha.fotoMuestraUrl;
+  let f2 = colcha.fotoCalidadUrl;
+
+  if (f1 && !f1.startsWith('http') && f1.length > 1200) {
+    f1 = await createMicroThumbnail(f1, 64, 0.35);
+  }
+  if (f2 && !f2.startsWith('http') && f2.length > 1200) {
+    f2 = await createMicroThumbnail(f2, 64, 0.35);
+  }
+
+  return generatePublicTrackingUrl({
+    ...colcha,
+    fotoMuestraUrl: f1,
+    fotoCalidadUrl: f2
+  });
 }
 
 /**

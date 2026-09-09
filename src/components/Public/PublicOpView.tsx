@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   QrCode, RefreshCw, CheckCircle2, AlertTriangle, Clock, 
   Layers, User, Calendar, Sparkles, Image as ImageIcon,
@@ -32,6 +32,13 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
 }) => {
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
 
+  // Auto-cargar datos frescos si el array de solicitudes está vacío
+  useEffect(() => {
+    if (solicitudes.length === 0) {
+      onRefreshData();
+    }
+  }, [solicitudes.length, onRefreshData]);
+
   // Find OP in live data + localStorage + QR Encoded URL Payload
   const colcha = useMemo(() => {
     const cleanTarget = opNumber.replace(/^OP-?/i, '').trim().toUpperCase();
@@ -58,6 +65,9 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     const base = liveFound || localFound || parsedQr;
     if (!base) return null;
 
+    const bestFotoMuestra = liveFound?.fotoMuestraUrl || localFound?.fotoMuestraUrl || parsedQr?.fotoMuestraUrl;
+    const bestFotoCalidad = liveFound?.fotoCalidadUrl || localFound?.fotoCalidadUrl || parsedQr?.fotoCalidadUrl;
+
     return {
       ...base,
       referencia: parsedQr?.referencia || base.referencia,
@@ -68,8 +78,8 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
       lote: parsedQr?.lote || base.lote,
       inspector: parsedQr?.inspector || base.inspector,
       fechaCreacion: parsedQr?.fechaCreacion || base.fechaCreacion,
-      fotoMuestraUrl: localFound?.fotoMuestraUrl || parsedQr?.fotoMuestraUrl || liveFound?.fotoMuestraUrl,
-      fotoCalidadUrl: localFound?.fotoCalidadUrl || parsedQr?.fotoCalidadUrl || liveFound?.fotoCalidadUrl,
+      fotoMuestraUrl: bestFotoMuestra,
+      fotoCalidadUrl: bestFotoCalidad,
       observacionesCalidad: localFound?.observacionesCalidad || parsedQr?.observacionesCalidad || liveFound?.observacionesCalidad,
       observacionesOperario: localFound?.observacionesOperario || parsedQr?.observacionesOperario || liveFound?.observacionesOperario,
       dictamen: localFound?.dictamen || parsedQr?.dictamen || liveFound?.dictamen || (base.estado === 'FINALIZADO' ? 'APROBADO' : 'PENDIENTE'),

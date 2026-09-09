@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Printer, Check, X } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
 import { generateColchaPdfTicket } from '../../services/exportService';
+import { generatePublicTrackingUrl } from '../../services/qrTrackingService';
 
 interface TicketModalProps {
   colcha: SolicitudColcha | null;
@@ -15,6 +16,8 @@ export const TicketModal: React.FC<TicketModalProps> = ({ colcha, onClose }) => 
   const handleDownloadPdf = () => {
     generateColchaPdfTicket(colcha);
   };
+
+  const trackingLink = generatePublicTrackingUrl(colcha);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -75,7 +78,7 @@ export const TicketModal: React.FC<TicketModalProps> = ({ colcha, onClose }) => 
           {/* QR Code */}
           <div className="flex justify-center pt-2 border-t border-zinc-300">
             <QRCodeSVG
-              value={`STF-COLCHA:${colcha.op}|${colcha.referencia}|${colcha.codigoMt}|${colcha.id}`}
+              value={trackingLink}
               size={90}
               level="M"
             />
