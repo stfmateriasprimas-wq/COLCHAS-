@@ -826,6 +826,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
             if (!opRaw && !telaRaw) return;
             if (opRaw.toUpperCase() === 'OP' && telaRaw.toUpperCase() === 'TELA') return;
 
+            const cleanOp = formatOpCode(opRaw);
+            if (isOpDeleted(opRaw) || isOpDeleted(cleanOp)) return;
+
             const estado = mapEstadoStringToSector(estadoRaw);
             const fechaStr = fechaRaw || new Date().toISOString();
             const { diasHabiles, horasHabiles, tieneRetraso, esRetrasoCritico } = calculateWorkingDays(fechaStr);
@@ -840,7 +843,6 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               dictamen = fullObs.includes('RECHAZADO') || fullObs.includes('NO CUMPLE') ? 'RECHAZADO' : 'APROBADO';
             }
 
-            const cleanOp = formatOpCode(opRaw);
             const { foto1, foto2 } = parseDualPhotos(fotoUrlRaw);
 
             parsedList.push({
@@ -870,8 +872,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           });
 
           if (parsedList.length > 0) {
-            saveCachedSolicitudes(parsedList);
-            return parsedList;
+            const finalActive = parsedList.filter(item => !isOpDeleted(item.op));
+            saveCachedSolicitudes(finalActive);
+            return finalActive;
           }
         }
       }

@@ -138,8 +138,9 @@ export function addOpToDeletedHistory(solicitud: SolicitudColcha, adminName: str
   const updatedHistory = [
     newRecord, 
     ...history.filter(h => {
-      const hDigits = h.op.replace(/^OP-?/i, '').trim();
-      return h.op.trim().toUpperCase() !== normalizedOp.toUpperCase() && (targetDigits === '' || hDigits !== targetDigits);
+      const hDigits = String(h?.op || '').replace(/\D/g, '');
+      const hRaw = String(h?.op || '').trim().toUpperCase();
+      return hRaw !== normalizedOp.toUpperCase() && (targetDigits === '' || hDigits !== targetDigits);
     })
   ];
   saveDeletedOpsHistory(updatedHistory);
@@ -151,12 +152,12 @@ export function addOpToDeletedHistory(solicitud: SolicitudColcha, adminName: str
  */
 export function restoreOpFromDeletedHistory(opOrRecordId: string): SolicitudColcha | null {
   const history = getDeletedOpsHistory();
-  const cleanTarget = opOrRecordId.replace(/^OP-?/i, '').trim().toUpperCase();
-  const targetDigits = opOrRecordId.replace(/\D/g, '');
+  const cleanTarget = String(opOrRecordId || '').replace(/^OP-+/i, '').trim().toUpperCase();
+  const targetDigits = String(opOrRecordId || '').replace(/\D/g, '');
 
   const target = history.find(h => {
-    const hClean = h.op.replace(/^OP-?/i, '').trim().toUpperCase();
-    const hDigits = h.op.replace(/\D/g, '');
+    const hClean = String(h?.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
+    const hDigits = String(h?.op || '').replace(/\D/g, '');
     return h.id === opOrRecordId || hClean === cleanTarget || (targetDigits !== '' && hDigits === targetDigits);
   });
   
@@ -175,12 +176,12 @@ export function restoreOpFromDeletedHistory(opOrRecordId: string): SolicitudColc
  */
 export function purgeDeletedOp(opOrRecordId: string): void {
   const history = getDeletedOpsHistory();
-  const cleanTarget = opOrRecordId.replace(/^OP-?/i, '').trim().toUpperCase();
-  const targetDigits = opOrRecordId.replace(/\D/g, '');
+  const cleanTarget = String(opOrRecordId || '').replace(/^OP-+/i, '').trim().toUpperCase();
+  const targetDigits = String(opOrRecordId || '').replace(/\D/g, '');
 
   const remaining = history.filter(h => {
-    const hClean = h.op.replace(/^OP-?/i, '').trim().toUpperCase();
-    const hDigits = h.op.replace(/\D/g, '');
+    const hClean = String(h?.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
+    const hDigits = String(h?.op || '').replace(/\D/g, '');
     return h.id !== opOrRecordId && hClean !== cleanTarget && (targetDigits === '' || hDigits !== targetDigits);
   });
   saveDeletedOpsHistory(remaining);
