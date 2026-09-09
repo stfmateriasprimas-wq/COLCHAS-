@@ -70,26 +70,13 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons: Perfectly Aligned, Sleek and Horizontal */}
-          <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
-            {onRefresh && (
-              <button
-                type="button"
-                onClick={onRefresh}
-                disabled={isRefreshing}
-                title="Actualizar datos de la hoja Monitoreo"
-                className="px-3 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-300 dark:text-zinc-700 text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Actualizar</span>
-              </button>
-            )}
-
-            {/* BOTÓN OFICIAL: VER OPS POR HACER (DISEÑO CORPORATIVO Y ELEGANTE) */}
+          {/* Action Buttons: VER OPs POR HACER (Automático en Tiempo Real) */}
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            {/* BOTÓN OFICIAL: VER OPs POR HACER (DISEÑO CORPORATIVO Y ELEGANTE) */}
             <button
               type="button"
               onClick={() => setShowTableModal(true)}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-500 hover:from-emerald-500 hover:to-green-400 text-black font-mono font-black text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 duration-150 whitespace-nowrap"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-500 hover:from-emerald-500 hover:to-green-400 text-black font-mono font-black text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 duration-150 whitespace-nowrap"
             >
               <Table className="w-4 h-4 fill-black text-black shrink-0" />
               <span>VER OPs POR HACER</span>
@@ -211,18 +198,6 @@ export const SmartOpSearch: React.FC<SmartOpSearchProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                {onRefresh && (
-                  <button
-                    type="button"
-                    onClick={onRefresh}
-                    disabled={isRefreshing}
-                    title="Recargar datos de Monitoreo"
-                    className="px-3 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-200 dark:text-zinc-800 text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    <span className="hidden sm:inline">Recargar</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setShowTableModal(false)}

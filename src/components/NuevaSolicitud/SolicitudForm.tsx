@@ -3,7 +3,9 @@ import { Camera, Printer, ArrowLeft, CheckCircle2, Trash2, Sliders, Sparkles, Ma
 import { MonitoreoItem, SolicitudColcha, SectorType } from '../../types';
 import { SmartOpSearch } from './SmartOpSearch';
 import { UsuarioSTF, isUserFromZonaFranca } from '../../services/authService';
-import { compressImageFile, formatOpCode } from '../../services/googleSheetsService';
+import { compressImageFile, formatOpCode, sendOpEmailNotification } from '../../services/googleSheetsService';
+import { EmailNotificationSelector } from './EmailNotificationSelector';
+import { getUsuariosList } from '../../services/authService';
 
 interface SolicitudFormProps {
   monitoreoList: MonitoreoItem[];
@@ -31,6 +33,14 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   const [lote, setLote] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+
+  // Email Notification Selection State
+  const [selectedEmails, setSelectedEmails] = useState<string[]>(() => {
+    const list = getUsuariosList();
+    return list.map(u => u.email.toLowerCase().trim()).filter(e => e.includes('@'));
+  });
+  const [autoSendEmail, setAutoSendEmail] = useState<boolean>(true);
+  const [isSendingManualEmail, setIsSendingManualEmail] = useState<boolean>(false);
 
   // Sede and Status determination according to user origin (Zona Franca vs Others)
   const isZonaFranca = isUserFromZonaFranca(currentUser);
@@ -104,22 +114,13 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!tela || !op) {
-      alert("Por favor completa los campos obligatorios (Tela y OP).");
-      return;
-    }
-
-    // Build technical test notes if provided
+  const buildCurrentColchaData = (): SolicitudColcha => {
     let technicalObs = '';
     if (encogimientoTrama !== '' || encogimientoUrdimbre !== '') {
       technicalObs = `MEDIDA INICIAL:${medidaInicial || 25}CM ENCOGIMIENTO EN TRAMA:${encogimientoTrama || 0}% ENCOGIMIENTO EN URDIMBRE:${encogimientoUrdimbre || 0}%`;
     }
 
     const finalObs = [observaciones.trim(), technicalObs].filter(Boolean).join(' | ');
-
     const now = new Date();
     const d = now.getDate();
     const m = now.getMonth() + 1;
@@ -129,11 +130,11 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     const ss = String(now.getSeconds()).padStart(2, '0');
     const colombianNowStr = `${d}/${m}/${y} ${hh}:${mm}:${ss}`;
 
-    const colcha: SolicitudColcha = {
+    return {
       id: `colcha-${Date.now()}`,
-      op: formatOpCode(op),
+      op: formatOpCode(op || 'OP-MUESTRA'),
       referencia: referencia || 'N/A',
-      tela: tela,
+      tela: tela || 'TELA INDIGO',
       codigoMt: mt || 'MT-AUTO',
       color: color || 'AZUL',
       rollos: Number(rollos) || 1,
@@ -156,6 +157,37 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       tieneRetraso: false,
       esRetrasoCritico: false
     };
+  };
+
+  const handleManualSendEmail = async () => {
+    if (!tela || !op) {
+      alert("Por favor completa los campos de Tela y OP antes de enviar la ficha por correo.");
+      return;
+    }
+    if (selectedEmails.length === 0) {
+      alert("Por favor selecciona al menos un correo destinatario.");
+      return;
+    }
+    setIsSendingManualEmail(true);
+    try {
+      const colchaData = buildCurrentColchaData();
+      await sendOpEmailNotification(colchaData, selectedEmails);
+    } finally {
+      setIsSendingManualEmail(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!tela || !op) {
+      alert("Por favor completa los campos obligatorios (Tela y OP).");
+      return;
+    }
+
+    const colcha = buildCurrentColchaData();
+    (colcha as any).recipients = autoSendEmail ? selectedEmails : [];
+    (colcha as any).userEmails = autoSendEmail ? selectedEmails : [];
 
     onSubmit(colcha);
   };
@@ -473,6 +505,16 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
               )}
             </div>
           </div>
+
+          {/* SECCIÓN 3: SELECCIÓN DE CORREOS PARA NOTIFICACIÓN CORPORATIVA */}
+          <EmailNotificationSelector
+            selectedEmails={selectedEmails}
+            onChangeSelectedEmails={setSelectedEmails}
+            autoSendOnSubmit={autoSendEmail}
+            onChangeAutoSend={setAutoSendEmail}
+            onSendManualEmail={handleManualSendEmail}
+            isSendingEmail={isSendingManualEmail}
+          />
 
         </div>
 

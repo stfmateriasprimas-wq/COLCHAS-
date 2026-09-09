@@ -1027,7 +1027,13 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
   const inspectorToUse = payload.inspector || 'OPERARIO STF';
 
   const users = getUsuariosList();
-  const userEmails = users.map(u => u.email).filter(Boolean);
+  const fallbackUserEmails = users.map(u => u.email).filter(Boolean);
+  const targetRecipients = (payload as any).recipients && Array.isArray((payload as any).recipients) && (payload as any).recipients.length > 0
+    ? (payload as any).recipients
+    : ((payload as any).userEmails && Array.isArray((payload as any).userEmails) && (payload as any).userEmails.length > 0
+        ? (payload as any).userEmails
+        : fallbackUserEmails);
+
   const origin = typeof window !== 'undefined' && window.location.origin
     ? window.location.origin
     : 'https://colchas.vercel.app';
@@ -1078,7 +1084,8 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     ...payload,
     op: formattedOp,
     ...rowData,
-    userEmails: userEmails,
+    userEmails: targetRecipients,
+    recipients: targetRecipients,
     appUrl: `${origin}/?op=${encodeURIComponent(formattedOp)}&view=public`
   });
 
@@ -1086,6 +1093,28 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     success: res.success,
     message: res.message || 'Solicitud guardada en Google Sheets (BASE_DE_DATOS)',
     driveUrl: res.data ? res.data.driveUrl : undefined
+  };
+}
+
+export async function sendOpEmailNotification(
+  opData: Partial<SolicitudColcha>, 
+  recipients: string[]
+): Promise<{ success: boolean; message: string }> {
+  const origin = typeof window !== 'undefined' && window.location.origin
+    ? window.location.origin
+    : 'https://colchas.vercel.app';
+  const formattedOp = formatOpCode(opData.op || '');
+  
+  const res = await sendAppsScriptPost('SEND_OP_EMAIL', {
+    ...opData,
+    op: formattedOp,
+    recipients: recipients,
+    userEmails: recipients,
+    appUrl: `${origin}/?op=${encodeURIComponent(formattedOp)}&view=public`
+  });
+  return {
+    success: res.success,
+    message: res.message || 'Correo de notificación enviado con éxito'
   };
 }
 
