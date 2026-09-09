@@ -179,8 +179,6 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       e.stopPropagation();
     }
 
-    if (isSubmitting) return;
-
     if (!op || !op.trim()) {
       alert("⚠️ Por favor ingresa el número de Orden de Producción (OP).");
       return;
@@ -190,7 +188,6 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     const finalOp = formatOpCode(op.trim());
     const finalRollos = typeof rollos === 'number' && rollos > 0 ? rollos : 1;
 
-    setIsSubmitting(true);
     try {
       const colcha = buildCurrentColchaData();
       colcha.op = finalOp;
@@ -202,7 +199,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       onSubmit(colcha);
     } catch (err) {
       console.error("Error al registrar solicitud:", err);
-      setIsSubmitting(false);
+      alert("Error al procesar la solicitud.");
     }
   };
 
@@ -575,16 +572,15 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
             CANCELAR
           </button>
           
-          {/* BOTÓN REGISTRAR CON ELEVACIÓN EN HOVER Y ESTADO EN VIVO */}
+          {/* BOTÓN REGISTRAR CON ELEVACIÓN EN HOVER */}
           <button
             type="button"
             onClick={handleDirectSubmit}
-            disabled={isSubmitting}
-            className="px-9 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-black text-xs flex items-center gap-2.5 shadow-xl transition-all duration-200 transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/30 active:translate-y-0 active:scale-95 cursor-pointer font-mono uppercase tracking-wider disabled:opacity-50"
+            className="px-9 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-black text-xs flex items-center gap-2.5 shadow-xl transition-all duration-200 transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/30 active:translate-y-0 active:scale-95 cursor-pointer font-mono uppercase tracking-wider"
             title="Registrar nueva solicitud de OP"
           >
-            <CheckCircle2 className={`w-5 h-5 text-black ${isSubmitting ? 'animate-spin' : ''}`} />
-            <span>{isSubmitting ? 'REGISTRANDO SOLICITUD...' : 'REGISTRAR SOLICITUD'}</span>
+            <CheckCircle2 className="w-5 h-5 text-black" />
+            <span>REGISTRAR SOLICITUD</span>
           </button>
         </div>
 

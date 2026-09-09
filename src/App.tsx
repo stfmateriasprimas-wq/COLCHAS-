@@ -390,38 +390,45 @@ export function App() {
   };
 
   // New request submission
-  const handleAddNewSolicitud = async (nueva: SolicitudColcha) => {
-    nueva.op = formatOpCode(nueva.op);
-    if (currentUser) {
-      nueva.inspector = currentUser.nombre;
+  const handleAddNewSolicitud = (nueva: SolicitudColcha) => {
+    try {
+      nueva.op = formatOpCode(nueva.op);
+      if (currentUser) {
+        nueva.inspector = currentUser.nombre;
+      }
+      // Desmarcar de historial de eliminadas
+      unmarkOpAsDeleted(nueva.op);
+
+      // Save to persistent storage so it survives sync and reloads
+      saveLocalCreatedOp(nueva);
+      const cleanTarget = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
+      setSolicitudes(prev => [nueva, ...prev.filter(s => (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) !== cleanTarget)]);
+
+      // Eliminar OP de la lista de Monitoreo en tiempo real (de 6 quedan 5)
+      const cleanOpNumber = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
+      setMonitoreoList(prev => prev.filter(item => {
+        const cleanItemOp = (item.op || '').replace(/\D/g, '') || (item.op || '').trim().toUpperCase();
+        return cleanItemOp !== cleanOpNumber;
+      }));
+      markMonitoreoOpAsConsumed(nueva.op);
+      deleteOrConsumeMonitoreoOpFromSheets(nueva.op).catch(() => {});
+
+      // Sincronización en vivo hacia Google Sheets & Drive (Página BASE_DE_DATOS) en segundo plano
+      pushSolicitudToSheets(nueva).catch(err => {
+        console.warn('Error sincronizando nueva solicitud con Google Sheets:', err);
+      });
+
+      // Navegación inmediata a Bandeja y apertura de etiqueta térmica
+      setSelectedColchaPrinter(nueva);
+      setActiveTab('solicitudes');
+
+      // Alerta sonora de éxito
+      notificationService.playAlertSound('EXITO');
+    } catch (e) {
+      console.error('Error en handleAddNewSolicitud:', e);
+      setSelectedColchaPrinter(nueva);
+      setActiveTab('solicitudes');
     }
-    // Desmarcar de historial de eliminadas
-    unmarkOpAsDeleted(nueva.op);
-
-    // Save to persistent storage so it survives sync and reloads
-    saveLocalCreatedOp(nueva);
-    const cleanTarget = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
-    setSolicitudes(prev => [nueva, ...prev.filter(s => (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) !== cleanTarget)]);
-
-    // Eliminar OP de la lista de Monitoreo en tiempo real (de 6 quedan 5)
-    const cleanOpNumber = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
-    setMonitoreoList(prev => prev.filter(item => {
-      const cleanItemOp = (item.op || '').replace(/\D/g, '') || (item.op || '').trim().toUpperCase();
-      return cleanItemOp !== cleanOpNumber;
-    }));
-    markMonitoreoOpAsConsumed(nueva.op);
-    deleteOrConsumeMonitoreoOpFromSheets(nueva.op);
-
-    setSelectedColchaPrinter(nueva);
-    setActiveTab('solicitudes');
-
-    // Alerta sonora de éxito
-    notificationService.playAlertSound('EXITO');
-
-    // Sincronización en vivo hacia Google Sheets & Drive (Página BASE_DE_DATOS) en segundo plano
-    pushSolicitudToSheets(nueva).catch(err => {
-      console.warn('Error sincronizando nueva solicitud con Google Sheets:', err);
-    });
   };
 
   // Transfer stage confirmation
