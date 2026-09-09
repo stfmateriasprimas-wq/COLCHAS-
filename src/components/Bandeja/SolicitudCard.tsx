@@ -770,57 +770,45 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           </div>
 
           {solicitud.estado === 'PRE_SOLICITUD' ? (
-            isLavanderiaUser(currentUser) ? (
-              <span className="text-xs bg-sky-950/60 dark:bg-sky-50 text-sky-300 dark:text-sky-700 font-mono font-bold px-3.5 py-2 rounded-2xl border border-sky-500/40 dark:border-sky-300 flex items-center gap-1.5 shadow-xs">
-                <Droplets className="w-3.5 h-3.5 text-sky-400" />
-                <span>PENDIENTE POR RECIBIR</span>
-              </span>
-            ) : isAdminUser(currentUser) ? (
-              <button
-                onClick={() => onTransfer(solicitud)}
-                className="px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
-              >
-                <span>TRANSFERIR A LAVANDERÍA</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <span className="text-xs bg-zinc-900 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 font-bold px-3.5 py-2 rounded-2xl border border-zinc-800 dark:border-zinc-200 font-mono flex items-center gap-1.5 shadow-xs">
-                <span>📦 PENDIENTE POR LAVANDERÍA</span>
-              </span>
-            )
+            <button
+              type="button"
+              onClick={() => onTransfer(solicitud)}
+              className="px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
+              title="Transferir muestra a Lavandería Colfactory ZF"
+            >
+              <span>TRANSFERIR A LAVANDERÍA</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           ) : solicitud.estado === 'SOLICITADO' ? (
-            isLavanderiaUser(currentUser) ? (
-              <span className="text-xs bg-amber-950/60 dark:bg-amber-50 text-amber-300 dark:text-amber-700 font-mono font-bold px-3.5 py-2 rounded-2xl border border-amber-500/40 dark:border-amber-300 flex items-center gap-1.5 shadow-xs">
-                <Droplets className="w-3.5 h-3.5 text-amber-400" />
-                <span>PENDIENTE POR RECIBIR</span>
-              </span>
-            ) : (
-              <span className="text-xs bg-zinc-900 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 font-bold px-3.5 py-2 rounded-2xl border border-zinc-800 dark:border-zinc-200 font-mono flex items-center gap-1.5 shadow-xs">
-                <span>📦 PENDIENTE POR LAVANDERÍA</span>
-              </span>
-            )
+            <button
+              type="button"
+              onClick={() => onTransfer(solicitud)}
+              className="px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
+              title="Transferir muestra a Lavandería Colfactory ZF"
+            >
+              <span>TRANSFERIR A LAVANDERÍA</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           ) : solicitud.estado === 'LAVANDERIA' ? (
-            (isLavanderiaUser(currentUser) || isAdminUser(currentUser)) ? (
-              <span className="text-xs bg-sky-950/80 dark:bg-sky-100 text-sky-300 dark:text-sky-800 font-bold px-3.5 py-2 rounded-2xl border border-sky-500/40 dark:border-sky-300 font-mono">
-                ⚡ GESTIÓN ACTIVA ARRIBA
-              </span>
-            ) : (
-              <span className="text-xs bg-sky-950/60 dark:bg-sky-50 text-sky-300 dark:text-sky-700 font-mono font-bold px-3.5 py-2 rounded-2xl border border-sky-500/40 dark:border-sky-300 flex items-center gap-1.5 shadow-xs">
-                <Droplets className="w-3.5 h-3.5 text-sky-400" />
-                <span>EN PROCESO DE LAVADO</span>
-              </span>
-            )
+            <button
+              type="button"
+              onClick={() => onTransfer(solicitud)}
+              className="px-5 py-2.5 rounded-2xl bg-sky-500 hover:bg-sky-400 text-black text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
+              title="Despachar muestra de Lavandería hacia Calidad STF"
+            >
+              <span>TRANSFERIR A CALIDAD</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           ) : solicitud.estado === 'CALIDAD' ? (
-            (isCalidadUser(currentUser) || isAdminUser(currentUser)) ? (
-              <span className="text-xs bg-purple-950/80 dark:bg-purple-100 text-purple-300 dark:text-purple-800 font-bold px-3.5 py-2 rounded-2xl border border-purple-500/40 dark:border-purple-300 font-mono">
-                ⚡ DICTAMEN ACTIVO ARRIBA
-              </span>
-            ) : (
-              <span className="text-xs bg-purple-950/60 dark:bg-purple-50 text-purple-300 dark:text-purple-700 font-mono font-bold px-3.5 py-2 rounded-2xl border border-purple-500/40 dark:border-purple-300 flex items-center gap-1.5 shadow-xs">
-                <Microscope className="w-3.5 h-3.5 text-purple-400" />
-                <span>EN AUDITORÍA DE CALIDAD</span>
-              </span>
-            )
+            <button
+              type="button"
+              onClick={() => onTransfer(solicitud)}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
+              title="Emitir dictamen final de auditoría (Aprobado / Rechazado)"
+            >
+              <span>EMITIR DICTAMEN FINAL</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           ) : (
             <span className={`text-xs font-bold px-3.5 py-2 rounded-2xl border font-mono flex items-center gap-1.5 shadow-xs ${
               solicitud.dictamen === 'RECHAZADO'
