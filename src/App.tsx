@@ -273,24 +273,29 @@ export function App() {
     }
   };
 
-  const handleDeleteOp = async (solicitud: SolicitudColcha) => {
-    // Al pulsar ELIMINAR, se ejecuta la eliminación de forma automática e inmediata
-    await executeDeleteOp(solicitud);
+  const handleDeleteOp = (solicitud: SolicitudColcha) => {
+    setConfirmDeleteOp(solicitud);
   };
 
   const executeDeleteOp = async (solicitud: SolicitudColcha) => {
-    const adminName = currentUser ? `${currentUser.nombre} (Administrador)` : 'Edwin Diaz (Administrador)';
+    if (!solicitud) return;
+    setConfirmDeleteOp(null);
+
+    const adminName = currentUser ? `${currentUser.nombre} (${currentUser.rol || 'Calidad'})` : 'Edwin Diaz (Administrador)';
     addOpToDeletedHistory(solicitud, adminName);
     
-    const targetCleanOp = solicitud.op.replace(/^OP-+/i, '').trim().toUpperCase();
-    const targetDigits = solicitud.op.replace(/\D/g, '');
+    const targetCleanOp = (solicitud.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
+    const targetDigits = (solicitud.op || '').replace(/\D/g, '');
 
     // 1. Eliminar inmediatamente del estado activo en memoria
     setSolicitudes(prev => {
       const updated = prev.filter(s => {
-        const sClean = s.op.replace(/^OP-+/i, '').trim().toUpperCase();
-        const sDigits = s.op.replace(/\D/g, '');
-        return sClean !== targetCleanOp && (targetDigits === '' || sDigits !== targetDigits) && s.id !== solicitud.id;
+        const sClean = (s.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
+        const sDigits = (s.op || '').replace(/\D/g, '');
+        const isMatch = s.id === solicitud.id || 
+                        (targetDigits !== '' && sDigits === targetDigits) || 
+                        (targetCleanOp !== '' && sClean === targetCleanOp);
+        return !isMatch;
       });
       // Guardar lista filtrada en caché para evitar que reaparezca al recargar
       saveCachedSolicitudes(updated);
@@ -299,29 +304,38 @@ export function App() {
 
     // 2. Limpiar de local created ops si existiera
     try {
-      const localCreated = localStorage.getItem('stf_colchas_local_created_ops');
-      if (localCreated) {
-        const parsed = JSON.parse(localCreated);
-        if (Array.isArray(parsed)) {
-          const filteredLocal = parsed.filter((item: any) => {
-            const itemClean = String(item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
-            const itemDigits = String(item.op || '').replace(/\D/g, '');
-            return itemClean !== targetCleanOp && (targetDigits === '' || itemDigits !== targetDigits) && item.id !== solicitud.id;
-          });
-          localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify(filteredLocal));
+      const keys = ['STF_LOCAL_CREATED_OPS', 'stf_colchas_local_created_ops'];
+      keys.forEach(key => {
+        const localCreated = localStorage.getItem(key);
+        if (localCreated) {
+          const parsed = JSON.parse(localCreated);
+          if (Array.isArray(parsed)) {
+            const filteredLocal = parsed.filter((item: any) => {
+              const itemClean = String(item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
+              const itemDigits = String(item.op || '').replace(/\D/g, '');
+              const isMatch = item.id === solicitud.id || 
+                              (targetDigits !== '' && itemDigits === targetDigits) || 
+                              (targetCleanOp !== '' && itemClean === targetCleanOp);
+              return !isMatch;
+            });
+            localStorage.setItem(key, JSON.stringify(filteredLocal));
+          }
         }
-      }
+      });
     } catch (e) {
       console.warn('Error clearing deleted op from local storage:', e);
     }
     
     // 3. Depuración en tiempo real de Google Sheets (ALERTAS y BASE_DE_DATOS)
-    removeOpFromAlertasSheet(solicitud.op);
-    deleteOpFromGoogleSheets(solicitud.op).catch(() => {});
+    try {
+      removeOpFromAlertasSheet(solicitud.op);
+      deleteOpFromGoogleSheets(solicitud.op).catch(() => {});
+    } catch (e) {}
 
     // 4. Feedback sonoro de éxito
-    notificationService.playAlertSound('EXITO');
-    setConfirmDeleteOp(null);
+    try {
+      notificationService.playAlertSound('EXITO');
+    } catch (e) {}
   };
 
   const handleFinalizarOp = (solicitud: SolicitudColcha) => {

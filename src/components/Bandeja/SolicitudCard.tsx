@@ -743,10 +743,13 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             </button>
 
             {/* BOTÓN ELIMINAR (ACTIVO Y FUNCIONAL - GESTIÓN MANUAL DE OPS) */}
-            {isAdminUser(currentUser) && onDelete && (
+            {(!isLavanderiaUser(currentUser)) && onDelete && (
               <button
                 type="button"
-                onClick={() => onDelete(solicitud)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(solicitud);
+                }}
                 className="px-4 py-2.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-600 border border-rose-400/60 dark:border-rose-300 text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
                 title="Eliminar esta OP manualmente del sistema de trabajo (Archivar en historial de recuperación)"
               >
@@ -755,11 +758,14 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               </button>
             )}
 
-            {/* BOTÓN FINALIZAR (EXCLUSIVO PERFIL ADMINISTRADOR EDWIN) */}
-            {isAdminUser(currentUser) && solicitud.estado !== 'FINALIZADO' && onFinalizar && (
+            {/* BOTÓN FINALIZAR (EXCLUSIVO PERFIL CALIDAD / ADMINISTRADOR) */}
+            {(!isLavanderiaUser(currentUser)) && solicitud.estado !== 'FINALIZADO' && onFinalizar && (
               <button
                 type="button"
-                onClick={() => onFinalizar(solicitud)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFinalizar(solicitud);
+                }}
                 className="px-4 py-2.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 dark:text-emerald-700 border border-emerald-500/60 dark:border-emerald-400 text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
                 title="Dar por finalizada esta OP y moverla automáticamente a Finalizados en el sistema y base de datos"
               >

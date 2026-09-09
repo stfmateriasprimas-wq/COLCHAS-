@@ -8,7 +8,7 @@ import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { FloatingScrollPill } from '../Common/FloatingScrollPill';
 import { TabType } from '../Navigation';
 import { getOpChronologicalTimestamp } from '../../services/slaCalculator';
-import { UsuarioSTF, isAdminUser } from '../../services/authService';
+import { UsuarioSTF, isAdminUser, isLavanderiaUser } from '../../services/authService';
 import { DeletedOpsHistorySection } from './DeletedOpsHistorySection';
 
 interface MasterTableProps {
@@ -624,10 +624,13 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                             <Printer className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {isAdminUser(currentUser) && onFinalizarOp && item.estado !== 'FINALIZADO' && (
+                        {(!isLavanderiaUser(currentUser)) && onFinalizarOp && item.estado !== 'FINALIZADO' && (
                           <button
                             type="button"
-                            onClick={() => onFinalizarOp(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onFinalizarOp(item);
+                            }}
                             className="px-2 py-1 bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-400 dark:text-emerald-700 border border-emerald-500/40 rounded-lg text-[10px] font-black font-mono flex items-center gap-1 transition cursor-pointer shadow-xs"
                             title="Dar por finalizada esta OP (Pasar a Finalizados en el sistema y base de datos)"
                           >
@@ -635,12 +638,15 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                             <span>FINALIZAR</span>
                           </button>
                         )}
-                        {isAdminUser(currentUser) && onDeleteOp && (
+                        {(!isLavanderiaUser(currentUser)) && onDeleteOp && (
                           <button
                             type="button"
-                            onClick={() => onDeleteOp(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteOp(item);
+                            }}
                             className="p-1.5 hover:bg-rose-950/60 dark:hover:bg-rose-100 rounded-lg text-rose-400 hover:text-rose-300 transition cursor-pointer"
-                            title="Eliminar OP del sistema (Edwin Administrador)"
+                            title="Eliminar OP del sistema"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

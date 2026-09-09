@@ -60,27 +60,40 @@ export function getDeletedOpNumbers(): string[] {
   return history.map(item => item.op.trim().toUpperCase());
 }
 
-export function isOpDeleted(opNumber: string): boolean {
+export function isOpDeleted(opNumber?: string | null): boolean {
   if (!opNumber) return false;
-  const clean = opNumber.trim().toUpperCase();
-  const digits = opNumber.replace(/\D/g, '');
+  const clean = String(opNumber).replace(/^OP-+/i, '').trim().toUpperCase();
+  const digits = String(opNumber).replace(/\D/g, '');
+  const rawClean = String(opNumber).trim().toUpperCase();
   const deletedHistory = getDeletedOpsHistory();
   return deletedHistory.some(item => {
-    const itemClean = item.op.trim().toUpperCase();
-    const itemDigits = item.op.replace(/\D/g, '');
-    return itemClean === clean || (digits !== '' && itemDigits === digits) || clean.includes(itemClean) || itemClean.includes(clean);
+    const itemRaw = (item.op || '').trim().toUpperCase();
+    const itemClean = (item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
+    const itemDigits = (item.op || '').replace(/\D/g, '');
+    return (
+      itemRaw === rawClean ||
+      (clean !== '' && itemClean === clean) ||
+      (digits !== '' && itemDigits === digits) ||
+      (itemDigits !== '' && rawClean.includes(itemDigits)) ||
+      (digits !== '' && itemRaw.includes(digits))
+    );
   });
 }
 
-export function unmarkOpAsDeleted(opNumber: string): void {
+export function unmarkOpAsDeleted(opNumber?: string | null): void {
   if (!opNumber) return;
-  const clean = opNumber.trim().toUpperCase();
-  const digits = opNumber.replace(/\D/g, '');
+  const clean = String(opNumber).replace(/^OP-+/i, '').trim().toUpperCase();
+  const digits = String(opNumber).replace(/\D/g, '');
+  const rawClean = String(opNumber).trim().toUpperCase();
   const history = getDeletedOpsHistory();
   const filtered = history.filter(item => {
-    const itemClean = item.op.trim().toUpperCase();
-    const itemDigits = item.op.replace(/\D/g, '');
-    return itemClean !== clean && (digits === '' || itemDigits !== digits);
+    const itemRaw = (item.op || '').trim().toUpperCase();
+    const itemClean = (item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
+    const itemDigits = (item.op || '').replace(/\D/g, '');
+    const isMatch = itemRaw === rawClean ||
+                    (clean !== '' && itemClean === clean) ||
+                    (digits !== '' && itemDigits === digits);
+    return !isMatch;
   });
   if (filtered.length !== history.length) {
     saveDeletedOpsHistory(filtered);

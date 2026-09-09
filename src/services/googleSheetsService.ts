@@ -1,6 +1,7 @@
 import { MonitoreoItem, SolicitudColcha, SectorType, DictamenType } from '../types';
 import { calculateWorkingDays } from './slaCalculator';
 import { getUsuariosList } from './authService';
+import { isOpDeleted } from './deletedOpsService';
 
 export const SPREADSHEET_ID = "1jTM8OG2u3bO9Cyrlyn3DJSnGcyLOzA8EWwxwOyWgXdc";
 export const BACKUP_SPREADSHEET_ID = "1qb9unBiGpV3QHgRtHonAAeyN0M8EQ4QhCan1Bnywx3M";
@@ -456,20 +457,21 @@ export function getCachedSolicitudes(): SolicitudColcha[] {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return parsed.filter(item => !isOpDeleted(item.op));
         }
       } catch (e) {
         console.warn('Error parsing cached solicitudes:', e);
       }
     }
   }
-  return TODAY_REAL_SHEET_OPS;
+  return TODAY_REAL_SHEET_OPS.filter(item => !isOpDeleted(item.op));
 }
 
 export function saveCachedSolicitudes(ops: SolicitudColcha[]): void {
-  if (typeof window !== 'undefined' && Array.isArray(ops) && ops.length > 0) {
+  if (typeof window !== 'undefined' && Array.isArray(ops)) {
     try {
-      localStorage.setItem(CACHED_BASE_DATOS_KEY, JSON.stringify(ops));
+      const activeOnly = ops.filter(item => !isOpDeleted(item.op));
+      localStorage.setItem(CACHED_BASE_DATOS_KEY, JSON.stringify(activeOnly));
     } catch (e) {
       console.warn('Error storing cached solicitudes in localStorage:', e);
     }
@@ -537,6 +539,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               if (!opRaw && !telaRaw) return;
               if (opRaw.toUpperCase() === 'OP' && telaRaw.toUpperCase() === 'TELA') return;
 
+              const cleanOp = formatOpCode(opRaw);
+              if (isOpDeleted(opRaw) || isOpDeleted(cleanOp)) return;
+
               const estado = mapEstadoStringToSector(estadoRaw);
               const fechaStr = fechaRaw || new Date().toISOString();
               const { diasHabiles, horasHabiles, tieneRetraso, esRetrasoCritico } = calculateWorkingDays(fechaStr);
@@ -551,7 +556,6 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                 dictamen = fullObs.includes('RECHAZADO') || fullObs.includes('NO CUMPLE') ? 'RECHAZADO' : 'APROBADO';
               }
 
-              const cleanOp = formatOpCode(opRaw);
               const { foto1, foto2 } = parseDualPhotos(fotoUrlRaw);
 
               parsedList.push({
@@ -581,7 +585,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
             });
 
             if (parsedList.length > 0) {
-              const localOps = getLocalCreatedOps();
+              const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
               const merged = [...parsedList];
               localOps.forEach(loc => {
                 const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
@@ -606,8 +610,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                   };
                 }
               });
-              saveCachedSolicitudes(merged);
-              return merged;
+              const finalActive = merged.filter(item => !isOpDeleted(item.op));
+              saveCachedSolicitudes(finalActive);
+              return finalActive;
             }
           }
         }
@@ -666,6 +671,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
         }
 
         const cleanOp = formatOpCode(opRaw);
+        if (isOpDeleted(opRaw) || isOpDeleted(cleanOp)) continue;
         const { foto1, foto2 } = parseDualPhotos(r[12] || '');
 
         solicitudes.push({
@@ -695,7 +701,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
       }
 
       if (solicitudes.length > 0) {
-        const localOps = getLocalCreatedOps();
+        const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
         const merged = [...solicitudes];
         localOps.forEach(loc => {
           const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
@@ -720,8 +726,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
             };
           }
         });
-        saveCachedSolicitudes(merged);
-        return merged;
+        const finalActive = merged.filter(item => !isOpDeleted(item.op));
+        saveCachedSolicitudes(finalActive);
+        return finalActive;
       }
     } catch (err) {
       console.warn(`Error fetching Base de Datos from CSV URL ${url}:`, err);
@@ -1386,9 +1393,14 @@ export async function removeOpFromAlertasSheet(op: string): Promise<{ success: b
 
 export async function deleteOpFromGoogleSheets(op: string): Promise<{ success: boolean; message: string }> {
   if (!op) return { success: true, message: 'OP vacía' };
-  const cleanOp = op.trim().toUpperCase();
+  const cleanDigits = String(op).replace(/\D/g, '');
+  const cleanOp = String(op).replace(/^OP-?/i, '').trim().toUpperCase();
 
-  const res = await sendAppsScriptPost('DELETE_OP', { op: cleanOp });
+  const res = await sendAppsScriptPost('DELETE_OP', { 
+    op,
+    cleanDigits,
+    cleanOp: `OP-${cleanOp}`
+  });
   return {
     success: res.success,
     message: `OP ${op} eliminada en tiempo real de Google Sheets`
