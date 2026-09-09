@@ -38,6 +38,7 @@ import {
   removeOpFromAlertasSheet,
   deleteOpFromGoogleSheets,
   formatOpCode,
+  isMatchingOp,
   getCachedSolicitudes,
   saveCachedSolicitudes,
   INITIAL_MONITOREO_DATA, 
@@ -225,12 +226,7 @@ export function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const opParam = urlParams.get('op');
     if (opParam && solicitudes.length > 0 && !hasProcessedUrlOpRef.current) {
-      const cleanTargetOp = opParam.replace(/\D/g, '') || opParam.trim().toUpperCase();
-      const match = solicitudes.find(s => 
-        s.op.replace(/\D/g, '') === cleanTargetOp || 
-        s.op.trim().toUpperCase() === opParam.trim().toUpperCase() ||
-        s.op.trim().toUpperCase().includes(opParam.trim().toUpperCase())
-      );
+      const match = solicitudes.find(s => isMatchingOp(s.op, opParam));
       if (match) {
         setSelectedColchaDetail(match);
         hasProcessedUrlOpRef.current = true;

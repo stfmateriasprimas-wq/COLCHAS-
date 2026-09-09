@@ -86,7 +86,7 @@ export function mapAreaName(sector: SectorType): string {
 }
 
 /**
- * Normaliza y formatea el código de la OP anteponiendo siempre el prefijo oficial "OP-"
+ * Normaliza y formatea el código de la OP asegurando el prefijo oficial "OP-"
  * Ejemplos: "55663" -> "OP-55663", "3623" -> "OP-3623", "OP-00096199" -> "OP-00096199"
  */
 export function formatOpCode(rawOp: string): string {
@@ -102,6 +102,26 @@ export function formatOpCode(rawOp: string): string {
     return `OP-${rest}`;
   }
   return `OP-${trimmed}`;
+}
+
+/**
+ * Compara dos identificadores de OP de forma estricta y segura.
+ * Elimina prefijos "OP-", espacios y ceros a la izquierda sin realizar búsquedas parciales (evita falsos positivos como 569 con 00095693).
+ */
+export function isMatchingOp(opA?: string, opB?: string): boolean {
+  if (!opA || !opB) return false;
+  const cleanA = String(opA).replace(/^OP-+/i, '').trim().toUpperCase();
+  const cleanB = String(opB).replace(/^OP-+/i, '').trim().toUpperCase();
+  if (cleanA === cleanB) return true;
+
+  const digitsA = cleanA.replace(/\D/g, '');
+  const digitsB = cleanB.replace(/\D/g, '');
+  if (digitsA && digitsB) {
+    if (parseInt(digitsA, 10) === parseInt(digitsB, 10)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export const MONITOREO_GID = "1356774059";

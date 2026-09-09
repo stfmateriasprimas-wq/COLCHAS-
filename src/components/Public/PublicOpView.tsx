@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { SolicitudColcha, SectorType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp } from '../../services/googleSheetsService';
+import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp, isMatchingOp } from '../../services/googleSheetsService';
 import { getCleanFinalQualityObservation } from '../../services/exportService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 import { parsePublicTrackingPayload } from '../../services/qrTrackingService';
@@ -41,18 +41,15 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
 
   // Find OP in live data + localStorage + QR Encoded URL Payload
   const colcha = useMemo(() => {
-    const cleanTarget = opNumber.replace(/^OP-?/i, '').trim().toUpperCase();
-    const targetDigits = opNumber.replace(/\D/g, '');
-
-    const matchOp = (s: SolicitudColcha) => {
-      const cleanOp = (s.op || '').replace(/^OP-?/i, '').trim().toUpperCase();
-      const digits = (s.op || '').replace(/\D/g, '');
-      return cleanOp === cleanTarget || (targetDigits !== '' && digits === targetDigits) || cleanOp.includes(cleanTarget);
-    };
-
     // 1. Decodificar la carga útil del QR si viene en la URL (?d=...)
     const parsedQr = parsePublicTrackingPayload();
-    if (parsedQr && matchOp(parsedQr)) {
+    const targetOp = parsedQr?.op || opNumber;
+
+    const matchOp = (s: SolicitudColcha) => {
+      return isMatchingOp(s.op, targetOp);
+    };
+
+    if (parsedQr) {
       try {
         saveLocalCreatedOp(parsedQr);
       } catch (e) {}
@@ -62,7 +59,8 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     const localOps = getLocalCreatedOps();
     const localFound = localOps.find(matchOp);
 
-    const base = liveFound || localFound || parsedQr;
+    // Cuando se escanea un código QR con payload (?d=...), parsedQr es la fuente de verdad primaria y exacta de la etiqueta escaneada
+    const base = parsedQr || liveFound || localFound;
     if (!base) return null;
 
     const bestFotoMuestra = liveFound?.fotoMuestraUrl || localFound?.fotoMuestraUrl || parsedQr?.fotoMuestraUrl;
@@ -70,21 +68,26 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
 
     return {
       ...base,
+      op: parsedQr?.op || base.op,
       referencia: parsedQr?.referencia || base.referencia,
       tela: parsedQr?.tela || base.tela,
       color: parsedQr?.color || base.color,
-      rollos: parsedQr?.rollos || base.rollos,
+      rollos: parsedQr?.rollos !== undefined ? parsedQr.rollos : base.rollos,
       codigoMt: parsedQr?.codigoMt || base.codigoMt,
       lote: parsedQr?.lote || base.lote,
       inspector: parsedQr?.inspector || base.inspector,
       fechaCreacion: parsedQr?.fechaCreacion || base.fechaCreacion,
       fotoMuestraUrl: bestFotoMuestra,
       fotoCalidadUrl: bestFotoCalidad,
-      observacionesCalidad: localFound?.observacionesCalidad || parsedQr?.observacionesCalidad || liveFound?.observacionesCalidad,
-      observacionesOperario: localFound?.observacionesOperario || parsedQr?.observacionesOperario || liveFound?.observacionesOperario,
-      dictamen: localFound?.dictamen || parsedQr?.dictamen || liveFound?.dictamen || (base.estado === 'FINALIZADO' ? 'APROBADO' : 'PENDIENTE'),
-      estado: localFound?.fechaActualizacion ? localFound.estado : (parsedQr?.estado || liveFound?.estado || base.estado),
-      areaActual: localFound?.fechaActualizacion ? localFound.areaActual : (parsedQr?.areaActual || liveFound?.areaActual || base.areaActual)
+      observacionesCalidad: parsedQr?.observacionesCalidad || localFound?.observacionesCalidad || liveFound?.observacionesCalidad || '',
+      observacionesOperario: parsedQr?.observacionesOperario || localFound?.observacionesOperario || liveFound?.observacionesOperario || '',
+      dictamen: parsedQr?.dictamen || localFound?.dictamen || liveFound?.dictamen || (base.estado === 'FINALIZADO' ? 'APROBADO' : 'PENDIENTE'),
+      estado: parsedQr?.estado || (localFound?.fechaActualizacion ? localFound.estado : (liveFound?.estado || base.estado)),
+      areaActual: parsedQr?.areaActual || (localFound?.fechaActualizacion ? localFound.areaActual : (liveFound?.areaActual || base.areaActual)),
+      diasHabiles: parsedQr?.diasHabiles !== undefined ? parsedQr.diasHabiles : base.diasHabiles,
+      horasEnProceso: parsedQr?.horasEnProceso !== undefined ? parsedQr.horasEnProceso : base.horasEnProceso,
+      tieneRetraso: parsedQr?.tieneRetraso !== undefined ? parsedQr.tieneRetraso : base.tieneRetraso,
+      esRetrasoCritico: parsedQr?.esRetrasoCritico !== undefined ? parsedQr.esRetrasoCritico : base.esRetrasoCritico
     };
   }, [solicitudes, opNumber]);
 
