@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SafeQRCode } from '../Common/SafeQRCode';
 import { Printer, X, Copy, ExternalLink, Check, ShieldCheck, User, Camera, Download, FileText } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
-import { generateColchaPdfTicket, printColchaDirectTicket, getCleanFinalQualityObservation } from '../../services/exportService';
+import { generateColchaPdfTicket, printColchaDirectTicket, getCleanFinalQualityObservation, getCleanInitialObservation } from '../../services/exportService';
 import { generatePublicTrackingUrl, generatePublicTrackingUrlAsync } from '../../services/qrTrackingService';
 
 const STF_QR_LOGO_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23000000"/><rect x="4" y="4" width="92" height="92" rx="16" fill="%23000000" stroke="%23ffffff" stroke-width="4"/><text x="50" y="65" font-size="38" font-family="Arial, Helvetica, sans-serif" font-weight="900" fill="%23ffffff" text-anchor="middle" letter-spacing="-1">STF</text></svg>`;
@@ -33,6 +33,19 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
 
   // Enlace oficial de trazabilidad pública con carga de datos completa codificada (resiliente para móviles)
   const publicLink = asyncTrackingUrl || generatePublicTrackingUrl(colcha);
+
+  const isFinalizado = colcha.estado === 'FINALIZADO';
+  const cleanFinalObs = getCleanFinalQualityObservation(colcha);
+  const cleanInitialObs = getCleanInitialObservation(colcha);
+  const obsToShow = isFinalizado ? cleanFinalObs : cleanInitialObs;
+  const obsTitle = isFinalizado ? 'OBSERVACIÓN FINAL CALIDAD:' : 'OBSERVACIÓN OPERARIO / CORTE:';
+
+  const cleanOpDigits = colcha.op.replace(/^OP-?/i, '').trim();
+  const refClean = colcha.referencia ? colcha.referencia.toUpperCase() : 'S/R';
+  const refDisplay = refClean.startsWith('REF') ? refClean : `REF-${refClean}`;
+  const mtDisplay = colcha.codigoMt ? (colcha.codigoMt.toUpperCase().endsWith('MT') ? colcha.codigoMt : `${colcha.codigoMt} Mt`) : 'MT-AUTO';
+  const loteDisplay = colcha.lote ? (colcha.lote.toUpperCase().startsWith('LOTE') ? colcha.lote : `LOTE-${colcha.lote}`) : 'LOTE-1';
+  const printDateStr = new Date().toLocaleString('es-CO');
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicLink);
@@ -111,94 +124,95 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
               <p className="mt-1 text-zinc-500 dark:text-zinc-400">Alineado y calibrado para comando directo de impresión térmica (Zebra, Sato, etc.)</p>
             </div>
 
-            {/* Physical Label Simulation Card */}
+            {/* Physical Label Simulation Card with Exact Double Border Frame */}
             <div className="bg-zinc-100 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 shadow-inner">
               
-              {/* White 4x4 Adhesive Label */}
-              <div
-                id="thermal-label-container"
-                className="bg-white text-zinc-950 p-4 rounded-lg shadow-md font-sans text-xs space-y-2 border border-zinc-300 aspect-square flex flex-col justify-between select-none"
-              >
-                {/* Header */}
-                <div className="text-center border-b-2 border-zinc-950 pb-1">
-                  <h3 className="text-sm font-black tracking-widest brand-title text-zinc-950">
-                    COLCHAS STF
-                  </h3>
-                  <div className="text-xs font-black tracking-wide font-mono mt-0.5">
-                    {colcha.op} / REF–{colcha.referencia}
-                  </div>
-                </div>
-
-                {/* Tela Box */}
-                <div className="border border-zinc-950 px-2 py-0.5 rounded text-center text-[10px] font-black uppercase tracking-tight bg-zinc-50">
-                  TELA: {colcha.tela}
-                </div>
-
-                {/* Middle Data & QR */}
-                <div className="grid grid-cols-12 gap-2 items-center">
-                  
-                  {/* Left: Metadata list */}
-                  <div className="col-span-7 space-y-1 text-[10px] font-bold">
-                    <div className="flex justify-between border-b border-zinc-200 pb-0.5">
-                      <span className="text-zinc-600">COLOR:</span>
-                      <span className="text-zinc-950">{colcha.color}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-zinc-200 pb-0.5">
-                      <span className="text-zinc-600">ROLLOS:</span>
-                      <span className="text-zinc-950">{colcha.rollos} rls</span>
-                    </div>
-                    <div className="flex justify-between border-b border-zinc-200 pb-0.5">
-                      <span className="text-zinc-600">METRAJE:</span>
-                      <span className="text-zinc-950 font-mono text-[9px]">{colcha.codigoMt} Mt</span>
-                    </div>
-                    <div className="flex justify-between border-b border-zinc-200 pb-0.5">
-                      <span className="text-zinc-600">LOTES:</span>
-                      <span className="text-zinc-950">{colcha.lote || '1'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-600">DICTAMEN:</span>
-                      <span className="text-zinc-950 font-black">{colcha.dictamen}</span>
+              {/* Double border container */}
+              <div className="bg-white p-1.5 border-[3.5px] border-black rounded-sm shadow-md aspect-square select-none max-w-[390px] mx-auto w-full">
+                <div
+                  id="thermal-label-container"
+                  className="bg-white text-black p-3 border-[1.5px] border-black h-full flex flex-col justify-between font-sans select-none"
+                >
+                  {/* Header */}
+                  <div className="text-center border-b-2 border-black pb-1.5">
+                    <h3 className="text-base sm:text-lg font-black tracking-widest text-black uppercase font-sans">
+                      COLCHAS STF
+                    </h3>
+                    <div className="text-xs sm:text-sm font-black tracking-wide font-mono mt-0.5 text-black">
+                      {colcha.op} / {refDisplay}
                     </div>
                   </div>
 
-                  {/* Right: High-contrast QR with public URL and central STF logo */}
-                  <div className="col-span-5 flex flex-col items-center justify-center text-center">
-                    <div className="p-1 border border-zinc-400 rounded bg-white">
-                      <SafeQRCode
-                        id="thermal-label-qr-svg"
-                        value={publicLink}
-                        size={72}
-                        level="M"
-                        includeMargin={false}
-                        imageSettings={{
-                          src: STF_QR_LOGO_SVG,
-                          height: 18,
-                          width: 18,
-                          excavate: true,
-                        }}
-                      />
+                  {/* Tela Box */}
+                  <div className="border-[1.5px] border-black px-2 py-1 text-center text-[10px] sm:text-[11px] font-black uppercase tracking-tight bg-white my-1">
+                    TELA: {colcha.tela.toUpperCase()}
+                  </div>
+
+                  {/* Middle Data & QR */}
+                  <div className="grid grid-cols-12 gap-2 items-center flex-1 my-1">
+                    
+                    {/* Left: Metadata list */}
+                    <div className="col-span-7 space-y-1 text-[10px] sm:text-[11px] font-bold">
+                      <div className="flex justify-between border-b border-zinc-200 pb-0.5">
+                        <span className="text-zinc-700 font-black">COLOR:</span>
+                        <span className="text-black font-black">{colcha.color.toUpperCase()}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-zinc-200 pb-0.5">
+                        <span className="text-zinc-700 font-black">ROLLOS:</span>
+                        <span className="text-black font-black">{colcha.rollos} rls</span>
+                      </div>
+                      <div className="flex justify-between border-b border-zinc-200 pb-0.5">
+                        <span className="text-zinc-700 font-black">METRAJE:</span>
+                        <span className="text-black font-mono font-black">{mtDisplay}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-zinc-200 pb-0.5">
+                        <span className="text-zinc-700 font-black">LOTES:</span>
+                        <span className="text-black font-black">{loteDisplay}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-700 font-black">DICTAMEN:</span>
+                        <span className="text-black font-black">{colcha.dictamen.toUpperCase()}</span>
+                      </div>
                     </div>
-                    <span className="text-[7px] font-black text-zinc-700 tracking-tighter mt-0.5 uppercase">
-                      ESCANEAR QR<br/>TRAZABILIDAD
+
+                    {/* Right: High-contrast QR with public URL and central STF logo */}
+                    <div className="col-span-5 flex flex-col items-center justify-center text-center">
+                      <div className="p-0.5 border border-black bg-white">
+                        <SafeQRCode
+                          id="thermal-label-qr-svg"
+                          value={publicLink}
+                          size={76}
+                          level="M"
+                          includeMargin={false}
+                          imageSettings={{
+                            src: STF_QR_LOGO_SVG,
+                            height: 20,
+                            width: 20,
+                            excavate: true,
+                          }}
+                        />
+                      </div>
+                      <span className="text-[7.5px] font-black text-black tracking-tighter mt-1 uppercase leading-tight">
+                        ESCANEAR QR<br/>TRAZABILIDAD
+                      </span>
+                    </div>
+
+                  </div>
+
+                  {/* Footer Observations */}
+                  <div className="border-t-[1.5px] border-dashed border-black pt-1 text-[9px] space-y-0.5">
+                    <span className="font-black text-black block text-[9.5px] uppercase tracking-wide">
+                      {obsTitle}
                     </span>
+                    <p className="text-black font-black text-[9px] leading-snug line-clamp-2 uppercase">
+                      {obsToShow}
+                    </p>
+                    <div className="text-[7.5px] font-mono text-zinc-600 pt-0.5 border-t border-zinc-300 text-center tracking-tight">
+                      ID: STF-OP-{cleanOpDigits} • Impreso: {printDateStr}
+                    </div>
                   </div>
 
                 </div>
-
-                {/* Footer Observations */}
-                <div className="border-t border-dashed border-zinc-950 pt-1 text-[9px] space-y-0.5">
-                  <span className="font-black text-zinc-950 block text-[9px] uppercase tracking-wide">
-                    OBSERVACIÓN FINAL CALIDAD:
-                  </span>
-                  <p className="text-zinc-950 font-bold text-[8.5px] leading-snug line-clamp-2">
-                    {getCleanFinalQualityObservation(colcha)}
-                  </p>
-                  <div className="text-[7.5px] font-mono text-zinc-600 pt-0.5 border-t border-zinc-200 flex items-center justify-between">
-                    <span>ID: STF-OP-{colcha.op.replace(/^OP-?/i, '').trim()}</span>
-                    <span>Impreso: {new Date().toLocaleString('es-CO')}</span>
-                  </div>
-                </div>
-
               </div>
 
               {/* Hardware buttons bar */}

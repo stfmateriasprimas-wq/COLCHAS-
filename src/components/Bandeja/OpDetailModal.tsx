@@ -142,6 +142,22 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 self-end sm:self-auto">
+            {/* Direct Print Thermal Label button */}
+            <button
+              type="button"
+              onClick={() => onOpenPrintModal({
+                ...solicitud,
+                fotoCalidadUrl: fotoCalidadUrl
+              })}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+              title="Imprimir Etiqueta Térmica 100x100mm"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">
+                {solicitud.estado === 'FINALIZADO' ? 'Etiqueta Final' : 'Imprimir Etiqueta'}
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={handleSendReport}
@@ -412,7 +428,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                                 setZoomedPhotoTitle(title);
                               }}
                             />
-                            {solicitud.estado === 'CALIDAD' && (
+                            {(solicitud.estado === 'CALIDAD' || solicitud.estado === 'LAVANDERIA' || solicitud.estado === 'FINALIZADO') && (
                               <button
                                 type="button"
                                 onClick={() => calidadFileInputRef.current?.click()}
@@ -423,7 +439,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                               </button>
                             )}
                           </div>
-                        ) : solicitud.estado === 'CALIDAD' ? (
+                        ) : (solicitud.estado === 'CALIDAD' || solicitud.estado === 'LAVANDERIA' || solicitud.estado === 'FINALIZADO') ? (
                           <div 
                             onClick={() => calidadFileInputRef.current?.click()}
                             className="h-44 rounded-2xl bg-purple-950/20 dark:bg-purple-50 border-2 border-dashed border-purple-500/60 hover:border-purple-400 p-3 flex flex-col items-center justify-center text-center cursor-pointer transition group"
@@ -436,7 +452,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                           <div className="h-44 rounded-2xl bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 p-3 flex flex-col items-center justify-center text-center">
                             <Lock className="w-6 h-6 text-zinc-500 opacity-50 mb-1" />
                             <span className="text-[11px] font-bold text-zinc-400 dark:text-zinc-600 font-mono block">Sin Foto Post-Lavado</span>
-                            <span className="text-[9px] text-zinc-500 font-mono block mt-0.5">Solo activo en Calidad Lab</span>
+                            <span className="text-[9px] text-zinc-500 font-mono block mt-0.5">Activo en Lavandería y Calidad</span>
                           </div>
                         )}
                       </div>
@@ -444,7 +460,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                     </div>
 
                     {/* Hidden input for Calidad stage */}
-                    {solicitud.estado === 'CALIDAD' && (
+                    {(solicitud.estado === 'CALIDAD' || solicitud.estado === 'LAVANDERIA' || solicitud.estado === 'FINALIZADO') && (
                       <input
                         type="file"
                         ref={calidadFileInputRef}
@@ -455,50 +471,41 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                       />
                     )}
 
-                    {/* Button for updating photo in Calidad */}
-                    {solicitud.estado === 'CALIDAD' && (
-                      <button
-                        type="button"
-                        onClick={() => calidadFileInputRef.current?.click()}
-                        disabled={isUploadingCalidad}
-                        className="w-full py-2.5 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition cursor-pointer shadow-md bg-indigo-600 hover:bg-indigo-500 text-white"
-                      >
-                        <Camera className="w-3.5 h-3.5" />
-                        <span>
-                          {isUploadingCalidad 
-                            ? 'GUARDANDO EN GOOGLE SHEETS...' 
-                            : (fotoCalidadUrl ? '📸 ACTUALIZAR FOTO POST-LAVADO (CALIDAD)' : '📸 CAPTURAR FOTO POST-LAVADO (CALIDAD)')}
-                        </span>
-                      </button>
-                    )}
-
                   </div>
 
-                  {/* QR SCAN CARD */}
-                  <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 space-y-3 text-zinc-950 dark:text-white">
-                    <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
-                      <h4 className="text-xs font-black uppercase text-zinc-950 dark:text-white">
-                        CÓDIGO QR PARA ESCANEO MÓVIL
-                      </h4>
-                      <span className="text-[9px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded font-bold">
-                        Acceso Directo
+                  {/* QR SECTION */}
+                  <div className="lg:col-span-4 bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 flex flex-col items-center justify-between text-center space-y-4 shadow-sm">
+                    
+                    <div>
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+                        TRAZABILIDAD PÚBLICA EN TIEMPO REAL
                       </span>
+                      <h4 className="text-sm font-black text-zinc-950 dark:text-white uppercase font-mono">
+                        CÓDIGO QR OFICIAL
+                      </h4>
+                      <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1">
+                        Escanea con la cámara del celular para ver la ficha en vivo y sus 2 fotos.
+                      </p>
                     </div>
 
-                    <div className="flex items-center gap-3 bg-zinc-100 dark:bg-zinc-950 p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800">
-                      <div className="bg-white p-2 rounded-xl shrink-0 shadow-sm border border-zinc-200">
-                        <SafeQRCode value={publicUrl} size={64} level="M" />
-                      </div>
-                      <div className="text-[11px] space-y-0.5">
-                        <span className="font-bold text-zinc-950 dark:text-white block">Lectura Móvil por QR</span>
-                        <p className="text-zinc-600 dark:text-zinc-400 leading-snug">
-                          Al escanear este código con tu celular se abrirá automáticamente la ficha técnica y trazabilidad con las 2 fotos.
-                        </p>
-                      </div>
+                    {/* QR Code Container */}
+                    <div className="p-3 bg-white rounded-2xl shadow-md border-2 border-zinc-950 inline-block">
+                      <SafeQRCode
+                        value={publicUrl}
+                        size={140}
+                        level="M"
+                        includeMargin={false}
+                        imageSettings={{
+                          src: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23000000"/><rect x="4" y="4" width="92" height="92" rx="16" fill="%23000000" stroke="%23ffffff" stroke-width="4"/><text x="50" y="65" font-size="38" font-family="Arial, Helvetica, sans-serif" font-weight="900" fill="%23ffffff" text-anchor="middle" letter-spacing="-1">STF</text></svg>`,
+                          height: 32,
+                          width: 32,
+                          excavate: true,
+                        }}
+                      />
                     </div>
 
                     {/* URL bar & copy */}
-                    <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-1.5 pl-3">
+                    <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-1.5 pl-3 w-full">
                       <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 truncate flex-1">
                         {publicUrl}
                       </span>
@@ -515,11 +522,18 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                     {/* Print Button */}
                     <button
                       type="button"
-                      onClick={() => onOpenPrintModal(solicitud)}
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition shadow-lg cursor-pointer"
+                      onClick={() => onOpenPrintModal({
+                        ...solicitud,
+                        fotoCalidadUrl: fotoCalidadUrl
+                      })}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition shadow-lg cursor-pointer font-mono"
                     >
                       <Printer className="w-3.5 h-3.5" />
-                      <span>Imprimir Etiqueta de Solicitud (100x100mm)</span>
+                      <span>
+                        {solicitud.estado === 'FINALIZADO'
+                          ? 'Imprimir Etiqueta Final Calidad (100x100mm)'
+                          : 'Imprimir Etiqueta de Solicitud (100x100mm)'}
+                      </span>
                     </button>
                   </div>
 

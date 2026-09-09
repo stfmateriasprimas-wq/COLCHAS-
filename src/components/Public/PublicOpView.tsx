@@ -4,12 +4,13 @@ import {
   Layers, User, Calendar, Sparkles, Image as ImageIcon,
   X, LogIn, Sun, Moon, Maximize2, Camera
 } from 'lucide-react';
-import { SolicitudColcha, SectorType } from '../../types';
+import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp, isMatchingOp } from '../../services/googleSheetsService';
-import { getCleanFinalQualityObservation } from '../../services/exportService';
+import { getCleanFinalQualityObservation, getCleanInitialObservation } from '../../services/exportService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 import { parsePublicTrackingPayload } from '../../services/qrTrackingService';
+import { mapAreaName } from '../../services/googleSheetsService';
 
 interface PublicOpViewProps {
   opNumber: string;
@@ -32,12 +33,23 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
 }) => {
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
 
-  // Auto-cargar datos frescos si el array de solicitudes está vacío
+  // Auto-cargar datos frescos al montar y cada 12 segundos para garantizar actualización en tiempo real en móviles
   useEffect(() => {
-    if (solicitudes.length === 0) {
+    onRefreshData();
+    const interval = setInterval(() => {
       onRefreshData();
-    }
-  }, [solicitudes.length, onRefreshData]);
+    }, 12000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        onRefreshData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [onRefreshData]);
 
   // Find OP in live data + localStorage + QR Encoded URL Payload
   const colcha = useMemo(() => {
@@ -59,35 +71,56 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     const localOps = getLocalCreatedOps();
     const localFound = localOps.find(matchOp);
 
-    // Cuando se escanea un código QR con payload (?d=...), parsedQr es la fuente de verdad primaria y exacta de la etiqueta escaneada
-    const base = parsedQr || liveFound || localFound;
+    // Cuando se consulta la OP, liveFound (base de datos en vivo de Google Sheets) es la máxima fuente de verdad para el estado actual de la OP
+    const base = liveFound || localFound || parsedQr;
     if (!base) return null;
+
+    const estadoFinal: SectorType = liveFound?.estado 
+      || (localFound?.fechaActualizacion ? localFound.estado : undefined) 
+      || parsedQr?.estado 
+      || base.estado;
+
+    let dictamenFinal: DictamenType = 'PENDIENTE';
+    if (liveFound?.dictamen) {
+      dictamenFinal = liveFound.dictamen;
+    } else if (localFound?.dictamen) {
+      dictamenFinal = localFound.dictamen;
+    } else if (parsedQr?.dictamen) {
+      dictamenFinal = parsedQr.dictamen;
+    } else if (estadoFinal === 'FINALIZADO') {
+      dictamenFinal = 'APROBADO';
+    }
 
     const bestFotoMuestra = liveFound?.fotoMuestraUrl || localFound?.fotoMuestraUrl || parsedQr?.fotoMuestraUrl;
     const bestFotoCalidad = liveFound?.fotoCalidadUrl || localFound?.fotoCalidadUrl || parsedQr?.fotoCalidadUrl;
 
+    const obsCalidad = liveFound?.observacionesCalidad || localFound?.observacionesCalidad || (estadoFinal === 'FINALIZADO' ? parsedQr?.observacionesCalidad : '') || '';
+    const obsOperario = liveFound?.observacionesOperario || localFound?.observacionesOperario || parsedQr?.observacionesOperario || '';
+    const obsLavanderia = liveFound?.observacionesLavanderia || localFound?.observacionesLavanderia || '';
+
     return {
       ...base,
-      op: parsedQr?.op || base.op,
-      referencia: parsedQr?.referencia || base.referencia,
-      tela: parsedQr?.tela || base.tela,
-      color: parsedQr?.color || base.color,
-      rollos: parsedQr?.rollos !== undefined ? parsedQr.rollos : base.rollos,
-      codigoMt: parsedQr?.codigoMt || base.codigoMt,
-      lote: parsedQr?.lote || base.lote,
-      inspector: parsedQr?.inspector || base.inspector,
-      fechaCreacion: parsedQr?.fechaCreacion || base.fechaCreacion,
+      op: liveFound?.op || parsedQr?.op || base.op,
+      referencia: liveFound?.referencia || parsedQr?.referencia || base.referencia,
+      tela: liveFound?.tela || parsedQr?.tela || base.tela,
+      color: liveFound?.color || parsedQr?.color || base.color,
+      rollos: liveFound?.rollos !== undefined ? liveFound.rollos : (parsedQr?.rollos !== undefined ? parsedQr.rollos : base.rollos),
+      codigoMt: liveFound?.codigoMt || parsedQr?.codigoMt || base.codigoMt,
+      lote: liveFound?.lote || parsedQr?.lote || base.lote,
+      inspector: liveFound?.inspector || parsedQr?.inspector || base.inspector,
+      fechaCreacion: liveFound?.fechaCreacion || parsedQr?.fechaCreacion || base.fechaCreacion,
       fotoMuestraUrl: bestFotoMuestra,
       fotoCalidadUrl: bestFotoCalidad,
-      observacionesCalidad: parsedQr?.observacionesCalidad || localFound?.observacionesCalidad || liveFound?.observacionesCalidad || '',
-      observacionesOperario: parsedQr?.observacionesOperario || localFound?.observacionesOperario || liveFound?.observacionesOperario || '',
-      dictamen: parsedQr?.dictamen || localFound?.dictamen || liveFound?.dictamen || (base.estado === 'FINALIZADO' ? 'APROBADO' : 'PENDIENTE'),
-      estado: parsedQr?.estado || (localFound?.fechaActualizacion ? localFound.estado : (liveFound?.estado || base.estado)),
-      areaActual: parsedQr?.areaActual || (localFound?.fechaActualizacion ? localFound.areaActual : (liveFound?.areaActual || base.areaActual)),
-      diasHabiles: parsedQr?.diasHabiles !== undefined ? parsedQr.diasHabiles : base.diasHabiles,
-      horasEnProceso: parsedQr?.horasEnProceso !== undefined ? parsedQr.horasEnProceso : base.horasEnProceso,
-      tieneRetraso: parsedQr?.tieneRetraso !== undefined ? parsedQr.tieneRetraso : base.tieneRetraso,
-      esRetrasoCritico: parsedQr?.esRetrasoCritico !== undefined ? parsedQr.esRetrasoCritico : base.esRetrasoCritico
+      observacionesCalidad: obsCalidad,
+      observacionesOperario: obsOperario,
+      observacionesLavanderia: obsLavanderia,
+      dictamen: dictamenFinal,
+      estado: estadoFinal,
+      areaActual: liveFound?.areaActual || localFound?.areaActual || mapAreaName(estadoFinal),
+      diasHabiles: liveFound?.diasHabiles !== undefined ? liveFound.diasHabiles : (parsedQr?.diasHabiles !== undefined ? parsedQr.diasHabiles : base.diasHabiles),
+      horasEnProceso: liveFound?.horasEnProceso !== undefined ? liveFound.horasEnProceso : (parsedQr?.horasEnProceso !== undefined ? parsedQr.horasEnProceso : base.horasEnProceso),
+      tieneRetraso: liveFound?.tieneRetraso !== undefined ? liveFound.tieneRetraso : (parsedQr?.tieneRetraso !== undefined ? parsedQr.tieneRetraso : base.tieneRetraso),
+      esRetrasoCritico: liveFound?.esRetrasoCritico !== undefined ? liveFound.esRetrasoCritico : (parsedQr?.esRetrasoCritico !== undefined ? parsedQr.esRetrasoCritico : base.esRetrasoCritico)
     };
   }, [solicitudes, opNumber]);
 
@@ -352,15 +385,27 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                 </div>
 
                 {/* OBSERVACIONES TÉCNICAS Y CALIDAD */}
-                <div className="space-y-2 pt-2 border-t border-zinc-800 dark:border-zinc-200">
-                  <span className="text-xs font-mono font-bold text-amber-400 dark:text-amber-700 flex items-center gap-1.5 uppercase">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    OBSERVACIÓN FINAL CALIDAD:
-                  </span>
-                  <div className="p-3.5 rounded-2xl bg-zinc-950/80 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 text-xs font-mono font-bold text-white dark:text-zinc-950 leading-relaxed shadow-inner">
-                    {getCleanFinalQualityObservation(colcha)}
+                {colcha.estado === 'FINALIZADO' ? (
+                  <div className="space-y-2 pt-2 border-t border-zinc-800 dark:border-zinc-200">
+                    <span className="text-xs font-mono font-bold text-amber-400 dark:text-amber-700 flex items-center gap-1.5 uppercase">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      OBSERVACIÓN FINAL CALIDAD:
+                    </span>
+                    <div className="p-3.5 rounded-2xl bg-zinc-950/80 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 text-xs font-mono font-bold text-white dark:text-zinc-950 leading-relaxed shadow-inner uppercase">
+                      {getCleanFinalQualityObservation(colcha)}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-2 pt-2 border-t border-zinc-800 dark:border-zinc-200">
+                    <span className="text-xs font-mono font-bold text-indigo-400 dark:text-indigo-600 flex items-center gap-1.5 uppercase">
+                      <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                      OBSERVACIÓN OPERARIO / CORTE:
+                    </span>
+                    <div className="p-3.5 rounded-2xl bg-zinc-950/80 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 text-xs font-mono font-bold text-white dark:text-zinc-950 leading-relaxed shadow-inner uppercase">
+                      {getCleanInitialObservation(colcha)}
+                    </div>
+                  </div>
+                )}
 
               </div>
 

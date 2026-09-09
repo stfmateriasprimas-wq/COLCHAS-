@@ -556,6 +556,20 @@ export function App() {
         const photoToSend = fotoCalidad || targetItem?.fotoCalidadUrl || localMatch?.fotoCalidadUrl;
         await pushDictamenToSheets(opNumber, dictamen, currentUser?.nombre || 'AUDITOR STF', nuevaObservacion, photoToSend);
       }
+
+      // Automatización: Abrir de inmediato el modal de impresión de la etiqueta final (Fase 2 / Finalizado)
+      const finalizedItem = solicitudes.find(s => s.id === solicitudId) || targetItem;
+      if (finalizedItem) {
+        const finalizedColcha: SolicitudColcha = {
+          ...finalizedItem,
+          estado: 'FINALIZADO',
+          dictamen: dictamen || finalizedItem.dictamen || 'APROBADO',
+          observacionesCalidad: nuevaObservacion || finalizedItem.observacionesCalidad || '',
+          fotoCalidadUrl: fotoCalidad || finalizedItem.fotoCalidadUrl,
+          areaActual: 'CALIDAD PLANTA STF'
+        };
+        setSelectedColchaPrinter(finalizedColcha);
+      }
     } else {
       notificationService.playAlertSound('TRANSFERENCIA');
       if (opNumber) {
