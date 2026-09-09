@@ -62,6 +62,14 @@ export function parseColombianDate(dateInput: string | Date): Date {
 export function getOpChronologicalTimestamp(item: { fechaCreacion?: string; op?: string; id?: string }): number {
   if (!item) return 0;
 
+  // Si es una OP creada recientemente en la sesión local (id empieza con colcha-), asignarle la máxima prioridad en la primera fila
+  if (item.id && item.id.startsWith('colcha-')) {
+    const localTimestamp = parseInt(item.id.replace('colcha-', ''), 10);
+    if (!isNaN(localTimestamp) && localTimestamp > 0) {
+      return localTimestamp + 1000000000000;
+    }
+  }
+
   // Extraer índice de fila si existe (ej. op-row-343-...) para desempate cronológico exacto
   let rowBoost = 0;
   if (item.id) {

@@ -192,6 +192,11 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       colcha.op = finalOp;
       colcha.tela = finalTela;
       colcha.rollos = finalRollos;
+      colcha.estado = initialEstado;
+      colcha.areaActual = initialAreaName;
+      if (currentUser) {
+        colcha.inspector = currentUser.nombre;
+      }
       (colcha as any).recipients = autoSendEmail ? selectedEmails : [];
       (colcha as any).userEmails = autoSendEmail ? selectedEmails : [];
 
