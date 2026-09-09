@@ -85,11 +85,15 @@ export function generatePublicTrackingUrl(colcha: SolicitudColcha): string {
     : 'https://colchas.vercel.app';
 
   const cleanOp = formatOpCode(colcha.op);
+  const fallbackUrl = `${origin}/?op=${encodeURIComponent(cleanOp)}&view=public`;
 
-  // Incluir fotos si son URLs HTTP/HTTPS o cadenas compactas (hasta 2,500 caracteres)
-  const isEligiblePhoto = (url?: string) => Boolean(url && (url.startsWith('http') || url.length <= 2500));
-  const f1 = isEligiblePhoto(colcha.fotoMuestraUrl) ? colcha.fotoMuestraUrl : undefined;
-  const f2 = isEligiblePhoto(colcha.fotoCalidadUrl) ? colcha.fotoCalidadUrl : undefined;
+  // Incluir fotos ÚNICAMENTE si son URLs HTTP/HTTPS cortas (Google Drive o CDN, nunca Base64 pesado)
+  const isShortHttpUrl = (url?: string) => Boolean(url && url.startsWith('http') && url.length < 350);
+  const f1 = isShortHttpUrl(colcha.fotoMuestraUrl) ? colcha.fotoMuestraUrl : undefined;
+  const f2 = isShortHttpUrl(colcha.fotoCalidadUrl) ? colcha.fotoCalidadUrl : undefined;
+
+  const cleanObs = (colcha.observacionesOperario || '').slice(0, 150);
+  const cleanObsC = (colcha.observacionesCalidad || '').slice(0, 150);
 
   const compact: CompactOpQrPayload = {
     o: cleanOp,
@@ -103,8 +107,8 @@ export function generatePublicTrackingUrl(colcha: SolicitudColcha): string {
     d: colcha.dictamen || (colcha.estado === 'FINALIZADO' ? 'APROBADO' : 'PENDIENTE'),
     i: colcha.inspector || 'OPERARIO STF',
     f: colcha.fechaCreacion || new Date().toISOString(),
-    obs: colcha.observacionesOperario || '',
-    obsC: colcha.observacionesCalidad || '',
+    obs: cleanObs,
+    obsC: cleanObsC,
     a: colcha.areaActual || mapAreaName(colcha.estado),
     f1,
     f2
@@ -114,35 +118,32 @@ export function generatePublicTrackingUrl(colcha: SolicitudColcha): string {
     const jsonStr = JSON.stringify(compact);
     // Codificación segura UTF-8 Base64
     const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
+    
+    // Si la cadena codificada excede 950 caracteres, usar el fallback limpio para garantizar que el QR nunca exceda el límite físico
+    if (base64Data.length > 950) {
+      delete compact.f1;
+      delete compact.f2;
+      delete compact.obs;
+      delete compact.obsC;
+      const strippedData = btoa(unescape(encodeURIComponent(JSON.stringify(compact))));
+      if (strippedData.length > 950) {
+        return fallbackUrl;
+      }
+      return `${origin}/?op=${encodeURIComponent(cleanOp)}&view=public&d=${encodeURIComponent(strippedData)}`;
+    }
+    
     return `${origin}/?op=${encodeURIComponent(cleanOp)}&view=public&d=${encodeURIComponent(base64Data)}`;
   } catch (e) {
     console.warn('Error encoding QR payload:', e);
-    return `${origin}/?op=${encodeURIComponent(cleanOp)}&view=public`;
+    return fallbackUrl;
   }
 }
 
 /**
- * Genera de forma asíncrona el enlace QR asegurando que las fotos base64 se compriman
- * automáticamente a micro-thumbnails antes de codificarse en el enlace.
+ * Genera de forma asíncrona el enlace QR asegurando que el QR siempre sea ligero y seguro.
  */
 export async function generatePublicTrackingUrlAsync(colcha: SolicitudColcha): Promise<string> {
-  if (!colcha || !colcha.op) return 'https://colchas.vercel.app';
-
-  let f1 = colcha.fotoMuestraUrl;
-  let f2 = colcha.fotoCalidadUrl;
-
-  if (f1 && !f1.startsWith('http') && f1.length > 1200) {
-    f1 = await createMicroThumbnail(f1, 64, 0.35);
-  }
-  if (f2 && !f2.startsWith('http') && f2.length > 1200) {
-    f2 = await createMicroThumbnail(f2, 64, 0.35);
-  }
-
-  return generatePublicTrackingUrl({
-    ...colcha,
-    fotoMuestraUrl: f1,
-    fotoCalidadUrl: f2
-  });
+  return generatePublicTrackingUrl(colcha);
 }
 
 /**

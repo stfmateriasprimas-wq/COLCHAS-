@@ -1,5 +1,5 @@
 import React from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { SafeQRCode } from '../Common/SafeQRCode';
 import { Printer, Check, X } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
 import { generateColchaPdfTicket } from '../../services/exportService';
@@ -77,7 +77,7 @@ export const TicketModal: React.FC<TicketModalProps> = ({ colcha, onClose }) => 
 
           {/* QR Code */}
           <div className="flex justify-center pt-2 border-t border-zinc-300">
-            <QRCodeSVG
+            <SafeQRCode
               value={trackingLink}
               size={90}
               level="M"

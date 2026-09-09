@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { SafeQRCode } from '../Common/SafeQRCode';
 import { Printer, X, Copy, ExternalLink, Check, ShieldCheck, User, Camera, Download, FileText } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
 import { generateColchaPdfTicket, printColchaDirectTicket, getCleanFinalQualityObservation } from '../../services/exportService';
@@ -164,11 +164,11 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                   {/* Right: High-contrast QR with public URL and central STF logo */}
                   <div className="col-span-5 flex flex-col items-center justify-center text-center">
                     <div className="p-1 border border-zinc-400 rounded bg-white">
-                      <QRCodeSVG
+                      <SafeQRCode
                         id="thermal-label-qr-svg"
                         value={publicLink}
                         size={72}
-                        level="H"
+                        level="M"
                         includeMargin={false}
                         imageSettings={{
                           src: STF_QR_LOGO_SVG,
@@ -322,7 +322,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
             <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2.5 text-zinc-950 dark:text-white shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <QRCodeSVG value={publicLink} size={16} />
+                  <SafeQRCode value={publicLink} size={16} />
                   <span className="text-xs font-bold text-zinc-950 dark:text-white uppercase tracking-wide">
                     ENLACE DIRECTO PARA TELÉFONOS MÓVILES
                   </span>

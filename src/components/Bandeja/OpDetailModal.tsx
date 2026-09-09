@@ -7,7 +7,7 @@ import {
   Maximize2, Upload
 } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
-import { QRCodeSVG } from 'qrcode.react';
+import { SafeQRCode } from '../Common/SafeQRCode';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto } from '../../services/googleSheetsService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
@@ -115,28 +115,28 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   const currentStageIdx = getStageIndex(solicitud.estado);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
-      <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden font-sans select-none text-white dark:text-zinc-950">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden font-sans select-none text-zinc-950 dark:text-white">
         
         {/* 1. TOP HEADER BAR */}
-        <div className="p-4 sm:p-5 border-b border-zinc-800 dark:border-zinc-200 bg-zinc-900/80 dark:bg-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white dark:text-zinc-950">
+        <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-950 dark:text-white">
           
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="w-8 h-8 rounded-xl bg-zinc-950 dark:bg-zinc-200 text-white dark:text-zinc-900 border border-zinc-700 dark:border-zinc-300 flex items-center justify-center font-mono font-bold text-xs">
+            <div className="w-8 h-8 rounded-xl bg-zinc-200 dark:bg-zinc-950 text-zinc-900 dark:text-white border border-zinc-300 dark:border-zinc-700 flex items-center justify-center font-mono font-bold text-xs">
               OP
             </div>
             
             <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-400 dark:text-zinc-600 font-bold uppercase tracking-wider">
+              <span className="text-xs text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider">
                 FICHA TÉCNICA
               </span>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-950 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 border border-zinc-700 dark:border-zinc-300">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-950 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-700">
                 {solicitud.estado.replace('_', ' ')}
               </span>
             </div>
 
             {/* Prominent OP tag */}
-            <div className="bg-white text-zinc-950 dark:bg-zinc-950 dark:text-white px-3.5 py-1 rounded-xl font-black font-mono text-sm tracking-tight shadow-md">
+            <div className="bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 px-3.5 py-1 rounded-xl font-black font-mono text-sm tracking-tight shadow-md">
               {solicitud.op}
             </div>
           </div>
@@ -146,7 +146,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
               type="button"
               onClick={handleSendReport}
               disabled={isNotifying}
-              className="px-3.5 py-2 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm disabled:opacity-50"
+              className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm disabled:opacity-50"
             >
               <Send className="w-3.5 h-3.5" />
               <span>{isNotifying ? 'Enviando...' : 'Enviar Reporte'}</span>
@@ -154,7 +154,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
 
             <button
               onClick={onClose}
-              className="text-zinc-400 hover:text-white dark:text-zinc-600 dark:hover:text-zinc-950 p-2 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+              className="text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white p-2 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -163,13 +163,13 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
         </div>
 
         {/* 2. SUB-TABS: FICHA TÉCNICA VS LÍNEA DE TIEMPO */}
-        <div className="px-5 py-2.5 bg-zinc-900/40 dark:bg-zinc-50 border-b border-zinc-800 dark:border-zinc-200 flex items-center gap-2 overflow-x-auto font-mono">
+        <div className="px-5 py-2.5 bg-zinc-50 dark:bg-zinc-900/40 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2 overflow-x-auto font-mono">
           <button
             onClick={() => setActiveTab('ficha')}
             className={`px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
               activeTab === 'ficha'
-                ? 'bg-white text-zinc-950 dark:bg-zinc-950 dark:text-white shadow-sm'
-                : 'text-zinc-400 dark:text-zinc-600 hover:text-white dark:hover:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200'
+                ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800'
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
@@ -180,8 +180,8 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
             onClick={() => setActiveTab('timeline')}
             className={`px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
               activeTab === 'timeline'
-                ? 'bg-white text-zinc-950 dark:bg-zinc-950 dark:text-white shadow-sm'
-                : 'text-zinc-400 dark:text-zinc-600 hover:text-white dark:hover:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200'
+                ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -202,43 +202,43 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 
                 {/* 1. Referencia */}
-                <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4 space-y-1 text-white dark:text-zinc-950">
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider block">
+                <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-1 text-zinc-950 dark:text-white">
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">
                     REFERENCIA
                   </span>
-                  <div className="text-base font-black text-white dark:text-zinc-950 font-mono">{solicitud.referencia}</div>
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block font-mono">Código diseño</span>
+                  <div className="text-base font-black text-zinc-950 dark:text-white font-mono">{solicitud.referencia}</div>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-mono">Código diseño</span>
                 </div>
 
                 {/* 2. Tela / Material */}
-                <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4 space-y-1 text-white dark:text-zinc-950">
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider block">
+                <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-1 text-zinc-950 dark:text-white">
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">
                     TELA / MATERIAL
                   </span>
-                  <div className="text-base font-black text-white dark:text-zinc-950 truncate">{solicitud.tela}</div>
-                  <span className="text-[11px] text-indigo-400 dark:text-indigo-600 font-mono font-bold block">
+                  <div className="text-base font-black text-zinc-950 dark:text-white truncate">{solicitud.tela}</div>
+                  <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-mono font-bold block">
                     MT: {solicitud.codigoMt}
                   </span>
                 </div>
 
                 {/* 3. Color Textil */}
-                <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4 space-y-1 text-white dark:text-zinc-950">
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider block">
+                <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-1 text-zinc-950 dark:text-white">
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">
                     COLOR TEXTIL
                   </span>
-                  <div className="text-base font-black text-white dark:text-zinc-950">{solicitud.color}</div>
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block font-mono">Lote {solicitud.lote || '1'}</span>
+                  <div className="text-base font-black text-zinc-950 dark:text-white">{solicitud.color}</div>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-mono">Lote {solicitud.lote || '1'}</span>
                 </div>
 
                 {/* 4. Total Rollos */}
-                <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4 space-y-1 text-white dark:text-zinc-950">
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider block">
+                <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-1 text-zinc-950 dark:text-white">
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">
                     TOTAL ROLLOS
                   </span>
-                  <div className="text-base font-black text-amber-400 dark:text-amber-600 font-mono">
+                  <div className="text-base font-black text-amber-600 dark:text-amber-400 font-mono">
                     {solicitud.rollos} {solicitud.rollos === 1 ? 'Rollo' : 'Rollos'}
                   </div>
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block font-mono">Carga oficial</span>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-mono">Carga oficial</span>
                 </div>
 
               </div>
@@ -247,43 +247,43 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
                 {/* LEFT: ESPECIFICACIONES TÉCNICAS */}
-                <div className="lg:col-span-6 bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 space-y-4 text-white dark:text-zinc-950">
+                <div className="lg:col-span-6 bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 space-y-4 text-zinc-950 dark:text-white">
                   
-                  <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-200 pb-2.5">
-                    <h4 className="text-xs font-black uppercase text-white dark:text-zinc-950 flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                  <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
+                    <h4 className="text-xs font-black uppercase text-zinc-950 dark:text-white flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                       <span>ESPECIFICACIONES DE LA COLCHA</span>
                     </h4>
-                    <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">100mm x 100mm</span>
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">100mm x 100mm</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">ÁREA ACTUAL:</span>
-                      <span className="font-mono text-cyan-400 dark:text-cyan-700 font-bold">{solicitud.areaActual}</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block">ÁREA ACTUAL:</span>
+                      <span className="font-mono text-cyan-600 dark:text-cyan-400 font-bold">{solicitud.areaActual}</span>
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">DICTAMEN:</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block">DICTAMEN:</span>
                       <span className={`font-mono font-bold ${
                         solicitud.dictamen === 'APROBADO'
-                          ? 'text-emerald-400 dark:text-emerald-700'
+                          ? 'text-emerald-600 dark:text-emerald-400'
                           : solicitud.dictamen === 'RECHAZADO'
-                          ? 'text-rose-400 dark:text-rose-700'
-                          : 'text-amber-400 dark:text-amber-700'
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-amber-600 dark:text-amber-400'
                       }`}>
                         {solicitud.dictamen}
                       </span>
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">REGISTRADO POR:</span>
-                      <span className="font-bold text-white dark:text-zinc-950">{solicitud.inspector}</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block">REGISTRADO POR:</span>
+                      <span className="font-bold text-zinc-950 dark:text-white">{solicitud.inspector}</span>
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">FECHA DE INICIO:</span>
-                      <span className="inline-flex items-center gap-1 font-mono text-[11px] text-purple-300 dark:text-purple-800 bg-purple-950/60 dark:bg-purple-100 border border-purple-500/40 dark:border-purple-300 px-2 py-0.5 rounded">
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block">FECHA DE INICIO:</span>
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] text-purple-800 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/60 border border-purple-300 dark:border-purple-500/40 px-2 py-0.5 rounded">
                         <Calendar className="w-3 h-3" />
                         {formatColombianDisplayDate(solicitud.fechaCreacion)}
                       </span>
@@ -291,23 +291,23 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                   </div>
 
                   {/* TIEMPO CARGADA EN SISTEMA */}
-                  <div className="pt-2 border-t border-zinc-800 dark:border-zinc-200">
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block mb-1.5">
+                  <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block mb-1.5">
                       TIEMPO CARGADA EN SISTEMA:
                     </span>
-                    <span className="inline-flex items-center gap-1.5 text-xs text-indigo-300 dark:text-indigo-800 bg-indigo-950/60 dark:bg-indigo-100 border border-indigo-500/40 dark:border-indigo-300 px-3 py-1 rounded-xl font-bold">
-                      <Clock className="w-3.5 h-3.5 text-indigo-400 dark:text-indigo-600" />
+                    <span className="inline-flex items-center gap-1.5 text-xs text-indigo-800 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-300 dark:border-indigo-500/40 px-3 py-1 rounded-xl font-bold">
+                      <Clock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                       Cargada {solicitud.horasEnProceso < 24 ? 'hoy' : `hace ${solicitud.diasHabiles} días`} ({solicitud.horasEnProceso}h hábiles)
                     </span>
                   </div>
 
                   {/* OBSERVACIONES INICIALES */}
                   <div className="space-y-1.5 pt-1">
-                    <span className="text-[10px] text-amber-400 dark:text-amber-600 font-bold uppercase flex items-center gap-1">
+                    <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5" />
                       OBSERVACIONES INICIALES DEL OPERARIO / ATELIER:
                     </span>
-                    <div className="bg-amber-950/30 dark:bg-amber-50 border border-amber-500/30 dark:border-amber-300 rounded-2xl p-3.5 text-xs text-amber-200 dark:text-amber-900 font-medium leading-relaxed">
+                    <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 rounded-2xl p-3.5 text-xs text-amber-900 dark:text-amber-200 font-medium leading-relaxed">
                       "{solicitud.observacionesOperario || 'Sin observaciones registradas al momento del corte.'}"
                     </div>
                   </div>
@@ -315,11 +315,11 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                   {/* OBSERVACIONES DE CALIDAD SI EXISTEN */}
                   {solicitud.observacionesCalidad && (
                     <div className="space-y-1.5 pt-1">
-                      <span className="text-[10px] text-purple-400 dark:text-purple-600 font-bold uppercase flex items-center gap-1">
+                      <span className="text-[10px] text-purple-700 dark:text-purple-400 font-bold uppercase flex items-center gap-1">
                         <Microscope className="w-3.5 h-3.5" />
                         DICTAMEN Y OBSERVACIÓN FINAL DE CALIDAD:
                       </span>
-                      <div className="bg-purple-950/30 dark:bg-purple-50 border border-purple-500/30 dark:border-purple-300 rounded-2xl p-3.5 text-xs text-purple-200 dark:text-purple-900 font-medium leading-relaxed">
+                      <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-500/30 rounded-2xl p-3.5 text-xs text-purple-900 dark:text-purple-200 font-medium leading-relaxed">
                         "{solicitud.observacionesCalidad}"
                       </div>
                     </div>
@@ -331,14 +331,14 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                 <div className="lg:col-span-6 space-y-4">
                   
                   {/* DUAL PHOTO REGISTER CARD (INITIAL SAMPLE & POST-WASH QUALITY) */}
-                  <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 space-y-4 text-white dark:text-zinc-950">
+                  <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 space-y-4 text-zinc-950 dark:text-white">
                     
-                    <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-200 pb-2.5">
-                      <h4 className="text-xs font-black uppercase text-white dark:text-zinc-950 flex items-center gap-1.5">
-                        <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                    <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
+                      <h4 className="text-xs font-black uppercase text-zinc-950 dark:text-white flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         <span>REGISTRO FOTOGRÁFICO DE LA OP (2 FOTOS)</span>
                       </h4>
-                      <span className="text-[9px] px-2 py-0.5 rounded font-bold border bg-zinc-950 dark:bg-zinc-100 text-zinc-400 dark:text-zinc-500 border-zinc-800 dark:border-zinc-300">
+                      <span className="text-[9px] px-2 py-0.5 rounded font-bold border bg-zinc-200 dark:bg-zinc-950 text-zinc-700 dark:text-zinc-400 border-zinc-300 dark:border-zinc-800">
                         Trazabilidad Visual
                       </span>
                     </div>
@@ -462,39 +462,39 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                   </div>
 
                   {/* QR SCAN CARD */}
-                  <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 space-y-3 text-white dark:text-zinc-950">
-                    <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-200 pb-2.5">
-                      <h4 className="text-xs font-black uppercase text-white dark:text-zinc-950">
+                  <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 space-y-3 text-zinc-950 dark:text-white">
+                    <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
+                      <h4 className="text-xs font-black uppercase text-zinc-950 dark:text-white">
                         CÓDIGO QR PARA ESCANEO MÓVIL
                       </h4>
-                      <span className="text-[9px] bg-emerald-950 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/30 dark:border-emerald-300 px-2 py-0.5 rounded font-bold">
+                      <span className="text-[9px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded font-bold">
                         Acceso Directo
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 bg-zinc-950 dark:bg-zinc-100 p-3 rounded-2xl border border-zinc-800 dark:border-zinc-200">
-                      <div className="bg-white p-2 rounded-xl shrink-0 shadow-sm">
-                        <QRCodeSVG value={publicUrl} size={64} />
+                    <div className="flex items-center gap-3 bg-zinc-100 dark:bg-zinc-950 p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                      <div className="bg-white p-2 rounded-xl shrink-0 shadow-sm border border-zinc-200">
+                        <SafeQRCode value={publicUrl} size={64} level="M" />
                       </div>
                       <div className="text-[11px] space-y-0.5">
-                        <span className="font-bold text-white dark:text-zinc-950 block">Lectura Móvil por QR</span>
-                        <p className="text-zinc-400 dark:text-zinc-600 leading-snug">
+                        <span className="font-bold text-zinc-950 dark:text-white block">Lectura Móvil por QR</span>
+                        <p className="text-zinc-600 dark:text-zinc-400 leading-snug">
                           Al escanear este código con tu celular se abrirá automáticamente la ficha técnica y trazabilidad con las 2 fotos.
                         </p>
                       </div>
                     </div>
 
                     {/* URL bar & copy */}
-                    <div className="flex items-center gap-2 bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-200 rounded-xl p-1.5 pl-3">
-                      <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-600 truncate flex-1">
+                    <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-1.5 pl-3">
+                      <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 truncate flex-1">
                         {publicUrl}
                       </span>
                       <button
                         type="button"
                         onClick={handleCopyLink}
-                        className="px-3 py-1.5 bg-zinc-800 dark:bg-zinc-200 hover:bg-zinc-700 dark:hover:bg-zinc-300 text-white dark:text-zinc-950 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                        className="px-3 py-1.5 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-950 dark:text-white rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer"
                       >
-                        {copiedLink ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        {copiedLink ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
                         <span>{copiedLink ? 'Copiado' : 'Copiar'}</span>
                       </button>
                     </div>
@@ -601,29 +601,29 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
               </div>
 
               {/* MAIN TIMELINE BOX */}
-              <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 sm:p-6 space-y-6 shadow-2xl text-white dark:text-zinc-950">
+              <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 space-y-6 shadow-xl text-zinc-950 dark:text-white">
                 
                 {/* Header & Legend */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 dark:border-zinc-200 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-black text-white dark:text-zinc-950 brand-title">
+                      <h3 className="text-sm font-black text-zinc-950 dark:text-white brand-title">
                         LÍNEA DE TIEMPO DE PROCESOS DE LA OP #{solicitud.op}
                       </h3>
-                      <span className="text-[10px] bg-zinc-900 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 border border-zinc-800 dark:border-zinc-300 px-2 py-0.5 rounded font-bold">
+                      <span className="text-[10px] bg-zinc-200 dark:bg-zinc-950 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-800 px-2 py-0.5 rounded font-bold">
                         2 Etapas
                       </span>
                       <span className="text-[10px] bg-amber-400 text-black px-2.5 py-0.5 rounded font-black">
                         {solicitud.rollos} Rollos Procesados
                       </span>
                     </div>
-                    <p className="text-[11px] text-zinc-400 dark:text-zinc-600">
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
                       Auditoría cronológica de creación, tiempo de permanencia por área y estado general de retrasos.
                     </p>
                   </div>
 
                   {/* Legend dots */}
-                  <div className="flex items-center gap-3 text-[10px] font-mono text-zinc-400 dark:text-zinc-500">
+                  <div className="flex items-center gap-3 text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Inicio</span>
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Proceso</span>
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500"></span> Alerta</span>
@@ -633,30 +633,30 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
 
                 {/* 3 KPI Box Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-zinc-900/90 dark:bg-zinc-50 p-3.5 rounded-2xl border border-zinc-800 dark:border-zinc-200 space-y-0.5">
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">1. FECHA Y HORA DE CREACIÓN</span>
-                    <span className="text-xs font-mono font-black text-white dark:text-zinc-950 block">
+                  <div className="bg-white dark:bg-zinc-950 p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-0.5 shadow-xs">
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">1. FECHA Y HORA DE CREACIÓN</span>
+                    <span className="text-xs font-mono font-black text-zinc-950 dark:text-white block">
                       {formatColombianDisplayDate(solicitud.fechaCreacion)}
                     </span>
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Creado por: {solicitud.inspector}</span>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Creado por: {solicitud.inspector}</span>
                   </div>
 
-                  <div className="bg-zinc-900/90 dark:bg-zinc-50 p-3.5 rounded-2xl border border-zinc-800 dark:border-zinc-200 space-y-0.5">
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">2. TIEMPO TOTAL EN PLANTA</span>
-                    <span className="text-xs font-mono font-black text-amber-400 dark:text-amber-600 block">
+                  <div className="bg-white dark:bg-zinc-950 p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-0.5 shadow-xs">
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">2. TIEMPO TOTAL EN PLANTA</span>
+                    <span className="text-xs font-mono font-black text-amber-600 dark:text-amber-400 block">
                       {solicitud.diasHabiles} Días ({solicitud.horasEnProceso}h hábiles)
                     </span>
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Límite SLA: {solicitud.limiteSlaDias} días</span>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Límite SLA: {solicitud.limiteSlaDias} días</span>
                   </div>
 
-                  <div className="bg-zinc-900/90 dark:bg-zinc-50 p-3.5 rounded-2xl border border-zinc-800 dark:border-zinc-200 space-y-0.5">
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">3. ESTADO DEL PROCESO</span>
+                  <div className="bg-white dark:bg-zinc-950 p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-0.5 shadow-xs">
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">3. ESTADO DEL PROCESO</span>
                     <span className={`text-xs font-mono font-black block ${
-                      solicitud.tieneRetraso ? 'text-rose-400 dark:text-rose-600' : 'text-emerald-400 dark:text-emerald-600'
+                      solicitud.tieneRetraso ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                     }`}>
                       {solicitud.tieneRetraso ? `⚠️ Retraso (+${Math.max(0, solicitud.diasHabiles - 3)}d)` : '✓ En Tiempos Normales'}
                     </span>
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Área: {solicitud.areaActual}</span>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Área: {solicitud.areaActual}</span>
                   </div>
                 </div>
 
