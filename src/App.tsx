@@ -167,6 +167,7 @@ export function App() {
   }, []);
 
   // Parse and handle incoming URL query parameters for Magic Auto-Login and Direct OP viewing
+  // Parse and handle incoming URL query parameters ONCE on mount for Magic Auto-Login and direct navigation
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const urlParams = new URLSearchParams(window.location.search);
@@ -195,12 +196,17 @@ export function App() {
       }
     }
 
-    // 2. Direct tab navigation
+    // 2. Initial direct tab navigation
     if (tabParam && ['dashboard', 'solicitudes', 'alertas', 'basedatos', 'estadisticas'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
+  }, []);
 
-    // 3. Open OP Detail Modal automatically if op param is specified
+  // Open OP Detail Modal automatically if op param is specified in initial URL
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const opParam = urlParams.get('op');
     if (opParam && solicitudes.length > 0 && !hasProcessedUrlOpRef.current) {
       const cleanTargetOp = opParam.replace(/\D/g, '') || opParam.trim().toUpperCase();
       const match = solicitudes.find(s => 
@@ -214,7 +220,7 @@ export function App() {
         notificationService.playAlertSound('NOTIFICACION');
       }
     }
-  }, [solicitudes, currentUser]);
+  }, [solicitudes]);
 
   // State for Delete & Finalize Confirmation Modals
   const [confirmDeleteOp, setConfirmDeleteOp] = useState<SolicitudColcha | null>(null);
@@ -412,8 +418,10 @@ export function App() {
     // Alerta sonora de éxito
     notificationService.playAlertSound('EXITO');
 
-    // Sincronización en vivo hacia Google Sheets & Drive (Página BASE_DE_DATOS)
-    await pushSolicitudToSheets(nueva);
+    // Sincronización en vivo hacia Google Sheets & Drive (Página BASE_DE_DATOS) en segundo plano
+    pushSolicitudToSheets(nueva).catch(err => {
+      console.warn('Error sincronizando nueva solicitud con Google Sheets:', err);
+    });
   };
 
   // Transfer stage confirmation
