@@ -304,22 +304,40 @@ export async function syncUsuariosFromSheets(): Promise<UsuarioSTF[]> {
         const row = rows[i];
         if (!row || !row.some(c => c.trim())) continue;
 
-        const doc = (row[0] || '').trim();
+        let doc = (row[0] || '').trim().replace(/\.0$/, '');
         const nombre = (row[1] || '').trim();
         const rolRaw = (row[2] || '').trim();
         const areaRaw = (row[3] || '').trim();
-        const email = (row[4] || '').trim();
+        let email = (row[4] || '').trim();
         const rawWhatsApp = (row[5] || '').trim();
 
         if (!doc && !nombre) continue;
+        if (!doc && nombre.toUpperCase().includes('EDWIN')) {
+          doc = 'ediaz';
+        }
 
         const rol = normalizeRol(rolRaw);
         const area = normalizeArea(areaRaw, nombre);
-        const isZF = Boolean(area === 'CALIDAD ZF' || nombre.toUpperCase().includes('ZF') || nombre.toUpperCase().includes('ATELIER'));
+        const isZF = Boolean(
+          area === 'CALIDAD ZF' || 
+          area.includes('ZF') || 
+          area.includes('ATELIER') || 
+          nombre.toUpperCase().includes('ZF') || 
+          nombre.toUpperCase().includes('ATELIER') ||
+          doc === '2222' ||
+          doc === '1107529604' ||
+          doc === '1006099840'
+        );
+
+        if (!email) {
+          const cleanName = nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '.');
+          email = `${cleanName}@studiof.com.co`;
+        }
+
         const phoneData = formatWhatsAppNumber(rawWhatsApp);
 
         parsedUsers.push({
-          id: doc,
+          id: doc || nombre.toLowerCase().replace(/\s+/g, ''),
           nombre: nombre,
           rol: rol,
           area: area,
