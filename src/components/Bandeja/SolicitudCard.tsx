@@ -742,6 +742,19 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               <span>IMPRIMIR</span>
             </button>
 
+            {/* BOTÓN ELIMINAR (ACTIVO Y FUNCIONAL - GESTIÓN MANUAL DE OPS) */}
+            {isAdminUser(currentUser) && onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(solicitud)}
+                className="px-4 py-2.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-600 border border-rose-400/60 dark:border-rose-300 text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
+                title="Eliminar esta OP manualmente del sistema de trabajo (Archivar en historial de recuperación)"
+              >
+                <Trash2 className="w-4 h-4 text-rose-500" />
+                <span>ELIMINAR</span>
+              </button>
+            )}
+
             {/* BOTÓN FINALIZAR (EXCLUSIVO PERFIL ADMINISTRADOR EDWIN) */}
             {isAdminUser(currentUser) && solicitud.estado !== 'FINALIZADO' && onFinalizar && (
               <button

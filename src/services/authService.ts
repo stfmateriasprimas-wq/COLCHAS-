@@ -48,7 +48,8 @@ export function isAdminUser(user?: UsuarioSTF | null): boolean {
   if (!user) return false;
   const idMatch = user.id.toLowerCase() === ADMIN_USER_ID.toLowerCase();
   const nameMatch = user.nombre.toUpperCase().includes('EDWIN');
-  return idMatch || nameMatch;
+  const roleMatch = (user.rol || '').toUpperCase().includes('ADMIN');
+  return idMatch || nameMatch || roleMatch;
 }
 
 /**
