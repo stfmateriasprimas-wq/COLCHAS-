@@ -8,7 +8,7 @@ import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { FloatingScrollPill } from '../Common/FloatingScrollPill';
 import { TabType } from '../Navigation';
 import { getOpChronologicalTimestamp } from '../../services/slaCalculator';
-import { UsuarioSTF, isAdminUser, isLavanderiaUser } from '../../services/authService';
+import { UsuarioSTF, isAdminUser, isLavanderiaUser, isEdiazUser } from '../../services/authService';
 import { DeletedOpsHistorySection } from './DeletedOpsHistorySection';
 
 interface MasterTableProps {
@@ -638,7 +638,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                             <span>FINALIZAR</span>
                           </button>
                         )}
-                        {isAdminUser(currentUser) && onDeleteOp && (
+                        {isEdiazUser(currentUser) && onDeleteOp && (
                           <button
                             type="button"
                             onClick={(e) => {

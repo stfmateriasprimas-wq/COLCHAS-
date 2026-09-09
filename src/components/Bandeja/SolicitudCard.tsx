@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser } from '../../services/authService';
+import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser, isEdiazUser } from '../../services/authService';
 import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto } from '../../services/googleSheetsService';
 
 interface SolicitudCardProps {
@@ -742,8 +742,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               <span>IMPRIMIR</span>
             </button>
 
-            {/* BOTÓN ELIMINAR (EXCLUSIVO PERFIL EDIAZ / EDWIN - ELIMINACIÓN AUTOMÁTICA AL CLIC) */}
-            {isAdminUser(currentUser) && onDelete && (
+            {/* BOTÓN ELIMINAR (EXCLUSIVO 100% PARA EL PERFIL DE EDIAZ) */}
+            {isEdiazUser(currentUser) && onDelete && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -751,7 +751,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   onDelete(solicitud);
                 }}
                 className="px-4 py-2.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-600 border border-rose-400/60 dark:border-rose-300 text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
-                title="Eliminar esta OP automáticamente del sistema (Perfil Exclusivo ediaz)"
+                title="Eliminar esta OP automáticamente (Exclusivo Perfil ediaz)"
               >
                 <Trash2 className="w-4 h-4 text-rose-500" />
                 <span>ELIMINAR</span>

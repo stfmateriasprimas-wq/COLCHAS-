@@ -42,7 +42,17 @@ export const ADMIN_USER_ID = "ediaz";
 export const ADMIN_PASSWORD = "ediaz2026";
 
 /**
- * Determina si el usuario logueado es el Administrador Maestro (EDWIN - ediaz)
+ * Determina si el usuario logueado es EXCLUSIVAMENTE el perfil de EDWIN DÍAZ (ediaz)
+ */
+export function isEdiazUser(user?: UsuarioSTF | null): boolean {
+  if (!user) return false;
+  const uid = (user.id || '').trim().toLowerCase();
+  const uname = (user.nombre || '').toUpperCase();
+  return uid === 'ediaz' || uid === 'edwin' || uname.includes('EDWIN') || uname.includes('EDIAZ');
+}
+
+/**
+ * Determina si el usuario logueado es Administrador
  */
 export function isAdminUser(user?: UsuarioSTF | null): boolean {
   if (!user) return false;
