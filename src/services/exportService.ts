@@ -92,6 +92,63 @@ export function getAlertasCsvText(data: SolicitudColcha[]): string {
   return lines.join('\n');
 }
 
+/**
+ * Extrae de forma limpia y específica la observación del área de Calidad
+ * omitiendo el historial acumulado de transiciones entre áreas.
+ */
+export function getCleanFinalQualityObservation(colcha: SolicitudColcha): string {
+  // 1. Si existe observacionesCalidad directa
+  if (colcha.observacionesCalidad && colcha.observacionesCalidad.trim()) {
+    let clean = colcha.observacionesCalidad.trim();
+    clean = clean.replace(/^\[(?:CALIDAD|FINALIZADO|LAVANDERIA|AUDITORÍA)\]:\s*/i, '');
+    clean = clean.replace(/^CONCEPTO CALIDAD:\s*/i, '');
+    if (clean.trim()) return clean.trim();
+  }
+
+  // 2. Si está en observacionesOperario acumuladas
+  const raw = colcha.observacionesOperario || '';
+  if (raw) {
+    // Buscar si contiene segmento [CALIDAD]: ...
+    const matchCalidad = raw.match(/\[CALIDAD\]:\s*([^|]+)/i);
+    if (matchCalidad && matchCalidad[1] && matchCalidad[1].trim()) {
+      return matchCalidad[1].trim();
+    }
+
+    // Buscar si contiene segmento [FINALIZADO]: ...
+    const matchFinal = raw.match(/\[FINALIZADO\]:\s*([^|]+)/i);
+    if (matchFinal && matchFinal[1] && matchFinal[1].trim()) {
+      const text = matchFinal[1].trim();
+      if (!text.toLowerCase().includes('orden finalizada y liberada')) {
+        return text;
+      }
+    }
+
+    // Si tiene segmentos separados por |
+    if (raw.includes('|')) {
+      const parts = raw.split('|').map(p => p.trim()).filter(Boolean);
+      for (let i = parts.length - 1; i >= 0; i--) {
+        let part = parts[i];
+        part = part.replace(/^\[(?:CALIDAD|FINALIZADO|LAVANDERIA|AUDITORÍA)\]:\s*/i, '').trim();
+        if (part && !part.toUpperCase().startsWith('OP MUESTRA') && !part.toUpperCase().startsWith('COLCHA') && !part.toLowerCase().includes('recibida en lavandería')) {
+          return part;
+        }
+      }
+    }
+
+    // Si no tiene pipes pero tiene texto
+    let clean = raw.replace(/^\[(?:CALIDAD|FINALIZADO|LAVANDERIA|AUDITORÍA)\]:\s*/i, '').trim();
+    if (clean) return clean;
+  }
+
+  // 3. Fallback inteligente según dictamen
+  if (colcha.dictamen === 'APROBADO') {
+    return 'TODO OK • Aprobado';
+  } else if (colcha.dictamen === 'RECHAZADO') {
+    return 'Rechazado por Calidad';
+  }
+  return 'En auditoría técnica';
+}
+
 export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   // Formato exacto 100mm x 100mm (4" x 4") para impresora térmica Zebra
   const doc = new jsPDF({
@@ -147,11 +204,12 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   doc.setFont('helvetica', 'bold');
   doc.text(`${colcha.dictamen}`, 42, 58);
 
-  // Recuadro QR Simulado en PDF
+  // Recuadro QR Simulado en PDF con STF en el centro
   doc.rect(66, 32, 24, 24);
-  doc.setFontSize(6);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.text('QR TRAZABILIDAD', 78, 44, { align: 'center' });
+  doc.text('STF', 78, 43, { align: 'center' });
+  doc.setFontSize(6);
   doc.text(`${colcha.op}`, 78, 48, { align: 'center' });
   doc.setFontSize(5);
   doc.text('ESCANEAR QR', 78, 59, { align: 'center' });
@@ -161,19 +219,21 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   doc.line(8, 64, 92, 64);
   doc.setLineDashPattern([], 0);
 
-  // Observación final
+  // Observación final limpia de calidad
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.text('OBSERVACIÓN FINAL CALIDAD:', 10, 70);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  const obs = colcha.observacionesOperario || `CONCEPTO CALIDAD: ${colcha.dictamen}`;
+  const obs = getCleanFinalQualityObservation(colcha);
   doc.text(obs, 10, 75, { maxWidth: 80 });
 
   // Pie de página de trazabilidad
+  const cleanOp = colcha.op.replace(/^OP-?/i, '').trim();
+  const printDateStr = new Date().toLocaleString('es-CO');
   doc.setFontSize(6);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`ID: STF-${colcha.op} • Impreso: ${new Date().toLocaleString()}`, 50, 93, { align: 'center' });
+  doc.setTextColor(80, 80, 80);
+  doc.text(`ID: STF-OP-${cleanOp} • Impreso: ${printDateStr}`, 50, 93, { align: 'center' });
 
   doc.save(`Etiqueta_100x100_${colcha.op}.pdf`);
 }
@@ -193,6 +253,10 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
   const qrImgTag = qrDataUrl 
     ? `<img src="${qrDataUrl}" class="qr-img" alt="QR Trazabilidad" />`
     : `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(trackingUrl)}" class="qr-img" alt="QR Trazabilidad" />`;
+
+  const cleanObs = getCleanFinalQualityObservation(colcha);
+  const cleanOp = colcha.op.replace(/^OP-?/i, '').trim();
+  const printDateStr = new Date().toLocaleString('es-CO');
 
   const html = `
     <!DOCTYPE html>
@@ -322,29 +386,33 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
             color: #000000;
           }
           .ticket-footer {
-            border-top: 1.5px dashed #52525b;
+            border-top: 1.5px dashed #000000;
             padding-top: 1mm;
-            font-size: 7pt;
+            font-size: 7.5pt;
           }
           .ticket-footer strong {
-            font-size: 7pt;
+            font-size: 7.5pt;
             font-weight: 900;
             display: block;
+            text-transform: uppercase;
+            color: #000000;
           }
           .ticket-footer p {
-            font-size: 6.5pt;
-            color: #18181b;
-            font-weight: 600;
-            line-height: 1.2;
-            max-height: 5mm;
-            overflow: hidden;
+            font-size: 7.5pt;
+            color: #000000;
+            font-weight: 800;
+            line-height: 1.25;
+            margin-top: 0.5mm;
+            word-break: break-word;
           }
           .ticket-sub {
             text-align: center;
-            font-size: 5.5pt;
-            color: #71717a;
+            font-size: 6pt;
+            color: #4b5563;
             font-family: monospace;
-            margin-top: 0.5mm;
+            margin-top: 1mm;
+            border-top: 0.5px solid #d1d5db;
+            padding-top: 0.5mm;
           }
         </style>
       </head>
@@ -391,11 +459,10 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
 
           <div class="ticket-footer">
             <strong>OBSERVACIÓN FINAL CALIDAD:</strong>
-            <p>${colcha.observacionesOperario || `CONCEPTO CALIDAD: ${colcha.dictamen}`}</p>
-          </div>
-
-          <div class="ticket-sub">
-            ID: STF-${colcha.op} • Impreso: ${new Date().toLocaleString('es-CO')}
+            <p>${cleanObs}</p>
+            <div class="ticket-sub">
+              ID: STF-OP-${cleanOp} • Impreso: ${printDateStr}
+            </div>
           </div>
         </div>
 

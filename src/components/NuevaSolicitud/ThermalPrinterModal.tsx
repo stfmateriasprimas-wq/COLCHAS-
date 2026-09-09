@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Printer, X, Copy, ExternalLink, Check, ShieldCheck, User, Camera, Download, FileText } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
-import { generateColchaPdfTicket, printColchaDirectTicket } from '../../services/exportService';
+import { generateColchaPdfTicket, printColchaDirectTicket, getCleanFinalQualityObservation } from '../../services/exportService';
+
+const STF_QR_LOGO_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23000000"/><rect x="4" y="4" width="92" height="92" rx="16" fill="%23000000" stroke="%23ffffff" stroke-width="4"/><text x="50" y="65" font-size="38" font-family="Arial, Helvetica, sans-serif" font-weight="900" fill="%23ffffff" text-anchor="middle" letter-spacing="-1">STF</text></svg>`;
 
 interface ThermalPrinterModalProps {
   colcha: SolicitudColcha | null;
@@ -148,15 +150,21 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                     </div>
                   </div>
 
-                  {/* Right: High-contrast QR with public URL */}
+                  {/* Right: High-contrast QR with public URL and central STF logo */}
                   <div className="col-span-5 flex flex-col items-center justify-center text-center">
                     <div className="p-1 border border-zinc-400 rounded bg-white">
                       <QRCodeSVG
                         id="thermal-label-qr-svg"
                         value={publicLink}
-                        size={64}
-                        level="M"
+                        size={72}
+                        level="H"
                         includeMargin={false}
+                        imageSettings={{
+                          src: STF_QR_LOGO_SVG,
+                          height: 18,
+                          width: 18,
+                          excavate: true,
+                        }}
                       />
                     </div>
                     <span className="text-[7px] font-black text-zinc-700 tracking-tighter mt-0.5 uppercase">
@@ -167,11 +175,17 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                 </div>
 
                 {/* Footer Observations */}
-                <div className="border-t border-dashed border-zinc-400 pt-1 text-[9px]">
-                  <span className="font-extrabold text-zinc-900 block">OBSERVACIÓN FINAL CALIDAD:</span>
-                  <p className="text-zinc-700 font-semibold truncate">
-                    {colcha.observacionesOperario || `CONCEPTO CALIDAD: ${colcha.dictamen}`}
+                <div className="border-t border-dashed border-zinc-950 pt-1 text-[9px] space-y-0.5">
+                  <span className="font-black text-zinc-950 block text-[9px] uppercase tracking-wide">
+                    OBSERVACIÓN FINAL CALIDAD:
+                  </span>
+                  <p className="text-zinc-950 font-bold text-[8.5px] leading-snug line-clamp-2">
+                    {getCleanFinalQualityObservation(colcha)}
                   </p>
+                  <div className="text-[7.5px] font-mono text-zinc-600 pt-0.5 border-t border-zinc-200 flex items-center justify-between">
+                    <span>ID: STF-OP-{colcha.op.replace(/^OP-?/i, '').trim()}</span>
+                    <span>Impreso: {new Date().toLocaleString('es-CO')}</span>
+                  </div>
                 </div>
 
               </div>

@@ -7,6 +7,7 @@ import {
 import { SolicitudColcha, SectorType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { normalizeImageUrl, getLocalCreatedOps } from '../../services/googleSheetsService';
+import { getCleanFinalQualityObservation } from '../../services/exportService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 
 interface PublicOpViewProps {
@@ -320,14 +321,14 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                   </div>
                 </div>
 
-                {/* OBSERVACIONES TÉCNICAS */}
+                {/* OBSERVACIONES TÉCNICAS Y CALIDAD */}
                 <div className="space-y-2 pt-2 border-t border-zinc-800 dark:border-zinc-200">
                   <span className="text-xs font-mono font-bold text-amber-400 dark:text-amber-700 flex items-center gap-1.5 uppercase">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    OBSERVACIÓN TÉCNICA Y TRAZABILIDAD:
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    OBSERVACIÓN FINAL CALIDAD:
                   </span>
-                  <div className="p-3.5 rounded-2xl bg-amber-950/30 dark:bg-amber-50 border border-amber-500/30 dark:border-amber-200 text-xs font-mono text-amber-200 dark:text-amber-900 leading-relaxed">
-                    {colcha.observacionesOperario || colcha.observacionesLavanderia || `CONCEPTO CALIDAD: ${colcha.dictamen}`}
+                  <div className="p-3.5 rounded-2xl bg-zinc-950/80 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 text-xs font-mono font-bold text-white dark:text-zinc-950 leading-relaxed shadow-inner">
+                    {getCleanFinalQualityObservation(colcha)}
                   </div>
                 </div>
 
