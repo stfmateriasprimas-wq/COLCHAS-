@@ -731,7 +731,7 @@ function doPost(e) {
       var opsList = payload.ops || [];
       var senderName = payload.senderName || 'EDWIN DIAZ (ADMINISTRADOR)';
       var fechaReporte = payload.fechaReporte || Utilities.formatDate(new Date(), 'America/Bogota', 'd/M/yyyy HH:mm:ss');
-      var appUrl = payload.appUrl || 'https://remix-stf-group-quality-control-5.vercel.app/?tab=alertas';
+      var appUrl = payload.appUrl || 'https://colchas.vercel.app/?tab=alertas';
       var subject = payload.subject || ('🚨 [ALERTA SLA - STF GROUP] ' + opsList.length + ' Órdenes de Producción con Retraso');
 
       // Construcción del cuerpo HTML del correo
@@ -1326,3 +1326,113 @@ function buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl) {
 
     '</div></body></html>';
 }
+
+/**
+ * =========================================================================
+ * AUTOMATIZACIÓN DE CORREOS: FUNCIONES DE PRUEBA Y ACTIVADORES POR TIEMPO
+ * =========================================================================
+ */
+
+/**
+ * 1. Ejecutar esta función en el editor de Apps Script para autorizar los permisos
+ * de MailApp / GmailApp por primera y única vez con el botón "Ejecutar".
+ */
+function probarPermisosYEnvioCorreo() {
+  var emailPrueba = Session.getActiveUser().getEmail() || 'calidadzf@studiof.com.co';
+  var subject = '✅ [PRUEBA DE CONEXIÓN] Sistema STF Colchas - Correos Automáticos Activos';
+  var body = 'El sistema STF Colchas ha verificado con éxito los permisos de envío automático de correos electrónicos.\n\nFecha: ' + new Date().toLocaleString();
+  
+  MailApp.sendEmail({
+    to: emailPrueba,
+    subject: subject,
+    body: body,
+    name: 'COLCHAS STF GROUP'
+  });
+
+  Logger.log('Correo de prueba enviado con éxito a: ' + emailPrueba);
+}
+
+/**
+ * 2. Función programada para ejecutarse automáticamente todas las mañanas (ej. 7:00 AM).
+ * Revisa la hoja ALERTAS o calcula las OPs con retraso SLA > 2 días y despacha el correo consolidado.
+ */
+function enviarReporteDiarioAutomaticoSLA() {
+  var ss = getTargetSpreadsheet();
+  autoCleanMonitoreoFromBaseDeDatos(ss);
+  
+  var sheetAl = ss.getSheetByName(SHEET_ALERTAS);
+  if (!sheetAl) return;
+  
+  var data = sheetAl.getDataRange().getValues();
+  if (data.length <= 1) {
+    Logger.log('No hay OPs con retraso en la hoja ALERTAS. No se envía correo.');
+    return;
+  }
+  
+  var opsList = [];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    if (row[0]) {
+      opsList.push({
+        op: String(row[0]).replace(/^OP-?/i, ''),
+        referencia: String(row[1] || 'S/R'),
+        tela: String(row[2] || ''),
+        color: String(row[3] || ''),
+        areaActual: String(row[5] || 'PLANTA'),
+        diasHabiles: Number(row[7]) || 0,
+        observacionesOperario: String(row[11] || row[12] || 'Retraso crítico detectado')
+      });
+    }
+  }
+
+  if (opsList.length === 0) return;
+
+  var recipients = getAllUserEmails(ss);
+  var appUrl = 'https://colchas.vercel.app/?tab=alertas';
+  var subject = '🚨 [ALERTA MATUTINA SLA STF] ' + opsList.length + ' Órdenes de Producción con Retraso en Planta';
+  
+  // Reutiliza la plantilla corporativa
+  var mockE = {
+    postData: {
+      contents: JSON.stringify({
+        action: 'SEND_ALERTA_EMAIL',
+        payload: {
+          recipients: recipients,
+          ops: opsList,
+          senderName: 'SISTEMA AUTOMÁTICO STF (TRIGGER MATUTINO)',
+          fechaReporte: Utilities.formatDate(new Date(), 'America/Bogota', 'd/M/yyyy HH:mm:ss'),
+          appUrl: appUrl,
+          subject: subject
+        }
+      })
+    }
+  };
+  
+  doPost(mockE);
+  Logger.log('Reporte matutino de SLA enviado a ' + recipients.length + ' destinatarios.');
+}
+
+/**
+ * 3. Ejecuta esta función UNA SOLA VEZ para programar el envío automático
+ * todos los días de lunes a viernes a las 7:00 AM hora de Colombia.
+ */
+function instalarActivadorDiario7AM() {
+  // Eliminar activadores previos para evitar duplicados
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'enviarReporteDiarioAutomaticoSLA') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+
+  // Crear nuevo activador diario a las 7:00 AM
+  ScriptApp.newTrigger('enviarReporteDiarioAutomaticoSLA')
+    .timeBased()
+    .everyDays(1)
+    .atHour(7)
+    .inTimezone('America/Bogota')
+    .create();
+
+  Logger.log('✅ Activador automático de las 7:00 AM programado exitosamente.');
+}
+
