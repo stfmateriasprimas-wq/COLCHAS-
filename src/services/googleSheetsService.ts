@@ -70,7 +70,7 @@ export function mapEstadoStringToSector(rawEstado: string): SectorType {
   if (s.includes('FINALIZAD') || s.includes('LIBERAD')) {
     return 'FINALIZADO';
   }
-  return 'FINALIZADO';
+  return 'SOLICITADO';
 }
 
 export function mapAreaName(sector: SectorType): string {
@@ -596,11 +596,12 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                   const remote = merged[remoteIdx];
                   merged[remoteIdx] = {
                     ...remote,
+                    id: (loc.id && loc.id.startsWith('colcha-')) ? loc.id : remote.id,
                     fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
                     fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
                     observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad,
-                    estado: loc.fechaActualizacion ? loc.estado : remote.estado,
-                    areaActual: loc.fechaActualizacion ? loc.areaActual : remote.areaActual,
+                    estado: loc.fechaActualizacion ? loc.estado : (loc.estado || remote.estado),
+                    areaActual: loc.fechaActualizacion ? loc.areaActual : (loc.areaActual || remote.areaActual),
                     dictamen: loc.fechaActualizacion && loc.dictamen ? loc.dictamen : remote.dictamen
                   };
                 }
@@ -709,11 +710,12 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
             const remote = merged[remoteIdx];
             merged[remoteIdx] = {
               ...remote,
+              id: (loc.id && loc.id.startsWith('colcha-')) ? loc.id : remote.id,
               fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
               fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
               observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad,
-              estado: loc.fechaActualizacion ? loc.estado : remote.estado,
-              areaActual: loc.fechaActualizacion ? loc.areaActual : remote.areaActual,
+              estado: loc.fechaActualizacion ? loc.estado : (loc.estado || remote.estado),
+              areaActual: loc.fechaActualizacion ? loc.areaActual : (loc.areaActual || remote.areaActual),
               dictamen: loc.fechaActualizacion && loc.dictamen ? loc.dictamen : remote.dictamen
             };
           }

@@ -418,7 +418,8 @@ export function App() {
         console.warn('Error sincronizando nueva solicitud con Google Sheets:', err);
       });
 
-      // Navegación inmediata a Bandeja y apertura de etiqueta térmica
+      // Navegación inmediata a Bandeja, activación del filtro de etapa y apertura de etiqueta térmica
+      setAiStageFilter(nueva.estado);
       setSelectedColchaPrinter(nueva);
       setActiveTab('solicitudes');
 
@@ -426,6 +427,7 @@ export function App() {
       notificationService.playAlertSound('EXITO');
     } catch (e) {
       console.error('Error en handleAddNewSolicitud:', e);
+      setAiStageFilter(nueva.estado);
       setSelectedColchaPrinter(nueva);
       setActiveTab('solicitudes');
     }

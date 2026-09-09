@@ -14,6 +14,21 @@ export function parseColombianDate(dateInput: string | Date): Date {
   if (dateInput instanceof Date) return dateInput;
   if (!dateInput) return new Date(0);
   const str = String(dateInput).trim();
+
+  // 0. Format: Date(yyyy, m, d, h, mi, s) or Date(yyyy, m, d) (Google Sheets GViz JSON)
+  if (str.startsWith('Date(')) {
+    const gvizMatch = str.match(/Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)/);
+    if (gvizMatch) {
+      const year = parseInt(gvizMatch[1], 10);
+      const month = parseInt(gvizMatch[2], 10); // 0-indexed in GViz
+      const day = parseInt(gvizMatch[3], 10);
+      const hour = gvizMatch[4] !== undefined ? parseInt(gvizMatch[4], 10) : 0;
+      const min = gvizMatch[5] !== undefined ? parseInt(gvizMatch[5], 10) : 0;
+      const sec = gvizMatch[6] !== undefined ? parseInt(gvizMatch[6], 10) : 0;
+      const d = new Date(year, month, day, hour, min, sec);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
   
   // 1. Format: D/M/YYYY H:M:S or DD/MM/YYYY H:M:S with optional a.m./p.m.
   const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
