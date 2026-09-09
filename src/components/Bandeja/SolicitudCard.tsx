@@ -769,27 +769,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             )}
           </div>
 
-          {solicitud.estado === 'PRE_SOLICITUD' ? (
-            <button
-              type="button"
-              onClick={() => onTransfer(solicitud)}
-              className="px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
-              title="Transferir muestra a Lavandería Colfactory ZF"
-            >
-              <span>TRANSFERIR A LAVANDERÍA</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          ) : solicitud.estado === 'SOLICITADO' ? (
-            <button
-              type="button"
-              onClick={() => onTransfer(solicitud)}
-              className="px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
-              title="Transferir muestra a Lavandería Colfactory ZF"
-            >
-              <span>TRANSFERIR A LAVANDERÍA</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          ) : solicitud.estado === 'LAVANDERIA' ? (
+          {solicitud.estado === 'LAVANDERIA' ? (
             <button
               type="button"
               onClick={() => onTransfer(solicitud)}
@@ -809,7 +789,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               <span>EMITIR DICTAMEN FINAL</span>
               <ArrowRight className="w-4 h-4" />
             </button>
-          ) : (
+          ) : solicitud.estado === 'FINALIZADO' ? (
             <span className={`text-xs font-bold px-3.5 py-2 rounded-2xl border font-mono flex items-center gap-1.5 shadow-xs ${
               solicitud.dictamen === 'RECHAZADO'
                 ? 'bg-rose-950/80 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border-rose-500/40 dark:border-rose-300'
@@ -817,7 +797,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             }`}>
               <span>{solicitud.dictamen === 'RECHAZADO' ? '❌ RECHAZADO' : '✅ LIBERADO / APROBADO'}</span>
             </span>
-          )}
+          ) : null}
         </div>
 
       </div>
