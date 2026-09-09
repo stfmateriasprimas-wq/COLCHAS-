@@ -917,21 +917,23 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
                 return '';
               };
 
-              // Formato típico de Monitoreo: Col 0 = MT, Col 1 = TELA, Col 2 = COLOR, Col 3 = OP, Col 4 = REFERENCIA
-              // O Col 0 = TELA, Col 1 = MT, Col 2 = COLOR, Col 3 = OP, Col 4 = REFERENCIA
-              let tela = getVal(1);
-              let mt = getVal(0);
+              // Formato oficial de Monitoreo (gid=1356774059):
+              // Col 0 = TELA, Col 1 = MT, Col 2 = COLOR, Col 3 = OP, Col 4 = REFERENCIA
+              let tela = getVal(0);
+              let mt = getVal(1);
               let color = getVal(2) || 'AZUL';
               let op = getVal(3);
               let ref = getVal(4);
 
-              if (tela.toUpperCase().includes('MT') || mt.toUpperCase().includes('TELA')) {
+              // Auto-detección por si vinieran invertidas MT y TELA
+              if ((tela.toUpperCase().startsWith('MT') || tela.toUpperCase().includes('MT00')) && !mt.toUpperCase().startsWith('MT')) {
                 const temp = tela;
                 tela = mt;
                 mt = temp;
               }
 
-              if (tela.toUpperCase().includes('TELA') && op.toUpperCase().includes('OP')) return;
+              // Omitir fila de encabezados
+              if ((tela.toUpperCase().includes('TELA') && op.toUpperCase().includes('OP')) || (tela.toUpperCase().includes('TELA') && mt.toUpperCase().includes('MT'))) return;
               if (!tela && !op) return;
 
               const cleanOp = (op || '').replace(/\D/g, '') || (op || '').trim().toUpperCase();
@@ -966,20 +968,24 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
         const list: MonitoreoItem[] = [];
         for (let i = 1; i < rows.length; i++) {
           const r = rows[i];
+          const telaRaw = (r[0] || '').trim();
+          const mtRaw = (r[1] || 'MT-AUTO').trim();
+          const colorRaw = (r[2] || 'AZUL').trim();
           const opRaw = (r[3] || '').trim();
+          const refRaw = (r[4] || 'S/R').trim();
+
           const cleanOp = opRaw.replace(/\D/g, '') || opRaw.trim().toUpperCase();
           if (consumed.includes(cleanOp)) continue;
 
-          const telaRaw = (r[0] || '').trim();
           if (!opRaw && !telaRaw) continue;
-          if (opRaw.toUpperCase() === 'OP' && telaRaw.toUpperCase() === 'TELA') continue;
+          if (opRaw.toUpperCase().includes('OP') && telaRaw.toUpperCase().includes('TELA')) continue;
 
           list.push({
             tela: telaRaw || 'TELA INDIGO',
-            mt: (r[1] || 'MT-AUTO').trim(),
-            color: (r[2] || 'AZUL').trim(),
+            mt: mtRaw || 'MT-AUTO',
+            color: colorRaw || 'AZUL',
             op: formatOpCode(opRaw),
-            referencia: (r[4] || 'S/R').trim()
+            referencia: refRaw || 'S/R'
           });
         }
         if (list.length > 0) return list;
@@ -1404,10 +1410,10 @@ export const TODAY_REAL_SHEET_OPS: SolicitudColcha[] = [
 export const INITIAL_SOLICITUDES_DATA: SolicitudColcha[] = [];
 
 export const INITIAL_MONITOREO_DATA: MonitoreoItem[] = [
-  { tela: "TELA INDIGO EGEO", mt: "MT00067808", color: "AZUL", op: "", referencia: "" },
-  { tela: "TELA INDIGO WANG BLUE", mt: "MT00328571", color: "AZUL", op: "", referencia: "" },
-  { tela: "TELA INDIGO MAIA", mt: "MT00151555", color: "AZUL", op: "", referencia: "" },
-  { tela: "TELA INDIGO LARKANA", mt: "MT00315529", color: "AZUL", op: "", referencia: "" }
+  { tela: "TELA INDIGO RAYÓN AGRAS", mt: "MT00238352", color: "AZUL", op: "OP-2155", referencia: "R-4563" },
+  { tela: "TELA INDIGO UTOPIA", mt: "MT00216893", color: "CRUDO", op: "OP-69412", referencia: "R-71234" },
+  { tela: "TELA INDIGO CORES", mt: "MT00067803", color: "CRUDO, NATURAL", op: "OP-569", referencia: "R-48636" },
+  { tela: "TELA INDIGO UTOPIA ELA", mt: "MT00253877", color: "CRUDO", op: "OP-79214", referencia: "R-78997" }
 ];
 
 
