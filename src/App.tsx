@@ -273,8 +273,9 @@ export function App() {
     }
   };
 
-  const handleDeleteOp = (solicitud: SolicitudColcha) => {
-    setConfirmDeleteOp(solicitud);
+  const handleDeleteOp = async (solicitud: SolicitudColcha) => {
+    // Al pulsar ELIMINAR en el perfil de ediaz, se ejecuta la eliminación de forma 100% automática e inmediata
+    await executeDeleteOp(solicitud);
   };
 
   const executeDeleteOp = async (solicitud: SolicitudColcha) => {

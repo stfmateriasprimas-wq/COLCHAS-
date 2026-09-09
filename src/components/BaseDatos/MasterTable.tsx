@@ -638,7 +638,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                             <span>FINALIZAR</span>
                           </button>
                         )}
-                        {(!isLavanderiaUser(currentUser)) && onDeleteOp && (
+                        {isAdminUser(currentUser) && onDeleteOp && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -646,7 +646,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                               onDeleteOp(item);
                             }}
                             className="p-1.5 hover:bg-rose-950/60 dark:hover:bg-rose-100 rounded-lg text-rose-400 hover:text-rose-300 transition cursor-pointer"
-                            title="Eliminar OP del sistema"
+                            title="Eliminar esta OP automáticamente del sistema (Perfil Exclusivo ediaz)"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
