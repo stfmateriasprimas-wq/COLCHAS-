@@ -1,6 +1,8 @@
 import React from 'react';
 import { LayoutDashboard, PlusCircle, Inbox, Database, AlertTriangle, Clock, BarChart3 } from 'lucide-react';
 
+import { UsuarioSTF, isLavanderiaUser } from '../services/authService';
+
 export type TabType = 
   | 'dashboard'
   | 'nueva-solicitud'
@@ -15,25 +17,29 @@ interface NavigationProps {
   onSelectTab: (tab: TabType) => void;
   pendingCount?: number;
   alertCount?: number;
+  currentUser?: UsuarioSTF | null;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
   activeTab,
   onSelectTab,
   pendingCount = 0,
-  alertCount = 0
+  alertCount = 0,
+  currentUser
 }) => {
+  const isLavanderia = isLavanderiaUser(currentUser);
+
   const navItems = [
     {
       id: 'dashboard' as TabType,
       label: 'Panel de Control',
       icon: LayoutDashboard
     },
-    {
+    ...(!isLavanderia ? [{
       id: 'nueva-solicitud' as TabType,
       label: 'Nueva Solicitud',
       icon: PlusCircle
-    },
+    }] : []),
     {
       id: 'solicitudes' as TabType,
       label: 'Bandeja de Solicitudes',

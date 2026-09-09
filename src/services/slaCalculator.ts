@@ -15,13 +15,13 @@ export function parseColombianDate(dateInput: string | Date): Date {
   if (!dateInput) return new Date(0);
   const str = String(dateInput).trim();
   
-  // Format: D/M/YYYY H:M:S or DD/MM/YYYY H:M:S with optional a.m./p.m.
+  // 1. Format: D/M/YYYY H:M:S or DD/MM/YYYY H:M:S with optional a.m./p.m.
   const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
   if (match) {
     const day = parseInt(match[1], 10);
     const month = parseInt(match[2], 10) - 1;
     const year = parseInt(match[3], 10);
-    let hour = match[4] ? parseInt(match[4], 10) : 0;
+    let hour = match[4] !== undefined ? parseInt(match[4], 10) : 0;
     const min = match[5] ? parseInt(match[5], 10) : 0;
     const sec = match[6] ? parseInt(match[6], 10) : 0;
 
@@ -36,7 +36,13 @@ export function parseColombianDate(dateInput: string | Date): Date {
     if (!isNaN(d.getTime())) return d;
   }
 
-  // Format: YYYY-MM-DD
+  // 2. ISO format with Time (e.g. 2026-09-07T17:13:33.937Z)
+  if (str.includes('T')) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // 3. Format: YYYY-MM-DD
   const isoMatch = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if (isoMatch) {
     const year = parseInt(isoMatch[1], 10);
@@ -53,42 +59,57 @@ export function parseColombianDate(dateInput: string | Date): Date {
 /**
  * Obtiene el timestamp cronológico exacto de una OP combinando su fecha real y su número de OP
  */
-export function getOpChronologicalTimestamp(item: { fechaCreacion?: string; op?: string }): number {
+export function getOpChronologicalTimestamp(item: { fechaCreacion?: string; op?: string; id?: string }): number {
   if (!item) return 0;
+
+  // Extraer índice de fila si existe (ej. op-row-343-...) para desempate cronológico exacto
+  let rowBoost = 0;
+  if (item.id) {
+    const rowMatch = item.id.match(/^op-row-(\d+)/);
+    if (rowMatch) {
+      rowBoost = parseInt(rowMatch[1], 10) * 1000;
+    }
+  }
+
   const dt = parseColombianDate(item.fechaCreacion || '');
   const time = dt.getTime();
-  if (time > 0) return time;
+  if (time > 0) return time + rowBoost;
 
   // Fallback con número de OP
   const num = parseInt((item.op || '').replace(/\D/g, ''), 10) || 0;
-  return num;
+  return num + rowBoost;
 }
 
 /**
  * Formatea una fecha respetando estrictamente el formato colombiano de la base de datos:
- * DÍA / MES / AÑO H:MM a. m. / p. m. (ej. 3/9/2026 12:36 p. m.)
+ * DÍA / MES / AÑO H:MM a. m. / p. m. (ej. 3/9/2026 12:36 p. m., 8/9/2026 7:40 a. m.)
  */
 export function formatColombianDisplayDate(dateVal?: string | Date): string {
   if (!dateVal) return 'Hoy';
   const str = String(dateVal).trim();
   if (!str) return 'Hoy';
 
-  // Si ya viene en formato D/M/YYYY o DD/MM/YYYY
+  // 1. Si ya viene en formato D/M/YYYY o DD/MM/YYYY con o sin hora
   const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
   if (match) {
     const day = parseInt(match[1], 10);
     const month = parseInt(match[2], 10);
     const year = parseInt(match[3], 10);
-    let hour = match[4] ? parseInt(match[4], 10) : 0;
+    let hour = match[4] !== undefined ? parseInt(match[4], 10) : 0;
     const min = match[5] ? match[5].padStart(2, '0') : '00';
     
     const lower = str.toLowerCase();
     let ampm = 'a. m.';
     if (lower.includes('p. m.') || lower.includes('pm')) {
       ampm = 'p. m.';
+      if (hour > 12) hour -= 12;
+      if (hour === 0) hour = 12;
     } else if (lower.includes('a. m.') || lower.includes('am')) {
       ampm = 'a. m.';
+      if (hour > 12) hour -= 12;
+      if (hour === 0) hour = 12;
     } else {
+      // Formato 24 horas exacto de la base de datos (ej. 7:40:51 -> 7:40 a. m., 17:40:51 -> 5:40 p. m.)
       if (hour >= 12) {
         ampm = 'p. m.';
         if (hour > 12) hour -= 12;
@@ -97,40 +118,37 @@ export function formatColombianDisplayDate(dateVal?: string | Date): string {
         if (hour === 0) hour = 12;
       }
     }
-    
-    if (hour > 12) hour -= 12;
-    if (hour === 0) hour = 12;
 
     return `${day}/${month}/${year} ${hour}:${min} ${ampm}`;
   }
 
-  // Si viene en formato ISO (YYYY-MM-DD...)
-  const isoMatch = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:T|\s+)?(\d{1,2})?:?(\d{1,2})?/);
-  if (isoMatch) {
-    const year = parseInt(isoMatch[1], 10);
-    const month = parseInt(isoMatch[2], 10);
-    const day = parseInt(isoMatch[3], 10);
-    let hour = isoMatch[4] ? parseInt(isoMatch[4], 10) : 0;
-    const min = isoMatch[5] ? isoMatch[5].padStart(2, '0') : '00';
-    
-    let ampm = hour >= 12 ? 'p. m.' : 'a. m.';
-    if (hour > 12) hour -= 12;
-    if (hour === 0) hour = 12;
-
-    return `${day}/${month}/${year} ${hour}:${min} ${ampm}`;
-  }
-
-  const dt = new Date(str);
-  if (!isNaN(dt.getTime())) {
-    const day = dt.getDate();
-    const month = dt.getMonth() + 1;
-    const year = dt.getFullYear();
-    let hour = dt.getHours();
-    const min = String(dt.getMinutes()).padStart(2, '0');
-    let ampm = hour >= 12 ? 'p. m.' : 'a. m.';
-    if (hour > 12) hour -= 12;
-    if (hour === 0) hour = 12;
-    return `${day}/${month}/${year} ${hour}:${min} ${ampm}`;
+  // 2. Si viene en formato ISO o Date objeto, convertir respetando hora local de Colombia (UTC-5)
+  if (dateVal instanceof Date || str.includes('T') || str.endsWith('Z')) {
+    const dt = dateVal instanceof Date ? dateVal : new Date(str);
+    if (!isNaN(dt.getTime())) {
+      try {
+        const formatter = new Intl.DateTimeFormat('es-CO', {
+          timeZone: 'America/Bogota',
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        return formatter.format(dt);
+      } catch {
+        const day = dt.getDate();
+        const month = dt.getMonth() + 1;
+        const year = dt.getFullYear();
+        let hour = dt.getHours();
+        const min = String(dt.getMinutes()).padStart(2, '0');
+        let ampm = hour >= 12 ? 'p. m.' : 'a. m.';
+        if (hour > 12) hour -= 12;
+        if (hour === 0) hour = 12;
+        return `${day}/${month}/${year} ${hour}:${min} ${ampm}`;
+      }
+    }
   }
 
   return str;

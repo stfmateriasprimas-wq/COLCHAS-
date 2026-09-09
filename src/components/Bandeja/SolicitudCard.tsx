@@ -1,12 +1,18 @@
-import React from 'react';
-import { Eye, Printer, ArrowRight, Camera, Calendar, Clock, Trash2, CheckCircle2 } from 'lucide-react';
-import { SolicitudColcha, SectorType } from '../../types';
+import React, { useState, useRef } from 'react';
+import { 
+  Eye, Printer, ArrowRight, Camera, Calendar, Clock, Trash2, 
+  CheckCircle2, RotateCcw, Droplets, Upload, Check, X, Microscope, 
+  Lock, AlertCircle, AlertTriangle, Layers, Sparkles 
+} from 'lucide-react';
+import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { UsuarioSTF, isAdminUser } from '../../services/authService';
+import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser } from '../../services/authService';
+import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto } from '../../services/googleSheetsService';
 
 interface SolicitudCardProps {
   solicitud: SolicitudColcha;
   onTransfer: (solicitud: SolicitudColcha) => void;
+  onDirectTransfer?: (solicitudId: string, nuevoEstado: SectorType, observacion: string, dictamen?: DictamenType, fotoCalidad?: string) => void;
   onViewDetail: (solicitud: SolicitudColcha) => void;
   onPrint: (solicitud: SolicitudColcha) => void;
   onDelete?: (solicitud: SolicitudColcha) => void;
@@ -111,6 +117,7 @@ const STAGE_CONFIG: Record<SectorType, {
 export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   solicitud,
   onTransfer,
+  onDirectTransfer,
   onViewDetail,
   onPrint,
   onDelete,
@@ -120,6 +127,117 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const stageConfig = STAGE_CONFIG[solicitud.estado] || STAGE_CONFIG.SOLICITADO;
   const currentStageIndex = STAGES.findIndex(s => s.key === solicitud.estado);
   const cardId = `op-card-${solicitud.op.replace(/\D/g, '') || solicitud.op}`;
+
+  // Estado local para Gestión Lavandería
+  const [notasLavado, setNotasLavado] = useState('');
+
+  // Estado local para Control de Calidad (STF)
+  const [veredictoLocal, setVeredictoLocal] = useState<'APROBADO' | 'RECHAZADO' | ''>('');
+  const [obsCalidadLocal, setObsCalidadLocal] = useState('');
+  const [fotoCalidadPreview, setFotoCalidadPreview] = useState<string | null>(solicitud.fotoCalidadUrl || null);
+  const [isUploadingCalidadPhoto, setIsUploadingCalidadPhoto] = useState(false);
+  const [zoomedPhotoUrl, setZoomedPhotoUrl] = useState<string | null>(null);
+  const calidadFileInputRef = useRef<HTMLInputElement>(null);
+
+  const fotoCalidadUrlActual = fotoCalidadPreview || solicitud.fotoCalidadUrl;
+
+  // Determine origin for returning (ZF / Atelier vs Planta / Calidad)
+  const origenIsZF = Boolean(
+    solicitud.observacionesOperario?.toUpperCase().includes('ATELIER') ||
+    solicitud.observacionesOperario?.toUpperCase().includes('ZONA FRANCA') ||
+    solicitud.observacionesOperario?.toUpperCase().includes('PRE-SOLICITUD') ||
+    solicitud.inspector?.toUpperCase().includes('ZF') ||
+    solicitud.inspector?.toUpperCase().includes('ATELIER') ||
+    solicitud.inspector?.toUpperCase().includes('DIDIER') ||
+    solicitud.inspector?.toUpperCase().includes('SEBASTIAN') ||
+    solicitud.inspector?.toUpperCase().includes('2222')
+  );
+  const returnStage: SectorType = origenIsZF ? 'PRE_SOLICITUD' : 'SOLICITADO';
+  const returnStageLabel = origenIsZF ? 'PRE-SOLICITUD (ZONA FRANCA / ATELIER)' : 'SOLICITADOS (PLANTA PRINCIPAL)';
+
+  const handleEnviarCalidad = () => {
+    const obs = notasLavado.trim();
+    if (onDirectTransfer) {
+      onDirectTransfer(solicitud.id, 'CALIDAD', obs || 'Muestra procesada en Lavandería Colfactory ZF');
+    } else {
+      onTransfer(solicitud);
+    }
+  };
+
+  const handleDevolver = () => {
+    const defaultReason = notasLavado.trim() || 'Error / Novedad en proceso de lavado';
+    const reason = prompt(
+      `🚨 DEVOLVER ORDEN POR ERROR / NOVEDAD:\n\nEsta OP ${solicitud.op} regresará como ALERTA a: ${returnStageLabel}.\n\nIndique la observación o motivo de devolución:`,
+      defaultReason
+    );
+    if (reason === null) return; // Cancelado
+
+    const returnObs = `[🚨 DEVOLUCIÓN POR LAVANDERÍA (ERROR)]: ${reason.trim() || 'Novedad técnica en lavado'}`;
+    if (onDirectTransfer) {
+      onDirectTransfer(solicitud.id, returnStage, returnObs);
+    } else {
+      onTransfer(solicitud);
+    }
+  };
+
+  const handleRecibirColcha = () => {
+    const userLabel = currentUser?.nombre || 'LAVANDERÍA COLFACTORY ZF';
+    const origen = solicitud.estado === 'PRE_SOLICITUD' ? 'Zona Franca (Atelier)' : 'Planta Principal';
+    const obs = `Colcha recibida en Lavandería Colfactory ZF desde ${origen} por ${userLabel}`;
+    if (onDirectTransfer) {
+      onDirectTransfer(solicitud.id, 'LAVANDERIA', obs);
+    } else {
+      onTransfer(solicitud);
+    }
+  };
+
+  // Carga y compresión de fotografía de calidad post-lavado
+  const handleCalidadPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingCalidadPhoto(true);
+    try {
+      const compressed = await compressImageFile(file, 650, 0.55);
+      setFotoCalidadPreview(compressed);
+      
+      // Persistir localmente como foto de calidad (isCalidad = true)
+      updateLocalOpPhoto(solicitud.id, compressed, true);
+      updateLocalOpPhoto(solicitud.op, compressed, true);
+
+      // Sincronizar con Google Sheets & Drive
+      await pushOpPhotoToSheets(solicitud.op, compressed, true);
+    } catch (err) {
+      console.error('Error al cargar foto de calidad:', err);
+      alert('Hubo un error al procesar la imagen. Por favor intenta de nuevo.');
+    } finally {
+      setIsUploadingCalidadPhoto(false);
+    }
+  };
+
+  // Emisión de Dictamen Final en Calidad
+  const handleEmitirDictamen = () => {
+    if (!veredictoLocal) {
+      alert('⚠️ Por favor seleccione el VEREDICTO (APROBADO o RECHAZADO) para emitir el dictamen final.');
+      return;
+    }
+    if (!obsCalidadLocal.trim()) {
+      alert('⚠️ Por favor ingrese la OBSERVACIÓN FINAL del dictamen de calidad.');
+      return;
+    }
+
+    const dictamen = veredictoLocal as DictamenType;
+    const obsFinal = obsCalidadLocal.trim();
+    const fotoFinal = fotoCalidadPreview || solicitud.fotoCalidadUrl;
+
+    if (onDirectTransfer) {
+      onDirectTransfer(solicitud.id, 'FINALIZADO', obsFinal, dictamen, fotoFinal);
+    } else {
+      onTransfer(solicitud);
+    }
+  };
+
+  const hasBothPhotos = Boolean(solicitud.fotoMuestraUrl && (solicitud.fotoCalidadUrl || fotoCalidadPreview));
 
   return (
     <div id={cardId} className={`bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 ${stageConfig.border} border-l-[8px] rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 text-white dark:text-zinc-950 scroll-mt-24`}>
@@ -134,14 +252,24 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               {solicitud.estado.replace('_', ' ')}
             </span>
             
-            {/* Muestra Activa Pill */}
-            <span className="text-[11px] font-mono font-bold px-3 py-1 rounded-xl bg-emerald-950/60 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border border-dashed border-emerald-500/80 dark:border-emerald-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>MUESTRA ACTIVA</span>
-            </span>
+            {/* Muestra Activa Pill / Dictamen Pill */}
+            {solicitud.estado === 'FINALIZADO' ? (
+              <span className={`text-[11px] font-mono font-black px-3 py-1 rounded-xl border flex items-center gap-1.5 ${
+                solicitud.dictamen === 'RECHAZADO'
+                  ? 'bg-rose-950/80 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border-rose-600 dark:border-rose-300'
+                  : 'bg-emerald-950/80 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border-emerald-600 dark:border-emerald-300'
+              }`}>
+                <span>{solicitud.dictamen === 'RECHAZADO' ? '❌ RECHAZADO' : '✅ APROBADO'}</span>
+              </span>
+            ) : (
+              <span className="text-[11px] font-mono font-bold px-3 py-1 rounded-xl bg-emerald-950/60 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border border-dashed border-emerald-500/80 dark:border-emerald-400 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>MUESTRA ACTIVA</span>
+              </span>
+            )}
 
             {/* Delay alert if delayed */}
-            {solicitud.tieneRetraso && (
+            {solicitud.tieneRetraso && solicitud.estado !== 'FINALIZADO' && (
               <span className="text-[11px] font-mono font-bold px-3 py-1 rounded-xl bg-rose-950/70 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border border-rose-700 dark:border-rose-300 flex items-center gap-1">
                 <span>⚠️ +{solicitud.diasHabiles} DÍAS RETRASO</span>
               </span>
@@ -214,37 +342,86 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
           </div>
 
-          {/* Right Action / Photo Box */}
+          {/* Right Action / Photo Box (VISOR EXCLUSIVO DE FOTOGRAFÍA - SOLO VER) */}
           <div className="hidden sm:flex flex-col items-center gap-2 flex-shrink-0">
-            <div
-              onClick={() => onViewDetail(solicitud)}
-              className="w-28 h-28 rounded-2xl bg-zinc-900/90 dark:bg-zinc-100 border-2 border-dashed border-zinc-700 dark:border-zinc-300 hover:border-zinc-500 dark:hover:border-zinc-400 flex flex-col items-center justify-center p-2 text-zinc-400 dark:text-zinc-500 hover:text-white dark:hover:text-zinc-900 cursor-pointer transition overflow-hidden relative group"
-            >
-              {solicitud.fotoMuestraUrl ? (
-                <img
-                  src={solicitud.fotoMuestraUrl}
-                  alt="Muestra"
-                  className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition"
-                />
-              ) : (
-                <>
-                  <Camera className="w-6 h-6 mb-1 text-zinc-400 dark:text-zinc-500 stroke-[1.5]" />
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-center text-zinc-400 dark:text-zinc-500">CARGAR FOTO</span>
-                </>
-              )}
-            </div>
+            {solicitud.estado === 'FINALIZADO' && hasBothPhotos ? (
+              <div className="flex items-center gap-2">
+                {/* Foto 1: Inicial */}
+                <div
+                  onClick={() => setZoomedPhotoUrl(solicitud.fotoMuestraUrl || null)}
+                  className="w-20 h-28 rounded-2xl p-1.5 bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-700 dark:border-zinc-300 flex flex-col items-center justify-between cursor-pointer hover:border-amber-500 group overflow-hidden shadow-sm transition"
+                  title="Clic para ver y ampliar Foto 1: Muestra Inicial (Corte)"
+                >
+                  <img
+                    src={solicitud.fotoMuestraUrl}
+                    alt="Inicial"
+                    className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
+                  />
+                  <span className="text-[8px] font-black font-mono text-zinc-400 dark:text-zinc-600 uppercase flex items-center gap-1">
+                    <Eye className="w-2.5 h-2.5 text-amber-500" />
+                    <span>1. INICIAL</span>
+                  </span>
+                </div>
 
-            {solicitud.estado === 'CALIDAD' && (
-              <span 
-                onClick={() => onViewDetail(solicitud)}
-                className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md font-mono text-center cursor-pointer transition ${
-                  solicitud.fotoMuestraUrl
-                    ? 'bg-emerald-950 text-emerald-300 dark:bg-emerald-50 dark:text-emerald-700 border border-emerald-500/40 dark:border-emerald-300'
-                    : 'bg-amber-950 text-amber-300 dark:bg-amber-50 dark:text-amber-700 border border-amber-500/40 dark:border-amber-300 animate-pulse hover:bg-amber-900'
+                {/* Foto 2: Calidad */}
+                <div
+                  onClick={() => setZoomedPhotoUrl(fotoCalidadUrlActual || null)}
+                  className="w-20 h-28 rounded-2xl p-1.5 bg-purple-950/40 dark:bg-purple-50 border border-purple-500/50 dark:border-purple-300 flex flex-col items-center justify-between cursor-pointer hover:border-purple-400 group overflow-hidden shadow-sm transition"
+                  title="Clic para ver y ampliar Foto 2: Calidad Post-Lavado"
+                >
+                  <img
+                    src={fotoCalidadUrlActual || ''}
+                    alt="Calidad"
+                    className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
+                  />
+                  <span className="text-[8px] font-black font-mono text-purple-300 dark:text-purple-700 uppercase flex items-center gap-1">
+                    <Eye className="w-2.5 h-2.5 text-purple-400" />
+                    <span>2. CALIDAD</span>
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => {
+                  const targetPhoto = fotoCalidadUrlActual || solicitud.fotoMuestraUrl;
+                  if (targetPhoto) {
+                    setZoomedPhotoUrl(targetPhoto);
+                  }
+                }}
+                className={`w-28 h-28 rounded-2xl p-2 flex flex-col items-center justify-center transition overflow-hidden relative group ${
+                  (fotoCalidadUrlActual || solicitud.fotoMuestraUrl)
+                    ? 'bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-700 dark:border-zinc-300 cursor-pointer hover:border-amber-500 shadow-sm'
+                    : 'bg-zinc-900/40 dark:bg-zinc-100/50 border border-zinc-800/80 dark:border-zinc-200 text-zinc-500 dark:text-zinc-400'
                 }`}
+                title={
+                  (fotoCalidadUrlActual || solicitud.fotoMuestraUrl)
+                    ? 'Clic para ver y ampliar la fotografía de la muestra' 
+                    : 'Sin fotografía registrada en la solicitud'
+                }
               >
-                {solicitud.fotoMuestraUrl ? '✓ FOTO POST-LAVADO' : '📷 ACT. FOTO'}
-              </span>
+                {(fotoCalidadUrlActual || solicitud.fotoMuestraUrl) ? (
+                  <>
+                    <img
+                      src={fotoCalidadUrlActual || solicitud.fotoMuestraUrl}
+                      alt="Muestra de colcha"
+                      className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition duration-200"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition duration-200 rounded-2xl">
+                      <div className="bg-black/80 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold text-white flex items-center gap-1 border border-zinc-700 shadow-md">
+                        <Eye className="w-3 h-3 text-amber-400" />
+                        <span>VER FOTO</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-6 h-6 mb-1 text-zinc-500 dark:text-zinc-400 stroke-[1.5]" />
+                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-center text-zinc-400 dark:text-zinc-500 font-mono">
+                      SIN FOTO
+                    </span>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -274,7 +451,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-sans font-bold uppercase text-zinc-500 dark:text-zinc-400">Ubicación:</span>
             <span className={`px-3 py-1 rounded-xl text-[10px] font-bold border ${stageConfig.locationBadge}`}>
-              {solicitud.areaActual}
+              {solicitud.estado === 'LAVANDERIA' ? 'LAVANDERÍA' : (solicitud.areaActual || 'LAVANDERÍA')}
             </span>
           </div>
 
@@ -282,6 +459,269 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             Último control: <strong className="text-white dark:text-zinc-950">{solicitud.inspector}</strong>
           </div>
         </div>
+
+        {/* ========================================================================= */}
+        {/* GESTIÓN LAVANDERÍA: RECEPCIÓN TÉCNICA DE COLCHA (EXCLUSIVO LAVANDERÍA)  */}
+        {/* ========================================================================= */}
+        {(isLavanderiaUser(currentUser) || isAdminUser(currentUser)) && (solicitud.estado === 'PRE_SOLICITUD' || solicitud.estado === 'SOLICITADO') && (
+          <div className="relative overflow-hidden bg-gradient-to-br from-sky-950/70 via-[#0a1526] to-[#070e1a] dark:from-sky-50 dark:via-blue-50/60 dark:to-white border-2 border-sky-500/40 dark:border-sky-300 rounded-3xl p-5 sm:p-6 space-y-4 mt-3 shadow-xl backdrop-blur-md animate-in fade-in duration-300">
+            
+            {/* Ambient Glow */}
+            <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-sky-500/10 dark:bg-sky-400/20 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Header with icon and origin tag */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-sky-500/20 dark:border-sky-200/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-sky-500/20 dark:bg-sky-100 flex items-center justify-center border border-sky-400/40 text-sky-400 dark:text-sky-600 shadow-sm">
+                  <Droplets className="w-4 h-4 animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="text-sm sm:text-base font-black text-sky-300 dark:text-sky-900 tracking-wide font-sans flex items-center gap-2">
+                    GESTIÓN LAVANDERÍA
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-900/60 dark:bg-sky-200/60 text-sky-300 dark:text-sky-800 border border-sky-500/30">
+                      RECEPCIÓN
+                    </span>
+                  </h4>
+                  <p className="text-[10.5px] text-zinc-400 dark:text-zinc-600 font-mono">
+                    Ingreso de muestra técnica al túnel de lavado
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono font-black px-3 py-1 rounded-xl bg-sky-950/80 dark:bg-sky-100 text-sky-300 dark:text-sky-800 border border-sky-500/40 dark:border-sky-300 shadow-xs uppercase">
+                  {solicitud.estado === 'PRE_SOLICITUD' ? '📍 ZONA FRANCA (ATELIER)' : '📍 PLANTA PRINCIPAL (DESPACHO)'}
+                </span>
+              </div>
+            </div>
+
+            {/* Interactive Action Area */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={handleRecibirColcha}
+                className="w-full group relative overflow-hidden bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer shadow-lg shadow-sky-600/25 active:scale-[0.99] border border-sky-400/40"
+              >
+                <Droplets className="w-4 h-4 text-sky-200 group-hover:scale-125 group-hover:rotate-12 transition-transform duration-200" />
+                <span className="font-mono text-sm tracking-wide">RECIBIR COLCHA EN LAVANDERÍA</span>
+                <ArrowRight className="w-4 h-4 text-sky-200 group-hover:translate-x-1 transition-transform duration-200" />
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* GESTIÓN LAVANDERÍA (COCKPIT INTEGRADO EXCLUSIVO PARA PERFILES LAVANDERÍA) */}
+        {/* ========================================================================= */}
+        {(isLavanderiaUser(currentUser) || isAdminUser(currentUser)) && solicitud.estado === 'LAVANDERIA' && (
+          <div className="relative overflow-hidden bg-gradient-to-br from-sky-950/80 via-[#0a1424] to-[#070e1a] dark:from-sky-50 dark:via-blue-50/70 dark:to-white border-2 border-sky-500/50 dark:border-sky-300 rounded-3xl p-5 sm:p-6 space-y-4 mt-3 shadow-2xl backdrop-blur-md animate-in fade-in duration-300">
+            
+            {/* Ambient glow */}
+            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-36 h-36 bg-sky-500/10 dark:bg-sky-400/20 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-sky-500/20 dark:border-sky-200/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-sky-500/20 dark:bg-sky-100 flex items-center justify-center border border-sky-400/40 text-sky-400 dark:text-sky-600 shadow-sm">
+                  <Droplets className="w-4 h-4 text-sky-400 animate-bounce" />
+                </div>
+                <div>
+                  <h4 className="text-sm sm:text-base font-black text-sky-300 dark:text-sky-900 tracking-wide font-sans flex items-center gap-2">
+                    GESTIÓN LAVANDERÍA
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-900/60 dark:bg-sky-200/60 text-sky-300 dark:text-sky-800 border border-sky-500/30">
+                      COLFACTORY ZF
+                    </span>
+                  </h4>
+                  <p className="text-[10.5px] text-zinc-400 dark:text-zinc-600 font-mono">
+                    Control de procesos, novedades técnicas y despacho a Calidad
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10.5px] font-mono font-bold px-3 py-1 rounded-xl bg-sky-950/90 dark:bg-sky-100 text-sky-300 dark:text-sky-800 border border-sky-500/40 dark:border-sky-300 flex items-center gap-1.5 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
+                  <span>EN LAVADO ACTIVO</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Observaciones Input with Smart Quick Tags */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <label className="text-[10.5px] font-bold text-sky-300 dark:text-sky-800 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                  <span>OBSERVACIONES DE ENVÍO Y PROCESO</span>
+                </label>
+                
+                {/* Quick tags */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[9.5px] text-zinc-400 dark:text-zinc-500 font-mono">Sugeridos:</span>
+                  {[
+                    'Lavado estándar',
+                    'Desengomado + Suavizado',
+                    'Fijación de color',
+                    'Sin novedad'
+                  ].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        setNotasLavado(prev => prev ? `${prev} • ${tag}` : tag);
+                      }}
+                      className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-lg bg-zinc-900/90 hover:bg-sky-950 text-zinc-300 hover:text-sky-300 dark:bg-zinc-100 dark:hover:bg-sky-100 dark:text-zinc-700 dark:hover:text-sky-800 border border-zinc-700/80 hover:border-sky-500/50 transition cursor-pointer"
+                    >
+                      + {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <textarea
+                value={notasLavado}
+                onChange={(e) => setNotasLavado(e.target.value)}
+                rows={2}
+                placeholder="Describa el proceso técnico realizado, formulación o novedades..."
+                className="w-full bg-zinc-950/90 dark:bg-white border-2 border-zinc-800 dark:border-zinc-300 rounded-2xl p-3.5 text-xs text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none focus:border-sky-500 transition font-mono shadow-inner"
+              />
+            </div>
+
+            {/* Action Buttons: Enviar a Calidad & Devolver (Error) */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+              
+              {/* Botón Principal: ENVIAR A CALIDAD (STF) */}
+              <div className="sm:col-span-8">
+                <button
+                  type="button"
+                  onClick={handleEnviarCalidad}
+                  className="w-full group relative overflow-hidden bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white py-3.5 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all duration-200 cursor-pointer shadow-lg shadow-sky-600/25 active:scale-[0.99] border border-sky-400/40"
+                >
+                  <span className="font-mono">ENVIAR A CALIDAD (STF)</span>
+                  <ArrowRight className="w-4 h-4 text-sky-200 group-hover:translate-x-1 transition-transform duration-200" />
+                </button>
+              </div>
+
+              {/* Botón Alerta / Novedad: DEVOLVER (ERROR) */}
+              <div className="sm:col-span-4">
+                <button
+                  type="button"
+                  onClick={handleDevolver}
+                  className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 dark:text-rose-600 border border-rose-500/40 hover:border-rose-500/70 py-3.5 px-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer shadow-xs active:scale-[0.99]"
+                  title="Devolver OP por error o novedad técnica en lavandería"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-rose-400 dark:text-rose-600" />
+                  <span className="font-mono">DEVOLVER (ERROR)</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* CONTROL DE CALIDAD (STF) - MODULO INTEGRADO (CALIDAD / ADMIN)            */}
+        {/* ========================================================================= */}
+        {(isCalidadUser(currentUser) || isAdminUser(currentUser)) && solicitud.estado === 'CALIDAD' && (
+          <div className="bg-[#0e121e] dark:bg-purple-50/70 border-2 border-indigo-500/40 dark:border-purple-300 rounded-3xl p-5 space-y-4 mt-3 shadow-xl animate-in fade-in duration-200">
+            
+            {/* Header: (✓) CONTROL DE CALIDAD (STF) */}
+            <div className="flex items-center justify-between border-b border-zinc-800 dark:border-purple-200/80 pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-indigo-400 dark:text-indigo-600" />
+                <h4 className="text-sm sm:text-base font-black text-indigo-300 dark:text-indigo-900 tracking-wide font-sans">
+                  CONTROL DE CALIDAD (STF)
+                </h4>
+              </div>
+              <span className="text-[10px] font-mono font-black px-3 py-1 rounded-full bg-indigo-950/80 dark:bg-indigo-100 text-indigo-300 dark:text-indigo-800 border border-indigo-500/40 dark:border-indigo-300">
+                AUDITORÍA FINAL
+              </span>
+            </div>
+
+            {/* Form 3 Columns: Veredicto, Observación Final, Foto */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
+              
+              {/* 1. VEREDICTO * */}
+              <div className="md:col-span-4 space-y-1.5">
+                <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono">
+                  VEREDICTO <span className="text-rose-500 font-black">*</span>
+                </label>
+                <select
+                  value={veredictoLocal}
+                  onChange={(e) => setVeredictoLocal(e.target.value as 'APROBADO' | 'RECHAZADO' | '')}
+                  className="w-full bg-zinc-950 dark:bg-white border-2 border-zinc-700 dark:border-zinc-300 rounded-2xl p-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-indigo-500 font-bold transition shadow-sm cursor-pointer"
+                >
+                  <option value="">-- Veredicto --</option>
+                  <option value="APROBADO">✅ APROBADO</option>
+                  <option value="RECHAZADO">❌ RECHAZADO</option>
+                </select>
+              </div>
+
+              {/* 2. OBSERVACIÓN FINAL * */}
+              <div className="md:col-span-5 space-y-1.5">
+                <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono">
+                  OBSERVACIÓN FINAL <span className="text-rose-500 font-black">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={obsCalidadLocal}
+                  onChange={(e) => setObsCalidadLocal(e.target.value)}
+                  placeholder="Escriba la observación..."
+                  className="w-full bg-zinc-950 dark:bg-white border-2 border-zinc-700 dark:border-zinc-300 rounded-2xl p-3 text-xs text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition font-mono shadow-sm"
+                />
+              </div>
+
+              {/* 3. FOTO * */}
+              <div className="md:col-span-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono flex items-center gap-1">
+                    <Camera className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>FOTO <span className="text-rose-500 font-black">*</span></span>
+                  </label>
+                  <span className={`text-[9.5px] font-mono font-bold ${
+                    fotoCalidadUrlActual 
+                      ? 'text-emerald-400 dark:text-emerald-600' 
+                      : 'text-zinc-500 dark:text-zinc-400'
+                  }`}>
+                    {fotoCalidadUrlActual ? '✓ CARGADA' : 'SIN FOTO'}
+                  </span>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => calidadFileInputRef.current?.click()}
+                  disabled={isUploadingCalidadPhoto}
+                  className="w-full bg-black hover:bg-zinc-900 text-white dark:bg-zinc-950 dark:hover:bg-zinc-800 border border-zinc-700 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-md active:scale-[0.99] disabled:opacity-50"
+                >
+                  <Upload className="w-3.5 h-3.5 text-white" />
+                  <span>{isUploadingCalidadPhoto ? 'CARGANDO...' : 'ACTUALIZAR FOTO'}</span>
+                </button>
+                <input
+                  type="file"
+                  ref={calidadFileInputRef}
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleCalidadPhotoUpload}
+                  className="hidden"
+                />
+              </div>
+
+            </div>
+
+            {/* ACTION BUTTON: EMITIR DICTAMEN FINAL */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleEmitirDictamen}
+                className="w-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-3.5 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-lg active:scale-[0.99]"
+              >
+                <span>EMITIR DICTAMEN FINAL {veredictoLocal ? `(${veredictoLocal})` : ''}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+          </div>
+        )}
 
         {/* Bottom Actions Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-zinc-800/80 dark:border-zinc-200/80">
@@ -330,42 +770,100 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           </div>
 
           {solicitud.estado === 'PRE_SOLICITUD' ? (
-            <button
-              onClick={() => onTransfer(solicitud)}
-              className="px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
-            >
-              <span>TRANSFERIR A LAVANDERÍA</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          ) : solicitud.estado === 'CALIDAD' ? (
-            <button
-              onClick={() => onTransfer(solicitud)}
-              className="px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
-            >
-              <span>EMITIR DICTAMEN FINAL</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            isLavanderiaUser(currentUser) ? (
+              <span className="text-xs bg-sky-950/60 dark:bg-sky-50 text-sky-300 dark:text-sky-700 font-mono font-bold px-3.5 py-2 rounded-2xl border border-sky-500/40 dark:border-sky-300 flex items-center gap-1.5 shadow-xs">
+                <Droplets className="w-3.5 h-3.5 text-sky-400" />
+                <span>PENDIENTE POR RECIBIR</span>
+              </span>
+            ) : isAdminUser(currentUser) ? (
+              <button
+                onClick={() => onTransfer(solicitud)}
+                className="px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
+              >
+                <span>TRANSFERIR A LAVANDERÍA</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <span className="text-xs bg-zinc-900 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 font-bold px-3.5 py-2 rounded-2xl border border-zinc-800 dark:border-zinc-200 font-mono flex items-center gap-1.5 shadow-xs">
+                <span>📦 PENDIENTE POR LAVANDERÍA</span>
+              </span>
+            )
           ) : solicitud.estado === 'SOLICITADO' ? (
-            <span className="text-xs bg-zinc-900 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 font-bold px-3.5 py-2 rounded-2xl border border-zinc-800 dark:border-zinc-200 font-mono flex items-center gap-1.5 shadow-xs">
-              <span>📦 PASO A LAVANDERÍA POR BD</span>
-            </span>
+            isLavanderiaUser(currentUser) ? (
+              <span className="text-xs bg-amber-950/60 dark:bg-amber-50 text-amber-300 dark:text-amber-700 font-mono font-bold px-3.5 py-2 rounded-2xl border border-amber-500/40 dark:border-amber-300 flex items-center gap-1.5 shadow-xs">
+                <Droplets className="w-3.5 h-3.5 text-amber-400" />
+                <span>PENDIENTE POR RECIBIR</span>
+              </span>
+            ) : (
+              <span className="text-xs bg-zinc-900 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 font-bold px-3.5 py-2 rounded-2xl border border-zinc-800 dark:border-zinc-200 font-mono flex items-center gap-1.5 shadow-xs">
+                <span>📦 PENDIENTE POR LAVANDERÍA</span>
+              </span>
+            )
           ) : solicitud.estado === 'LAVANDERIA' ? (
-            <button
-              onClick={() => onTransfer(solicitud)}
-              className="px-5 py-2.5 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition cursor-pointer"
-            >
-              <span>TRANSFERIR A CALIDAD</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            (isLavanderiaUser(currentUser) || isAdminUser(currentUser)) ? (
+              <span className="text-xs bg-sky-950/80 dark:bg-sky-100 text-sky-300 dark:text-sky-800 font-bold px-3.5 py-2 rounded-2xl border border-sky-500/40 dark:border-sky-300 font-mono">
+                ⚡ GESTIÓN ACTIVA ARRIBA
+              </span>
+            ) : (
+              <span className="text-xs bg-sky-950/60 dark:bg-sky-50 text-sky-300 dark:text-sky-700 font-mono font-bold px-3.5 py-2 rounded-2xl border border-sky-500/40 dark:border-sky-300 flex items-center gap-1.5 shadow-xs">
+                <Droplets className="w-3.5 h-3.5 text-sky-400" />
+                <span>EN PROCESO DE LAVADO</span>
+              </span>
+            )
+          ) : solicitud.estado === 'CALIDAD' ? (
+            (isCalidadUser(currentUser) || isAdminUser(currentUser)) ? (
+              <span className="text-xs bg-purple-950/80 dark:bg-purple-100 text-purple-300 dark:text-purple-800 font-bold px-3.5 py-2 rounded-2xl border border-purple-500/40 dark:border-purple-300 font-mono">
+                ⚡ DICTAMEN ACTIVO ARRIBA
+              </span>
+            ) : (
+              <span className="text-xs bg-purple-950/60 dark:bg-purple-50 text-purple-300 dark:text-purple-700 font-mono font-bold px-3.5 py-2 rounded-2xl border border-purple-500/40 dark:border-purple-300 flex items-center gap-1.5 shadow-xs">
+                <Microscope className="w-3.5 h-3.5 text-purple-400" />
+                <span>EN AUDITORÍA DE CALIDAD</span>
+              </span>
+            )
           ) : (
-            <span className="text-xs bg-emerald-950/60 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 font-bold px-3.5 py-2 rounded-2xl border border-emerald-500/40 dark:border-emerald-300 font-mono">
-              ✓ {solicitud.dictamen === 'RECHAZADO' ? 'RECHAZADO' : 'LIBERADO / APROBADO'}
+            <span className={`text-xs font-bold px-3.5 py-2 rounded-2xl border font-mono flex items-center gap-1.5 shadow-xs ${
+              solicitud.dictamen === 'RECHAZADO'
+                ? 'bg-rose-950/80 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border-rose-500/40 dark:border-rose-300'
+                : 'bg-emerald-950/60 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border-emerald-500/40 dark:border-emerald-300'
+            }`}>
+              <span>{solicitud.dictamen === 'RECHAZADO' ? '❌ RECHAZADO' : '✅ LIBERADO / APROBADO'}</span>
             </span>
           )}
         </div>
 
       </div>
 
+      {/* MODAL DE ZOOM / VISOR DE FOTO EN PANTALLA COMPLETA */}
+      {zoomedPhotoUrl && (
+        <div 
+          onClick={() => setZoomedPhotoUrl(null)}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div 
+            className="relative max-w-3xl w-full max-h-[85vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              type="button"
+              onClick={() => setZoomedPhotoUrl(null)}
+              className="absolute -top-12 right-0 sm:top-2 sm:right-2 p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white cursor-pointer z-10 shadow-lg"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img 
+              src={zoomedPhotoUrl} 
+              alt="Muestra Colcha Ampliada"
+              className="max-h-[75vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl border border-zinc-700 bg-zinc-950"
+            />
+            <div className="mt-3 text-xs font-mono font-bold text-zinc-200 bg-zinc-900/90 px-4 py-2 rounded-full border border-zinc-700 shadow-md">
+              {solicitud.op} • REF: {solicitud.referencia} • {solicitud.tela} ({solicitud.color})
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
+

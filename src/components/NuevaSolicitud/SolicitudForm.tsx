@@ -3,7 +3,7 @@ import { Camera, Printer, ArrowLeft, CheckCircle2, Trash2, Sliders, Sparkles, Ma
 import { MonitoreoItem, SolicitudColcha, SectorType } from '../../types';
 import { SmartOpSearch } from './SmartOpSearch';
 import { UsuarioSTF, isUserFromZonaFranca } from '../../services/authService';
-import { compressImageFile } from '../../services/googleSheetsService';
+import { compressImageFile, formatOpCode } from '../../services/googleSheetsService';
 
 interface SolicitudFormProps {
   monitoreoList: MonitoreoItem[];
@@ -53,7 +53,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     setTela(item.tela);
     setMt(item.mt);
     setColor(item.color);
-    setOp(item.op);
+    setOp(formatOpCode(item.op));
     setReferencia(item.referencia);
   };
 
@@ -66,7 +66,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     if (firstMatch) {
       setMt(firstMatch.mt);
       setColor(firstMatch.color);
-      setOp(firstMatch.op);
+      setOp(formatOpCode(firstMatch.op));
       setReferencia(firstMatch.referencia);
     } else {
       setMt('');
@@ -78,9 +78,9 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
 
   const handleOpSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedOpValue = e.target.value;
-    setOp(selectedOpValue);
+    setOp(formatOpCode(selectedOpValue));
 
-    const match = monitoreoList.find(m => m.tela === tela && m.op === selectedOpValue);
+    const match = monitoreoList.find(m => m.tela === tela && (m.op === selectedOpValue || formatOpCode(m.op) === formatOpCode(selectedOpValue)));
     if (match) {
       setMt(match.mt);
       setColor(match.color);
@@ -92,7 +92,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       try {
-        const compressed = await compressImageFile(file, 1000, 0.75);
+        const compressed = await compressImageFile(file, 650, 0.55);
         setPhotoUrl(compressed);
       } catch (err) {
         const reader = new FileReader();
@@ -120,9 +120,18 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
 
     const finalObs = [observaciones.trim(), technicalObs].filter(Boolean).join(' | ');
 
+    const now = new Date();
+    const d = now.getDate();
+    const m = now.getMonth() + 1;
+    const y = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    const colombianNowStr = `${d}/${m}/${y} ${hh}:${mm}:${ss}`;
+
     const colcha: SolicitudColcha = {
       id: `colcha-${Date.now()}`,
-      op: op.startsWith('OP-') ? op : `OP-${op}`,
+      op: formatOpCode(op),
       referencia: referencia || 'N/A',
       tela: tela,
       codigoMt: mt || 'MT-AUTO',
@@ -131,9 +140,9 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       lote: lote || '1',
       estado: initialEstado,
       dictamen: 'PENDIENTE',
-      inspector: currentUser ? currentUser.nombre : (isZonaFranca ? 'CALIDAD 2F / ATELIER' : 'OPERARIO STF'),
-      fechaCreacion: new Date().toISOString(),
-      observacionesOperario: finalObs || (isZonaFranca ? 'Muestra registrada en Atelier 2F (Zona Franca)' : 'Muestra solicitada en Planta Principal'),
+      inspector: currentUser ? currentUser.nombre : (isZonaFranca ? 'CALIDAD ZF' : 'OPERARIO STF'),
+      fechaCreacion: colombianNowStr,
+      observacionesOperario: finalObs || (isZonaFranca ? 'Muestra registrada en Atelier ZF (Zona Franca)' : 'Muestra solicitada en Planta Principal'),
       fotoMuestraUrl: photoUrl || undefined,
       areaActual: initialAreaName,
       pruebas: {
@@ -265,6 +274,11 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                   type="text"
                   value={op}
                   onChange={(e) => setOp(e.target.value)}
+                  onBlur={(e) => {
+                    if (e.target.value.trim()) {
+                      setOp(formatOpCode(e.target.value));
+                    }
+                  }}
                   placeholder="Ej: OP-95976 o 95976"
                   className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 font-mono font-bold transition"
                   required

@@ -38,7 +38,7 @@ var ALERTAS_HEADERS = [
   "FECHA ENVIO REPORTE"
 ];
 
-// Encabezados oficiales de la pestaña BASE_DE_DATOS (16 Columnas)
+// Encabezados oficiales de la pestaña BASE_DE_DATOS (17 Columnas)
 var BASE_DATOS_HEADERS = [
   "FECHA",
   "INSPECTOR / OPERARIO",
@@ -55,6 +55,7 @@ var BASE_DATOS_HEADERS = [
   "EVIDENCIA (LINK DRIVE)",
   "CORREO NOTIFICADO",
   "OBS.OPERARIO FINAL",
+  "DICTAMEN FINAL",
   "MES"
 ];
 
@@ -66,19 +67,64 @@ function onOpen() {
   ui.createMenu('🚀 STF GROUP')
     .addItem('⚡ Sincronizar y Alimentar Hoja ALERTAS', 'syncAlertasFromBaseDeDatos')
     .addItem('🗑️ Auto-Eliminar OPs ya Realizadas de MONITOREO', 'cleanMonitoreoMenuAction')
+    .addItem('🏷️ Normalizar Prefijos OP (OP-XXXX) en BASE_DE_DATOS', 'normalizeOpCodesMenuAction')
     .addItem('🧹 Dar Formato Profesional a Todas las Hojas', 'formatAllSheets')
     .addItem('📁 Crear / Verificar Carpeta en Google Drive', 'getOrCreateDriveFolder')
     .addToUi();
 
-  // Depuración automática en segundo plano al abrir la hoja de cálculo
+  // Depuración y normalización automática en segundo plano al abrir la hoja de cálculo
   var ss = getTargetSpreadsheet();
+  normalizeAllOpCodesInBaseDeDatos(ss);
   autoCleanMonitoreoFromBaseDeDatos(ss);
+}
+
+function normalizeOpCodesMenuAction() {
+  var ss = getTargetSpreadsheet();
+  var count = normalizeAllOpCodesInBaseDeDatos(ss);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se normalizaron ' + count + ' códigos de OP con prefijo OP- en BASE_DE_DATOS', '🚀 STF GROUP');
 }
 
 function cleanMonitoreoMenuAction() {
   var ss = getTargetSpreadsheet();
   var removed = autoCleanMonitoreoFromBaseDeDatos(ss);
   SpreadsheetApp.getActiveSpreadsheet().toast('Se depuraron ' + (removed || 0) + ' OPs de la hoja MONITOREO', '🚀 STF GROUP');
+}
+
+/**
+ * Disparador onEdit automático: Se activa cada vez que un usuario edita o ingresa datos en la hoja
+ * Si se escribe un valor en la columna F (OP) sin el prefijo "OP-", se normaliza instantáneamente.
+ */
+function onEdit(e) {
+  try {
+    if (!e || !e.range) return;
+    var sheet = e.range.getSheet();
+    var sheetName = sheet.getName();
+    if (sheetName !== SHEET_BASE_DATOS && sheetName !== '01_BASE_DE_DATOS') return;
+
+    var col = e.range.getColumn();
+    var row = e.range.getRow();
+
+    // Columna 6 = Columna F (OP)
+    if (col === 6 && row > 1) {
+      var val = String(e.value || e.range.getValue() || '').trim();
+      if (val && val.toUpperCase() !== 'OP') {
+        var formatted = val;
+        var upper = val.toUpperCase();
+        if (upper.indexOf('OP-') === 0) {
+          formatted = 'OP-' + val.substring(3).trim();
+        } else if (upper.indexOf('OP') === 0) {
+          formatted = 'OP-' + val.substring(2).replace(/^[-_\s]+/, '').trim();
+        } else {
+          formatted = 'OP-' + val;
+        }
+        if (formatted !== val) {
+          e.range.setValue(formatted);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error en onEdit:', err);
+  }
 }
 
 /**
@@ -242,16 +288,33 @@ function doPost(e) {
     }
 
     // -----------------------------------------------------------------------
+    // ACCIÓN NORMALIZE_ALL_OPS (Normalizar Columna F OP en BASE_DE_DATOS)
+    // -----------------------------------------------------------------------
+    if (action === 'NORMALIZE_ALL_OPS' || action === 'NORMALIZE_OPS') {
+      var normCount = normalizeAllOpCodesInBaseDeDatos(ss);
+      return createJsonResponse({
+        status: 'success',
+        message: 'Normalización completada. Se formatearon ' + normCount + ' celdas con el prefijo OP- en BASE_DE_DATOS',
+        normalizedCount: normCount
+      });
+    }
+
+    // -----------------------------------------------------------------------
     // ACCIÓN 3: CREATE_OP (Crear nueva solicitud en BASE_DE_DATOS y Drive)
     // -----------------------------------------------------------------------
     if (action === 'CREATE_OP') {
       var sheetBd = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
       var opData = payload;
+      var rawOp = String(opData['OP'] || opData.op || '').trim();
+      var opVal = rawOp.toUpperCase().indexOf('OP-') === 0 ? ('OP-' + rawOp.substring(3).trim()) : (rawOp.toUpperCase().indexOf('OP') === 0 ? ('OP-' + rawOp.substring(2).replace(/^[-_\s]+/, '').trim()) : ('OP-' + rawOp));
 
-      // Guardar imagen en Google Drive si viene en Base64
-      var driveUrl = opData.fotoMuestraUrl || opData.evidenciaLinkDrive || '';
-      if (opData.imageBase64 && opData.imageBase64.length > 50) {
-        driveUrl = saveImageToDrive(opData.imageBase64, 'OP_' + (opData.op || 'NUEVA') + '.jpg');
+      // 1. Guardar imagen en Google Drive y obtener enlace oficial
+      var driveUrl = '';
+      var photoRaw = opData.fotoMuestraUrl || opData.imageBase64 || opData['EVIDENCIA (LINK DRIVE)'] || '';
+      if (photoRaw && photoRaw.length > 50 && photoRaw.indexOf('data:image/') === 0) {
+        driveUrl = saveImageToDrive(photoRaw, 'OP_' + (opVal || 'NUEVA') + '.jpg');
+      } else if (photoRaw && photoRaw.indexOf('http') === 0) {
+        driveUrl = photoRaw;
       }
 
       var now = new Date();
@@ -260,18 +323,44 @@ function doPost(e) {
       var telaVal = opData['TELA'] || opData.tela || '';
       var mtVal = opData['CÓDIGO MT'] || opData.codigoMt || opData['CODIGO MT'] || '';
       var colorVal = opData['COLOR'] || opData.color || 'AZUL';
-      var opVal = opData['OP'] || opData.op || '';
       var refVal = opData['REFERENCIA'] || opData.referencia || '';
       var rollosVal = Number(opData['ROLLOS'] || opData.rollos || opData.rollo || 1);
       var loteVal = opData['LOTE'] || opData.lote || '1';
       var estadoVal = opData['ESTADO'] || opData.estado || 'SOLICITADO';
       var obsOpVal = opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || opData.observacionOperario || '';
       var obsColVal = opData['OBSERVACIÓN COLFACTORY'] || opData.observacionColfactory || '';
-      var evidenciaVal = driveUrl || opData['EVIDENCIA (LINK DRIVE)'] || '';
-      var correoVal = opData['CORREO NOTIFICADO'] || opData.correoNotificado || '';
-      var obsFinalVal = opData['OBS.OPERARIO FINAL'] || opData.obsOperarioFinal || '';
+      var evidenciaVal = driveUrl || photoRaw || '';
+      var obsFinalVal = opData['OBS.OPERARIO FINAL'] || opData.obsOperarioFinal || opData.observacionesCalidad || '';
       var mesNumero = Number(opData['MES'] || opData.mes || (now.getMonth() + 1));
 
+      // 2. Envío de correo electrónico automático a todos los usuarios
+      var correoNotificadoStr = '';
+      var recipientsList = payload.userEmails || payload.recipients || [];
+      if (!Array.isArray(recipientsList) || recipientsList.length === 0) {
+        recipientsList = getAllUserEmails(ss);
+      }
+
+      if (recipientsList.length > 0) {
+        try {
+          var appUrl = payload.appUrl || ('https://colchas.vercel.app/?op=' + encodeURIComponent(opVal) + '&view=public');
+          var subject = '🧵 [NUEVA COLCHA CREADA] ' + opVal + ' • ' + (refVal || 'S/R') + ' (' + telaVal + ')';
+          var htmlBody = buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl);
+
+          MailApp.sendEmail({
+            to: recipientsList.join(','),
+            subject: subject,
+            htmlBody: htmlBody,
+            name: 'COLCHAS STF GROUP - SISTEMA OFICIAL'
+          });
+
+          correoNotificadoStr = Utilities.formatDate(now, 'America/Bogota', 'd/M/yyyy HH:mm:ss') + ' (' + recipientsList.length + ' usuarios)';
+        } catch (mailErr) {
+          console.error('Error enviando correo de creación:', mailErr);
+          correoNotificadoStr = Utilities.formatDate(now, 'America/Bogota', 'd/M/yyyy HH:mm:ss') + ' (Error de envío)';
+        }
+      }
+
+      var dictVal = payload.dictamenFinal || payload.dictamen || payload.veredicto || '';
       var newRow = [
         fechaFormatted,
         inspectorVal,
@@ -286,36 +375,43 @@ function doPost(e) {
         obsOpVal,
         obsColVal,
         evidenciaVal,
-        correoVal,
+        correoNotificadoStr,
         obsFinalVal,
+        dictVal,
         mesNumero
       ];
 
       sheetBd.appendRow(newRow);
 
-      // Consumir OP de la hoja MONITOREO si existía
+      // Normalizar columna F (OP) para garantizar el prefijo OP-
+      normalizeAllOpCodesInBaseDeDatos(ss);
+
+      // Consumir OP de la hoja MONITOREO automáticamente
       if (opVal) {
         removeOpFromMonitoreoSheet(ss, opVal);
       }
+      autoCleanMonitoreoFromBaseDeDatos(ss);
 
       return createJsonResponse({
         status: 'success',
         message: 'Solicitud ' + opVal + ' ingresada correctamente en BASE_DE_DATOS',
-        driveUrl: driveUrl
+        driveUrl: driveUrl,
+        correoNotificado: correoNotificadoStr
       });
     }
 
     // -----------------------------------------------------------------------
-    // ACCIÓN 4: TRANSFER_OP (Actualizar área, fase e inspector en BASE_DE_DATOS)
+    // ACCIÓN 4: TRANSFER_OP (Actualizar área, fase e historial en BASE_DE_DATOS)
+    // NOTA: Columna B (INSPECTOR / OPERARIO CREADOR) se mantiene intacta
     // -----------------------------------------------------------------------
     if (action === 'TRANSFER_OP') {
       var sheetBdTrans = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
-      var targetOpTrans = String(payload.op || '').trim().toUpperCase().replace('OP-', '');
+      var targetOpTrans = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
       var valuesBdTrans = sheetBdTrans.getDataRange().getValues();
       var foundRowTrans = -1;
 
       for (var t = 1; t < valuesBdTrans.length; t++) {
-        var rowOp = String(valuesBdTrans[t][5] || '').trim().toUpperCase().replace('OP-', '');
+        var rowOp = String(valuesBdTrans[t][5] || '').trim().toUpperCase().replace(/^OP-?/, '');
         if (rowOp === targetOpTrans) {
           foundRowTrans = t + 1;
           break;
@@ -323,8 +419,24 @@ function doPost(e) {
       }
 
       if (foundRowTrans !== -1) {
+        // Garantizar que la celda de la OP tenga siempre 'OP-'
+        var curOpCell = String(sheetBdTrans.getRange(foundRowTrans, 6).getValue() || '').trim();
+        if (curOpCell && curOpCell.toUpperCase().indexOf('OP-') !== 0) {
+          sheetBdTrans.getRange(foundRowTrans, 6).setValue('OP-' + curOpCell.replace(/^OP-?/i, '').trim());
+        }
+
         if (payload.nuevoEstado) sheetBdTrans.getRange(foundRowTrans, 10).setValue(payload.nuevoEstado);
-        if (payload.nuevoInspector) sheetBdTrans.getRange(foundRowTrans, 2).setValue(payload.nuevoInspector);
+        
+        // Columna L (OBSERVACIÓN COLFACTORY)
+        if (payload.nuevoEstado === 'LAVANDERIA' || payload.observacionColfactory) {
+          sheetBdTrans.getRange(foundRowTrans, 12).setValue(payload.observacionColfactory || payload.observaciones || '');
+        }
+
+        // Columna O (OBS.OPERARIO FINAL)
+        if (payload.nuevoEstado === 'CALIDAD' || payload.nuevoEstado === 'FINALIZADO' || payload.obsOperarioFinal) {
+          sheetBdTrans.getRange(foundRowTrans, 15).setValue(payload.obsOperarioFinal || payload.observaciones || '');
+        }
+
         if (payload.observaciones) {
           var prevObs = sheetBdTrans.getRange(foundRowTrans, 11).getValue();
           sheetBdTrans.getRange(foundRowTrans, 11).setValue((prevObs ? prevObs + ' | ' : '') + payload.observaciones);
@@ -344,12 +456,12 @@ function doPost(e) {
     // -----------------------------------------------------------------------
     if (action === 'UPDATE_DICTAMEN') {
       var sheetBdDict = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
-      var targetOpDict = String(payload.op || '').trim().toUpperCase().replace('OP-', '');
+      var targetOpDict = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
       var valuesBdDict = sheetBdDict.getDataRange().getValues();
       var foundRowDict = -1;
 
       for (var d = 1; d < valuesBdDict.length; d++) {
-        var rOp = String(valuesBdDict[d][5] || '').trim().toUpperCase().replace('OP-', '');
+        var rOp = String(valuesBdDict[d][5] || '').trim().toUpperCase().replace(/^OP-?/, '');
         if (rOp === targetOpDict) {
           foundRowDict = d + 1;
           break;
@@ -357,10 +469,46 @@ function doPost(e) {
       }
 
       if (foundRowDict !== -1) {
+        // Garantizar que la celda de la OP tenga siempre 'OP-'
+        var curOpCellDict = String(sheetBdDict.getRange(foundRowDict, 6).getValue() || '').trim();
+        if (curOpCellDict && curOpCellDict.toUpperCase().indexOf('OP-') !== 0) {
+          sheetBdDict.getRange(foundRowDict, 6).setValue('OP-' + curOpCellDict.replace(/^OP-?/i, '').trim());
+        }
+
+        // Columna J (10): ESTADO = FINALIZADO
         sheetBdDict.getRange(foundRowDict, 10).setValue('FINALIZADO');
-        var dictObs = '[DICTAMEN: ' + (payload.dictamen || 'APROBADO') + '] por ' + (payload.inspector || 'AUDITOR STF') + (payload.observacionesTecnicas ? ': ' + payload.observacionesTecnicas : '');
+        
+        // Columna K (11): Historial del flujo
+        var dictObs = '[DICTAMEN: ' + (payload.dictamen || 'APROBADO') + '] por ' + (payload.inspector || payload.auditorCalidad || 'AUDITOR STF') + (payload.observacionesTecnicas ? ': ' + payload.observacionesTecnicas : '');
         var curObs = sheetBdDict.getRange(foundRowDict, 11).getValue();
         sheetBdDict.getRange(foundRowDict, 11).setValue((curObs ? curObs + ' | ' : '') + dictObs);
+
+        // Columna M (13): EVIDENCIA (LINK DRIVE) - Preservar ambas fotos (part1 | part2)
+        var photoCalidadRaw = payload.fotoCalidadUrl || payload.fotoCalidad || payload.photoUrl || payload.imageBase64 || '';
+        if (photoCalidadRaw) {
+          var driveCalidadUrl = photoCalidadRaw;
+          if (photoCalidadRaw.length > 50 && photoCalidadRaw.indexOf('data:image/') === 0) {
+            var savedDUrl = saveImageToDrive(photoCalidadRaw, 'OP_' + targetOpDict + '_CALIDAD.jpg');
+            if (savedDUrl) driveCalidadUrl = savedDUrl;
+          }
+          var curPhotoVal = String(sheetBdDict.getRange(foundRowDict, 13).getValue() || '');
+          var part1Val = curPhotoVal.indexOf('|') !== -1 ? curPhotoVal.split('|')[0].trim() : curPhotoVal.trim();
+          if (part1Val.length > 22000) part1Val = part1Val.substring(0, 22000);
+          if (driveCalidadUrl.length > 22000) driveCalidadUrl = driveCalidadUrl.substring(0, 22000);
+          var combinedPhoto = (part1Val ? part1Val + ' | ' : '') + driveCalidadUrl;
+          sheetBdDict.getRange(foundRowDict, 13).setValue(combinedPhoto);
+        }
+
+        // Columna O (15): OBS.OPERARIO FINAL (solo el texto puro ingresado en Observación Final)
+        var pureObs = payload.obsOperarioFinal || payload.observacionesTecnicas || payload.observaciones || '';
+        if (pureObs.indexOf('[DICTAMEN:') !== -1) {
+          pureObs = pureObs.replace(/^\[DICTAMEN:\s*(APROBADO|RECHAZADO|PENDIENTE)\]\s*/i, '').trim();
+        }
+        sheetBdDict.getRange(foundRowDict, 15).setValue(pureObs);
+
+        // Columna P (16): DICTAMEN FINAL (APROBADO o RECHAZADO)
+        var dictVal = payload.dictamenFinal || payload.dictamen || payload.veredicto || 'APROBADO';
+        sheetBdDict.getRange(foundRowDict, 16).setValue(dictVal);
 
         // Depurar de la hoja ALERTAS si estaba allí
         var sheetAl = ss.getSheetByName(SHEET_ALERTAS);
@@ -379,7 +527,7 @@ function doPost(e) {
 
         return createJsonResponse({
           status: 'success',
-          message: 'Dictamen ' + payload.dictamen + ' registrado y OP finalizada con éxito'
+          message: 'Dictamen ' + dictVal + ' registrado en Columna P y Observación en Columna O de BASE_DE_DATOS'
         });
       } else {
         return createJsonResponse({ status: 'error', message: 'OP no encontrada para dictamen' });
@@ -422,13 +570,6 @@ function doPost(e) {
     if (action === 'UPDATE_OP_PHOTO') {
       var sheetBdPhoto = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
       var targetOpPhoto = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
-      var photoData = payload.fotoMuestraUrl || payload.imageBase64 || '';
-      var driveUrl = photoData;
-
-      if (photoData && photoData.length > 50 && photoData.indexOf('data:image/') === 0) {
-        driveUrl = saveImageToDrive(photoData, 'OP_' + targetOpPhoto + '.jpg');
-      }
-
       var lastRowBdPhoto = sheetBdPhoto.getLastRow();
       var foundRowPhoto = -1;
       if (lastRowBdPhoto > 1) {
@@ -443,8 +584,41 @@ function doPost(e) {
       }
 
       if (foundRowPhoto !== -1) {
-        sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(driveUrl || photoData);
-        return createJsonResponse({ status: 'success', message: 'Fotografía actualizada en BASE_DE_DATOS', driveUrl: driveUrl });
+        // Garantizar que la celda de la OP tenga siempre 'OP-'
+        var curOpCellPhoto = String(sheetBdPhoto.getRange(foundRowPhoto, 6).getValue() || '').trim();
+        if (curOpCellPhoto && curOpCellPhoto.toUpperCase().indexOf('OP-') !== 0) {
+          sheetBdPhoto.getRange(foundRowPhoto, 6).setValue('OP-' + curOpCellPhoto.replace(/^OP-?/i, '').trim());
+        }
+
+        var photoUrl = payload.fotoCalidadUrl || payload.fotoCalidad || payload.fotoMuestraUrl || payload.photoUrl || '';
+        if (payload.imageBase64 && payload.imageBase64.length > 50 && payload.imageBase64.indexOf('data:image/') === 0) {
+          var dUrl = saveImageToDrive(payload.imageBase64, 'OP_' + targetOpPhoto + (payload.isCalidad ? '_CALIDAD.jpg' : '_INICIAL.jpg'));
+          if (dUrl) photoUrl = dUrl;
+        } else if (photoUrl && photoUrl.length > 50 && photoUrl.indexOf('data:image/') === 0) {
+          var dUrl2 = saveImageToDrive(photoUrl, 'OP_' + targetOpPhoto + (payload.isCalidad ? '_CALIDAD.jpg' : '_INICIAL.jpg'));
+          if (dUrl2) photoUrl = dUrl2;
+        }
+
+        var currentPhoto = String(sheetBdPhoto.getRange(foundRowPhoto, 13).getValue() || '');
+        var newCol13 = photoUrl;
+        if (payload.isCalidad) {
+          var part1 = currentPhoto.indexOf('|') !== -1 ? currentPhoto.split('|')[0].trim() : currentPhoto.trim();
+          if (part1.length > 22000) part1 = part1.substring(0, 22000);
+          if (photoUrl.length > 22000) photoUrl = photoUrl.substring(0, 22000);
+          newCol13 = (part1 ? part1 + ' | ' : '') + photoUrl;
+        } else {
+          var part2 = currentPhoto.indexOf('|') !== -1 ? currentPhoto.split('|')[1].trim() : '';
+          if (photoUrl.length > 22000) photoUrl = photoUrl.substring(0, 22000);
+          if (part2.length > 22000) part2 = part2.substring(0, 22000);
+          newCol13 = photoUrl + (part2 ? ' | ' + part2 : '');
+        }
+
+        sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(newCol13);
+        if (payload.obsOperarioFinal) {
+          sheetBdPhoto.getRange(foundRowPhoto, 15).setValue(payload.obsOperarioFinal);
+        }
+
+        return createJsonResponse({ status: 'success', message: 'Fotografía actualizada en BASE_DE_DATOS', driveUrl: photoUrl });
       } else {
         return createJsonResponse({ status: 'error', message: 'OP no encontrada para actualizar foto' });
       }
@@ -876,6 +1050,7 @@ function mapAreaToTitle(estado) {
 
 function formatAllSheets() {
   var ss = getTargetSpreadsheet();
+  normalizeAllOpCodesInBaseDeDatos(ss);
   var sheets = ss.getSheets();
   for (var s = 0; s < sheets.length; s++) {
     var sh = sheets[s];
@@ -884,5 +1059,156 @@ function formatAllSheets() {
       sh.autoResizeColumn(c);
     }
   }
-  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Formato profesional aplicado a todas las pestañas.', 'STF Group', 5);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Formato profesional y normalización de OPs aplicados a todas las pestañas.', 'STF Group', 5);
+}
+
+/**
+ * Normaliza y formatea todos los códigos de OP en la columna F de BASE_DE_DATOS
+ * Garantiza que siempre tengan el prefijo oficial "OP-" (Ej: 5665 -> OP-5665)
+ */
+function normalizeAllOpCodesInBaseDeDatos(ss) {
+  if (!ss) ss = getTargetSpreadsheet();
+  var sheetBd = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+  if (!sheetBd) return 0;
+
+  var lastRow = sheetBd.getLastRow();
+  if (lastRow <= 1) return 0;
+
+  var range = sheetBd.getRange(2, 6, lastRow - 1, 1); // Columna F (OP)
+  var values = range.getValues();
+  var updatedCount = 0;
+
+  for (var i = 0; i < values.length; i++) {
+    var cellVal = String(values[i][0] || '').trim();
+    if (cellVal && cellVal.toUpperCase() !== 'OP') {
+      var formatted = cellVal;
+      var upper = cellVal.toUpperCase();
+      if (upper.indexOf('OP-') === 0) {
+        var rest = cellVal.substring(3).trim();
+        formatted = 'OP-' + rest;
+      } else if (upper.indexOf('OP') === 0) {
+        var rest = cellVal.substring(2).replace(/^[-_\s]+/, '').trim();
+        formatted = 'OP-' + rest;
+      } else {
+        formatted = 'OP-' + cellVal;
+      }
+
+      if (formatted !== cellVal) {
+        values[i][0] = formatted;
+        updatedCount++;
+      }
+    }
+  }
+
+  if (updatedCount > 0) {
+    range.setValues(values);
+  }
+  return updatedCount;
+}
+
+function getMonitoreoSheet(ss) {
+  var sheets = ss.getSheets();
+  for (var s = 0; s < sheets.length; s++) {
+    if (sheets[s].getSheetId() === 1356774059 || sheets[s].getName().trim().toUpperCase() === 'MONITOREO') {
+      return sheets[s];
+    }
+  }
+  return ss.getSheetByName(SHEET_MONITOREO) || ss.getSheetByName('monitoreo');
+}
+
+function getAllUserEmails(ss) {
+  var emails = [];
+  try {
+    var userSheet = ss.getSheetByName('USUARIOS') || ss.getSheetByName('DIRECTORIO') || ss.getSheetByName('CONTACTOS');
+    if (userSheet) {
+      var data = userSheet.getDataRange().getValues();
+      for (var r = 0; r < data.length; r++) {
+        for (var c = 0; c < data[r].length; c++) {
+          var val = String(data[r][c] || '').trim();
+          if (val.indexOf('@') !== -1 && val.indexOf('.') !== -1 && emails.indexOf(val) === -1) {
+            emails.push(val);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error obteniendo correos de usuarios:', e);
+  }
+
+  // Lista de correos corporativos predeterminados del sistema STF si no hay hoja de usuarios
+  if (emails.length === 0) {
+    emails = [
+      'edwin.diaz@stfgroup.com',
+      'calidad.textil@stfgroup.com',
+      'lavanderia.colfactory@stfgroup.com',
+      'planta.colchas@stfgroup.com',
+      'auditoria.calidad@stfgroup.com'
+    ];
+  }
+  return emails;
+}
+
+function buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl) {
+  var telaVal = opData['TELA'] || opData.tela || 'TELA INDIGO';
+  var mtVal = opData['CÓDIGO MT'] || opData.codigoMt || 'MT-AUTO';
+  var colorVal = opData['COLOR'] || opData.color || 'AZUL';
+  var refVal = opData['REFERENCIA'] || opData.referencia || 'S/R';
+  var rollosVal = opData['ROLLOS'] || opData.rollos || 1;
+  var loteVal = opData['LOTE'] || opData.lote || '1';
+  var inspectorVal = opData['INSPECTOR / OPERARIO'] || opData.inspector || 'OPERARIO STF';
+  var obsOpVal = opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || 'Sin observaciones registradas';
+
+  var imageBlock = '';
+  if (driveUrl) {
+    imageBlock = '<div style="margin: 16px 0; text-align: center;">' +
+      '<p style="font-size: 11px; font-weight: bold; color: #6b7280; text-transform: uppercase; margin-bottom: 6px;">📸 EVIDENCIA DE MUESTRA ADJUNTA (DRIVE)</p>' +
+      '<a href="' + driveUrl + '" target="_blank" style="display: inline-block; background-color: #f3f4f6; padding: 8px 16px; border-radius: 8px; color: #881337; text-decoration: none; font-weight: bold; font-size: 12px; border: 1px solid #e5e7eb;">🔗 Ver Fotografía en Alta Resolución en Google Drive</a>' +
+      '</div>';
+  }
+
+  return '<!DOCTYPE html>' +
+    '<html lang="es"><head><meta charset="utf-8"></head><body style="margin: 0; padding: 20px; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;">' +
+    '<div style="max-width: 680px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">' +
+    
+    // Header
+    '<div style="background: linear-gradient(135deg, #881337 0%, #4c0519 100%); padding: 24px; color: #ffffff; text-align: center;">' +
+    '<h1 style="margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">STF GROUP S.A.</h1>' +
+    '<p style="margin: 4px 0 0 0; font-size: 13px; font-weight: bold; color: #fecdd3; letter-spacing: 0.5px;">NOTIFICACIÓN OFICIAL DE NUEVA ORDEN DE COLCHA CREADA</p>' +
+    '</div>' +
+
+    // Summary Header
+    '<div style="padding: 16px 24px; background-color: #fff1f2; border-bottom: 1px solid #fecdd3;">' +
+    '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">' +
+    '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">🧵 Orden de Producción:</td><td style="padding: 3px 0; font-weight: 900; font-size: 16px; color: #881337; text-align: right;">' + opVal + '</td></tr>' +
+    '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">🏷️ Referencia:</td><td style="padding: 3px 0; font-weight: bold; color: #111827; text-align: right;">' + refVal + '</td></tr>' +
+    '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">👤 Creado por:</td><td style="padding: 3px 0; font-weight: bold; color: #111827; text-align: right;">' + inspectorVal + '</td></tr>' +
+    '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">📅 Fecha y Hora:</td><td style="padding: 3px 0; font-family: monospace; color: #374151; text-align: right;">' + fechaFormatted + '</td></tr>' +
+    '</table>' +
+    '</div>' +
+
+    // Data details
+    '<div style="padding: 20px 24px;">' +
+    '<h2 style="font-size: 13px; font-weight: 900; text-transform: uppercase; color: #881337; margin: 0 0 12px 0; letter-spacing: 0.5px;">📋 Ficha Técnica de la Solicitud</h2>' +
+    '<table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">' +
+    '<tr><td style="padding: 8px 12px; font-weight: bold; color: #4b5563; border-bottom: 1px solid #e5e7eb;">Tela:</td><td style="padding: 8px 12px; font-weight: 900; color: #111827; border-bottom: 1px solid #e5e7eb;">' + telaVal + '</td></tr>' +
+    '<tr><td style="padding: 8px 12px; font-weight: bold; color: #4b5563; border-bottom: 1px solid #e5e7eb;">Código MT:</td><td style="padding: 8px 12px; font-weight: bold; color: #111827; border-bottom: 1px solid #e5e7eb;">' + mtVal + '</td></tr>' +
+    '<tr><td style="padding: 8px 12px; font-weight: bold; color: #4b5563; border-bottom: 1px solid #e5e7eb;">Color:</td><td style="padding: 8px 12px; font-weight: bold; color: #111827; border-bottom: 1px solid #e5e7eb;">' + colorVal + '</td></tr>' +
+    '<tr><td style="padding: 8px 12px; font-weight: bold; color: #4b5563; border-bottom: 1px solid #e5e7eb;">Rollos / Lote:</td><td style="padding: 8px 12px; font-weight: bold; color: #111827; border-bottom: 1px solid #e5e7eb;">' + rollosVal + ' rollo(s) • Lote ' + loteVal + '</td></tr>' +
+    '<tr><td style="padding: 8px 12px; font-weight: bold; color: #4b5563;">Observaciones Operario:</td><td style="padding: 8px 12px; color: #374151;">' + obsOpVal + '</td></tr>' +
+    '</table>' +
+    imageBlock +
+    '</div>' +
+
+    // Action CTA
+    '<div style="padding: 10px 24px 24px 24px; text-align: center;">' +
+    '<a href="' + appUrl + '" style="display: inline-block; background-color: #881337; color: #ffffff; font-weight: bold; font-size: 13px; text-decoration: none; padding: 12px 28px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px;">📱 Ver Orden en Tiempo Real / Móvil</a>' +
+    '<p style="margin: 12px 0 0 0; font-size: 11px; color: #6b7280;">Este es un mensaje automático generado por el Sistema de Control de Calidad STF Group S.A.</p>' +
+    '</div>' +
+
+    // Footer
+    '<div style="background-color: #f9fafb; border-top: 1px solid #e5e7eb; padding: 12px 24px; text-align: center; font-size: 11px; color: #6b7280;">' +
+    '© 2026 STF GROUP S.A. • Sistema de Control de Colchas y Calidad Textil' +
+    '</div>' +
+
+    '</div></body></html>';
 }

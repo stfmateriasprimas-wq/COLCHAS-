@@ -8,7 +8,8 @@ import {
   getDeletedOpsHistory, 
   subscribeDeletedOps, 
   restoreOpFromDeletedHistory,
-  purgeDeletedOp 
+  purgeDeletedOp,
+  clearDeletedOpsHistory
 } from '../../services/deletedOpsService';
 import { UsuarioSTF } from '../../services/authService';
 import { notificationService } from '../../services/notificationService';
@@ -28,7 +29,7 @@ export const DeletedOpsHistorySection: React.FC<DeletedOpsHistorySectionProps> =
   const [deletedList, setDeletedList] = useState<DeletedOpRecord[]>(getDeletedOpsHistory);
   const [search, setSearch] = useState('');
   const [restoredOpSuccess, setRestoredOpSuccess] = useState<string | null>(null);
-  const [isConfirmingPurge, setIsConfirmingPurge] = useState<string | null>(null);
+  const [isConfirmingClearAll, setIsConfirmingClearAll] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeDeletedOps((list) => {
@@ -40,7 +41,8 @@ export const DeletedOpsHistorySection: React.FC<DeletedOpsHistorySectionProps> =
   const handleRestore = (record: DeletedOpRecord) => {
     const restored = restoreOpFromDeletedHistory(record.id);
     if (restored) {
-      setRestoredOpSuccess(restored.op);
+      const cleanOp = restored.op.replace(/^OP-?/i, '').trim();
+      setRestoredOpSuccess(`OP-${cleanOp}`);
       notificationService.playAlertSound('EXITO');
       if (onOpRestored) {
         onOpRestored(restored);
@@ -49,9 +51,10 @@ export const DeletedOpsHistorySection: React.FC<DeletedOpsHistorySectionProps> =
     }
   };
 
-  const handlePurge = (recordId: string) => {
-    purgeDeletedOp(recordId);
-    setIsConfirmingPurge(null);
+  const handleClearAll = () => {
+    clearDeletedOpsHistory();
+    setIsConfirmingClearAll(false);
+    notificationService.playAlertSound('EXITO');
   };
 
   const filteredDeleted = deletedList.filter(item => {
@@ -88,19 +91,33 @@ export const DeletedOpsHistorySection: React.FC<DeletedOpsHistorySectionProps> =
           </p>
         </div>
 
-        {/* Quick Search */}
-        {deletedList.length > 0 && (
-          <div className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar OP eliminada..."
-              className="w-full bg-zinc-900 dark:bg-zinc-100 border border-zinc-700 dark:border-zinc-300 rounded-2xl pl-9 pr-3 py-1.5 text-xs font-mono font-bold text-white dark:text-zinc-950 focus:outline-none focus:border-rose-500"
-            />
-          </div>
-        )}
+        {/* Action Toolbar: Vaciar Historial + Quick Search */}
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+          {deletedList.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsConfirmingClearAll(true)}
+              className="px-3.5 py-1.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black font-mono uppercase flex items-center gap-1.5 transition cursor-pointer shadow-md active:scale-95 shrink-0"
+              title="Vaciar todo el historial de OPs eliminadas de forma definitiva"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Vaciar Historial</span>
+            </button>
+          )}
+
+          {deletedList.length > 0 && (
+            <div className="relative w-full sm:w-60">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar OP eliminada..."
+                className="w-full bg-zinc-900 dark:bg-zinc-100 border border-zinc-700 dark:border-zinc-300 rounded-2xl pl-9 pr-3 py-1.5 text-xs font-mono font-bold text-white dark:text-zinc-950 focus:outline-none focus:border-rose-500"
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Success Notification Banner */}
@@ -108,7 +125,7 @@ export const DeletedOpsHistorySection: React.FC<DeletedOpsHistorySectionProps> =
         <div className="p-3.5 rounded-2xl bg-emerald-950 border border-emerald-500 text-emerald-300 text-xs font-bold flex items-center justify-between animate-in zoom-in-95">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>¡OP-{restoredOpSuccess} restaurada con éxito en el sistema de trabajo en su fase original!</span>
+            <span>¡{restoredOpSuccess} restaurada con éxito en el sistema de trabajo en su fase original!</span>
           </div>
           <span className="text-[10px] font-mono text-emerald-400 uppercase">Activa en Bandeja</span>
         </div>
@@ -132,73 +149,124 @@ export const DeletedOpsHistorySection: React.FC<DeletedOpsHistorySectionProps> =
           No se encontraron coincidencias para "{search}".
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredDeleted.map((item) => (
-            <div
-              key={item.id}
-              className="bg-zinc-950/90 dark:bg-zinc-50 border border-rose-900/50 dark:border-rose-200 hover:border-rose-500 rounded-2xl p-4 transition-all duration-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm"
-            >
-              {/* Left Details */}
-              <div className="space-y-1.5 flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-black font-mono text-rose-400 dark:text-rose-700">
-                    OP-{item.op}
-                  </span>
-                  <span className="text-xs font-bold text-zinc-300 dark:text-zinc-700 font-mono">
-                    / REF – {item.referencia}
-                  </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-zinc-900 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-800 border border-zinc-700 dark:border-zinc-300">
-                    {item.tela}
-                  </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-blue-950 dark:bg-blue-100 text-blue-300 dark:text-blue-800 border border-blue-800 dark:border-blue-300">
-                    {item.color}
-                  </span>
+        /* Scrollable container with clean max height and custom scrollbar */
+        <div className="space-y-3 max-h-[500px] sm:max-h-[560px] overflow-y-auto pr-1.5 custom-scrollbar">
+          {filteredDeleted.map((item) => {
+            const cleanOp = item.op.replace(/^OP-?/i, '').trim();
+            const displayCode = `OP-${cleanOp}`;
+
+            return (
+              <div
+                key={item.id}
+                className="bg-zinc-950/90 dark:bg-zinc-50 border border-rose-900/50 dark:border-rose-200 hover:border-rose-500 rounded-2xl p-4 transition-all duration-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm"
+              >
+                {/* Left Details */}
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-black font-mono text-rose-400 dark:text-rose-700">
+                      {displayCode}
+                    </span>
+                    <span className="text-xs font-bold text-zinc-300 dark:text-zinc-700 font-mono">
+                      / REF – {item.referencia}
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-zinc-900 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-800 border border-zinc-700 dark:border-zinc-300">
+                      {item.tela}
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-blue-950 dark:bg-blue-100 text-blue-300 dark:text-blue-800 border border-blue-800 dark:border-blue-300">
+                      {item.color}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-600 font-mono flex-wrap">
+                    <span>🧵 <strong>{item.rollos} Rollos ({item.rollos * 85} Mt)</strong></span>
+                    <span>•</span>
+                    <span>Fase original al eliminar: <strong className="text-amber-400 dark:text-amber-600 uppercase">{item.estadoOriginal.replace('_', ' ')}</strong></span>
+                    <span>•</span>
+                    <span>Ubicación: <strong>{item.areaActual}</strong></span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[11px] text-zinc-400 dark:text-zinc-500 font-mono pt-0.5">
+                    <Calendar className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Eliminada el: <strong className="text-white dark:text-zinc-950 font-bold">{item.fechaEliminacion}</strong></span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="hidden sm:inline">Por: <strong>{item.eliminadoPor}</strong></span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-600 font-mono flex-wrap">
-                  <span>🧵 <strong>{item.rollos} Rollos ({item.rollos * 85} Mt)</strong></span>
-                  <span>•</span>
-                  <span>Fase original al eliminar: <strong className="text-amber-400 dark:text-amber-600 uppercase">{item.estadoOriginal.replace('_', ' ')}</strong></span>
-                  <span>•</span>
-                  <span>Ubicación: <strong>{item.areaActual}</strong></span>
-                </div>
+                {/* Right Action Buttons */}
+                <div className="flex items-center gap-2 self-start lg:self-center shrink-0 flex-wrap">
+                  {onViewDetail && (
+                    <button
+                      type="button"
+                      onClick={() => onViewDetail(item.solicitudOriginal)}
+                      className="px-3 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-200 dark:hover:bg-zinc-300 text-zinc-300 dark:text-zinc-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                      title="Ver ficha técnica original de esta OP"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Ver Ficha</span>
+                    </button>
+                  )}
 
-                <div className="flex items-center gap-2 text-[11px] text-zinc-400 dark:text-zinc-500 font-mono pt-0.5">
-                  <Calendar className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Eliminada el: <strong className="text-white dark:text-zinc-950 font-bold">{item.fechaEliminacion}</strong></span>
-                  <span className="hidden sm:inline">•</span>
-                  <span className="hidden sm:inline">Por: <strong>{item.eliminadoPor}</strong></span>
-                </div>
-              </div>
-
-              {/* Right Action Buttons */}
-              <div className="flex items-center gap-2 self-start lg:self-center shrink-0 flex-wrap">
-                {onViewDetail && (
+                  {/* Main Restore Button */}
                   <button
                     type="button"
-                    onClick={() => onViewDetail(item.solicitudOriginal)}
-                    className="px-3 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-200 dark:hover:bg-zinc-300 text-zinc-300 dark:text-zinc-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                    title="Ver ficha técnica original de esta OP"
+                    onClick={() => handleRestore(item)}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-black text-xs font-mono flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+                    title="Restaurar esta OP inmediatamente al sistema de trabajo en su fase original"
                   >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>Ver Ficha</span>
+                    <RotateCcw className="w-4 h-4" />
+                    <span>RECUPERAR OP</span>
                   </button>
-                )}
+                </div>
 
-                {/* Main Restore Button */}
-                <button
-                  type="button"
-                  onClick={() => handleRestore(item)}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-black text-xs font-mono flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition cursor-pointer"
-                  title="Restaurar esta OP inmediatamente al sistema de trabajo en su fase original"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>RECUPERAR OP</span>
-                </button>
               </div>
+            );
+          })}
+        </div>
+      )}
 
+      {/* CONFIRMATION MODAL TO CLEAR ALL DELETED HISTORY */}
+      {isConfirmingClearAll && (
+        <div className="fixed inset-0 z-[130] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in select-none">
+          <div className="bg-[#0e090a] dark:bg-white border-2 border-rose-600 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-white dark:text-zinc-950 animate-in zoom-in-95">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-500 shrink-0 shadow-md">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black uppercase text-rose-400 dark:text-rose-700 font-mono">
+                  ¿Vaciar Todo el Historial?
+                </h3>
+                <p className="text-xs text-zinc-400 dark:text-zinc-600 font-mono mt-0.5">
+                  Se eliminarán {deletedList.length} registro(s) archivados
+                </p>
+              </div>
             </div>
-          ))}
+
+            <div className="p-4 rounded-2xl bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-200 text-xs text-zinc-300 dark:text-zinc-700 space-y-2 font-mono">
+              <p className="leading-relaxed">
+                ⚠️ Esta acción vaciará de forma definitiva el registro de auditoría de OPs eliminadas. Esta acción no se puede deshacer.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsConfirmingClearAll(false)}
+                className="px-4 py-2.5 rounded-2xl border border-zinc-700 dark:border-zinc-300 text-xs font-bold text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+              >
+                CANCELAR
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs font-mono uppercase flex items-center gap-2 transition cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>SÍ, VACIAR HISTORIAL</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

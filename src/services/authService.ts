@@ -63,13 +63,69 @@ export function verifyAdminPassword(password: string): boolean {
  */
 export function isUserFromZonaFranca(user?: UsuarioSTF | null): boolean {
   if (!user) return false;
+  const uid = user.id.trim();
+  const uname = user.nombre.toUpperCase();
+  const uarea = (user.area || '').toUpperCase();
   return Boolean(
     user.isZonaFranca || 
-    user.area === 'CALIDAD ZF' || 
-    user.nombre.toUpperCase().includes('ZF') || 
-    user.nombre.toUpperCase().includes('ATELIER')
+    uarea === 'CALIDAD ZF' || 
+    uarea.includes('ZF') ||
+    uarea.includes('ATELIER') ||
+    uname.includes('ZF') || 
+    uname.includes('ATELIER') ||
+    uid === '2222' ||
+    uid === '1107529604' ||
+    uid === '1006099840'
   );
 }
+
+/**
+ * Identificadores oficiales de usuarios del área de Lavandería Colfactory ZF
+ */
+export const LAVANDERIA_USER_IDS = ["3333", "8888", "66997344", "66826345", "1130643859"];
+
+/**
+ * Determina si el usuario logueado pertenece a LAVANDERÍA (Colfactory)
+ */
+export function isLavanderiaUser(user?: UsuarioSTF | null): boolean {
+  if (!user) return false;
+  const uid = user.id.trim();
+  const uname = user.nombre.toUpperCase();
+  const uarea = (user.area || '').toUpperCase();
+  const urol = (user.rol || '').toUpperCase();
+
+  if (LAVANDERIA_USER_IDS.includes(uid)) return true;
+  if (urol === 'LAVANDERÍA' || urol.includes('LAVAND')) return true;
+  if (uarea === 'LAVANDERÍA' || uarea.includes('LAVAND') || uarea.includes('COLFACTORY')) return true;
+  if (uname.includes('LAVAND') || uname.includes('COLFACTORY')) return true;
+  return false;
+}
+
+/**
+ * Identificadores oficiales de usuarios del área de Calidad
+ */
+export const CALIDAD_USER_IDS = [
+  "1111", "ediaz", "1114392241", "1004670524", "1010159672", 
+  "1118309204", "1107047649", "1005829307", "4321", "1073524622"
+];
+
+/**
+ * Determina si el usuario logueado pertenece a CALIDAD (Laboratorio / Planta)
+ */
+export function isCalidadUser(user?: UsuarioSTF | null): boolean {
+  if (!user) return false;
+  const uid = user.id.trim();
+  const uname = user.nombre.toUpperCase();
+  const uarea = (user.area || '').toUpperCase();
+  const urol = (user.rol || '').toUpperCase();
+
+  if (CALIDAD_USER_IDS.includes(uid)) return true;
+  if (uarea === 'CALIDAD' || (uarea.includes('CALIDAD') && !uarea.includes('ZF'))) return true;
+  if (uname.includes('CALIDAD') && !uname.includes('ZF')) return true;
+  if (urol === 'OPERARIO' && uarea === 'CALIDAD') return true;
+  return false;
+}
+
 
 /**
  * Formatea y sanitiza un número de WhatsApp a formato internacional de Colombia (+57)

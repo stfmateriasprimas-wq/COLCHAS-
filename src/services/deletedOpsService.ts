@@ -63,8 +63,28 @@ export function getDeletedOpNumbers(): string[] {
 export function isOpDeleted(opNumber: string): boolean {
   if (!opNumber) return false;
   const clean = opNumber.trim().toUpperCase();
-  const deletedNumbers = getDeletedOpNumbers();
-  return deletedNumbers.includes(clean);
+  const digits = opNumber.replace(/\D/g, '');
+  const deletedHistory = getDeletedOpsHistory();
+  return deletedHistory.some(item => {
+    const itemClean = item.op.trim().toUpperCase();
+    const itemDigits = item.op.replace(/\D/g, '');
+    return itemClean === clean || (digits !== '' && itemDigits === digits) || clean.includes(itemClean) || itemClean.includes(clean);
+  });
+}
+
+export function unmarkOpAsDeleted(opNumber: string): void {
+  if (!opNumber) return;
+  const clean = opNumber.trim().toUpperCase();
+  const digits = opNumber.replace(/\D/g, '');
+  const history = getDeletedOpsHistory();
+  const filtered = history.filter(item => {
+    const itemClean = item.op.trim().toUpperCase();
+    const itemDigits = item.op.replace(/\D/g, '');
+    return itemClean !== clean && (digits === '' || itemDigits !== digits);
+  });
+  if (filtered.length !== history.length) {
+    saveDeletedOpsHistory(filtered);
+  }
 }
 
 /**
@@ -77,9 +97,12 @@ export function addOpToDeletedHistory(solicitud: SolicitudColcha, adminName: str
   // Format Colombian date & time: "D/M/YYYY, HH:MM:SS"
   const formattedDate = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}, ${now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
 
+  const cleanDigits = (solicitud.op || '').replace(/^OP-?/i, '').trim();
+  const normalizedOp = cleanDigits ? `OP-${cleanDigits}` : solicitud.op;
+
   const newRecord: DeletedOpRecord = {
-    id: `DEL-${Date.now()}-${solicitud.op}`,
-    op: solicitud.op,
+    id: `DEL-${Date.now()}-${cleanDigits || solicitud.op}`,
+    op: normalizedOp,
     referencia: solicitud.referencia,
     tela: solicitud.tela,
     color: solicitud.color || 'No especificado',
@@ -94,11 +117,18 @@ export function addOpToDeletedHistory(solicitud: SolicitudColcha, adminName: str
     eliminadoPor: adminName,
     dictamen: solicitud.dictamen,
     observaciones: solicitud.observacionesOperario || solicitud.observacionesCalidad || '',
-    solicitudOriginal: { ...solicitud }
+    solicitudOriginal: { ...solicitud, op: normalizedOp }
   };
 
   // Prepend to history so newest deleted OP is on top
-  const updatedHistory = [newRecord, ...history.filter(h => h.op.trim().toUpperCase() !== solicitud.op.trim().toUpperCase())];
+  const targetDigits = cleanDigits;
+  const updatedHistory = [
+    newRecord, 
+    ...history.filter(h => {
+      const hDigits = h.op.replace(/^OP-?/i, '').trim();
+      return h.op.trim().toUpperCase() !== normalizedOp.toUpperCase() && (targetDigits === '' || hDigits !== targetDigits);
+    })
+  ];
   saveDeletedOpsHistory(updatedHistory);
   return newRecord;
 }
@@ -108,12 +138,19 @@ export function addOpToDeletedHistory(solicitud: SolicitudColcha, adminName: str
  */
 export function restoreOpFromDeletedHistory(opOrRecordId: string): SolicitudColcha | null {
   const history = getDeletedOpsHistory();
-  const target = history.find(h => h.id === opOrRecordId || h.op.trim().toUpperCase() === opOrRecordId.trim().toUpperCase());
+  const cleanTarget = opOrRecordId.replace(/^OP-?/i, '').trim().toUpperCase();
+  const targetDigits = opOrRecordId.replace(/\D/g, '');
+
+  const target = history.find(h => {
+    const hClean = h.op.replace(/^OP-?/i, '').trim().toUpperCase();
+    const hDigits = h.op.replace(/\D/g, '');
+    return h.id === opOrRecordId || hClean === cleanTarget || (targetDigits !== '' && hDigits === targetDigits);
+  });
   
   if (!target) return null;
 
   // Remove from deleted history
-  const remaining = history.filter(h => h.id !== target.id && h.op.trim().toUpperCase() !== target.op.trim().toUpperCase());
+  const remaining = history.filter(h => h.id !== target.id);
   saveDeletedOpsHistory(remaining);
 
   // Return the original solicitud
@@ -121,10 +158,27 @@ export function restoreOpFromDeletedHistory(opOrRecordId: string): SolicitudColc
 }
 
 /**
- * Permanently purge a deleted OP record if needed
+ * Permanently purge a single deleted OP record
  */
 export function purgeDeletedOp(opOrRecordId: string): void {
   const history = getDeletedOpsHistory();
-  const remaining = history.filter(h => h.id !== opOrRecordId && h.op.trim().toUpperCase() !== opOrRecordId.trim().toUpperCase());
+  const cleanTarget = opOrRecordId.replace(/^OP-?/i, '').trim().toUpperCase();
+  const targetDigits = opOrRecordId.replace(/\D/g, '');
+
+  const remaining = history.filter(h => {
+    const hClean = h.op.replace(/^OP-?/i, '').trim().toUpperCase();
+    const hDigits = h.op.replace(/\D/g, '');
+    return h.id !== opOrRecordId && hClean !== cleanTarget && (targetDigits === '' || hDigits !== targetDigits);
+  });
   saveDeletedOpsHistory(remaining);
+}
+
+/**
+ * Clears the entire deleted history
+ */
+export function clearDeletedOpsHistory(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(DELETED_OPS_KEY);
+  }
+  listeners.forEach(fn => fn([]));
 }

@@ -1,14 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { 
   QrCode, RefreshCw, CheckCircle2, AlertTriangle, Clock, 
-  Layers, User, Calendar, Droplets, Microscope, Sparkles, 
-  ShieldCheck, ArrowRight, ExternalLink, Image as ImageIcon,
-  Check, X, ChevronRight, Eye, LogIn, Sun, Moon, Maximize2,
-  Camera, Upload
+  Layers, User, Calendar, Sparkles, Image as ImageIcon,
+  X, LogIn, Sun, Moon, Maximize2, Camera
 } from 'lucide-react';
-import { SolicitudColcha, SectorType, DictamenType } from '../../types';
+import { SolicitudColcha, SectorType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { normalizeImageUrl, compressImageFile, pushOpPhotoToSheets, saveLocalCreatedOp } from '../../services/googleSheetsService';
+import { normalizeImageUrl, getLocalCreatedOps } from '../../services/googleSheetsService';
+import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 
 interface PublicOpViewProps {
   opNumber: string;
@@ -29,54 +28,55 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
   isDarkMode,
   onToggleTheme
 }) => {
-  const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
+  const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
 
-  // Normalize target OP string to compare
-  const cleanTargetOp = useMemo(() => {
-    return opNumber.replace(/\D/g, '') || opNumber.trim().toUpperCase();
-  }, [opNumber]);
-
-  // Find OP in live data
+  // Find OP in live data + localStorage
   const colcha = useMemo(() => {
-    return solicitudes.find(s => {
-      const cleanOp = s.op.replace(/\D/g, '') || s.op.trim().toUpperCase();
-      return cleanOp === cleanTargetOp || s.op.toUpperCase().includes(cleanTargetOp);
-    });
-  }, [solicitudes, cleanTargetOp]);
+    const cleanTarget = opNumber.replace(/^OP-?/i, '').trim().toUpperCase();
+    const targetDigits = opNumber.replace(/\D/g, '');
 
-  const [localPhoto, setLocalPhoto] = useState<string | null>(null);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const [uploadSuccessToast, setUploadSuccessToast] = useState(false);
+    const matchOp = (s: SolicitudColcha) => {
+      const cleanOp = s.op.replace(/^OP-?/i, '').trim().toUpperCase();
+      const digits = s.op.replace(/\D/g, '');
+      return cleanOp === cleanTarget || (targetDigits !== '' && digits === targetDigits) || s.op.toUpperCase().includes(cleanTarget);
+    };
 
-  // Normalized display photo URL (Base64, Google Drive, Direct HTTP)
-  const displayPhotoUrl = useMemo(() => {
-    if (localPhoto) return localPhoto;
-    return normalizeImageUrl(colcha?.fotoMuestraUrl);
-  }, [localPhoto, colcha?.fotoMuestraUrl]);
+    const liveFound = solicitudes.find(matchOp);
+    const localOps = getLocalCreatedOps();
+    const localFound = localOps.find(matchOp);
 
-  const handleMobilePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !colcha) return;
-    setIsUploadingPhoto(true);
-    try {
-      const compressed = await compressImageFile(file, 1000, 0.75);
-      setLocalPhoto(compressed);
-
-      // Guardar localmente
-      const updatedColcha = { ...colcha, fotoMuestraUrl: compressed };
-      saveLocalCreatedOp(updatedColcha);
-
-      // Sincronizar en tiempo real con Google Sheets
-      await pushOpPhotoToSheets(colcha.op, compressed);
-
-      setUploadSuccessToast(true);
-      setTimeout(() => setUploadSuccessToast(false), 4000);
-    } catch (err) {
-      console.error('Error al subir foto desde el móvil:', err);
-    } finally {
-      setIsUploadingPhoto(false);
+    if (liveFound && localFound) {
+      return {
+        ...liveFound,
+        fotoMuestraUrl: localFound.fotoMuestraUrl || liveFound.fotoMuestraUrl,
+        fotoCalidadUrl: localFound.fotoCalidadUrl || liveFound.fotoCalidadUrl,
+        observacionesCalidad: localFound.observacionesCalidad || liveFound.observacionesCalidad,
+        observacionesOperario: localFound.observacionesOperario || liveFound.observacionesOperario,
+        dictamen: localFound.dictamen || liveFound.dictamen,
+        estado: localFound.fechaActualizacion ? localFound.estado : liveFound.estado,
+        areaActual: localFound.fechaActualizacion ? localFound.areaActual : liveFound.areaActual
+      };
     }
-  };
+    return liveFound || localFound;
+  }, [solicitudes, opNumber]);
+
+  // Normalized display photo URLs
+  const fotoInicialUrl = useMemo(() => {
+    return normalizeImageUrl(colcha?.fotoMuestraUrl);
+  }, [colcha?.fotoMuestraUrl]);
+
+  const fotoCalidadUrl = useMemo(() => {
+    return normalizeImageUrl(colcha?.fotoCalidadUrl);
+  }, [colcha?.fotoCalidadUrl]);
+
+  // Clean digits and normalized formatted OP code
+  const cleanOpDigits = useMemo(() => {
+    return (colcha?.op || opNumber).replace(/^OP-?/i, '').trim();
+  }, [colcha?.op, opNumber]);
+
+  const displayOpCode = useMemo(() => {
+    return `OP-${cleanOpDigits}`;
+  }, [cleanOpDigits]);
 
   const stages: { id: SectorType; label: string; icon: string; desc: string }[] = [
     { id: 'PRE_SOLICITUD', label: '1. Atelier / Corte', icon: '✂️', desc: 'Muestra cortada y preparada' },
@@ -168,7 +168,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
               <div className="space-y-3">
                 <RefreshCw className="w-12 h-12 text-emerald-400 animate-spin mx-auto" />
                 <h2 className="text-lg font-black text-white dark:text-zinc-950 uppercase font-mono">
-                  Sincronizando Orden OP-{opNumber}...
+                  Sincronizando Orden {displayOpCode}...
                 </h2>
                 <p className="text-xs text-zinc-400 dark:text-zinc-600 max-w-md mx-auto">
                   Consultando la base de datos de Google Sheets en tiempo real. Por favor espera unos segundos.
@@ -181,7 +181,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-white dark:text-zinc-950 uppercase font-mono">
-                    Orden OP-{opNumber} No Encontrada
+                    Orden {displayOpCode} No Encontrada
                   </h2>
                   <p className="text-xs text-zinc-400 dark:text-zinc-600 max-w-md mx-auto mt-1">
                     Verifica que el número de la OP esté registrado en la hoja <strong>BASE_DE_DATOS</strong> o pulsa actualizar para recargar los datos.
@@ -210,11 +210,11 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                       ORDEN DE PRODUCCIÓN
                     </span>
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black bg-zinc-800 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 border border-zinc-700 dark:border-zinc-300">
-                      ID: STF-{colcha.op}
+                      ID: STF-{cleanOpDigits}
                     </span>
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white dark:text-zinc-950 mt-1">
-                    OP-{colcha.op}
+                    {displayOpCode}
                   </h2>
                   <span className="text-xs sm:text-sm font-mono font-bold text-indigo-400 dark:text-indigo-600">
                     REF: {colcha.referencia} • {colcha.tela}
@@ -269,11 +269,11 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
 
             </div>
 
-            {/* TWO COLUMN GRID: TECHNICAL DATA + PHOTO */}
+            {/* TWO COLUMN GRID: TECHNICAL DATA + DUAL PHOTOS */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               
               {/* LEFT: TECHNICAL DATA SPEC SHEET */}
-              <div className="lg:col-span-7 bg-zinc-900/90 dark:bg-white border-2 border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+              <div className="lg:col-span-6 bg-zinc-900/90 dark:bg-white border-2 border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
                 <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-200 pb-3">
                   <h3 className="text-xs sm:text-sm font-black uppercase text-white dark:text-zinc-950 flex items-center gap-2">
                     <Layers className="w-4 h-4 text-emerald-400" />
@@ -333,91 +333,63 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
 
               </div>
 
-              {/* RIGHT: FOTOGRAFÍA DE LA MUESTRA / PRUEBA */}
-              <div className="lg:col-span-5 bg-zinc-900/90 dark:bg-white border-2 border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 sm:p-6 shadow-xl space-y-3.5">
+              {/* RIGHT: REGISTRO FOTOGRÁFICO DE 2 FOTOS (INICIAL & CALIDAD) */}
+              <div className="lg:col-span-6 bg-zinc-900/90 dark:bg-white border-2 border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
                 <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-200 pb-3">
-                  <h3 className="text-xs sm:text-sm font-black uppercase text-white dark:text-zinc-950 flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4 text-emerald-400" />
-                    <span>EVIDENCIA FOTOGRÁFICA</span>
+                  <h3 className="text-xs sm:text-sm font-black uppercase text-white dark:text-zinc-950 flex items-center gap-1.5 font-mono">
+                    <Camera className="w-4 h-4 text-emerald-400" />
+                    <span>REGISTRO FOTOGRÁFICO DE LA OP (2 FOTOS)</span>
                   </h3>
-                  <span className="text-[10px] font-mono text-zinc-400">MUESTRA FÍSICA</span>
+                  <span className="text-[9px] px-2 py-0.5 rounded font-bold border bg-zinc-950 dark:bg-zinc-100 text-zinc-400 dark:text-zinc-500 border-zinc-800 dark:border-zinc-300 font-mono">
+                    Trazabilidad Visual
+                  </span>
                 </div>
 
-                {displayPhotoUrl ? (
-                  <div className="space-y-3">
-                    <div 
-                      onClick={() => setIsPhotoZoomed(true)}
-                      className="relative rounded-2xl overflow-hidden border-2 border-zinc-800 dark:border-zinc-200 bg-black aspect-video group cursor-pointer shadow-inner"
-                    >
-                      <img 
-                        src={displayPhotoUrl} 
-                        alt={`Muestra OP ${colcha.op}`} 
-                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          console.warn('Error loading image in PublicOpView', e);
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs gap-1.5">
-                        <Maximize2 className="w-4 h-4" />
-                        <span>Toca para Ampliar</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <p className="text-[11px] text-zinc-400 dark:text-zinc-600 font-mono">
-                        ✓ Fotografía de colcha registrada en planta.
-                      </p>
-
-                      {/* Re-take / Update Photo Button */}
-                      <label className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 dark:bg-zinc-100 hover:bg-zinc-700 dark:hover:bg-zinc-200 text-zinc-200 dark:text-zinc-800 text-[11px] font-bold cursor-pointer transition border border-zinc-700 dark:border-zinc-300 shrink-0">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={handleMobilePhotoUpload}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                        <Camera className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
-                        <span>{isUploadingPhoto ? 'Guardando...' : 'Cambiar Foto'}</span>
-                      </label>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border-2 border-dashed border-zinc-800 dark:border-zinc-300 p-6 sm:p-8 text-center space-y-4 bg-zinc-950/50 dark:bg-zinc-50">
-                    <div className="w-12 h-12 rounded-2xl bg-zinc-900 dark:bg-zinc-200 flex items-center justify-center mx-auto text-zinc-500 dark:text-zinc-600">
-                      <Camera className="w-6 h-6 text-emerald-400 dark:text-emerald-600" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-zinc-300 dark:text-zinc-700 block">
-                        Sin Fotografía Adjunta
+                {/* DUAL PHOTO GRID (2 COLUMNS SIDE-BY-SIDE) */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  
+                  {/* CARD 1: FOTO MUESTRA INICIAL */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-600 font-mono">
+                      <span className="truncate">1. MUESTRA INICIAL</span>
+                      <span className={fotoInicialUrl ? 'text-emerald-400 font-bold shrink-0' : 'text-zinc-500 shrink-0'}>
+                        {fotoInicialUrl ? '✓ REGISTRADA' : 'SIN FOTO'}
                       </span>
-                      <p className="text-[10px] text-zinc-500 max-w-xs mx-auto mt-0.5">
-                        Toma una fotografía de la muestra física con tu cámara para anexarla en tiempo real a esta OP.
-                      </p>
                     </div>
 
-                    {/* Prominent Take Photo Button */}
-                    <label className="relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-500 hover:from-emerald-500 hover:to-green-400 text-black font-mono font-black text-xs cursor-pointer shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleMobilePhotoUpload}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <Camera className="w-4 h-4 fill-black text-black" />
-                      <span>{isUploadingPhoto ? 'GUARDANDO EN NUBE...' : 'TOMAR FOTO CON LA CÁMARA'}</span>
-                    </label>
+                    <SmartPhotoDisplay
+                      rawUrl={colcha?.fotoMuestraUrl}
+                      alt={`Muestra Inicial ${displayOpCode}`}
+                      title={`Foto 1: Muestra Inicial - ${displayOpCode}`}
+                      emptyTitle="Sin Foto Inicial"
+                      emptySubtitle="Registrada en Atelier"
+                      accentColor="emerald"
+                      onZoom={(url, title) => setZoomedPhoto({ url, title })}
+                    />
                   </div>
-                )}
 
-                {/* Upload Success Toast */}
-                {uploadSuccessToast && (
-                  <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs font-bold font-mono flex items-center gap-2 animate-in fade-in">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>✓ Fotografía guardada y sincronizada con Google Sheets</span>
+                  {/* CARD 2: FOTO POST-LAVADO (CALIDAD) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-purple-400 dark:text-purple-700 font-mono">
+                      <span className="truncate">2. POST-LAVADO (CALIDAD)</span>
+                      <span className={fotoCalidadUrl ? 'text-emerald-400 font-bold shrink-0' : 'text-amber-400 font-bold shrink-0'}>
+                        {fotoCalidadUrl ? '✓ REGISTRADA' : 'PENDIENTE'}
+                      </span>
+                    </div>
+
+                    <SmartPhotoDisplay
+                      rawUrl={colcha?.fotoCalidadUrl}
+                      alt={`Calidad Post-Lavado ${displayOpCode}`}
+                      title={`Foto 2: Inspección Calidad (Post-Lavado) - ${displayOpCode}`}
+                      emptyTitle="Sin Foto Post-Lavado"
+                      emptySubtitle="Auditoría en Laboratorio"
+                      accentColor="purple"
+                      onZoom={(url, title) => setZoomedPhoto({ url, title })}
+                    />
                   </div>
-                )}
+
+                </div>
+
               </div>
 
             </div>
@@ -468,38 +440,30 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
       </main>
 
       {/* 3. PHOTO ZOOM MODAL */}
-      {isPhotoZoomed && displayPhotoUrl && (
+      {zoomedPhoto && (
         <div 
-          onClick={() => setIsPhotoZoomed(false)}
+          onClick={() => setZoomedPhoto(null)}
           className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
         >
           <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center">
             <button 
               type="button"
-              onClick={() => setIsPhotoZoomed(false)}
+              onClick={() => setZoomedPhoto(null)}
               className="absolute top-2 right-2 p-2.5 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-white cursor-pointer z-10"
             >
               <X className="w-6 h-6" />
             </button>
             <img 
-              src={displayPhotoUrl} 
-              alt={`Muestra OP ${colcha.op}`}
-              className="max-h-[85vh] w-auto object-contain rounded-2xl shadow-2xl border border-zinc-800"
+              src={zoomedPhoto.url} 
+              alt={zoomedPhoto.title}
+              className="max-h-[82vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl border border-zinc-800"
             />
-            <span className="text-white text-xs font-mono font-bold mt-3">
-              Fotografía de Muestra • OP-{colcha.op} (REF-{colcha.referencia})
+            <span className="mt-3 text-xs font-mono font-bold text-zinc-300 bg-zinc-900/90 px-4 py-1.5 rounded-full border border-zinc-700">
+              {zoomedPhoto.title}
             </span>
           </div>
         </div>
       )}
-
-      {/* 4. FOOTER */}
-      <footer className="border-t border-zinc-800 dark:border-zinc-200 bg-zinc-950 dark:bg-zinc-100 py-4 px-6 text-center text-xs font-mono text-zinc-500 dark:text-zinc-600">
-        <p>STF GROUP S.A. • Sistema Oficial de Trazabilidad y Control de Calidad de Colchas</p>
-        <p className="text-[10px] text-zinc-600 dark:text-zinc-500 mt-0.5">
-          Consulta en tiempo real sincronizada con Google Sheets.
-        </p>
-      </footer>
 
     </div>
   );

@@ -16,7 +16,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
 
   const origin = typeof window !== 'undefined' && window.location.origin
     ? window.location.origin
-    : 'https://remix-stf-group-quality-control-5.vercel.app';
+    : 'https://colchas.vercel.app';
   
   // Enlace oficial de trazabilidad pública sin necesidad de inicio de sesión
   const publicLink = `${origin}/?op=${encodeURIComponent(colcha.op)}&view=public`;

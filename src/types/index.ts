@@ -40,6 +40,8 @@ export interface SolicitudColcha {
   observacionesLavanderia?: string;
   observacionesCalidad?: string;
   fotoMuestraUrl?: string;
+  fotoCalidadUrl?: string;
+  fechaFotoCalidad?: string;
   areaActual: string;
   
   // Parámetros técnicos textiles

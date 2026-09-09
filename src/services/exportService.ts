@@ -185,7 +185,7 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
 export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: string) {
   const origin = typeof window !== 'undefined' && window.location.origin
     ? window.location.origin
-    : 'https://remix-stf-group-quality-control-5.vercel.app';
+    : 'https://colchas.vercel.app';
   const trackingUrl = `${origin}/?op=${encodeURIComponent(colcha.op)}&view=public`;
 
   const printWindow = window.open('', '_blank', 'width=480,height=520');

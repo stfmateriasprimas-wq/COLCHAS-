@@ -3,17 +3,20 @@ import {
   X, Calendar, Clock, Printer, Camera, CheckCircle2, 
   ExternalLink, Copy, Check, FileText, Send, Share2, 
   Layers, ChevronRight, AlertCircle, AlertTriangle, ArrowRight,
-  Droplets, Microscope, Sparkles, ShieldCheck, Trash2
+  Droplets, Microscope, Sparkles, ShieldCheck, Trash2, Eye, Lock,
+  Maximize2, Upload
 } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
 import { QRCodeSVG } from 'qrcode.react';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
+import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto } from '../../services/googleSheetsService';
+import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 
 interface OpDetailModalProps {
   solicitud: SolicitudColcha | null;
   onClose: () => void;
   onOpenPrintModal: (colcha: SolicitudColcha) => void;
-  onUpdatePhoto?: (solicitudId: string, photoUrl: string) => void;
+  onUpdatePhoto?: (solicitudId: string, photoUrl: string, isCalidad?: boolean) => void;
 }
 
 export const OpDetailModal: React.FC<OpDetailModalProps> = ({
@@ -25,12 +28,20 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   const [activeTab, setActiveTab] = useState<'ficha' | 'timeline'>('ficha');
   const [copiedLink, setCopiedLink] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [zoomedPhotoUrl, setZoomedPhotoUrl] = useState<string | null>(null);
+  const [zoomedPhotoTitle, setZoomedPhotoTitle] = useState<string>('');
+  
+  const [fotoCalidadLocal, setFotoCalidadLocal] = useState<string | null>(null);
+  const [isUploadingCalidad, setIsUploadingCalidad] = useState(false);
+  const calidadFileInputRef = useRef<HTMLInputElement>(null);
 
   if (!solicitud) return null;
 
-  const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://remix-stf-group-quality-control-5.vercel.app';
+  const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://colchas.vercel.app';
   const publicUrl = `${origin}/?op=${encodeURIComponent(solicitud.op)}&view=public`;
+
+  const fotoMuestraUrl = solicitud.fotoMuestraUrl;
+  const fotoCalidadUrl = fotoCalidadLocal || solicitud.fotoCalidadUrl;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicUrl);
@@ -46,15 +57,28 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
     }, 600);
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCalidadPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && onUpdatePhoto) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const newUrl = reader.result as string;
-        onUpdatePhoto(solicitud.id, newUrl);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setIsUploadingCalidad(true);
+    try {
+      const compressed = await compressImageFile(file, 650, 0.55);
+      setFotoCalidadLocal(compressed);
+      
+      updateLocalOpPhoto(solicitud.id, compressed, true);
+      updateLocalOpPhoto(solicitud.op, compressed, true);
+
+      if (onUpdatePhoto) {
+        onUpdatePhoto(solicitud.id, compressed, true);
+      }
+
+      await pushOpPhotoToSheets(solicitud.op, compressed, true);
+    } catch (err) {
+      console.error('Error al actualizar foto de calidad:', err);
+      alert('Error al guardar la fotografía. Intenta de nuevo.');
+    } finally {
+      setIsUploadingCalidad(false);
     }
   };
 
@@ -178,75 +202,59 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                   </span>
                 </div>
 
-                {/* 3. Color & Volumen */}
+                {/* 3. Color Textil */}
                 <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4 space-y-1 text-white dark:text-zinc-950">
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider block">
-                    COLOR & VOLUMEN
+                    COLOR TEXTIL
                   </span>
                   <div className="text-base font-black text-white dark:text-zinc-950">{solicitud.color}</div>
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block font-mono">
-                    {solicitud.rollos} {solicitud.rollos === 1 ? 'Rollo' : 'Rollos'} ({solicitud.lote || 'N/A'})
-                  </span>
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block font-mono">Lote {solicitud.lote || '1'}</span>
                 </div>
 
-                {/* 4. Ubicación / Fase Actual */}
+                {/* 4. Total Rollos */}
                 <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4 space-y-1 text-white dark:text-zinc-950">
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider block">
-                    UBICACIÓN ACTUAL
+                    TOTAL ROLLOS
                   </span>
-                  <div className="text-sm font-black text-amber-400 dark:text-amber-600 font-mono">{solicitud.areaActual}</div>
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block font-mono">
-                    Resp: <strong>{solicitud.inspector}</strong>
-                  </span>
+                  <div className="text-base font-black text-amber-400 dark:text-amber-600 font-mono">
+                    {solicitud.rollos} {solicitud.rollos === 1 ? 'Rollo' : 'Rollos'}
+                  </div>
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block font-mono">Carga oficial</span>
                 </div>
 
               </div>
 
-              {/* TWO COLUMN GRID: TECHNICAL DETAILS (LEFT) & PHOTO/QR (RIGHT) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* TWO MAIN COLUMNS: SPECS & PHOTOGRAPHIC EVIDENCE */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
-                {/* LEFT: INFORMACIÓN TÉCNICA DETALLADA */}
-                <div className="lg:col-span-7 bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 sm:p-6 space-y-5 text-white dark:text-zinc-950">
+                {/* LEFT: ESPECIFICACIONES TÉCNICAS */}
+                <div className="lg:col-span-6 bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 space-y-4 text-white dark:text-zinc-950">
                   
-                  <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-200 pb-3">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-white dark:text-zinc-950 flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-indigo-400" />
-                      <span>INFORMACIÓN TÉCNICA DETALLADA</span>
-                    </h3>
-                    <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 bg-zinc-950 dark:bg-zinc-100 px-2 py-0.5 rounded border border-zinc-800 dark:border-zinc-300">
-                      ID: #{solicitud.id}
-                    </span>
+                  <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-200 pb-2.5">
+                    <h4 className="text-xs font-black uppercase text-white dark:text-zinc-950 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>ESPECIFICACIONES DE LA COLCHA</span>
+                    </h4>
+                    <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">100mm x 100mm</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">ORDEN DE PRODUCCIÓN:</span>
-                      <span className="font-mono font-black text-white dark:text-zinc-950 text-sm">{solicitud.op}</span>
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">ÁREA ACTUAL:</span>
+                      <span className="font-mono text-cyan-400 dark:text-cyan-700 font-bold">{solicitud.areaActual}</span>
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">REFERENCIA DISEÑO:</span>
-                      <span className="font-mono font-extrabold text-white dark:text-zinc-950 text-sm">{solicitud.referencia}</span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">TELA REGISTRADA:</span>
-                      <span className="font-bold text-white dark:text-zinc-950">{solicitud.tela}</span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">CÓDIGO MATERIAL INSUMO (MT):</span>
-                      <span className="font-mono font-black text-indigo-400 dark:text-indigo-600">{solicitud.codigoMt}</span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">COLOR DE MUESTRA:</span>
-                      <span className="font-bold text-white dark:text-zinc-950">{solicitud.color}</span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">ROLLOS & LOTE:</span>
-                      <span className="font-bold text-white dark:text-zinc-950">{solicitud.rollos} Rollos | Lote {solicitud.lote || 'N/A'}</span>
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">DICTAMEN:</span>
+                      <span className={`font-mono font-bold ${
+                        solicitud.dictamen === 'APROBADO'
+                          ? 'text-emerald-400 dark:text-emerald-700'
+                          : solicitud.dictamen === 'RECHAZADO'
+                          ? 'text-rose-400 dark:text-rose-700'
+                          : 'text-amber-400 dark:text-amber-700'
+                      }`}>
+                        {solicitud.dictamen}
+                      </span>
                     </div>
 
                     <div>
@@ -285,103 +293,153 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                     </div>
                   </div>
 
+                  {/* OBSERVACIONES DE CALIDAD SI EXISTEN */}
+                  {solicitud.observacionesCalidad && (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[10px] text-purple-400 dark:text-purple-600 font-bold uppercase flex items-center gap-1">
+                        <Microscope className="w-3.5 h-3.5" />
+                        DICTAMEN Y OBSERVACIÓN FINAL DE CALIDAD:
+                      </span>
+                      <div className="bg-purple-950/30 dark:bg-purple-50 border border-purple-500/30 dark:border-purple-300 rounded-2xl p-3.5 text-xs text-purple-200 dark:text-purple-900 font-medium leading-relaxed">
+                        "{solicitud.observacionesCalidad}"
+                      </div>
+                    </div>
+                  )}
+
                 </div>
 
-                {/* RIGHT: REGISTRO FOTOGRÁFICO & CÓDIGO QR */}
-                <div className="lg:col-span-5 space-y-4">
+                {/* RIGHT: REGISTRO FOTOGRÁFICO DOBLE & CÓDIGO QR */}
+                <div className="lg:col-span-6 space-y-4">
                   
-                  {/* PHOTO REGISTER CARD (CONNECTED TO NEW REQUEST PHOTO & POST-WASH UPDATE) */}
-                  <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 space-y-3.5 text-white dark:text-zinc-950">
+                  {/* DUAL PHOTO REGISTER CARD (INITIAL SAMPLE & POST-WASH QUALITY) */}
+                  <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-3xl p-5 space-y-4 text-white dark:text-zinc-950">
+                    
                     <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-200 pb-2.5">
                       <h4 className="text-xs font-black uppercase text-white dark:text-zinc-950 flex items-center gap-1.5">
                         <Camera className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>REGISTRO FOTOGRÁFICO DE LA OP</span>
+                        <span>REGISTRO FOTOGRÁFICO DE LA OP (2 FOTOS)</span>
                       </h4>
-                      <span className={`text-[9px] px-2 py-0.5 rounded font-bold border ${
-                        solicitud.estado === 'CALIDAD'
-                          ? 'bg-amber-950 dark:bg-amber-100 text-amber-300 dark:text-amber-800 border-amber-500/40 dark:border-amber-300 animate-pulse'
-                          : 'bg-zinc-950 dark:bg-zinc-100 text-zinc-400 dark:text-zinc-500 border-zinc-800 dark:border-zinc-300'
-                      }`}>
-                        {solicitud.estado === 'CALIDAD' ? '⚡ ETAPA CALIDAD STF' : 'Registro de Proceso'}
+                      <span className="text-[9px] px-2 py-0.5 rounded font-bold border bg-zinc-950 dark:bg-zinc-100 text-zinc-400 dark:text-zinc-500 border-zinc-800 dark:border-zinc-300">
+                        Trazabilidad Visual
                       </span>
                     </div>
 
-                    {/* Alert for Calidad stage: Tone change check post-washing */}
+                    {/* Alert for Calidad stage */}
                     {solicitud.estado === 'CALIDAD' && (
-                      <div className="p-2.5 rounded-xl bg-amber-950/40 dark:bg-amber-50 border border-amber-500/30 dark:border-amber-300 text-amber-200 dark:text-amber-900 text-[11px] leading-snug">
-                        👕 <strong>Inspección Post-Lavandería:</strong> La colcha ha pasado por lavado industrial. Actualiza la fotografía de la muestra para verificar variaciones de tono, brillo y textura.
+                      <div className="p-2.5 rounded-xl bg-purple-950/40 dark:bg-purple-50 border border-purple-500/30 dark:border-purple-300 text-purple-200 dark:text-purple-900 text-[11px] leading-snug">
+                        🔬 <strong>Auditoría de Calidad:</strong> Compara la foto inicial contra el resultado post-lavado para evaluar tono, encogimiento y acabado textil.
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-600">
-                      <span>{solicitud.estado === 'CALIDAD' ? 'Evidencia Fotográfica (Post-Lavado):' : 'Foto de Muestra Textil:'}</span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                        solicitud.fotoMuestraUrl 
-                          ? 'bg-emerald-950 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/30 dark:border-emerald-300' 
-                          : 'bg-amber-950 dark:bg-amber-100 text-amber-300 dark:text-amber-800 border border-amber-500/30 dark:border-amber-300'
-                      }`}>
-                        {solicitud.fotoMuestraUrl ? 'Cargada / Sincronizada' : 'Pendiente por Capturar'}
-                      </span>
-                    </div>
-
-                    {/* Photo Container */}
-                    <div className="h-48 rounded-2xl bg-zinc-950 dark:bg-zinc-100 border border-dashed border-zinc-800 dark:border-zinc-300 hover:border-zinc-600 flex flex-col items-center justify-center p-2 text-center overflow-hidden relative group">
-                      {solicitud.fotoMuestraUrl ? (
-                        <>
-                          <img
-                            src={solicitud.fotoMuestraUrl}
-                            alt={`Muestra ${solicitud.op}`}
-                            className="h-full w-full object-cover rounded-xl group-hover:scale-105 transition duration-300 cursor-pointer"
-                            onClick={() => window.open(solicitud.fotoMuestraUrl, '_blank')}
-                            title="Clic para ver fotografía en alta resolución"
-                          />
-                          <div 
-                            onClick={() => fileInputRef.current?.click()}
-                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center text-white cursor-pointer rounded-2xl"
-                          >
-                            <Camera className="w-6 h-6 mb-1 text-emerald-400" />
-                            <span className="text-xs font-bold">Clic para cambiar fotografía</span>
-                          </div>
-                        </>
-                      ) : (
-                        <div 
-                          onClick={() => fileInputRef.current?.click()}
-                          className="space-y-1 text-zinc-500 p-4 cursor-pointer hover:text-zinc-300 transition"
-                        >
-                          <Camera className="w-8 h-8 mx-auto stroke-[1.5] text-zinc-400 dark:text-zinc-600" />
-                          <p className="text-xs font-bold text-white dark:text-zinc-950">Tomar o Cargar Fotografía</p>
-                          <p className="text-[10px] text-zinc-400 dark:text-zinc-500">* Se sincronizará automáticamente con Google Drive y Sheets.</p>
+                    {/* DUAL PHOTO GRID */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      
+                      {/* CARD 1: FOTO INICIAL */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
+                          <span>1. Muestra Inicial</span>
+                          <span className={fotoMuestraUrl ? 'text-emerald-400' : 'text-zinc-500'}>
+                            {fotoMuestraUrl ? '✓ Registrada' : 'Sin Foto'}
+                          </span>
                         </div>
-                      )}
+
+                        <SmartPhotoDisplay
+                          rawUrl={fotoMuestraUrl}
+                          alt={`Muestra inicial ${solicitud.op}`}
+                          title={`Foto 1: Muestra Inicial - OP ${solicitud.op}`}
+                          emptyTitle="Sin Foto Inicial"
+                          emptySubtitle="Registrada en Atelier"
+                          accentColor="emerald"
+                          onZoom={(url, title) => {
+                            setZoomedPhotoUrl(url);
+                            setZoomedPhotoTitle(title);
+                          }}
+                        />
+                      </div>
+
+                      {/* CARD 2: FOTO CALIDAD (POST-LAVADO) */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-purple-300 dark:text-purple-700">
+                          <span>2. Post-Lavado (Calidad)</span>
+                          <span className={fotoCalidadUrl ? 'text-emerald-400' : 'text-amber-400'}>
+                            {fotoCalidadUrl ? '✓ Registrada' : 'Pendiente'}
+                          </span>
+                        </div>
+
+                        {fotoCalidadUrl ? (
+                          <div className="relative">
+                            <SmartPhotoDisplay
+                              rawUrl={fotoCalidadUrl}
+                              alt={`Calidad post-lavado ${solicitud.op}`}
+                              title={`Foto 2: Inspección Calidad (Post-Lavado) - OP ${solicitud.op}`}
+                              emptyTitle="Sin Foto Post-Lavado"
+                              emptySubtitle="Auditoría en Laboratorio"
+                              accentColor="purple"
+                              onZoom={(url, title) => {
+                                setZoomedPhotoUrl(url);
+                                setZoomedPhotoTitle(title);
+                              }}
+                            />
+                            {solicitud.estado === 'CALIDAD' && (
+                              <button
+                                type="button"
+                                onClick={() => calidadFileInputRef.current?.click()}
+                                className="absolute bottom-2 right-2 px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold font-mono transition shadow-md flex items-center gap-1 cursor-pointer z-20"
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                                <span>Cambiar</span>
+                              </button>
+                            )}
+                          </div>
+                        ) : solicitud.estado === 'CALIDAD' ? (
+                          <div 
+                            onClick={() => calidadFileInputRef.current?.click()}
+                            className="h-44 rounded-2xl bg-purple-950/20 dark:bg-purple-50 border-2 border-dashed border-purple-500/60 hover:border-purple-400 p-3 flex flex-col items-center justify-center text-center cursor-pointer transition group"
+                          >
+                            <Camera className="w-6 h-6 text-purple-400 mb-1 group-hover:scale-110 transition" />
+                            <span className="text-[11px] font-bold text-white dark:text-zinc-950 font-mono block">Tomar Foto Post-Lavado</span>
+                            <span className="text-[9px] text-purple-300 dark:text-purple-700 font-mono block mt-0.5">* Sincroniza en Google Sheets</span>
+                          </div>
+                        ) : (
+                          <div className="h-44 rounded-2xl bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 p-3 flex flex-col items-center justify-center text-center">
+                            <Lock className="w-6 h-6 text-zinc-500 opacity-50 mb-1" />
+                            <span className="text-[11px] font-bold text-zinc-400 dark:text-zinc-600 font-mono block">Sin Foto Post-Lavado</span>
+                            <span className="text-[9px] text-zinc-500 font-mono block mt-0.5">Solo activo en Calidad Lab</span>
+                          </div>
+                        )}
+                      </div>
+
                     </div>
 
-                    {/* Hidden input for updating photo */}
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handlePhotoChange}
-                      className="hidden"
-                    />
+                    {/* Hidden input for Calidad stage */}
+                    {solicitud.estado === 'CALIDAD' && (
+                      <input
+                        type="file"
+                        ref={calidadFileInputRef}
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleCalidadPhotoChange}
+                        className="hidden"
+                      />
+                    )}
 
-                    {/* Prominent Action Button */}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`w-full py-2.5 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition cursor-pointer shadow-md ${
-                        solicitud.estado === 'CALIDAD'
-                          ? 'bg-amber-400 hover:bg-amber-300 text-black font-black shadow-amber-400/20'
-                          : 'bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800'
-                      }`}
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>
-                        {solicitud.estado === 'CALIDAD'
-                          ? (solicitud.fotoMuestraUrl ? '📸 ACTUALIZAR FOTO POST-LAVADO (CALIDAD)' : '📸 CARGAR FOTO POST-LAVADO (CALIDAD)')
-                          : (solicitud.fotoMuestraUrl ? 'REEMPLAZAR / ACTUALIZAR FOTO' : 'CARGAR FOTOGRAFÍA OP')}
-                      </span>
-                    </button>
+                    {/* Button for updating photo in Calidad */}
+                    {solicitud.estado === 'CALIDAD' && (
+                      <button
+                        type="button"
+                        onClick={() => calidadFileInputRef.current?.click()}
+                        disabled={isUploadingCalidad}
+                        className="w-full py-2.5 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition cursor-pointer shadow-md bg-indigo-600 hover:bg-indigo-500 text-white"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>
+                          {isUploadingCalidad 
+                            ? 'GUARDANDO EN GOOGLE SHEETS...' 
+                            : (fotoCalidadUrl ? '📸 ACTUALIZAR FOTO POST-LAVADO (CALIDAD)' : '📸 CAPTURAR FOTO POST-LAVADO (CALIDAD)')}
+                        </span>
+                      </button>
+                    )}
+
                   </div>
 
                   {/* QR SCAN CARD */}
@@ -402,7 +460,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                       <div className="text-[11px] space-y-0.5">
                         <span className="font-bold text-white dark:text-zinc-950 block">Lectura Móvil por QR</span>
                         <p className="text-zinc-400 dark:text-zinc-600 leading-snug">
-                          Al escanear este código con tu celular se abrirá automáticamente la ficha técnica y trazabilidad.
+                          Al escanear este código con tu celular se abrirá automáticamente la ficha técnica y trazabilidad con las 2 fotos.
                         </p>
                       </div>
                     </div>
@@ -565,103 +623,22 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                   </div>
 
                   <div className="bg-zinc-900/90 dark:bg-zinc-50 p-3.5 rounded-2xl border border-zinc-800 dark:border-zinc-200 space-y-0.5">
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">2. ÁREAS RECORRIDAS</span>
-                    <span className="text-xs font-mono font-black text-amber-400 dark:text-amber-600 block">2 Áreas Registradas</span>
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Permanencia registrada por cada área</span>
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">2. TIEMPO TOTAL EN PLANTA</span>
+                    <span className="text-xs font-mono font-black text-amber-400 dark:text-amber-600 block">
+                      {solicitud.diasHabiles} Días ({solicitud.horasEnProceso}h hábiles)
+                    </span>
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Límite SLA: {solicitud.limiteSlaDias} días</span>
                   </div>
 
                   <div className="bg-zinc-900/90 dark:bg-zinc-50 p-3.5 rounded-2xl border border-zinc-800 dark:border-zinc-200 space-y-0.5">
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">3. RETRASO / TIEMPO GENERAL</span>
-                    <span className="text-xs font-mono font-black text-emerald-400 dark:text-emerald-600 block">
-                      {solicitud.tieneRetraso ? `+${solicitud.diasHabiles} días hábiles (Retraso)` : '0 días hábiles (0.0h) (A Tiempo)'}
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">3. ESTADO DEL PROCESO</span>
+                    <span className={`text-xs font-mono font-black block ${
+                      solicitud.tieneRetraso ? 'text-rose-400 dark:text-rose-600' : 'text-emerald-400 dark:text-emerald-600'
+                    }`}>
+                      {solicitud.tieneRetraso ? `⚠️ Retraso (+${Math.max(0, solicitud.diasHabiles - 3)}d)` : '✓ En Tiempos Normales'}
                     </span>
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Evaluación general frente a SLA laboral</span>
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Área: {solicitud.areaActual}</span>
                   </div>
-                </div>
-
-                {/* TIMELINE ITEMS CHRONOLOGY */}
-                <div className="space-y-4 pt-2">
-                  
-                  {/* ITEM 1: MUESTRA CREADA Y REGISTRADA EN ATELIER */}
-                  <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4.5 space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center text-xs">
-                          ⏱️
-                        </div>
-                        <span className="text-xs font-black uppercase tracking-wide text-white dark:text-zinc-950">
-                          MUESTRA CREADA Y REGISTRADA EN ATELIER
-                        </span>
-                      </div>
-                      <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500 flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-zinc-500" />
-                        {formatColombianDisplayDate(solicitud.fechaCreacion)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] flex-wrap gap-2">
-                      <span className="bg-amber-400 text-black px-2.5 py-0.5 rounded font-bold">
-                        ● PERMANENCIA EN ÁREA: 15 minutos (Creación y empaque de muestra)
-                      </span>
-                      <span className="text-zinc-400 dark:text-zinc-500 font-mono text-[10px]">
-                        (Duración acumulada: 15 min)
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-600 pt-1 border-t border-zinc-800 dark:border-zinc-200">
-                      <div>
-                        ESTADO: <strong className="text-white dark:text-zinc-950">NUEVO ➔ SOLICITADO</strong>
-                      </div>
-                      <div>
-                        👤 RESPONSABLE: <strong className="text-white dark:text-zinc-950">{solicitud.inspector}</strong>
-                      </div>
-                    </div>
-
-                    <div className="bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-200 rounded-xl p-2.5 text-xs text-zinc-300 dark:text-zinc-700">
-                      "{solicitud.observacionesOperario || 'Ojo solo es una OP de prueba para el sistema'}"
-                    </div>
-                  </div>
-
-                  {/* ITEM 2: DESPACHADO A LAVANDERÍA */}
-                  <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-amber-500/40 rounded-2xl p-4.5 space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center text-xs">
-                          💧
-                        </div>
-                        <span className="text-xs font-black uppercase tracking-wide text-amber-400 dark:text-amber-600">
-                          DESPACHADO A LAVANDERÍA (SOLICITUD ACTIVA)
-                        </span>
-                      </div>
-                      <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500 flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-zinc-500" />
-                        {new Date(solicitud.fechaCreacion).toLocaleDateString()} {new Date(solicitud.fechaCreacion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] flex-wrap gap-2">
-                      <span className="bg-amber-400 text-black px-2.5 py-0.5 rounded font-bold">
-                        ● PERMANENCIA EN ÁREA: 15 min antes del envío a Lavandería
-                      </span>
-                      <span className="text-zinc-400 dark:text-zinc-500 font-mono text-[10px]">
-                        (Duración acumulada: 15 min)
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-600 pt-1 border-t border-zinc-800 dark:border-zinc-200">
-                      <div>
-                        ESTADO: <strong className="text-white dark:text-zinc-950">PRE-SOLICITUD ➔ SOLICITADO</strong>
-                      </div>
-                      <div>
-                        👤 RESPONSABLE: <strong className="text-white dark:text-zinc-950">{solicitud.inspector}</strong>
-                      </div>
-                    </div>
-
-                    <div className="bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-200 rounded-xl p-2.5 text-xs text-zinc-300 dark:text-zinc-700">
-                      "Muestra lista para recepción e ingreso en tambores de lavandería ZF."
-                    </div>
-                  </div>
-
                 </div>
 
               </div>
@@ -671,35 +648,36 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
 
         </div>
 
-        {/* 4. MODAL FOOTER */}
-        <div className="p-4 border-t border-zinc-800 dark:border-zinc-200 bg-zinc-900/80 dark:bg-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-white dark:text-zinc-950">
-          <div className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-600">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Sistema STF — Monitoreo de Lavandería e Indicadores</span>
-          </div>
+      </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <button
+      {/* 4. ZOOMED PHOTO MODAL */}
+      {zoomedPhotoUrl && (
+        <div 
+          onClick={() => setZoomedPhotoUrl(null)}
+          className="fixed inset-0 z-60 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center">
+            <button 
               type="button"
-              onClick={handleSendReport}
-              disabled={isNotifying}
-              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-sm disabled:opacity-50"
+              onClick={() => setZoomedPhotoUrl(null)}
+              className="absolute top-2 right-2 p-2.5 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-white cursor-pointer z-10"
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>{isNotifying ? 'Enviando...' : 'NOTIFICAR / ENVIAR REPORTE'}</span>
+              <X className="w-6 h-6" />
             </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 text-xs font-bold transition cursor-pointer"
-            >
-              CERRAR
-            </button>
+            <img 
+              src={zoomedPhotoUrl} 
+              alt={zoomedPhotoTitle}
+              className="max-h-[82vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl border border-zinc-800"
+            />
+            {zoomedPhotoTitle && (
+              <span className="mt-3 text-xs font-mono font-bold text-zinc-300 bg-zinc-900/90 px-4 py-1.5 rounded-full border border-zinc-700">
+                {zoomedPhotoTitle}
+              </span>
+            )}
           </div>
         </div>
+      )}
 
-      </div>
     </div>
   );
 };

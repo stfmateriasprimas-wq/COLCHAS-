@@ -5,10 +5,12 @@ import {
 } from 'lucide-react';
 import { TabType } from '../Navigation';
 import { KpiMetrics, SectorType, SolicitudColcha } from '../../types';
+import { UsuarioSTF, isLavanderiaUser } from '../../services/authService';
 
 interface CleanLandingViewProps {
   metrics: KpiMetrics;
   solicitudes: SolicitudColcha[];
+  currentUser?: UsuarioSTF | null;
   onNavigate: (tab: TabType) => void;
   onSelectArea: (areaKey: SectorType | 'TOTAL' | 'EN_PROCESO') => void;
   onOpenChat: () => void;
@@ -17,10 +19,13 @@ interface CleanLandingViewProps {
 export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
   metrics,
   solicitudes,
+  currentUser,
   onNavigate,
   onSelectArea,
   onOpenChat
 }) => {
+  const isLavanderia = isLavanderiaUser(currentUser);
+
   // Real-time delay calculations
   const delaysPreSol = solicitudes.filter(s => s.estado === 'PRE_SOLICITUD' && s.tieneRetraso).length;
   const delaysSol = solicitudes.filter(s => s.estado === 'SOLICITADO' && s.tieneRetraso).length;
@@ -30,19 +35,21 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
   return (
     <div className="space-y-8 animate-in fade-in duration-300 select-none pb-8">
       
-      {/* 1. CENTRAL ACTION CARD (3 MAIN BUTTONS) */}
+      {/* 1. CENTRAL ACTION CARD (MAIN BUTTONS) */}
       <div className="flex justify-center pt-2">
         <div className="w-full max-w-[440px] bg-[#0c1017] dark:bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-800 dark:border-zinc-200 space-y-3.5 transition-colors text-white dark:text-zinc-950">
           
-          {/* BUTTON 1: + NUEVA SOLICITUD */}
-          <button
-            type="button"
-            onClick={() => onNavigate('nueva-solicitud')}
-            className="w-full bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 active:scale-[0.99] py-3.5 px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-md"
-          >
-            <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5 text-current" />
-            <span>NUEVA SOLICITUD</span>
-          </button>
+          {/* BUTTON 1: + NUEVA SOLICITUD (OCULTO PARA PERFILES DE LAVANDERÍA) */}
+          {!isLavanderia && (
+            <button
+              type="button"
+              onClick={() => onNavigate('nueva-solicitud')}
+              className="w-full bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 active:scale-[0.99] py-3.5 px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-md"
+            >
+              <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5 text-current" />
+              <span>NUEVA SOLICITUD</span>
+            </button>
+          )}
 
           {/* BUTTON 2: BANDEJA DE SOLICITUDES */}
           <button

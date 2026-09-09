@@ -4,7 +4,7 @@ import {
   Microscope, CheckCircle2, Sparkles, X, Tag, Calendar, Layers,
   ChevronDown, ArrowUp, ArrowDown, AlertTriangle
 } from 'lucide-react';
-import { SolicitudColcha, SectorType, KpiMetrics } from '../../types';
+import { SolicitudColcha, SectorType, DictamenType, KpiMetrics } from '../../types';
 import { SolicitudCard } from './SolicitudCard';
 import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { FloatingScrollPill } from '../Common/FloatingScrollPill';
@@ -20,6 +20,7 @@ interface BandejaViewProps {
   initialStageFilter?: StageFilterType;
   initialSearchQuery?: string;
   onTransfer: (solicitud: SolicitudColcha) => void;
+  onDirectTransfer?: (solicitudId: string, nuevoEstado: SectorType, observacion: string, dictamen?: DictamenType, fotoCalidad?: string) => void;
   onViewDetail: (solicitud: SolicitudColcha) => void;
   onPrint: (solicitud: SolicitudColcha) => void;
   onDelete?: (solicitud: SolicitudColcha) => void;
@@ -37,6 +38,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
   initialStageFilter,
   initialSearchQuery,
   onTransfer,
+  onDirectTransfer,
   onViewDetail,
   onPrint,
   onDelete,
@@ -156,13 +158,23 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
     .sort((a, b) => {
       // Bloque 2 & 3: Ordenamiento
       if (sortOrder === 'antiguos') {
-        return getOpChronologicalTimestamp(a) - getOpChronologicalTimestamp(b);
+        const diff = getOpChronologicalTimestamp(a) - getOpChronologicalTimestamp(b);
+        if (diff !== 0) return diff;
+        const numA = parseInt((a.op || '').replace(/\D/g, ''), 10) || 0;
+        const numB = parseInt((b.op || '').replace(/\D/g, ''), 10) || 0;
+        return numA - numB;
       }
       if (sortOrder === 'sla') {
-        return b.diasHabiles - a.diasHabiles;
+        const diff = b.diasHabiles - a.diasHabiles;
+        if (diff !== 0) return diff;
+        return getOpChronologicalTimestamp(b) - getOpChronologicalTimestamp(a);
       }
       // Por defecto: Más Recientes Arriba
-      return getOpChronologicalTimestamp(b) - getOpChronologicalTimestamp(a);
+      const diff = getOpChronologicalTimestamp(b) - getOpChronologicalTimestamp(a);
+      if (diff !== 0) return diff;
+      const numB = parseInt((b.op || '').replace(/\D/g, ''), 10) || 0;
+      const numA = parseInt((a.op || '').replace(/\D/g, ''), 10) || 0;
+      return numB - numA;
     });
 
   // Handler when clicking a smart suggestion item
@@ -563,6 +575,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
               key={colcha.id}
               solicitud={colcha}
               onTransfer={onTransfer}
+              onDirectTransfer={onDirectTransfer}
               onViewDetail={onViewDetail}
               onPrint={onPrint}
               onDelete={onDelete}

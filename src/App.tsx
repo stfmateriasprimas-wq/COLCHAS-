@@ -28,10 +28,16 @@ import {
   pushDictamenToSheets, 
   pushOpPhotoToSheets,
   saveLocalCreatedOp,
+  getLocalCreatedOps,
+  updateLocalOpStatus,
+  updateLocalOpPhoto,
   markMonitoreoOpAsConsumed,
   deleteOrConsumeMonitoreoOpFromSheets,
   syncAllAlertasToSheets,
   removeOpFromAlertasSheet,
+  formatOpCode,
+  getCachedSolicitudes,
+  saveCachedSolicitudes,
   INITIAL_MONITOREO_DATA, 
   INITIAL_SOLICITUDES_DATA 
 } from './services/googleSheetsService';
@@ -40,6 +46,7 @@ import { calculateWorkingDays } from './services/slaCalculator';
 import { 
   addOpToDeletedHistory, 
   isOpDeleted, 
+  unmarkOpAsDeleted,
   getDeletedOpNumbers 
 } from './services/deletedOpsService';
 import { Trash2, CheckCircle2 } from 'lucide-react';
@@ -120,7 +127,7 @@ export function App() {
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [monitoreoList, setMonitoreoList] = useState<MonitoreoItem[]>(INITIAL_MONITOREO_DATA);
-  const [solicitudes, setSolicitudes] = useState<SolicitudColcha[]>(INITIAL_SOLICITUDES_DATA);
+  const [solicitudes, setSolicitudes] = useState<SolicitudColcha[]>(() => getCachedSolicitudes());
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Modals state
@@ -266,7 +273,35 @@ export function App() {
   const executeDeleteOp = (solicitud: SolicitudColcha) => {
     const adminName = currentUser ? `${currentUser.nombre} (Administrador)` : 'Edwin Diaz (Administrador)';
     addOpToDeletedHistory(solicitud, adminName);
-    setSolicitudes(prev => prev.filter(s => s.op.trim().toUpperCase() !== solicitud.op.trim().toUpperCase()));
+    
+    const targetCleanOp = solicitud.op.replace(/^OP-+/i, '').trim().toUpperCase();
+
+    setSolicitudes(prev => {
+      const updated = prev.filter(s => {
+        const sClean = s.op.replace(/^OP-+/i, '').trim().toUpperCase();
+        return sClean !== targetCleanOp && s.id !== solicitud.id;
+      });
+      // Guardar lista filtrada en caché para evitar que reaparezca al recargar
+      saveCachedSolicitudes(updated);
+      return updated;
+    });
+
+    // Limpiar de local created ops si existiera
+    try {
+      const localCreated = localStorage.getItem('stf_colchas_local_created_ops');
+      if (localCreated) {
+        const parsed = JSON.parse(localCreated);
+        if (Array.isArray(parsed)) {
+          const filteredLocal = parsed.filter((item: any) => {
+            const itemClean = String(item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
+            return itemClean !== targetCleanOp && item.id !== solicitud.id;
+          });
+          localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify(filteredLocal));
+        }
+      }
+    } catch (e) {
+      console.warn('Error clearing deleted op from local storage:', e);
+    }
     
     // Depuración en tiempo real de la página ALERTAS de Google Sheets
     removeOpFromAlertasSheet(solicitud.op);
@@ -304,6 +339,10 @@ export function App() {
 
     // Depuración en tiempo real de la página ALERTAS de Google Sheets
     removeOpFromAlertasSheet(opNumber);
+    updateLocalOpStatus(solicitud.id, 'FINALIZADO', 'CALIDAD PLANTA STF', `Orden finalizada y liberada por ${auditorName}`, 'APROBADO');
+    if (opNumber) {
+      updateLocalOpStatus(opNumber, 'FINALIZADO', 'CALIDAD PLANTA STF', `Orden finalizada y liberada por ${auditorName}`, 'APROBADO');
+    }
 
     notificationService.playAlertSound('EXITO');
     setConfirmFinalizarOp(null);
@@ -346,12 +385,17 @@ export function App() {
 
   // New request submission
   const handleAddNewSolicitud = async (nueva: SolicitudColcha) => {
+    nueva.op = formatOpCode(nueva.op);
     if (currentUser) {
       nueva.inspector = currentUser.nombre;
     }
+    // Desmarcar de historial de eliminadas
+    unmarkOpAsDeleted(nueva.op);
+
     // Save to persistent storage so it survives sync and reloads
     saveLocalCreatedOp(nueva);
-    setSolicitudes(prev => [nueva, ...prev]);
+    const cleanTarget = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
+    setSolicitudes(prev => [nueva, ...prev.filter(s => (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) !== cleanTarget)]);
 
     // Eliminar OP de la lista de Monitoreo en tiempo real (de 6 quedan 5)
     const cleanOpNumber = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
@@ -377,7 +421,8 @@ export function App() {
     solicitudId: string,
     nuevoEstado: SectorType,
     nuevaObservacion: string,
-    dictamen?: DictamenType
+    dictamen?: DictamenType,
+    fotoCalidad?: string
   ) => {
     const targetItem = solicitudes.find(s => s.id === solicitudId);
     const opNumber = targetItem ? targetItem.op : '';
@@ -396,12 +441,16 @@ export function App() {
           ...item,
           estado: nuevoEstado,
           areaActual: areaMap[nuevoEstado],
-          dictamen: nuevoEstado === 'FINALIZADO' ? (dictamen || 'APROBADO') : item.dictamen,
+          dictamen: nuevoEstado === 'FINALIZADO' ? (dictamen || item.dictamen || 'APROBADO') : item.dictamen,
+          fotoCalidadUrl: fotoCalidad || item.fotoCalidadUrl,
           fechaActualizacion: new Date().toISOString()
         };
 
         if (nuevaObservacion) {
           updated.observacionesOperario = `${item.observacionesOperario ? item.observacionesOperario + ' | ' : ''}[${nuevoEstado}]: ${nuevaObservacion}`;
+          if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CALIDAD') {
+            updated.observacionesCalidad = nuevaObservacion;
+          }
         }
 
         const { diasHabiles, horasHabiles, tieneRetraso, esRetrasoCritico } = calculateWorkingDays(item.fechaCreacion);
@@ -415,6 +464,24 @@ export function App() {
       return item;
     }));
 
+    const areaMap: Record<SectorType, string> = {
+      PRE_SOLICITUD: 'CALIDAD 2F / ATELIER',
+      SOLICITADO: 'TRÁNSITO / DESPACHO',
+      LAVANDERIA: 'LAVANDERÍA COLFACTORY ZF',
+      CALIDAD: 'CALIDAD STF LABORATORIO',
+      FINALIZADO: 'CALIDAD PLANTA STF'
+    };
+    updateLocalOpStatus(solicitudId, nuevoEstado, areaMap[nuevoEstado], nuevaObservacion, dictamen);
+    if (opNumber) {
+      updateLocalOpStatus(opNumber, nuevoEstado, areaMap[nuevoEstado], nuevaObservacion, dictamen);
+    }
+    if (fotoCalidad) {
+      updateLocalOpPhoto(solicitudId, fotoCalidad, true);
+      if (opNumber) {
+        updateLocalOpPhoto(opNumber, fotoCalidad, true);
+      }
+    }
+
     // Alertas sonoras y sincronización con Google Sheets
     if (nuevoEstado === 'FINALIZADO') {
       notificationService.playAlertSound('EXITO');
@@ -422,7 +489,10 @@ export function App() {
         removeOpFromAlertasSheet(opNumber);
       }
       if (opNumber && dictamen) {
-        await pushDictamenToSheets(opNumber, dictamen, currentUser?.nombre || 'AUDITOR STF', nuevaObservacion);
+        const localOps = getLocalCreatedOps();
+        const localMatch = localOps.find(l => l.id === solicitudId || l.op.replace(/\D/g, '') === opNumber.replace(/\D/g, ''));
+        const photoToSend = fotoCalidad || targetItem?.fotoCalidadUrl || localMatch?.fotoCalidadUrl;
+        await pushDictamenToSheets(opNumber, dictamen, currentUser?.nombre || 'AUDITOR STF', nuevaObservacion, photoToSend);
       }
     } else {
       notificationService.playAlertSound('TRANSFERENCIA');
@@ -433,12 +503,14 @@ export function App() {
   };
 
   // Update photo handler
-  const handleUpdateOpPhoto = async (solicitudId: string, photoUrl: string) => {
+  const handleUpdateOpPhoto = async (solicitudId: string, photoUrl: string, isCalidad?: boolean) => {
     let targetOpNumber = '';
     setSolicitudes(prev => prev.map(item => {
       if (item.id === solicitudId) {
         targetOpNumber = item.op;
-        const updated = { ...item, fotoMuestraUrl: photoUrl };
+        const updated = isCalidad
+          ? { ...item, fotoCalidadUrl: photoUrl }
+          : { ...item, fotoMuestraUrl: photoUrl };
         if (selectedColchaDetail && selectedColchaDetail.id === solicitudId) {
           setSelectedColchaDetail(updated);
         }
@@ -448,7 +520,7 @@ export function App() {
     }));
 
     if (targetOpNumber) {
-      await pushOpPhotoToSheets(targetOpNumber, photoUrl);
+      await pushOpPhotoToSheets(targetOpNumber, photoUrl, isCalidad);
     }
   };
 
@@ -500,6 +572,7 @@ export function App() {
           <CleanLandingView
             metrics={metrics}
             solicitudes={solicitudes}
+            currentUser={currentUser}
             onNavigate={(tab) => setActiveTab(tab)}
             onSelectArea={(areaKey) => setSelectedAreaForModal(areaKey)}
             onOpenChat={() => setIsChatOpen(true)}
@@ -529,6 +602,7 @@ export function App() {
             initialStageFilter={aiStageFilter}
             initialSearchQuery={aiSearchQuery}
             onTransfer={(item) => setSelectedColchaTransfer(item)}
+            onDirectTransfer={handleConfirmTransfer}
             onViewDetail={(item) => setSelectedColchaDetail(item)}
             onPrint={(item) => setSelectedColchaPrinter(item)}
             onDelete={handleDeleteOp}
@@ -705,7 +779,7 @@ export function App() {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-black uppercase text-rose-400 dark:text-rose-700 font-mono">
-                    ¿Eliminar OP-{confirmDeleteOp.op}?
+                    ¿Eliminar OP-{confirmDeleteOp.op.replace(/^OP-+/i, '').trim()}?
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-rose-500 text-white uppercase">
                     ADMIN EDWIN
