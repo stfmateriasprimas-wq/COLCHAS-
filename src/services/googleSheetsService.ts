@@ -1172,7 +1172,7 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
         ? (payload as any).userEmails
         : fallbackUserEmails);
 
-  const origin = typeof window !== 'undefined' && window.location.origin
+  const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')
     ? window.location.origin
     : 'https://colchas.vercel.app';
 
@@ -1238,7 +1238,7 @@ export async function sendOpEmailNotification(
   opData: Partial<SolicitudColcha>, 
   recipients: string[]
 ): Promise<{ success: boolean; message: string }> {
-  const origin = typeof window !== 'undefined' && window.location.origin
+  const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')
     ? window.location.origin
     : 'https://colchas.vercel.app';
   const formattedOp = formatOpCode(opData.op || '');
@@ -1665,9 +1665,9 @@ export interface AutomatedAlertEmailPayload {
 export async function sendAutomatedAlertsEmail(
   payload: AutomatedAlertEmailPayload
 ): Promise<{ success: boolean; message: string; count: number }> {
-  const origin = typeof window !== 'undefined' && window.location.origin
+  const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')
     ? window.location.origin
-    : 'https://remix-stf-group-quality-control-5.vercel.app';
+    : 'https://colchas.vercel.app';
   
   const now = new Date();
   const d = now.getDate();

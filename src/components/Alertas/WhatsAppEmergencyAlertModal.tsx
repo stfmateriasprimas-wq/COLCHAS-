@@ -98,9 +98,9 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
   // Helper: Build Direct Magic Auto-Login Link
   const buildDirectMagicLink = (userId?: string): string => {
-    const origin = typeof window !== 'undefined' && window.location.origin 
+    const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')
       ? window.location.origin 
-      : 'https://remix-stf-group-quality-control-5.vercel.app';
+      : 'https://colchas.vercel.app';
 
     const params = new URLSearchParams();
     if (userId && userId !== 'TODOS') {

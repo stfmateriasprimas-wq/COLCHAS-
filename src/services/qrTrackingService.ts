@@ -71,6 +71,34 @@ export function createMicroThumbnail(dataUrl?: string, maxDimension: number = 64
   });
 }
 
+export const PRODUCTION_PUBLIC_URL = 'https://colchas.vercel.app';
+
+/**
+ * Obtiene la URL base pública oficial para la generación de códigos QR.
+ * IMPORTANTE: Si la aplicación se está ejecutando en localhost, 127.0.0.1 o IP local,
+ * NUNCA debe codificar "localhost" en el código QR, ya que al escanearlo desde un
+ * teléfono móvil (4G/5G/WiFi), el teléfono intentará conectarse a sí mismo y fallará
+ * con el error "Safari no puede abrir localhost". Por lo tanto, en desarrollo local
+ * siempre apunta a la URL pública oficial en Vercel (https://colchas.vercel.app).
+ */
+export function getPublicBaseUrl(): string {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    const origin = window.location.origin;
+    if (
+      origin.includes('localhost') || 
+      origin.includes('127.0.0.1') || 
+      origin.includes('0.0.0.0') ||
+      origin.includes('192.168.') ||
+      origin.includes('10.') ||
+      origin.includes('172.')
+    ) {
+      return PRODUCTION_PUBLIC_URL;
+    }
+    return origin;
+  }
+  return PRODUCTION_PUBLIC_URL;
+}
+
 /**
  * Genera el enlace público oficial de trazabilidad con la carga útil completa codificada.
  * Esto garantiza que al escanear el QR desde CUALQUIER teléfono móvil o dispositivo externo,
@@ -78,12 +106,9 @@ export function createMicroThumbnail(dataUrl?: string, maxDimension: number = 64
  * de manera instantánea (0 ms) sin depender de que Google Sheets haya terminado de sincronizar.
  */
 export function generatePublicTrackingUrl(colcha: SolicitudColcha): string {
-  if (!colcha || !colcha.op) return 'https://colchas.vercel.app';
+  if (!colcha || !colcha.op) return PRODUCTION_PUBLIC_URL;
 
-  const origin = typeof window !== 'undefined' && window.location.origin
-    ? window.location.origin
-    : 'https://colchas.vercel.app';
-
+  const origin = getPublicBaseUrl();
   const cleanOp = formatOpCode(colcha.op);
   const fallbackUrl = `${origin}/?op=${encodeURIComponent(cleanOp)}&view=public`;
 
