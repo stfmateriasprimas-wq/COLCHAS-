@@ -887,7 +887,7 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
   // 1. ENDPOINTS DIRECTOS GVIZ JSON (TIEMPO DE RESPUESTA < 0.8s)
   const gvizUrls = [
     `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${MONITOREO_GID}&t=${timestamp}`,
-    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=MONITOREO_CORTE&t=${timestamp}`
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=MONITOREO&t=${timestamp}`
   ];
 
   for (const url of gvizUrls) {
@@ -932,8 +932,12 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
                 mt = temp;
               }
 
-              // Omitir fila de encabezados
-              if ((tela.toUpperCase().includes('TELA') && op.toUpperCase().includes('OP')) || (tela.toUpperCase().includes('TELA') && mt.toUpperCase().includes('MT'))) return;
+              // Omitir fila de encabezados exacta (no usar includes porque las telas tienen "TELA" y las OPs tienen "OP")
+              const isHeader = 
+                (tela.toUpperCase().trim() === 'TELA' || tela.toUpperCase().trim() === 'FECHA' || tela.toUpperCase().trim() === 'INSPECTOR') &&
+                (op.toUpperCase().trim() === 'OP' || mt.toUpperCase().trim() === 'MT' || ref.toUpperCase().trim() === 'REFERENCIA');
+              
+              if (isHeader) return;
               if (!tela && !op) return;
 
               const cleanOp = (op || '').replace(/\D/g, '') || (op || '').trim().toUpperCase();
@@ -978,7 +982,7 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
           if (consumed.includes(cleanOp)) continue;
 
           if (!opRaw && !telaRaw) continue;
-          if (opRaw.toUpperCase().includes('OP') && telaRaw.toUpperCase().includes('TELA')) continue;
+          if (telaRaw.toUpperCase() === 'TELA' && (opRaw.toUpperCase() === 'OP' || mtRaw.toUpperCase() === 'MT')) continue;
 
           list.push({
             tela: telaRaw || 'TELA INDIGO',
@@ -993,6 +997,36 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
     }
   } catch (err) {
     console.warn('Error fetching Monitoreo CSV fallback:', err);
+  }
+
+  // 3. FALLBACK APPS SCRIPT API GET_MONITOREO
+  const webAppUrl = getAppsScriptUrl();
+  if (webAppUrl) {
+    try {
+      const appsScriptUrl = `${webAppUrl}?action=GET_MONITOREO&t=${timestamp}`;
+      const res = await fetch(appsScriptUrl);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'success' && Array.isArray(data.data) && data.data.length > 0) {
+          const list: MonitoreoItem[] = [];
+          data.data.forEach((item: any) => {
+            const opVal = item.op || '';
+            const cleanOp = opVal.replace(/\D/g, '') || opVal.trim().toUpperCase();
+            if (consumed.includes(cleanOp)) return;
+            list.push({
+              tela: item.tela || 'TELA INDIGO',
+              mt: item.mt || 'MT-AUTO',
+              color: item.color || 'AZUL',
+              op: formatOpCode(opVal),
+              referencia: item.referencia || 'S/R'
+            });
+          });
+          if (list.length > 0) return list;
+        }
+      }
+    } catch (err) {
+      console.warn('Error fetching Monitoreo Apps Script fallback:', err);
+    }
   }
 
   return INITIAL_MONITOREO_DATA.filter(item => {
