@@ -114,6 +114,10 @@ export const CALIDAD_USER_IDS = [
  */
 export function isCalidadUser(user?: UsuarioSTF | null): boolean {
   if (!user) return false;
+  // Personal de Lavandería o Zona Franca no pertenecen al perfil Calidad
+  if (isLavanderiaUser(user)) return false;
+  if (isUserFromZonaFranca(user)) return false;
+
   const uid = user.id.trim();
   const uname = user.nombre.toUpperCase();
   const uarea = (user.area || '').toUpperCase();

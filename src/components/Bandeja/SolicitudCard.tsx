@@ -769,27 +769,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             )}
           </div>
 
-          {solicitud.estado === 'LAVANDERIA' && (isLavanderiaUser(currentUser) || isAdminUser(currentUser)) ? (
-            <button
-              type="button"
-              onClick={() => onTransfer(solicitud)}
-              className="px-5 py-2.5 rounded-2xl bg-sky-500 hover:bg-sky-400 text-black text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
-              title="Despachar muestra de Lavandería hacia Calidad STF"
-            >
-              <span>TRANSFERIR A CALIDAD</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          ) : solicitud.estado === 'CALIDAD' && (isCalidadUser(currentUser) || isAdminUser(currentUser)) ? (
-            <button
-              type="button"
-              onClick={() => onTransfer(solicitud)}
-              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black flex items-center gap-2 shadow-md transition cursor-pointer animate-in fade-in"
-              title="Emitir dictamen final de auditoría (Aprobado / Rechazado)"
-            >
-              <span>EMITIR DICTAMEN FINAL</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          ) : solicitud.estado === 'FINALIZADO' ? (
+          {solicitud.estado === 'FINALIZADO' ? (
             <span className={`text-xs font-bold px-3.5 py-2 rounded-2xl border font-mono flex items-center gap-1.5 shadow-xs ${
               solicitud.dictamen === 'RECHAZADO'
                 ? 'bg-rose-950/80 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border-rose-500/40 dark:border-rose-300'
