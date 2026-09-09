@@ -6,9 +6,10 @@ import {
 } from 'lucide-react';
 import { SolicitudColcha, SectorType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { normalizeImageUrl, getLocalCreatedOps } from '../../services/googleSheetsService';
+import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp } from '../../services/googleSheetsService';
 import { getCleanFinalQualityObservation } from '../../services/exportService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
+import { parsePublicTrackingPayload } from '../../services/qrTrackingService';
 
 interface PublicOpViewProps {
   opNumber: string;
@@ -31,34 +32,50 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
 }) => {
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
 
-  // Find OP in live data + localStorage
+  // Find OP in live data + localStorage + QR Encoded URL Payload
   const colcha = useMemo(() => {
     const cleanTarget = opNumber.replace(/^OP-?/i, '').trim().toUpperCase();
     const targetDigits = opNumber.replace(/\D/g, '');
 
     const matchOp = (s: SolicitudColcha) => {
-      const cleanOp = s.op.replace(/^OP-?/i, '').trim().toUpperCase();
-      const digits = s.op.replace(/\D/g, '');
-      return cleanOp === cleanTarget || (targetDigits !== '' && digits === targetDigits) || s.op.toUpperCase().includes(cleanTarget);
+      const cleanOp = (s.op || '').replace(/^OP-?/i, '').trim().toUpperCase();
+      const digits = (s.op || '').replace(/\D/g, '');
+      return cleanOp === cleanTarget || (targetDigits !== '' && digits === targetDigits) || cleanOp.includes(cleanTarget);
     };
+
+    // 1. Decodificar la carga útil del QR si viene en la URL (?d=...)
+    const parsedQr = parsePublicTrackingPayload();
+    if (parsedQr && matchOp(parsedQr)) {
+      try {
+        saveLocalCreatedOp(parsedQr);
+      } catch (e) {}
+    }
 
     const liveFound = solicitudes.find(matchOp);
     const localOps = getLocalCreatedOps();
     const localFound = localOps.find(matchOp);
 
-    if (liveFound && localFound) {
-      return {
-        ...liveFound,
-        fotoMuestraUrl: localFound.fotoMuestraUrl || liveFound.fotoMuestraUrl,
-        fotoCalidadUrl: localFound.fotoCalidadUrl || liveFound.fotoCalidadUrl,
-        observacionesCalidad: localFound.observacionesCalidad || liveFound.observacionesCalidad,
-        observacionesOperario: localFound.observacionesOperario || liveFound.observacionesOperario,
-        dictamen: localFound.dictamen || liveFound.dictamen,
-        estado: localFound.fechaActualizacion ? localFound.estado : liveFound.estado,
-        areaActual: localFound.fechaActualizacion ? localFound.areaActual : liveFound.areaActual
-      };
-    }
-    return liveFound || localFound;
+    const base = liveFound || localFound || parsedQr;
+    if (!base) return null;
+
+    return {
+      ...base,
+      referencia: parsedQr?.referencia || base.referencia,
+      tela: parsedQr?.tela || base.tela,
+      color: parsedQr?.color || base.color,
+      rollos: parsedQr?.rollos || base.rollos,
+      codigoMt: parsedQr?.codigoMt || base.codigoMt,
+      lote: parsedQr?.lote || base.lote,
+      inspector: parsedQr?.inspector || base.inspector,
+      fechaCreacion: parsedQr?.fechaCreacion || base.fechaCreacion,
+      fotoMuestraUrl: localFound?.fotoMuestraUrl || parsedQr?.fotoMuestraUrl || liveFound?.fotoMuestraUrl,
+      fotoCalidadUrl: localFound?.fotoCalidadUrl || parsedQr?.fotoCalidadUrl || liveFound?.fotoCalidadUrl,
+      observacionesCalidad: localFound?.observacionesCalidad || parsedQr?.observacionesCalidad || liveFound?.observacionesCalidad,
+      observacionesOperario: localFound?.observacionesOperario || parsedQr?.observacionesOperario || liveFound?.observacionesOperario,
+      dictamen: localFound?.dictamen || parsedQr?.dictamen || liveFound?.dictamen || (base.estado === 'FINALIZADO' ? 'APROBADO' : 'PENDIENTE'),
+      estado: localFound?.fechaActualizacion ? localFound.estado : (parsedQr?.estado || liveFound?.estado || base.estado),
+      areaActual: localFound?.fechaActualizacion ? localFound.areaActual : (parsedQr?.areaActual || liveFound?.areaActual || base.areaActual)
+    };
   }, [solicitudes, opNumber]);
 
   // Normalized display photo URLs

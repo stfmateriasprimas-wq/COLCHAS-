@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { SolicitudColcha } from '../types';
+import { generatePublicTrackingUrl } from './qrTrackingService';
 
 export function exportSolicitudesToExcel(data: SolicitudColcha[], fileName: string = 'Trazabilidad_Colchas_STF.xlsx') {
   const exportData = data.map((item, index) => ({
@@ -238,15 +239,11 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   doc.save(`Etiqueta_100x100_${colcha.op}.pdf`);
 }
 
-
 /**
  * Envía el comando directo de impresión nativa del sistema operativo (100mm x 100mm / 4" x 4")
  */
 export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: string) {
-  const origin = typeof window !== 'undefined' && window.location.origin
-    ? window.location.origin
-    : 'https://colchas.vercel.app';
-  const trackingUrl = `${origin}/?op=${encodeURIComponent(colcha.op)}&view=public`;
+  const trackingUrl = generatePublicTrackingUrl(colcha);
 
   const printWindow = window.open('', '_blank', 'width=480,height=520');
   
