@@ -769,7 +769,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             )}
           </div>
 
-          {solicitud.estado === 'LAVANDERIA' ? (
+          {solicitud.estado === 'LAVANDERIA' && (isLavanderiaUser(currentUser) || isAdminUser(currentUser)) ? (
             <button
               type="button"
               onClick={() => onTransfer(solicitud)}
@@ -779,7 +779,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               <span>TRANSFERIR A CALIDAD</span>
               <ArrowRight className="w-4 h-4" />
             </button>
-          ) : solicitud.estado === 'CALIDAD' ? (
+          ) : solicitud.estado === 'CALIDAD' && (isCalidadUser(currentUser) || isAdminUser(currentUser)) ? (
             <button
               type="button"
               onClick={() => onTransfer(solicitud)}
