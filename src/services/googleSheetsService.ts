@@ -56,21 +56,52 @@ function parseCsvRows(text: string): string[][] {
 // Exact state mapping aligned with STF Group Production Google Sheet
 export function mapEstadoStringToSector(rawEstado: string): SectorType {
   const s = (rawEstado || '').toUpperCase().trim();
-  if (s === 'RECIBIDO LAVADERO' || s.includes('LAVAD') || s.includes('LAVANDER')) {
-    return 'LAVANDERIA';
-  }
-  if (s === 'ENVIADO A STF' || s.includes('CALIDAD') || s.includes('EVALUA') || s.includes('AUDITOR')) {
-    return 'CALIDAD';
-  }
-  if (s.includes('SOLICITAD') || s.includes('DESPACH')) {
-    return 'SOLICITADO';
-  }
-  if (s.includes('PRE-SOLICITUD') || s.includes('PRE_SOLICITUD') || s.includes('MUESTRA NUEVA') || s.includes('ATELIER')) {
+
+  // 1. Pre-solicitud / Atelier (Zona Franca / Calidad 2F)
+  if (
+    s.includes('PRE-SOLICITUD') || 
+    s.includes('PRE_SOLICITUD') || 
+    s.includes('PRE SOLICITUD') || 
+    s.includes('ATELIER') || 
+    s.includes('2F') || 
+    s.includes('ZONA FRANCA') || 
+    s.includes('MUESTRA NUEVA')
+  ) {
     return 'PRE_SOLICITUD';
   }
-  if (s.includes('FINALIZAD') || s.includes('LIBERAD')) {
+
+  // 2. Lavandería (Colfactory / Lavadero)
+  if (s === 'RECIBIDO LAVADERO' || s.includes('LAVAD') || s.includes('LAVANDER') || s.includes('COLFACTORY')) {
+    return 'LAVANDERIA';
+  }
+
+  // 3. Finalizado / Aprobado / Liberado
+  if (
+    s.includes('FINALIZAD') || 
+    s.includes('LIBERAD') || 
+    s.includes('APROBAD') || 
+    s.includes('TERMINAD') || 
+    s.includes('CERRAD')
+  ) {
     return 'FINALIZADO';
   }
+
+  // 4. Calidad Laboratorio / Auditoría STF
+  if (
+    s === 'ENVIADO A STF' || 
+    s.includes('CALIDAD') || 
+    s.includes('EVALUA') || 
+    s.includes('AUDITOR') || 
+    s.includes('LABORATOR')
+  ) {
+    return 'CALIDAD';
+  }
+
+  // 5. Solicitado / Despacho / Tránsito
+  if (s.includes('SOLICITAD') || s.includes('DESPACH') || s.includes('TRANSIT') || s.includes('CORTE')) {
+    return 'SOLICITADO';
+  }
+
   return 'SOLICITADO';
 }
 
@@ -576,8 +607,10 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               const obsOperarioRaw = getVal(10);
               const obsColfactoryRaw = getVal(11);
               const fotoUrlRaw = getVal(12);
-              const obsCalidadRaw = getVal(14) || getVal(10);
+              const correoNotificadoRaw = getVal(13);
+              const obsCalidadRaw = getVal(14);
               const dictamenFinalRaw = getVal(15);
+              const mesRaw = Number(getVal(16)) || undefined;
 
               if (!opRaw && !telaRaw) return;
               if (opRaw.toUpperCase() === 'OP' && telaRaw.toUpperCase() === 'TELA') return;
@@ -595,7 +628,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               } else if (dictamenFinalRaw.toUpperCase().includes('APROB')) {
                 dictamen = 'APROBADO';
               } else if (estado === 'FINALIZADO') {
-                const fullObs = (obsOperarioRaw + ' ' + obsCalidadRaw).toUpperCase();
+                const fullObs = (obsOperarioRaw + ' ' + (obsCalidadRaw || '')).toUpperCase();
                 dictamen = fullObs.includes('RECHAZADO') || fullObs.includes('NO CUMPLE') ? 'RECHAZADO' : 'APROBADO';
               }
 
@@ -614,8 +647,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                 dictamen: dictamen,
                 inspector: inspectorRaw,
                 fechaCreacion: fechaStr,
-                observacionesOperario: obsOperarioRaw || obsColfactoryRaw,
-                observacionesCalidad: obsCalidadRaw || obsOperarioRaw,
+                observacionesOperario: obsOperarioRaw,
+                observacionesLavanderia: obsColfactoryRaw,
+                observacionesCalidad: obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''),
                 fotoMuestraUrl: foto1,
                 fotoCalidadUrl: foto2,
                 areaActual: mapAreaName(estado),
@@ -623,7 +657,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                 diasHabiles: diasHabiles,
                 limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
                 tieneRetraso: tieneRetraso,
-                esRetrasoCritico: esRetrasoCritico
+                esRetrasoCritico: esRetrasoCritico,
+                emailUsuario: correoNotificadoRaw,
+                mes: mesRaw
               });
             });
 
@@ -693,15 +729,18 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
         const fechaStr = r[0] || new Date().toISOString();
         const { diasHabiles, horasHabiles, tieneRetraso, esRetrasoCritico } = calculateWorkingDays(fechaStr);
 
-        let obsOperarioStr = r[10] || r[11] || '';
+        let obsOperarioStr = r[10] || '';
+        let obsColfactoryStr = r[11] || '';
         let obsFinalStr = '';
         let dictamenFinalCsv = '';
+        let correoNotificadoCsv = r[13] || '';
         if (r.length > 14 && r[14]) {
           obsFinalStr = String(r[14]).trim();
         }
         if (r.length > 15 && r[15]) {
           dictamenFinalCsv = String(r[15]).trim();
         }
+        const mesCsv = Number(r[16]) || undefined;
 
         let dictamen: DictamenType = 'PENDIENTE';
         if (dictamenFinalCsv.toUpperCase().includes('RECHAZ')) {
@@ -731,6 +770,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           inspector: r[1] || 'INSPECTOR CALIDAD',
           fechaCreacion: fechaStr,
           observacionesOperario: obsOperarioStr,
+          observacionesLavanderia: obsColfactoryStr,
           observacionesCalidad: obsFinalStr || obsOperarioStr,
           fotoMuestraUrl: foto1,
           fotoCalidadUrl: foto2,
@@ -739,7 +779,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           diasHabiles: diasHabiles,
           limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
           tieneRetraso: tieneRetraso,
-          esRetrasoCritico: esRetrasoCritico
+          esRetrasoCritico: esRetrasoCritico,
+          emailUsuario: correoNotificadoCsv,
+          mes: mesCsv
         });
       }
 
@@ -901,8 +943,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               dictamen: dictamen,
               inspector: inspectorRaw,
               fechaCreacion: fechaStr,
-              observacionesOperario: obsOperarioRaw || obsColfactoryRaw,
-              observacionesCalidad: obsCalidadRaw || obsOperarioRaw,
+              observacionesOperario: obsOperarioRaw || '',
+              observacionesLavanderia: obsColfactoryRaw || '',
+              observacionesCalidad: obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''),
               fotoMuestraUrl: foto1,
               fotoCalidadUrl: foto2,
               areaActual: mapAreaName(estado),

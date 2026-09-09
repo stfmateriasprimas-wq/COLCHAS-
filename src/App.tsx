@@ -174,14 +174,33 @@ export function App() {
     return unsub;
   }, []);
 
-  // Load from Sheets on mount & set up 30-second live polling
+  // Load from Sheets on mount, set up 15-second live polling & window focus auto-sync
   useEffect(() => {
     loadAllLiveData();
     const interval = setInterval(() => {
       loadAllLiveData(true);
-    }, 30000);
-    return () => clearInterval(interval);
+    }, 15000);
+
+    const handleWindowFocus = () => {
+      loadAllLiveData(true);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', handleWindowFocus);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', handleWindowFocus);
+      }
+    };
   }, []);
+
+  // Sync latest live data whenever user switches work sections/tabs
+  useEffect(() => {
+    loadAllLiveData(true);
+  }, [activeTab]);
 
   // Parse and handle incoming URL query parameters for Magic Auto-Login and Direct OP viewing
   useEffect(() => {
@@ -605,6 +624,9 @@ export function App() {
         showBackButton={activeTab !== 'dashboard'}
         onBackToDashboard={() => setActiveTab('dashboard')}
         onOpenProfileDirectory={() => setIsProfileDirectoryOpen(true)}
+        isSyncing={isSyncing}
+        onManualSync={() => loadAllLiveData(false)}
+        totalOpsCount={solicitudes.length}
       />
 
       {/* Main Content Area */}

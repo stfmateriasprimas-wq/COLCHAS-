@@ -312,6 +312,19 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                     </div>
                   </div>
 
+                  {/* OBSERVACIONES DE LAVANDERÍA (COLFACTORY) SI EXISTEN */}
+                  {solicitud.observacionesLavanderia && (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[10px] text-sky-700 dark:text-sky-400 font-bold uppercase flex items-center gap-1">
+                        <Droplets className="w-3.5 h-3.5" />
+                        OBSERVACIÓN DE LAVANDERÍA (COLFACTORY):
+                      </span>
+                      <div className="bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-500/30 rounded-2xl p-3.5 text-xs text-sky-900 dark:text-sky-200 font-medium leading-relaxed">
+                        "{solicitud.observacionesLavanderia}"
+                      </div>
+                    </div>
+                  )}
+
                   {/* OBSERVACIONES DE CALIDAD SI EXISTEN */}
                   {solicitud.observacionesCalidad && (
                     <div className="space-y-1.5 pt-1">

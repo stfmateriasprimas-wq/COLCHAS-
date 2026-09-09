@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, LogOut, MessageSquare, ArrowLeft, User } from 'lucide-react';
+import { Sun, Moon, LogOut, MessageSquare, ArrowLeft, User, RefreshCw } from 'lucide-react';
 import { UsuarioSTF } from '../services/authService';
 import { STFLogo } from './Common/STFLogo';
 
@@ -14,6 +14,9 @@ interface HeaderProps {
   showBackButton?: boolean;
   onBackToDashboard?: () => void;
   onOpenProfileDirectory?: () => void;
+  isSyncing?: boolean;
+  onManualSync?: () => void;
+  totalOpsCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,7 +27,10 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   showBackButton = false,
   onBackToDashboard,
-  onOpenProfileDirectory
+  onOpenProfileDirectory,
+  isSyncing = false,
+  onManualSync,
+  totalOpsCount
 }) => {
   const [unreadCount, setUnreadCount] = React.useState<number>(() => {
     return chatService.getUnreadCount(currentUser?.id || '1111');
@@ -110,9 +116,28 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* RIGHT: Theme Switcher & Logout */}
+          {/* RIGHT: Live Sync, Theme Switcher & Logout */}
           <div className="flex items-center gap-2">
             
+            {/* Real-time Google Sheets Sync Button */}
+            <button
+              type="button"
+              onClick={onManualSync}
+              disabled={isSyncing}
+              className="px-3 py-1.5 rounded-2xl border border-zinc-800 bg-zinc-900/90 hover:bg-zinc-800 text-white text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm hover:border-emerald-500/50 group disabled:opacity-75"
+              title="Sincronización en tiempo real con la hoja BASE_DE_DATOS. Haz clic para actualizar ahora."
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+              <span className="hidden sm:inline font-mono text-[10.5px] text-zinc-300">
+                {isSyncing ? 'ACTUALIZANDO...' : 'EN VIVO'}
+              </span>
+              {totalOpsCount !== undefined && totalOpsCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[9.5px] font-mono font-bold">
+                  {totalOpsCount}
+                </span>
+              )}
+            </button>
+
             {/* Theme Toggle */}
             <button
               type="button"

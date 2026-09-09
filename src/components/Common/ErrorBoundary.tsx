@@ -24,7 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an unhandled error:', error, errorInfo);
-    this.setState({ errorInfo });
+    (this as any).setState({ errorInfo });
   }
 
   private handleReload = () => {
@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   private handleReset = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null });
+    (this as any).setState({ hasError: false, error: null, errorInfo: null });
     if (window.location.search) {
       window.history.replaceState(null, '', window.location.pathname);
     }
@@ -84,7 +84,7 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    return (this as any).props.children;
   }
 }
 export default ErrorBoundary;

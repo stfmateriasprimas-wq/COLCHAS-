@@ -27,18 +27,19 @@ class QRCodeErrorBoundary extends Component<{ children: ReactNode; fallbackValue
   }
 
   render() {
+    const props = (this as any).props;
     if (this.state.hasError) {
-      const safeFallback = this.props.fallbackValue;
+      const safeFallback = props.fallbackValue;
       return (
         <QRCodeSVG
           value={safeFallback}
-          size={this.props.size}
+          size={props.size}
           level="L"
           includeMargin={false}
         />
       );
     }
-    return this.props.children;
+    return props.children;
   }
 }
 
