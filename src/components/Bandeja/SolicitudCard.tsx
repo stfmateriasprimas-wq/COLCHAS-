@@ -355,6 +355,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   <img
                     src={solicitud.fotoMuestraUrl}
                     alt="Inicial"
+                    referrerPolicy="no-referrer"
                     className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
                   />
                   <span className="text-[8px] font-black font-mono text-zinc-400 dark:text-zinc-600 uppercase flex items-center gap-1">
@@ -372,6 +373,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   <img
                     src={fotoCalidadUrlActual || ''}
                     alt="Calidad"
+                    referrerPolicy="no-referrer"
                     className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
                   />
                   <span className="text-[8px] font-black font-mono text-purple-300 dark:text-purple-700 uppercase flex items-center gap-1">
@@ -404,6 +406,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     <img
                       src={fotoCalidadUrlActual || solicitud.fotoMuestraUrl}
                       alt="Muestra de colcha"
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition duration-200"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition duration-200 rounded-2xl">
@@ -808,6 +811,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             <img 
               src={zoomedPhotoUrl} 
               alt="Muestra Colcha Ampliada"
+              referrerPolicy="no-referrer"
               className="max-h-[75vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl border border-zinc-700 bg-zinc-950"
             />
             <div className="mt-3 text-xs font-mono font-bold text-zinc-200 bg-zinc-900/90 px-4 py-2 rounded-full border border-zinc-700 shadow-md">

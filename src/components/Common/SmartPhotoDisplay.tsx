@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ImageIcon, Maximize2, ExternalLink, RefreshCw } from 'lucide-react';
+import { repairBase64Jpeg } from '../../services/googleSheetsService';
 
 interface SmartPhotoDisplayProps {
   rawUrl?: string;
@@ -39,14 +40,17 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
       return { candidates: [] as string[], driveId: null, isDrive: false };
     }
 
-    // 1. Data URLs or local blobs
+    // 1. Data URLs or local blobs (reparar JPEG si está truncado por límites de celda)
     if (str.startsWith('data:image/') || str.startsWith('blob:')) {
-      return { candidates: [str], driveId: null, isDrive: false };
+      const repaired = repairBase64Jpeg(str) || str;
+      return { candidates: [repaired], driveId: null, isDrive: false };
     }
 
     // 2. Base64 strings without MIME prefix
     if (str.length > 50 && (str.startsWith('/9j/') || str.startsWith('iVBORw0KGgo') || str.startsWith('R0lGOD') || str.startsWith('UklGR') || str.startsWith('AAAA'))) {
-      return { candidates: ['data:image/jpeg;base64,' + str], driveId: null, isDrive: false };
+      const fullB64 = `data:image/jpeg;base64,${str}`;
+      const repaired = repairBase64Jpeg(fullB64) || fullB64;
+      return { candidates: [repaired], driveId: null, isDrive: false };
     }
 
     // 3. Google Drive / Google UserContent links
@@ -58,9 +62,9 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
         const id = match[1];
         return {
           candidates: [
-            'https://lh3.googleusercontent.com/d/' + id + '=s1200',
+            'https://drive.google.com/thumbnail?id=' + id + '&sz=w1000',
+            'https://lh3.googleusercontent.com/d/' + id + '=s1000',
             'https://lh3.googleusercontent.com/d/' + id,
-            'https://drive.google.com/thumbnail?id=' + id + '&sz=w1200',
             'https://drive.google.com/uc?export=view&id=' + id,
             'https://docs.google.com/uc?export=download&id=' + id
           ],
@@ -83,7 +87,6 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
     setCandidateIndex(0);
     const hasCandidates = candidates.length > 0;
     const isLocalDataUrl = hasCandidates && (candidates[0].startsWith('data:image/') || candidates[0].startsWith('blob:'));
-    // Local data URLs decode immediately in browser, so don't lock with loading spinner
     setIsLoading(hasCandidates && !isLocalDataUrl);
     setHasFailedAll(false);
   }, [candidates]);
@@ -99,7 +102,13 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
     }
   };
 
-  const handleImageLoad = () => {
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    // En WebKit/iOS Safari, una imagen con decodificación corrupta puede disparar 'load' con dimensiones 0x0
+    if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+      handleImageError();
+      return;
+    }
     setIsLoading(false);
     setHasFailedAll(false);
   };
@@ -183,7 +192,6 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
       <img
         src={currentUrl}
         alt={alt}
-        crossOrigin={currentUrl.startsWith('http') ? 'anonymous' : undefined}
         referrerPolicy="no-referrer"
         loading="eager"
         decoding="async"

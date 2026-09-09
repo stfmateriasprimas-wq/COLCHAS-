@@ -307,7 +307,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                 <div className="flex items-center gap-2.5">
                   <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 overflow-hidden flex items-center justify-center shrink-0">
                     {colcha.fotoMuestraUrl ? (
-                      <img src={colcha.fotoMuestraUrl} alt="Muestra" className="w-full h-full object-cover" />
+                      <img src={colcha.fotoMuestraUrl} alt="Muestra" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                     ) : (
                       <Camera className="w-4 h-4 text-zinc-500" />
                     )}

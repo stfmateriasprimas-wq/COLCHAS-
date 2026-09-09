@@ -434,7 +434,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                     </div>
 
                     <SmartPhotoDisplay
-                      rawUrl={colcha?.fotoMuestraUrl}
+                      rawUrl={fotoInicialUrl || colcha?.fotoMuestraUrl}
                       alt={`Muestra Inicial ${displayOpCode}`}
                       title={`Foto 1: Muestra Inicial - ${displayOpCode}`}
                       emptyTitle="Sin Foto Inicial"
@@ -454,7 +454,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                     </div>
 
                     <SmartPhotoDisplay
-                      rawUrl={colcha?.fotoCalidadUrl}
+                      rawUrl={fotoCalidadUrl || colcha?.fotoCalidadUrl}
                       alt={`Calidad Post-Lavado ${displayOpCode}`}
                       title={`Foto 2: Inspección Calidad (Post-Lavado) - ${displayOpCode}`}
                       emptyTitle="Sin Foto Post-Lavado"
@@ -532,6 +532,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
             <img 
               src={zoomedPhoto.url} 
               alt={zoomedPhoto.title}
+              referrerPolicy="no-referrer"
               className="max-h-[82vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl border border-zinc-800"
             />
             <span className="mt-3 text-xs font-mono font-bold text-zinc-300 bg-zinc-900/90 px-4 py-1.5 rounded-full border border-zinc-700">

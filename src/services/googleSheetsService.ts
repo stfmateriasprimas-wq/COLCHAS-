@@ -338,6 +338,71 @@ export function normalizeDateToYMD(dateStr?: string): string {
 const LOCAL_CREATED_OPS_KEY = 'STF_LOCAL_CREATED_OPS';
 
 /**
+ * Repara cadenas JPEG Base64 incompletas o truncadas por límites de celda en Google Sheets.
+ * Verifica la cabecera mágica (0xFF, 0xD8) y añade el marcador de fin de imagen (0xFF, 0xD9)
+ * si hace falta, garantizando que el motor WebKit de iOS Safari y navegadores móviles
+ * decodifiquen y muestren la imagen sin lanzar el icono de error [?] ni bloquear el renderizado.
+ */
+export function repairBase64Jpeg(rawB64?: string): string | undefined {
+  if (!rawB64 || typeof rawB64 !== 'string') return undefined;
+  const trimmed = rawB64.trim();
+  if (!trimmed) return undefined;
+
+  // Si es URL remota HTTP/HTTPS o un blob nativo, devolver tal cual
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+
+  let cleanB64 = trimmed;
+  let prefix = 'data:image/jpeg;base64,';
+
+  if (trimmed.startsWith('data:image/')) {
+    const commaIdx = trimmed.indexOf(',');
+    if (commaIdx !== -1) {
+      prefix = trimmed.substring(0, commaIdx + 1);
+      cleanB64 = trimmed.substring(commaIdx + 1).trim();
+    }
+  }
+
+  // Si no es un JPEG en Base64 (los JPEG siempre inician con /9j/ en Base64), devolver con prefijo
+  if (!cleanB64.startsWith('/9j/')) {
+    return trimmed.startsWith('data:image/') ? trimmed : `${prefix}${cleanB64}`;
+  }
+
+  try {
+    // Normalizar padding de Base64
+    while (cleanB64.length % 4 !== 0) {
+      cleanB64 += '=';
+    }
+
+    // Decodificar Base64 a string binario
+    const binary = typeof window !== 'undefined'
+      ? window.atob(cleanB64)
+      : (typeof Buffer !== 'undefined' ? Buffer.from(cleanB64, 'base64').toString('binary') : '');
+
+    if (!binary || binary.length < 4) {
+      return trimmed.startsWith('data:image/') ? trimmed : `${prefix}${cleanB64}`;
+    }
+
+    const len = binary.length;
+    // Si ya termina con el marcador EOI de JPEG (0xFF, 0xD9), está completo
+    if (binary.charCodeAt(len - 2) === 0xff && binary.charCodeAt(len - 1) === 0xd9) {
+      return `${prefix}${cleanB64}`;
+    }
+
+    // Si falta el marcador EOI, anexarlo
+    const repairedBinary = binary + String.fromCharCode(0xff, 0xd9);
+    const repairedB64 = typeof window !== 'undefined'
+      ? window.btoa(repairedBinary)
+      : Buffer.from(repairedBinary, 'binary').toString('base64');
+
+    return `${prefix}${repairedB64}`;
+  } catch (e) {
+    return trimmed.startsWith('data:image/') ? trimmed : `${prefix}${cleanB64}`;
+  }
+}
+
+/**
  * Normaliza y valida URLs de evidencias fotográficas (Base64, Google Drive, URLs públicas)
  * Garantiza compatibilidad universal en dispositivos móviles y navegadores web
  */
@@ -346,19 +411,19 @@ export function normalizeImageUrl(rawUrl?: string): string | undefined {
   const str = rawUrl.trim();
   if (!str) return undefined;
 
-  // 1. URLs de datos Base64 o blobs locales
+  // 1. URLs de datos Base64 o blobs locales (reparando JPEG si fue truncado)
   if (str.startsWith('data:image/') || str.startsWith('blob:')) {
-    return str;
+    return repairBase64Jpeg(str);
   }
 
-  // 2. Enlaces de Google Drive -> Convertir a Google UserContent CDN accesible universalmente sin restricciones de cookies en iOS Safari
+  // 2. Enlaces de Google Drive -> Convertir a thumbnail CDN ultra compatible con iOS Safari y Android
   if (str.includes('drive.google.com') || str.includes('googleusercontent.com')) {
     const driveMatch = str.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
                        str.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
                        str.match(/\/d\/([a-zA-Z0-9_-]+)/);
     if (driveMatch && driveMatch[1]) {
       const fileId = driveMatch[1];
-      return `https://lh3.googleusercontent.com/d/${fileId}=s1200`;
+      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
     }
   }
 
@@ -368,8 +433,8 @@ export function normalizeImageUrl(rawUrl?: string): string | undefined {
   }
 
   // 4. Cadenas Base64 sin prefijo MIME
-  if (str.length > 100 && (str.startsWith('/9j/') || str.startsWith('iVBORw0KGgo'))) {
-    return `data:image/jpeg;base64,${str}`;
+  if (str.length > 50 && (str.startsWith('/9j/') || str.startsWith('iVBORw0KGgo'))) {
+    return repairBase64Jpeg(`data:image/jpeg;base64,${str}`);
   }
 
   return undefined;
@@ -1339,7 +1404,7 @@ export async function pushOpPhotoToSheets(
  * Genera imágenes nítidas de ~12KB-20KB que se almacenan y sincronizan al instante
  * sin exceder nunca el límite de caracteres por celda de Google Sheets.
  */
-export function compressImageFile(file: File, maxDimension: number = 650, quality: number = 0.55): Promise<string> {
+export function compressImageFile(file: File, maxDimension: number = 440, quality: number = 0.42): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const reader = new FileReader();
@@ -1364,12 +1429,20 @@ export function compressImageFile(file: File, maxDimension: number = 650, qualit
           }
         }
 
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = Math.max(16, width);
+        canvas.height = Math.max(16, height);
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          let q = quality;
+          let compressedDataUrl = canvas.toDataURL('image/jpeg', q);
+          // Asegurar que la cadena Base64 nunca exceda 18,500 caracteres
+          // para garantizar que dos fotos quepan holgadamente en Google Sheets
+          // sin riesgo de ser truncadas ni corrompidas.
+          while (compressedDataUrl.length > 18500 && q > 0.20) {
+            q -= 0.05;
+            compressedDataUrl = canvas.toDataURL('image/jpeg', q);
+          }
           resolve(compressedDataUrl);
         } else {
           resolve(img.src);

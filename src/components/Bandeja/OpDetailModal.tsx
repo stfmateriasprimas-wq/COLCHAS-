@@ -713,6 +713,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
             <img 
               src={zoomedPhotoUrl} 
               alt={zoomedPhotoTitle}
+              referrerPolicy="no-referrer"
               className="max-h-[82vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl border border-zinc-800"
             />
             {zoomedPhotoTitle && (
