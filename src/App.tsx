@@ -282,20 +282,21 @@ export function App() {
     if (!solicitud) return;
     setConfirmDeleteOp(null);
 
-    const adminName = currentUser ? `${currentUser.nombre} (${currentUser.rol || 'Calidad'})` : 'Edwin Diaz (Administrador)';
+    const adminName = currentUser ? `${currentUser.nombre} (${currentUser.rol || 'Administrador'})` : 'Edwin Diaz (Administrador)';
     addOpToDeletedHistory(solicitud, adminName);
     
     const targetCleanOp = (solicitud.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
     const targetDigits = (solicitud.op || '').replace(/\D/g, '');
 
-    // 1. Eliminar inmediatamente del estado activo en memoria
+    // 1. Eliminar inmediatamente del estado activo en memoria en 0ms
     setSolicitudes(prev => {
       const updated = prev.filter(s => {
         const sClean = (s.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
         const sDigits = (s.op || '').replace(/\D/g, '');
         const isMatch = s.id === solicitud.id || 
                         (targetDigits !== '' && sDigits === targetDigits) || 
-                        (targetCleanOp !== '' && sClean === targetCleanOp);
+                        (targetCleanOp !== '' && sClean === targetCleanOp) ||
+                        isOpDeleted(s.op);
         return !isMatch;
       });
       // Guardar lista filtrada en caché para evitar que reaparezca al recargar
@@ -316,7 +317,8 @@ export function App() {
               const itemDigits = String(item.op || '').replace(/\D/g, '');
               const isMatch = item.id === solicitud.id || 
                               (targetDigits !== '' && itemDigits === targetDigits) || 
-                              (targetCleanOp !== '' && itemClean === targetCleanOp);
+                              (targetCleanOp !== '' && itemClean === targetCleanOp) ||
+                              isOpDeleted(item.op);
               return !isMatch;
             });
             localStorage.setItem(key, JSON.stringify(filteredLocal));
@@ -327,13 +329,20 @@ export function App() {
       console.warn('Error clearing deleted op from local storage:', e);
     }
     
-    // 3. Depuración en tiempo real de Google Sheets (ALERTAS y BASE_DE_DATOS)
+    // 3. Notificación instantánea en pantalla
+    setInAppToast({
+      sender: 'ADMIN EDWIN',
+      message: `🗑️ OP-${targetCleanOp || solicitud.op} eliminada automáticamente del sistema.`,
+      room: 'ADMIN'
+    });
+
+    // 4. Depuración en tiempo real de Google Sheets (ALERTAS y BASE_DE_DATOS)
     try {
       removeOpFromAlertasSheet(solicitud.op);
       deleteOpFromGoogleSheets(solicitud.op).catch(() => {});
     } catch (e) {}
 
-    // 4. Feedback sonoro de éxito
+    // 5. Feedback sonoro de éxito
     try {
       notificationService.playAlertSound('EXITO');
     } catch (e) {}
