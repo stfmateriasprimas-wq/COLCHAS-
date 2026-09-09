@@ -41,6 +41,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   });
   const [autoSendEmail, setAutoSendEmail] = useState<boolean>(true);
   const [isSendingManualEmail, setIsSendingManualEmail] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Sede and Status determination according to user origin (Zona Franca vs Others)
   const isZonaFranca = isUserFromZonaFranca(currentUser);
@@ -78,11 +79,6 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       setColor(firstMatch.color);
       setOp(formatOpCode(firstMatch.op));
       setReferencia(firstMatch.referencia);
-    } else {
-      setMt('');
-      setColor('');
-      setOp('');
-      setReferencia('');
     }
   };
 
@@ -160,8 +156,8 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   };
 
   const handleManualSendEmail = async () => {
-    if (!tela || !op) {
-      alert("Por favor completa los campos de Tela y OP antes de enviar la ficha por correo.");
+    if (!op) {
+      alert("Por favor completa los campos de OP antes de enviar la ficha por correo.");
       return;
     }
     if (selectedEmails.length === 0) {
@@ -177,19 +173,37 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleDirectSubmit = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
 
-    if (!tela || !op) {
-      alert("Por favor completa los campos obligatorios (Tela y OP).");
+    if (isSubmitting) return;
+
+    if (!op || !op.trim()) {
+      alert("⚠️ Por favor ingresa el número de Orden de Producción (OP).");
       return;
     }
 
-    const colcha = buildCurrentColchaData();
-    (colcha as any).recipients = autoSendEmail ? selectedEmails : [];
-    (colcha as any).userEmails = autoSendEmail ? selectedEmails : [];
+    const finalTela = tela.trim() || 'TELA INDIGO';
+    const finalOp = formatOpCode(op.trim());
+    const finalRollos = typeof rollos === 'number' && rollos > 0 ? rollos : 1;
 
-    onSubmit(colcha);
+    setIsSubmitting(true);
+    try {
+      const colcha = buildCurrentColchaData();
+      colcha.op = finalOp;
+      colcha.tela = finalTela;
+      colcha.rollos = finalRollos;
+      (colcha as any).recipients = autoSendEmail ? selectedEmails : [];
+      (colcha as any).userEmails = autoSendEmail ? selectedEmails : [];
+
+      onSubmit(colcha);
+    } catch (err) {
+      console.error("Error al registrar solicitud:", err);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -221,7 +235,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-[#0c1017] dark:bg-white border-2 border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl text-white dark:text-zinc-950">
+      <form onSubmit={handleDirectSubmit} className="bg-[#0c1017] dark:bg-white border-2 border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl text-white dark:text-zinc-950">
         
         {/* Top Title Banner */}
         <div className="border-b border-zinc-800 dark:border-zinc-200 pb-4">
@@ -274,8 +288,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
               <select
                 value={tela}
                 onChange={handleTelaSelectChange}
-                className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 transition"
-                required
+                className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 transition font-bold"
               >
                 <option value="">-- SELECCIONE TELA --</option>
                 {uniqueTelas.map((t, i) => (
@@ -283,6 +296,9 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                     {t}
                   </option>
                 ))}
+                {tela && !uniqueTelas.includes(tela) && (
+                  <option value={tela}>{tela}</option>
+                )}
               </select>
             </div>
 
@@ -559,14 +575,16 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
             CANCELAR
           </button>
           
-          {/* BOTÓN REGISTRAR CON ELEVACIÓN EN HOVER */}
+          {/* BOTÓN REGISTRAR CON ELEVACIÓN EN HOVER Y ESTADO EN VIVO */}
           <button
-            type="submit"
-            className="px-9 py-3 rounded-2xl bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 text-xs font-black flex items-center gap-2.5 shadow-lg transition-all duration-200 transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/20 active:translate-y-0 active:scale-95 cursor-pointer font-mono uppercase tracking-wider"
+            type="button"
+            onClick={handleDirectSubmit}
+            disabled={isSubmitting}
+            className="px-9 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-black text-xs flex items-center gap-2.5 shadow-xl transition-all duration-200 transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/30 active:translate-y-0 active:scale-95 cursor-pointer font-mono uppercase tracking-wider disabled:opacity-50"
             title="Registrar nueva solicitud de OP"
           >
-            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-            <span>REGISTRAR SOLICITUD</span>
+            <CheckCircle2 className={`w-5 h-5 text-black ${isSubmitting ? 'animate-spin' : ''}`} />
+            <span>{isSubmitting ? 'REGISTRANDO SOLICITUD...' : 'REGISTRAR SOLICITUD'}</span>
           </button>
         </div>
 
