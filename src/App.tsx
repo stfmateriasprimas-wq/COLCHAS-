@@ -380,7 +380,7 @@ export function App() {
           tieneRetraso: false,
           esRetrasoCritico: false,
           fechaActualizacion: new Date().toISOString(),
-          observacionesOperario: `${item.observacionesOperario ? item.observacionesOperario + ' | ' : ''}[FINALIZADO]: Orden finalizada y liberada por ${auditorName}`
+          observacionesCalidad: `Orden finalizada y liberada por ${auditorName}`
         };
       }
       return item;
@@ -509,7 +509,9 @@ export function App() {
         };
 
         if (nuevaObservacion) {
-          updated.observacionesOperario = `${item.observacionesOperario ? item.observacionesOperario + ' | ' : ''}[${nuevoEstado}]: ${nuevaObservacion}`;
+          if (nuevoEstado === 'LAVANDERIA' || item.estado === 'LAVANDERIA') {
+            updated.observacionesLavanderia = nuevaObservacion;
+          }
           if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CALIDAD') {
             updated.observacionesCalidad = nuevaObservacion;
           }

@@ -540,12 +540,16 @@ export function updateLocalOpStatus(
         fechaActualizacion: new Date().toISOString()
       };
       if (observaciones) {
-        copy.observacionesOperario = `${item.observacionesOperario ? item.observacionesOperario + ' | ' : ''}[${nuevoEstado}]: ${observaciones}`;
-        if (nuevoEstado === 'LAVANDERIA') {
-          copy.observacionesLavanderia = observaciones;
-        }
-        if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CALIDAD') {
-          copy.observacionesCalidad = observaciones;
+        const cleanObs = observaciones.trim();
+        const isReceiptMsg = cleanObs.includes('Colcha recibida');
+        // REGLA: observacionesOperario se mantiene pura (la que colocó el operario al inicio)
+        if (!isReceiptMsg && cleanObs) {
+          if (nuevoEstado === 'LAVANDERIA' || item.estado === 'LAVANDERIA') {
+            copy.observacionesLavanderia = cleanObs;
+          }
+          if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CALIDAD') {
+            copy.observacionesCalidad = cleanObs;
+          }
         }
       }
       return copy;
@@ -699,33 +703,44 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
 
               const { foto1, foto2 } = parseDualPhotos(fotoUrlRaw);
 
-              parsedList.push({
-                id: `op-row-${idx + 1}-${cleanOp.replace(/\W/g, '')}`,
-                op: cleanOp,
-                referencia: refRaw || 'S/R',
-                tela: telaRaw || 'TELA INDIGO',
-                codigoMt: mtRaw || 'MT-GEN',
-                color: colorRaw || 'AZUL',
-                rollos: rollosRaw,
-                lote: loteRaw,
-                estado: estado,
-                dictamen: dictamen,
-                inspector: inspectorRaw,
-                fechaCreacion: fechaStr,
-                observacionesOperario: obsOperarioRaw,
-                observacionesLavanderia: obsColfactoryRaw,
-                observacionesCalidad: obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''),
-                fotoMuestraUrl: foto1,
-                fotoCalidadUrl: foto2,
-                areaActual: mapAreaName(estado),
-                horasEnProceso: horasHabiles,
-                diasHabiles: diasHabiles,
-                limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
-                tieneRetraso: tieneRetraso,
-                esRetrasoCritico: esRetrasoCritico,
-                emailUsuario: correoNotificadoRaw,
-                mes: mesRaw
-              });
+                let cleanObsOperario = (obsOperarioRaw || '').trim();
+                if (cleanObsOperario.includes(' | Colcha recibida') || cleanObsOperario.toLowerCase().includes('colcha recibida')) {
+                  cleanObsOperario = cleanObsOperario.split(' | ')[0].trim().replace(/colcha recibida.*/i, '').trim();
+                }
+                cleanObsOperario = cleanObsOperario.replace(/^\[[^\]]+\]:\s*/, '').trim();
+
+                let cleanObsColfactory = (obsColfactoryRaw || '').trim();
+                if (cleanObsColfactory.toLowerCase().includes('colcha recibida') || cleanObsColfactory.includes('[LAVANDERIA]')) {
+                  cleanObsColfactory = '';
+                }
+
+                parsedList.push({
+                  id: `op-row-${idx + 1}-${cleanOp.replace(/\W/g, '')}`,
+                  op: cleanOp,
+                  referencia: refRaw || 'S/R',
+                  tela: telaRaw || 'TELA INDIGO',
+                  codigoMt: mtRaw || 'MT-GEN',
+                  color: colorRaw || 'AZUL',
+                  rollos: rollosRaw,
+                  lote: loteRaw,
+                  estado: estado,
+                  dictamen: dictamen,
+                  inspector: inspectorRaw,
+                  fechaCreacion: fechaStr,
+                  observacionesOperario: cleanObsOperario,
+                  observacionesLavanderia: cleanObsColfactory,
+                  observacionesCalidad: obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''),
+                  fotoMuestraUrl: foto1,
+                  fotoCalidadUrl: foto2,
+                  areaActual: mapAreaName(estado),
+                  horasEnProceso: horasHabiles,
+                  diasHabiles: diasHabiles,
+                  limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
+                  tieneRetraso: tieneRetraso,
+                  esRetrasoCritico: esRetrasoCritico,
+                  emailUsuario: correoNotificadoRaw,
+                  mes: mesRaw
+                });
             });
 
             if (parsedList.length > 0) {
@@ -821,6 +836,17 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
         if (isOpDeleted(opRaw) || isOpDeleted(cleanOp)) continue;
         const { foto1, foto2 } = parseDualPhotos(r[12] || '');
 
+        let cleanCsvObsOperario = obsOperarioStr.trim();
+        if (cleanCsvObsOperario.includes(' | Colcha recibida') || cleanCsvObsOperario.toLowerCase().includes('colcha recibida')) {
+          cleanCsvObsOperario = cleanCsvObsOperario.split(' | ')[0].trim().replace(/colcha recibida.*/i, '').trim();
+        }
+        cleanCsvObsOperario = cleanCsvObsOperario.replace(/^\[[^\]]+\]:\s*/, '').trim();
+
+        let cleanCsvObsColfactory = obsColfactoryStr.trim();
+        if (cleanCsvObsColfactory.toLowerCase().includes('colcha recibida') || cleanCsvObsColfactory.includes('[LAVANDERIA]')) {
+          cleanCsvObsColfactory = '';
+        }
+
         solicitudes.push({
           id: `op-row-${i}-${cleanOp.replace(/\W/g, '')}`,
           op: cleanOp,
@@ -834,9 +860,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           dictamen: dictamen,
           inspector: r[1] || 'INSPECTOR CALIDAD',
           fechaCreacion: fechaStr,
-          observacionesOperario: obsOperarioStr,
-          observacionesLavanderia: obsColfactoryStr,
-          observacionesCalidad: obsFinalStr || obsOperarioStr,
+          observacionesOperario: cleanCsvObsOperario,
+          observacionesLavanderia: cleanCsvObsColfactory,
+          observacionesCalidad: obsFinalStr || cleanCsvObsOperario,
           fotoMuestraUrl: foto1,
           fotoCalidadUrl: foto2,
           areaActual: mapAreaName(estado),
@@ -1221,8 +1247,6 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
 
   const estadoFormatted = payload.estado === 'PRE_SOLICITUD' ? 'PRE-SOLICITUD' : (payload.estado || 'SOLICITADO');
   const rollosNum = Number(payload.rollos || 1);
-  const obsOperario = payload.observacionesOperario || '';
-  const evidenciaDrive = payload.fotoMuestraUrl || payload.imageBase64 || '';
   const obsFinal = payload.observacionesCalidad || '';
   const dictamenFinal = payload.dictamen || (payload.estado === 'FINALIZADO' ? 'APROBADO' : '');
   const formattedOp = formatOpCode(payload.op || '');
@@ -1236,6 +1260,27 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     : ((payload as any).userEmails && Array.isArray((payload as any).userEmails) && (payload as any).userEmails.length > 0
         ? (payload as any).userEmails
         : fallbackUserEmails);
+
+  // Lista limpia de correos únicos separados por coma para columna N
+  const cleanEmailList = Array.isArray(targetRecipients)
+    ? Array.from(new Set(targetRecipients.map((e: string) => String(e).trim().toLowerCase()).filter((e: string) => e.includes('@')))).join(', ')
+    : '';
+
+  // Observación Operario pura (Columna K): solo la observación inicial
+  let cleanObsOperario = (payload.observacionesOperario || '').trim();
+  if (cleanObsOperario.includes(' | ')) {
+    cleanObsOperario = cleanObsOperario.split(' | ')[0].trim();
+  }
+  cleanObsOperario = cleanObsOperario.replace(/^\[[^\]]+\]:\s*/, '').trim();
+
+  // Observación Colfactory pura (Columna L): nunca textos automáticos de recibo
+  let cleanObsColfactory = (payload.observacionesLavanderia || '').trim();
+  if (cleanObsColfactory.toLowerCase().includes('colcha recibida') || cleanObsColfactory.includes('[LAVANDERIA]')) {
+    cleanObsColfactory = '';
+  }
+
+  // Columna M: vacía según especificación
+  const evidenciaDrive = '';
 
   const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')
     ? window.location.origin
@@ -1253,10 +1298,10 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     'ROLLOS': rollosNum,
     'LOTE': payload.lote || '1',
     'ESTADO': estadoFormatted,
-    'OBSERVACIÓN OPERARIO': obsOperario,
-    'OBSERVACIÓN COLFACTORY': payload.observacionesLavanderia || '',
+    'OBSERVACIÓN OPERARIO': cleanObsOperario,
+    'OBSERVACIÓN COLFACTORY': cleanObsColfactory,
     'EVIDENCIA (LINK DRIVE)': evidenciaDrive,
-    'CORREO NOTIFICADO': '',
+    'CORREO NOTIFICADO': cleanEmailList,
     'OBS.OPERARIO FINAL': obsFinal,
     'DICTAMEN FINAL': dictamenFinal,
     'MES': m,
@@ -1273,11 +1318,11 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     rollo: rollosNum,
     lote: payload.lote || '1',
     estado: estadoFormatted,
-    observacionesOperario: obsOperario,
-    observacionOperario: obsOperario,
-    observacionColfactory: payload.observacionesLavanderia || '',
+    observacionesOperario: cleanObsOperario,
+    observacionOperario: cleanObsOperario,
+    observacionColfactory: cleanObsColfactory,
     evidenciaLinkDrive: evidenciaDrive,
-    correoNotificado: '',
+    correoNotificado: cleanEmailList,
     obsOperarioFinal: obsFinal,
     dictamenFinal: dictamenFinal,
     mes: m
@@ -1289,6 +1334,7 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     ...rowData,
     userEmails: targetRecipients,
     recipients: targetRecipients,
+    correoNotificado: cleanEmailList,
     appUrl: `${origin}/?op=${encodeURIComponent(formattedOp)}&view=public`
   });
 
@@ -1307,12 +1353,14 @@ export async function sendOpEmailNotification(
     ? window.location.origin
     : 'https://colchas.vercel.app';
   const formattedOp = formatOpCode(opData.op || '');
+  const cleanEmailList = Array.from(new Set(recipients.map(e => String(e).trim().toLowerCase()).filter(e => e.includes('@')))).join(', ');
   
   const res = await sendAppsScriptPost('SEND_OP_EMAIL', {
     ...opData,
     op: formattedOp,
     recipients: recipients,
     userEmails: recipients,
+    correoNotificado: cleanEmailList,
     appUrl: `${origin}/?op=${encodeURIComponent(formattedOp)}&view=public`
   });
   return {
@@ -1329,13 +1377,19 @@ export async function pushTransferToSheets(
 ): Promise<{ success: boolean; message: string }> {
   const estadoFormateado = nuevoEstado === 'PRE_SOLICITUD' ? 'PRE-SOLICITUD' : nuevoEstado;
   const formattedOp = formatOpCode(op);
+  
+  // Limpiar observaciones automáticas de tránsito
+  const cleanObs = (observaciones || '').trim();
+  const isReceipt = cleanObs.toLowerCase().includes('colcha recibida') || cleanObs.includes('[LAVANDERIA]');
+  const realCustomObs = isReceipt ? '' : cleanObs;
+
   return await sendAppsScriptPost('TRANSFER_OP', { 
     op: formattedOp, 
     nuevoEstado: estadoFormateado, 
     estado: estadoFormateado,
-    observaciones,
-    observacionColfactory: nuevoEstado === 'LAVANDERIA' ? observaciones : undefined,
-    obsOperarioFinal: (nuevoEstado === 'CALIDAD' || nuevoEstado === 'FINALIZADO') ? observaciones : undefined
+    observaciones: realCustomObs,
+    observacionColfactory: (nuevoEstado === 'LAVANDERIA' && realCustomObs) ? realCustomObs : undefined,
+    obsOperarioFinal: ((nuevoEstado === 'CALIDAD' || nuevoEstado === 'FINALIZADO') && realCustomObs) ? realCustomObs : undefined
   });
 }
 

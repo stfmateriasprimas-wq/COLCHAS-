@@ -181,11 +181,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   };
 
   const handleRecibirColcha = () => {
-    const userLabel = currentUser?.nombre || 'LAVANDERÍA COLFACTORY ZF';
-    const origen = solicitud.estado === 'PRE_SOLICITUD' ? 'Zona Franca (Atelier)' : 'Planta Principal';
-    const obs = `Colcha recibida en Lavandería Colfactory ZF desde ${origen} por ${userLabel}`;
     if (onDirectTransfer) {
-      onDirectTransfer(solicitud.id, 'LAVANDERIA', obs);
+      onDirectTransfer(solicitud.id, 'LAVANDERIA', '');
     } else {
       onTransfer(solicitud);
     }

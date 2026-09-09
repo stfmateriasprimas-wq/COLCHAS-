@@ -68,6 +68,7 @@ function onOpen() {
     .addItem('⚡ Sincronizar y Alimentar Hoja ALERTAS', 'syncAlertasFromBaseDeDatos')
     .addItem('🗑️ Auto-Eliminar OPs ya Realizadas de MONITOREO', 'cleanMonitoreoMenuAction')
     .addItem('🏷️ Normalizar Prefijos OP (OP-XXXX) en BASE_DE_DATOS', 'normalizeOpCodesMenuAction')
+    .addItem('✨ Depurar y Limpiar Columnas K, L, M y N', 'cleanColumnsKLMNMenuAction')
     .addItem('🧹 Dar Formato Profesional a Todas las Hojas', 'formatAllSheets')
     .addItem('📁 Crear / Verificar Carpeta en Google Drive', 'getOrCreateDriveFolder')
     .addToUi();
@@ -76,6 +77,13 @@ function onOpen() {
   var ss = getTargetSpreadsheet();
   normalizeAllOpCodesInBaseDeDatos(ss);
   autoCleanMonitoreoFromBaseDeDatos(ss);
+  cleanColumnsKLMN(ss);
+}
+
+function cleanColumnsKLMNMenuAction() {
+  var ss = getTargetSpreadsheet();
+  var count = cleanColumnsKLMN(ss);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se depuraron y limpiaron ' + count + ' filas en columnas K, L, M y N de BASE_DE_DATOS', '🚀 STF GROUP');
 }
 
 function normalizeOpCodesMenuAction() {
@@ -370,58 +378,73 @@ function doPost(e) {
       var rollosVal = Number(opData['ROLLOS'] || opData.rollos || opData.rollo || 1);
       var loteVal = opData['LOTE'] || opData.lote || '1';
       var estadoVal = opData['ESTADO'] || opData.estado || 'SOLICITADO';
-      var obsOpVal = opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || opData.observacionOperario || '';
-      var obsColVal = opData['OBSERVACIÓN COLFACTORY'] || opData.observacionColfactory || '';
-      var evidenciaVal = driveUrl || photoRaw || '';
-      var obsFinalVal = opData['OBS.OPERARIO FINAL'] || opData.obsOperarioFinal || opData.observacionesCalidad || '';
-      var mesNumero = Number(opData['MES'] || opData.mes || (now.getMonth() + 1));
 
-      // 2. Envío de correo electrónico automático a todos los usuarios
-      var correoNotificadoStr = '';
+      // REGLA COLUMNA K (11): Solo la observación inicial del operario (sin historial de pasos ni dictamen)
+      var rawObsOp = String(opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || opData.observacionOperario || '').trim();
+      var obsOpVal = rawObsOp.indexOf(' | ') !== -1 ? rawObsOp.split(' | ')[0].trim() : rawObsOp;
+      obsOpVal = obsOpVal.replace(/^\[[^\]]+\]:\s*/, '').trim();
+
+      // REGLA COLUMNA L (12): Solo la observación real de Colfactory (sin textos de recibo automático)
+      var rawObsCol = String(opData['OBSERVACIÓN COLFACTORY'] || opData.observacionColfactory || opData.observacionesLavanderia || '').trim();
+      var obsColVal = '';
+      if (rawObsCol && rawObsCol.toLowerCase().indexOf('colcha recibida') === -1 && rawObsCol.indexOf('[LAVANDERIA]') === -1) {
+        obsColVal = rawObsCol.indexOf(' | ') !== -1 ? rawObsCol.split(' | ')[0].trim() : rawObsCol;
+      }
+
+      // REGLA COLUMNA M (13): Vacía ("") según especificación del usuario
+      var evidenciaVal = '';
+
+      // REGLA COLUMNA N (14): Únicamente las direcciones de correo separadas por coma (sin links, sin fechas, sin error de envío)
       var recipientsList = payload.userEmails || payload.recipients || [];
       if (!Array.isArray(recipientsList) || recipientsList.length === 0) {
         recipientsList = getAllUserEmails(ss);
       }
+      var cleanEmailArray = (recipientsList || []).map(function(e) { return String(e).trim().toLowerCase(); }).filter(function(e) { return e.indexOf('@') !== -1; });
+      var uniqueEmails = [];
+      for (var u = 0; u < cleanEmailArray.length; u++) {
+        if (uniqueEmails.indexOf(cleanEmailArray[u]) === -1) uniqueEmails.push(cleanEmailArray[u]);
+      }
+      var correoNotificadoStr = uniqueEmails.join(', ');
 
-      if (recipientsList.length > 0) {
+      // 2. Envío de correo electrónico automático a los usuarios seleccionados
+      if (uniqueEmails.length > 0) {
         try {
           var appUrl = payload.appUrl || ('https://colchas.vercel.app/?op=' + encodeURIComponent(opVal) + '&view=public');
           var subject = '🧵 [NUEVA COLCHA CREADA] ' + opVal + ' • ' + (refVal || 'S/R') + ' (' + telaVal + ')';
           var htmlBody = buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl);
 
           MailApp.sendEmail({
-            to: recipientsList.join(','),
+            to: uniqueEmails.join(','),
             subject: subject,
             htmlBody: htmlBody,
             name: 'COLCHAS STF GROUP - SISTEMA OFICIAL'
           });
-
-          correoNotificadoStr = Utilities.formatDate(now, 'America/Bogota', 'd/M/yyyy HH:mm:ss') + ' (' + recipientsList.length + ' usuarios)';
         } catch (mailErr) {
           console.error('Error enviando correo de creación:', mailErr);
-          correoNotificadoStr = Utilities.formatDate(now, 'America/Bogota', 'd/M/yyyy HH:mm:ss') + ' (Error de envío)';
         }
       }
 
+      var obsFinalVal = opData['OBS.OPERARIO FINAL'] || opData.obsOperarioFinal || opData.observacionesCalidad || '';
+      var mesNumero = Number(opData['MES'] || opData.mes || (now.getMonth() + 1));
       var dictVal = payload.dictamenFinal || payload.dictamen || payload.veredicto || '';
       var newRow = [
-        fechaFormatted,
-        inspectorVal,
-        telaVal,
-        mtVal,
-        colorVal,
-        opVal,
-        refVal,
-        rollosVal,
-        loteVal,
-        estadoVal,
-        obsOpVal,
-        obsColVal,
-        evidenciaVal,
-        correoNotificadoStr,
-        obsFinalVal,
-        dictVal,
-        mesNumero
+        fechaFormatted,        // 1 (A) FECHA
+        inspectorVal,          // 2 (B) INSPECTOR / OPERARIO
+        telaVal,               // 3 (C) TELA
+        mtVal,                 // 4 (D) CÓDIGO MT
+        colorVal,              // 5 (E) COLOR
+        opVal,                 // 6 (F) OP
+        refVal,                // 7 (G) REFERENCIA
+        rollosVal,             // 8 (H) ROLLOS
+        loteVal,               // 9 (I) LOTE
+        estadoVal,             // 10 (J) ESTADO
+        obsOpVal,              // 11 (K) OBSERVACIÓN OPERARIO (PURA)
+        obsColVal,             // 12 (L) OBSERVACIÓN COLFACTORY (PURA)
+        evidenciaVal,          // 13 (M) EVIDENCIA (LINK DRIVE) -> VACÍA ("")
+        correoNotificadoStr,   // 14 (N) CORREO NOTIFICADO (SOLO CORREOS)
+        obsFinalVal,           // 15 (O) OBS.OPERARIO FINAL
+        dictVal,               // 16 (P) DICTAMEN FINAL
+        mesNumero              // 17 (Q) MES
       ];
 
       sheetBd.appendRow(newRow);
@@ -470,20 +493,26 @@ function doPost(e) {
 
         if (payload.nuevoEstado) sheetBdTrans.getRange(foundRowTrans, 10).setValue(payload.nuevoEstado);
         
-        // Columna L (OBSERVACIÓN COLFACTORY)
-        if (payload.nuevoEstado === 'LAVANDERIA' || payload.observacionColfactory) {
-          sheetBdTrans.getRange(foundRowTrans, 12).setValue(payload.observacionColfactory || payload.observaciones || '');
+        // REGLA COLUMNA L (12): OBSERVACIÓN COLFACTORY
+        // Solo la observación real ingresada por Colfactory (sin textos de recibo automático)
+        var obsColfactoryInput = payload.observacionColfactory || (payload.nuevoEstado === 'LAVANDERIA' ? payload.observaciones : '');
+        if (obsColfactoryInput) {
+          var cleanColObs = String(obsColfactoryInput).trim();
+          if (cleanColObs.toLowerCase().indexOf('colcha recibida') === -1 && cleanColObs.indexOf('[LAVANDERIA]') === -1) {
+            sheetBdTrans.getRange(foundRowTrans, 12).setValue(cleanColObs);
+          }
         }
 
-        // Columna O (OBS.OPERARIO FINAL)
-        if (payload.nuevoEstado === 'CALIDAD' || payload.nuevoEstado === 'FINALIZADO' || payload.obsOperarioFinal) {
-          sheetBdTrans.getRange(foundRowTrans, 15).setValue(payload.obsOperarioFinal || payload.observaciones || '');
+        // Columna O (15): OBS.OPERARIO FINAL
+        if (payload.obsOperarioFinal || ((payload.nuevoEstado === 'CALIDAD' || payload.nuevoEstado === 'FINALIZADO') && payload.observaciones)) {
+          var finalObsToSet = payload.obsOperarioFinal || payload.observaciones || '';
+          if (finalObsToSet.toLowerCase().indexOf('colcha recibida') === -1) {
+            sheetBdTrans.getRange(foundRowTrans, 15).setValue(finalObsToSet);
+          }
         }
 
-        if (payload.observaciones) {
-          var prevObs = sheetBdTrans.getRange(foundRowTrans, 11).getValue();
-          sheetBdTrans.getRange(foundRowTrans, 11).setValue((prevObs ? prevObs + ' | ' : '') + payload.observaciones);
-        }
+        // NOTA REGLA CRÍTICA: Columna K (11) (OBSERVACIÓN OPERARIO) NO SE MODIFICA durante transferencias.
+        // Se preserva intacta la observación original del operario.
 
         return createJsonResponse({
           status: 'success',
@@ -521,25 +550,13 @@ function doPost(e) {
         // Columna J (10): ESTADO = FINALIZADO
         sheetBdDict.getRange(foundRowDict, 10).setValue('FINALIZADO');
         
-        // Columna K (11): Historial del flujo
-        var dictObs = '[DICTAMEN: ' + (payload.dictamen || 'APROBADO') + '] por ' + (payload.inspector || payload.auditorCalidad || 'AUDITOR STF') + (payload.observacionesTecnicas ? ': ' + payload.observacionesTecnicas : '');
-        var curObs = sheetBdDict.getRange(foundRowDict, 11).getValue();
-        sheetBdDict.getRange(foundRowDict, 11).setValue((curObs ? curObs + ' | ' : '') + dictObs);
+        // NOTA REGLA CRÍTICA: Columna K (11) (OBSERVACIÓN OPERARIO) NO SE MODIFICA.
+        // Se preserva intacta la observación original del operario sin anexar [DICTAMEN:...].
 
-        // Columna M (13): EVIDENCIA (LINK DRIVE) - Preservar ambas fotos (part1 | part2)
-        var photoCalidadRaw = payload.fotoCalidadUrl || payload.fotoCalidad || payload.photoUrl || payload.imageBase64 || '';
-        if (photoCalidadRaw) {
-          var driveCalidadUrl = photoCalidadRaw;
-          if (photoCalidadRaw.length > 50 && photoCalidadRaw.indexOf('data:image/') === 0) {
-            var savedDUrl = saveImageToDrive(photoCalidadRaw, 'OP_' + targetOpDict + '_CALIDAD.jpg');
-            if (savedDUrl) driveCalidadUrl = savedDUrl;
-          }
-          var curPhotoVal = String(sheetBdDict.getRange(foundRowDict, 13).getValue() || '');
-          var part1Val = curPhotoVal.indexOf('|') !== -1 ? curPhotoVal.split('|')[0].trim() : curPhotoVal.trim();
-          if (part1Val.length > 22000) part1Val = part1Val.substring(0, 22000);
-          if (driveCalidadUrl.length > 22000) driveCalidadUrl = driveCalidadUrl.substring(0, 22000);
-          var combinedPhoto = (part1Val ? part1Val + ' | ' : '') + driveCalidadUrl;
-          sheetBdDict.getRange(foundRowDict, 13).setValue(combinedPhoto);
+        // Columna M (13): EVIDENCIA (LINK DRIVE) -> Dejar vacía si contiene Base64
+        var curEvidenciaVal = String(sheetBdDict.getRange(foundRowDict, 13).getValue() || '');
+        if (curEvidenciaVal.indexOf('data:image/') !== -1 || curEvidenciaVal.indexOf('data:') === 0) {
+          sheetBdDict.getRange(foundRowDict, 13).setValue('');
         }
 
         // Columna O (15): OBS.OPERARIO FINAL (solo el texto puro ingresado en Observación Final)
@@ -672,6 +689,7 @@ function doPost(e) {
     }
 
     // -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------
     // ACCIÓN 9: SEND_OP_EMAIL (Envío dedicado de ficha técnica de OP por correo)
     // -----------------------------------------------------------------------
     if (action === 'SEND_OP_EMAIL') {
@@ -684,8 +702,15 @@ function doPost(e) {
         recipientsMail = getAllUserEmails(ss);
       }
 
-      if (recipientsMail.length === 0) {
-        return createJsonResponse({ status: 'error', message: 'No hay destinatarios de correo seleccionados' });
+      var cleanMailList = (recipientsMail || []).map(function(e) { return String(e).trim().toLowerCase(); }).filter(function(e) { return e.indexOf('@') !== -1; });
+      var uniqueCleanMails = [];
+      for (var um = 0; um < cleanMailList.length; um++) {
+        if (uniqueCleanMails.indexOf(cleanMailList[um]) === -1) uniqueCleanMails.push(cleanMailList[um]);
+      }
+      var cleanMailStr = uniqueCleanMails.join(', ');
+
+      if (uniqueCleanMails.length === 0) {
+        return createJsonResponse({ status: 'error', message: 'No hay destinatarios de correo válidos' });
       }
 
       try {
@@ -698,16 +723,32 @@ function doPost(e) {
         var htmlBodyMail = buildNewOpEmailHtml(payload, opValMail, fechaFormattedMail, appUrlMail, payload.fotoMuestraUrl || payload.driveUrl || '');
 
         MailApp.sendEmail({
-          to: recipientsMail.join(','),
+          to: uniqueCleanMails.join(','),
           subject: subjectMail,
           htmlBody: htmlBodyMail,
           name: 'COLCHAS STF GROUP - SISTEMA OFICIAL'
         });
 
+        // Actualizar Columna N (14) en BASE_DE_DATOS con las direcciones de correo limpias
+        var sheetBdMail = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+        var targetOpMail = opValMail.replace(/^OP-?/, '');
+        var lastRowBdMail = sheetBdMail.getLastRow();
+        if (lastRowBdMail > 1 && cleanMailStr) {
+          var opValsMail = sheetBdMail.getRange(2, 6, lastRowBdMail - 1, 1).getValues();
+          for (var m = 0; m < opValsMail.length; m++) {
+            var curOpMailRow = String(opValsMail[m][0] || '').trim().toUpperCase().replace(/^OP-?/, '');
+            if (curOpMailRow === targetOpMail) {
+              sheetBdMail.getRange(m + 2, 14).setValue(cleanMailStr);
+              break;
+            }
+          }
+        }
+
         return createJsonResponse({
           status: 'success',
-          message: 'Ficha de ' + opValMail + ' enviada a ' + recipientsMail.length + ' correo(s)',
-          recipientsCount: recipientsMail.length
+          message: 'Ficha de ' + opValMail + ' enviada a ' + uniqueCleanMails.length + ' correo(s)',
+          recipientsCount: uniqueCleanMails.length,
+          correoNotificado: cleanMailStr
         });
       } catch (errMail) {
         console.error('Error en SEND_OP_EMAIL:', errMail);
@@ -724,8 +765,15 @@ function doPost(e) {
         recipientsList = String(recipientsList).split(',').map(function(e) { return e.trim(); }).filter(Boolean);
       }
       
-      if (recipientsList.length === 0) {
-        return createJsonResponse({ status: 'error', message: 'No se especificaron destinatarios' });
+      var cleanAlertList = (recipientsList || []).map(function(e) { return String(e).trim().toLowerCase(); }).filter(function(e) { return e.indexOf('@') !== -1; });
+      var uniqueAlertMails = [];
+      for (var ua = 0; ua < cleanAlertList.length; ua++) {
+        if (uniqueAlertMails.indexOf(cleanAlertList[ua]) === -1) uniqueAlertMails.push(cleanAlertList[ua]);
+      }
+      var cleanAlertStr = uniqueAlertMails.join(', ');
+
+      if (uniqueAlertMails.length === 0) {
+        return createJsonResponse({ status: 'error', message: 'No se especificaron destinatarios válidos' });
       }
 
       var opsList = payload.ops || [];
@@ -775,7 +823,7 @@ function doPost(e) {
         '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">📊 Órdenes con Retraso:</td><td style="padding: 3px 0; font-weight: 900; color: #881337; text-align: right;">' + opsList.length + ' OP(s) Críticas</td></tr>' +
         '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">👤 Emitido por:</td><td style="padding: 3px 0; font-weight: bold; color: #111827; text-align: right;">' + senderName + '</td></tr>' +
         '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">📅 Fecha de Notificación:</td><td style="padding: 3px 0; font-family: monospace; color: #374151; text-align: right;">' + fechaReporte + '</td></tr>' +
-        '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">👥 Destinatarios:</td><td style="padding: 3px 0; font-size: 12px; color: #4b5563; text-align: right;">' + recipientsList.length + ' Contacto(s) Registrados</td></tr>' +
+        '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">👥 Destinatarios:</td><td style="padding: 3px 0; font-size: 12px; color: #4b5563; text-align: right;">' + uniqueAlertMails.length + ' Contacto(s) Registrados</td></tr>' +
         '</table>' +
         '</div>' +
 
@@ -812,9 +860,8 @@ function doPost(e) {
 
       // Envío de correo electrónico a los destinatarios mediante MailApp
       try {
-        var toEmailsString = recipientsList.join(',');
         MailApp.sendEmail({
-          to: toEmailsString,
+          to: uniqueAlertMails.join(','),
           subject: subject,
           htmlBody: htmlBody,
           name: 'ALERTA COLCHAS - STF GROUP'
@@ -833,7 +880,23 @@ function doPost(e) {
           for (var k = 0; k < opColVals.length; k++) {
             var curClean = String(opColVals[k][0] || '').trim().toUpperCase().replace('OP-', '');
             if (opsToUpdate.indexOf(curClean) !== -1) {
-              sheetAlRep.getRange(k + 2, 14).setValue(fechaReporte + ' (' + recipientsList.length + ' usuarios)');
+              sheetAlRep.getRange(k + 2, 14).setValue(fechaReporte + ' (' + uniqueAlertMails.length + ' usuarios)');
+            }
+          }
+        }
+      }
+
+      // Actualizar columna 14 (CORREO NOTIFICADO) en BASE_DE_DATOS con las direcciones limpias
+      var sheetBdAlert = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+      if (sheetBdAlert && cleanAlertStr) {
+        var bdLastRow = sheetBdAlert.getLastRow();
+        if (bdLastRow > 1) {
+          var bdOps = sheetBdAlert.getRange(2, 6, bdLastRow - 1, 1).getValues();
+          var opsToUpdateAlert = (opsList || []).map(function(o) { return String(o.op || o).trim().toUpperCase().replace(/^OP-?/, ''); });
+          for (var b = 0; b < bdOps.length; b++) {
+            var bOp = String(bdOps[b][0] || '').trim().toUpperCase().replace(/^OP-?/, '');
+            if (opsToUpdateAlert.indexOf(bOp) !== -1) {
+              sheetBdAlert.getRange(b + 2, 14).setValue(cleanAlertStr);
             }
           }
         }
@@ -841,12 +904,25 @@ function doPost(e) {
 
       return createJsonResponse({
         status: 'success',
-        message: 'Correo enviado exitosamente a ' + recipientsList.length + ' destinatario(s)',
-        sentCount: recipientsList.length
+        message: 'Correo enviado exitosamente a ' + uniqueAlertMails.length + ' destinatario(s)',
+        sentCount: uniqueAlertMails.length,
+        correoNotificado: cleanAlertStr
       });
     }
 
-return createJsonResponse({ status: 'error', message: 'Acción POST no reconocida: ' + action });
+    // -----------------------------------------------------------------------
+    // ACCIÓN 10: CLEAN_COLUMNS_KLMN (Depuración y limpieza de columnas K, L, M y N)
+    // -----------------------------------------------------------------------
+    if (action === 'CLEAN_COLUMNS_KLMN') {
+      var cleanedCount = cleanColumnsKLMN(ss);
+      return createJsonResponse({
+        status: 'success',
+        message: 'Columnas K, L, M y N depuradas exitosamente en ' + cleanedCount + ' filas.',
+        cleanedCount: cleanedCount
+      });
+    }
+
+    return createJsonResponse({ status: 'error', message: 'Acción POST no reconocida: ' + action });
 
   } catch (err) {
     return createJsonResponse({ status: 'error', message: err.toString() });
@@ -1435,4 +1511,102 @@ function instalarActivadorDiario7AM() {
 
   Logger.log('✅ Activador automático de las 7:00 AM programado exitosamente.');
 }
+
+/**
+ * -----------------------------------------------------------------------
+ * DEPURACIÓN Y NORMALIZACIÓN DE COLUMNAS K, L, M y N EN BASE_DE_DATOS
+ * -----------------------------------------------------------------------
+ * - Columna K (11 - OBSERVACIÓN OPERARIO): Conserva estrictamente la
+ *   observación inicial del operario. Elimina textos concatenados de
+ *   recepción de colcha, transferencias o dictámenes.
+ * - Columna L (12 - OBSERVACIÓN COLFACTORY): Elimina textos automáticos
+ *   tipo "Colcha recibida en Lavandería Colfactory ZF desde Planta...",
+ *   manteniendo solo observaciones reales si las hubiere.
+ * - Columna M (13 - EVIDENCIA): Vacía celdas que contengan texto Base64
+ *   largo (data:image/...) dejándolas en blanco ("").
+ * - Columna N (14 - CORREO NOTIFICADO): Limpia strings tipo
+ *   "9/9/2026 12:23.59 (Error de envio)" o fechas sin correos,
+ *   reemplazándolas por las direcciones de correo oficiales limpias.
+ */
+function cleanColumnsKLMN(ss) {
+  if (!ss) ss = getTargetSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+  if (!sheet) return 0;
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+
+  var allEmails = getAllUserEmails(ss);
+  var cleanAllEmailsList = (allEmails || []).map(function(e) { return String(e).trim().toLowerCase(); }).filter(function(e) { return e.indexOf('@') !== -1; });
+  var uniqueDefaultEmails = [];
+  for (var de = 0; de < cleanAllEmailsList.length; de++) {
+    if (uniqueDefaultEmails.indexOf(cleanAllEmailsList[de]) === -1) uniqueDefaultEmails.push(cleanAllEmailsList[de]);
+  }
+  var defaultEmailsStr = uniqueDefaultEmails.join(', ');
+
+  // Obtenemos rango de columnas K a N (columnas 11 a 14, 4 columnas)
+  var rangeKLMN = sheet.getRange(2, 11, lastRow - 1, 4);
+  var values = rangeKLMN.getValues();
+  var modifiedCount = 0;
+
+  for (var i = 0; i < values.length; i++) {
+    var obsOp = String(values[i][0] || '');       // Col K (11)
+    var obsCol = String(values[i][1] || '');      // Col L (12)
+    var evidencia = String(values[i][2] || '');   // Col M (13)
+    var correoNotif = String(values[i][3] || ''); // Col N (14)
+    var changed = false;
+
+    // 1. Limpiar Columna K (OBSERVACIÓN OPERARIO)
+    if (obsOp.indexOf(' | ') !== -1) {
+      obsOp = obsOp.split(' | ')[0].trim();
+      changed = true;
+    }
+    if (obsOp.toLowerCase().indexOf('colcha recibida') !== -1) {
+      obsOp = obsOp.replace(/colcha recibida.*/i, '').trim();
+      changed = true;
+    }
+    if (obsOp.indexOf('[DICTAMEN:') !== -1) {
+      obsOp = obsOp.replace(/\[DICTAMEN:.*\]/i, '').trim();
+      changed = true;
+    }
+    var cleanObsOpPrefix = obsOp.replace(/^\[[^\]]+\]:\s*/, '').trim();
+    if (cleanObsOpPrefix !== obsOp) {
+      obsOp = cleanObsOpPrefix;
+      changed = true;
+    }
+
+    // 2. Limpiar Columna L (OBSERVACIÓN COLFACTORY)
+    if (obsCol.toLowerCase().indexOf('colcha recibida') !== -1 || obsCol.indexOf('[LAVANDERIA]') !== -1) {
+      obsCol = '';
+      changed = true;
+    }
+
+    // 3. Limpiar Columna M (EVIDENCIA DRIVE)
+    if (evidencia.indexOf('data:image/') !== -1 || evidencia.indexOf('data:') === 0) {
+      evidencia = '';
+      changed = true;
+    }
+
+    // 4. Limpiar Columna N (CORREO NOTIFICADO)
+    if (correoNotif.indexOf('(Error de envio)') !== -1 || correoNotif.indexOf('(Error de env') !== -1 || correoNotif.indexOf('usuarios)') !== -1 || (correoNotif.indexOf('@') === -1 && correoNotif.length > 0)) {
+      correoNotif = defaultEmailsStr;
+      changed = true;
+    }
+
+    if (changed) {
+      values[i][0] = obsOp;
+      values[i][1] = obsCol;
+      values[i][2] = evidencia;
+      values[i][3] = correoNotif;
+      modifiedCount++;
+    }
+  }
+
+  if (modifiedCount > 0) {
+    rangeKLMN.setValues(values);
+  }
+
+  return modifiedCount;
+}
+
 
