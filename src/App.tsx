@@ -29,6 +29,7 @@ import {
   pushOpPhotoToSheets,
   saveLocalCreatedOp,
   getLocalCreatedOps,
+  removeLocalCreatedOp,
   updateLocalOpStatus,
   updateLocalOpPhoto,
   markMonitoreoOpAsConsumed,
@@ -304,27 +305,12 @@ export function App() {
       return updated;
     });
 
-    // 2. Limpiar de local created ops si existiera
+    // 2. Limpiar de local created ops
     try {
-      const keys = ['STF_LOCAL_CREATED_OPS', 'stf_colchas_local_created_ops'];
-      keys.forEach(key => {
-        const localCreated = localStorage.getItem(key);
-        if (localCreated) {
-          const parsed = JSON.parse(localCreated);
-          if (Array.isArray(parsed)) {
-            const filteredLocal = parsed.filter((item: any) => {
-              const itemClean = String(item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
-              const itemDigits = String(item.op || '').replace(/\D/g, '');
-              const isMatch = item.id === solicitud.id || 
-                              (targetDigits !== '' && itemDigits === targetDigits) || 
-                              (targetCleanOp !== '' && itemClean === targetCleanOp) ||
-                              isOpDeleted(item.op);
-              return !isMatch;
-            });
-            localStorage.setItem(key, JSON.stringify(filteredLocal));
-          }
-        }
-      });
+      removeLocalCreatedOp(solicitud.op);
+      if (solicitud.id) removeLocalCreatedOp(solicitud.id);
+      if (targetCleanOp) removeLocalCreatedOp(targetCleanOp);
+      if (targetDigits) removeLocalCreatedOp(targetDigits);
     } catch (e) {
       console.warn('Error clearing deleted op from local storage:', e);
     }

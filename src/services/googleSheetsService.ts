@@ -355,10 +355,13 @@ export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: 
 
 export function getLocalCreatedOps(): SolicitudColcha[] {
   if (typeof window !== 'undefined') {
-    const raw = localStorage.getItem(LOCAL_CREATED_OPS_KEY);
+    const raw = localStorage.getItem(LOCAL_CREATED_OPS_KEY) || localStorage.getItem('stf_colchas_local_created_ops');
     if (raw) {
       try {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(item => !isOpDeleted(item.op));
+        }
       } catch (e) {
         return [];
       }
@@ -367,12 +370,32 @@ export function getLocalCreatedOps(): SolicitudColcha[] {
   return [];
 }
 
+export function removeLocalCreatedOp(opNumberOrId: string): void {
+  if (typeof window === 'undefined' || !opNumberOrId) return;
+  const cleanTarget = String(opNumberOrId).replace(/\D/g, '') || String(opNumberOrId).trim().toUpperCase();
+  const targetCleanOp = String(opNumberOrId).replace(/^OP-+/i, '').trim().toUpperCase();
+  
+  const current = getLocalCreatedOps();
+  const updated = current.filter(item => {
+    const cleanItemOp = String(item.op || '').replace(/\D/g, '') || String(item.op || '').trim().toUpperCase();
+    const itemClean = String(item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
+    const isMatch = item.id === opNumberOrId ||
+                    (cleanTarget !== '' && cleanItemOp === cleanTarget) ||
+                    (targetCleanOp !== '' && itemClean === targetCleanOp) ||
+                    isOpDeleted(item.op);
+    return !isMatch;
+  });
+  localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify(updated));
+  localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify(updated));
+}
+
 export function saveLocalCreatedOp(newOp: SolicitudColcha): void {
   if (typeof window !== 'undefined') {
     const current = getLocalCreatedOps();
     const cleanTargetOp = newOp.op.replace(/\D/g, '') || newOp.op.trim().toUpperCase();
     const filtered = current.filter(o => o.id !== newOp.id && (o.op.replace(/\D/g, '') || o.op.trim().toUpperCase()) !== cleanTargetOp);
     localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify([newOp, ...filtered]));
+    localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify([newOp, ...filtered]));
   }
 }
 
