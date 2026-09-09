@@ -95,6 +95,20 @@ export function App() {
     return null;
   });
 
+  // Helper to remove 'user' from URL without page reload
+  const cleanUserUrlParam = () => {
+    if (typeof window !== 'undefined' && window.location.search) {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('user')) {
+          url.searchParams.delete('user');
+          const newSearch = url.searchParams.toString() ? '?' + url.searchParams.toString() : '';
+          window.history.replaceState(null, '', url.pathname + newSearch + url.hash);
+        }
+      } catch (e) {}
+    }
+  };
+
   // Authentication State with Magic Auto-Login Support
   const [currentUser, setCurrentUser] = useState<UsuarioSTF | null>(() => {
     if (typeof window !== 'undefined') {
@@ -169,7 +183,6 @@ export function App() {
   }, []);
 
   // Parse and handle incoming URL query parameters for Magic Auto-Login and Direct OP viewing
-  // Parse and handle incoming URL query parameters ONCE on mount for Magic Auto-Login and direct navigation
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const urlParams = new URLSearchParams(window.location.search);
@@ -183,7 +196,7 @@ export function App() {
       setPublicOpNumber(opParam);
     }
 
-    // 1. Auto-login if user is specified in the URL
+    // 1. Auto-login if user is specified in the URL on initial load
     if (userParam) {
       const currentUsers = getUsuariosList();
       const cleanUser = userParam.trim().toLowerCase();
@@ -192,10 +205,12 @@ export function App() {
         u.nombre.toLowerCase() === cleanUser ||
         u.nombre.toLowerCase().includes(cleanUser)
       );
-      if (found && (!currentUser || currentUser.id !== found.id)) {
+      if (found) {
         setCurrentUser(found);
         localStorage.setItem('stf_colchas_user', JSON.stringify(found));
       }
+      // Limpiar inmediatamente el parámetro de la URL para que no quede pegado ni interfiera con futuros cambios de usuario
+      cleanUserUrlParam();
     }
 
     // 2. Initial direct tab navigation
@@ -250,22 +265,17 @@ export function App() {
         }
       }
 
-      // Check URL user against freshly synced Google Sheets users
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        const userParam = urlParams.get('user');
-        if (userParam && usuariosData && usuariosData.length > 0) {
-          const cleanUser = userParam.trim().toLowerCase();
-          const match = usuariosData.find(u => 
-            u.id.toLowerCase() === cleanUser || 
-            u.nombre.toLowerCase() === cleanUser ||
-            u.nombre.toLowerCase().includes(cleanUser)
-          );
-          if (match) {
-            setCurrentUser(match);
-            localStorage.setItem('stf_colchas_user', JSON.stringify(match));
+      // Mantener sincronizados los datos del usuario actual SIN cambiar de perfil arbitrariamente
+      if (usuariosData && usuariosData.length > 0) {
+        setCurrentUser(prevUser => {
+          if (!prevUser) return null;
+          const fresh = usuariosData.find(u => u.id.toLowerCase() === prevUser.id.toLowerCase());
+          if (fresh) {
+            localStorage.setItem('stf_colchas_user', JSON.stringify(fresh));
+            return fresh;
           }
-        }
+          return prevUser;
+        });
       }
     } catch (err) {
       console.error("Error sincronizando base de datos en tiempo real:", err);
@@ -389,11 +399,13 @@ export function App() {
   const handleLogin = (user: UsuarioSTF) => {
     setCurrentUser(user);
     localStorage.setItem('stf_colchas_user', JSON.stringify(user));
+    cleanUserUrlParam();
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('stf_colchas_user');
+    cleanUserUrlParam();
   };
 
   // 100% Dynamic KPI Calculations from the real Database rows
