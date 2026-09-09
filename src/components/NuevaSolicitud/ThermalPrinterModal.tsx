@@ -61,20 +61,20 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl max-w-5xl w-full shadow-2xl overflow-hidden flex flex-col my-auto text-white dark:text-zinc-950">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-5xl w-full shadow-2xl overflow-hidden flex flex-col my-auto text-zinc-950 dark:text-white">
         
         {/* Top Header */}
-        <div className="p-4 sm:p-5 border-b border-zinc-800 dark:border-zinc-200 bg-zinc-900/80 dark:bg-zinc-100 flex items-center justify-between gap-4 text-white dark:text-zinc-950">
+        <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900/80 flex items-center justify-between gap-4 text-zinc-950 dark:text-white">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-zinc-950 dark:bg-zinc-200 border border-zinc-800 dark:border-zinc-300 text-white dark:text-zinc-950 rounded-xl">
-              <Printer className="w-5 h-5" />
+            <div className="p-2 bg-zinc-200 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-zinc-950 dark:text-white rounded-xl shadow-sm">
+              <Printer className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-black brand-title tracking-wide text-white dark:text-zinc-950">
+              <h2 className="text-sm sm:text-base font-black brand-title tracking-wide text-zinc-950 dark:text-white">
                 CENTRO DE IMPRESIÓN DE ETIQUETAS (100MM X 100MM)
               </h2>
-              <p className="text-[10px] sm:text-xs text-zinc-400 dark:text-zinc-600 font-mono">
+              <p className="text-[10px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-mono">
                 STF GROUP S.A. • FORMATO ESTÁNDAR 4x4"
               </p>
             </div>
@@ -82,7 +82,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
 
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-white dark:text-zinc-600 dark:hover:text-zinc-950 p-2 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+            className="text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white p-2 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -98,21 +98,21 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
             
             {/* Status indicator */}
             <div className="flex items-center justify-between text-xs">
-              <span className="text-emerald-400 dark:text-emerald-600 font-bold flex items-center gap-1.5 text-[11px]">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5 text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 IMPRESORA EN LÍNEA (100X100MM)
               </span>
             </div>
 
-            <div className="text-center text-[10px] text-zinc-400 dark:text-zinc-600 font-medium">
-              <span className="bg-zinc-900 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 px-2.5 py-1 rounded-md text-zinc-300 dark:text-zinc-700">
+            <div className="text-center text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
+              <span className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 rounded-md text-zinc-800 dark:text-zinc-200 font-bold">
                 FORMATO 4" X 4" (100 X 100 MM)
               </span>
-              <p className="mt-1">Alineado y calibrado para comando directo de impresión térmica (Zebra, Sato, etc.)</p>
+              <p className="mt-1 text-zinc-500 dark:text-zinc-400">Alineado y calibrado para comando directo de impresión térmica (Zebra, Sato, etc.)</p>
             </div>
 
             {/* Physical Label Simulation Card */}
-            <div className="bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-2xl p-3 shadow-inner">
+            <div className="bg-zinc-100 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 shadow-inner">
               
               {/* White 4x4 Adhesive Label */}
               <div
@@ -202,10 +202,10 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
               </div>
 
               {/* Hardware buttons bar */}
-              <div className="mt-2.5 flex items-center justify-between text-[10px] text-zinc-400 dark:text-zinc-600 font-mono">
+              <div className="mt-2.5 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
                 <div className="flex gap-2">
-                  <span className="bg-zinc-800 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-800 px-2 py-0.5 rounded text-[9px]">FEED</span>
-                  <span className="bg-zinc-800 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-800 px-2 py-0.5 rounded text-[9px]">PAUSE</span>
+                  <span className="bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-300 px-2 py-0.5 rounded text-[9px] font-bold">FEED</span>
+                  <span className="bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-300 px-2 py-0.5 rounded text-[9px] font-bold">PAUSE</span>
                 </div>
                 <span>Mod: ZEBRA 4x4 (100x100mm)</span>
               </div>
@@ -221,23 +221,23 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
             
             {/* Header info */}
             <div className="flex items-center justify-between">
-              <span className="bg-indigo-950/80 dark:bg-indigo-100 text-indigo-300 dark:text-indigo-800 border border-indigo-500/40 dark:border-indigo-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
+              <span className="bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-500/40 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
                 VERIFICACIÓN DE DATOS
               </span>
-              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
                 ID: STF-SOL-OP-{colcha.op.replace(/\D/g, '') || '001'}
               </span>
             </div>
 
             <div>
-              <h3 className="text-base font-extrabold text-white dark:text-zinc-950">
+              <h3 className="text-base font-extrabold text-zinc-950 dark:text-white">
                 INFORMACIÓN INTEGRADA EN LA ETIQUETA
               </h3>
               <div className="flex items-center gap-2 mt-1">
-                <span className="bg-purple-950/80 dark:bg-purple-100 text-purple-300 dark:text-purple-800 border border-purple-500/40 dark:border-purple-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                <span className="bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-500/40 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
                   ETAPA: {colcha.estado.replace('_', ' ')}
                 </span>
-                <span className="text-xs text-zinc-400 dark:text-zinc-600">
+                <span className="text-xs text-zinc-600 dark:text-zinc-400">
                   Imprimiendo observación técnica y trazabilidad de planta
                 </span>
               </div>
@@ -246,52 +246,52 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
             {/* Grid of metadata cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
               
-              <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-3 text-white dark:text-zinc-950">
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase"># OP</span>
-                <span className="font-mono font-black text-white dark:text-zinc-950 text-sm">{colcha.op}</span>
+              <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-zinc-950 dark:text-white shadow-sm">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase"># OP</span>
+                <span className="font-mono font-black text-zinc-950 dark:text-white text-sm">{colcha.op}</span>
               </div>
 
-              <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-3 text-white dark:text-zinc-950">
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">REFERENCIA</span>
-                <span className="font-mono font-black text-indigo-400 dark:text-indigo-600 text-sm">{colcha.referencia}</span>
+              <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-zinc-950 dark:text-white shadow-sm">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">REFERENCIA</span>
+                <span className="font-mono font-black text-indigo-600 dark:text-indigo-400 text-sm">{colcha.referencia}</span>
               </div>
 
-              <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-3 text-white dark:text-zinc-950">
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">TELA</span>
-                <span className="font-bold text-white dark:text-zinc-950 text-xs truncate block">{colcha.tela}</span>
+              <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-zinc-950 dark:text-white shadow-sm">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">TELA</span>
+                <span className="font-bold text-zinc-950 dark:text-white text-xs truncate block">{colcha.tela}</span>
               </div>
 
-              <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-3 text-white dark:text-zinc-950">
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">COLOR</span>
-                <span className="font-bold text-white dark:text-zinc-950">{colcha.color}</span>
+              <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-zinc-950 dark:text-white shadow-sm">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">COLOR</span>
+                <span className="font-bold text-zinc-950 dark:text-white">{colcha.color}</span>
               </div>
 
-              <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-3 text-white dark:text-zinc-950">
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">ROLLOS</span>
-                <span className="font-bold text-amber-400 dark:text-amber-600">{colcha.rollos} rls</span>
+              <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-zinc-950 dark:text-white shadow-sm">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">ROLLOS</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">{colcha.rollos} rls</span>
               </div>
 
-              <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-3 text-white dark:text-zinc-950">
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">METRAJE / MT</span>
-                <span className="font-mono font-bold text-emerald-400 dark:text-emerald-600">{colcha.codigoMt} Mt</span>
+              <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-zinc-950 dark:text-white shadow-sm">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">METRAJE / MT</span>
+                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{colcha.codigoMt} Mt</span>
               </div>
 
-              <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-3 text-white dark:text-zinc-950">
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">LOTES</span>
-                <span className="font-bold text-white dark:text-zinc-950">{colcha.lote}</span>
+              <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-zinc-950 dark:text-white shadow-sm">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">LOTES</span>
+                <span className="font-bold text-zinc-950 dark:text-white">{colcha.lote}</span>
               </div>
 
-              <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-3 sm:col-span-2 text-white dark:text-zinc-950">
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold block uppercase">REGISTRO Y FECHA</span>
-                <span className="text-[11px] text-zinc-300 dark:text-zinc-700 block truncate font-mono">
+              <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 sm:col-span-2 text-zinc-950 dark:text-white shadow-sm">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">REGISTRO Y FECHA</span>
+                <span className="text-[11px] text-zinc-700 dark:text-zinc-300 block truncate font-mono">
                   {new Date(colcha.fechaCreacion).toLocaleDateString()} {new Date(colcha.fechaCreacion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
 
               {/* Attached Photo Preview */}
-              <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-3 flex items-center justify-between sm:col-span-3 text-white dark:text-zinc-950">
+              <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 flex items-center justify-between sm:col-span-3 text-zinc-950 dark:text-white shadow-sm">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-950 dark:bg-zinc-200 border border-zinc-800 dark:border-zinc-300 overflow-hidden flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 overflow-hidden flex items-center justify-center shrink-0">
                     {colcha.fotoMuestraUrl ? (
                       <img src={colcha.fotoMuestraUrl} alt="Muestra" className="w-full h-full object-cover" />
                     ) : (
@@ -299,8 +299,8 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                     )}
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 block uppercase">FOTOGRAFÍA ADJUNTA A LA OP</span>
-                    <span className="text-xs font-bold text-white dark:text-zinc-950">
+                    <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 block uppercase">FOTOGRAFÍA ADJUNTA A LA OP</span>
+                    <span className="text-xs font-bold text-zinc-950 dark:text-white">
                       {colcha.fotoMuestraUrl ? 'Fotografía de Muestra Registrada ✓' : 'Sin fotografía inicial'}
                     </span>
                   </div>
@@ -309,7 +309,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                   <button
                     type="button"
                     onClick={() => window.open(colcha.fotoMuestraUrl, '_blank')}
-                    className="text-xs font-bold text-emerald-400 dark:text-emerald-600 hover:underline cursor-pointer"
+                    className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
                   >
                     Ver Foto
                   </button>
@@ -319,20 +319,20 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
             </div>
 
             {/* Direct Mobile Link Box */}
-            <div className="bg-zinc-900/90 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4 space-y-2.5 text-white dark:text-zinc-950">
+            <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2.5 text-zinc-950 dark:text-white shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <QRCodeSVG value={publicLink} size={16} />
-                  <span className="text-xs font-bold text-white dark:text-zinc-950 uppercase tracking-wide">
+                  <span className="text-xs font-bold text-zinc-950 dark:text-white uppercase tracking-wide">
                     ENLACE DIRECTO PARA TELÉFONOS MÓVILES
                   </span>
                 </div>
-                <span className="bg-emerald-950/80 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/40 dark:border-emerald-300 text-[9px] font-bold px-2 py-0.5 rounded">
+                <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/40 text-[9px] font-bold px-2 py-0.5 rounded">
                   ACCESO PÚBLICO 100%
                 </span>
               </div>
 
-              <p className="text-[11px] text-zinc-400 dark:text-zinc-600">
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
                 Al escanear el QR con la cámara de cualquier teléfono se abre la ficha de trazabilidad sin pedir inicio de sesión ni contraseñas.
               </p>
 
@@ -340,9 +340,9 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="flex-1 bg-zinc-950 dark:bg-zinc-200 hover:bg-zinc-800 dark:hover:bg-zinc-300 text-white dark:text-zinc-950 border border-zinc-800 dark:border-zinc-300 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  className="flex-1 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-950 dark:text-white border border-zinc-300 dark:border-zinc-700 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
                 >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copied ? '¡Link Copiado!' : 'Copiar Link del QR'}</span>
                 </button>
 
@@ -350,7 +350,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                   href={publicLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="bg-indigo-950 dark:bg-indigo-100 hover:bg-indigo-900 dark:hover:bg-indigo-200 text-indigo-300 dark:text-indigo-800 border border-indigo-700/60 dark:border-indigo-300 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                  className="bg-indigo-100 dark:bg-indigo-950 hover:bg-indigo-200 dark:hover:bg-indigo-900 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700/60 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
                 >
                   <span>Probar Enlace</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -361,16 +361,16 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
             {/* Dictamen & Operario Footnote */}
             <div className="flex items-center justify-between pt-1">
               <div>
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 uppercase font-bold block">DICTAMEN DE CALIDAD</span>
-                <span className="bg-emerald-950/80 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/40 dark:border-emerald-300 text-xs font-extrabold px-3 py-1 rounded-lg inline-block mt-0.5">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase font-bold block">DICTAMEN DE CALIDAD</span>
+                <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/40 text-xs font-extrabold px-3 py-1 rounded-lg inline-block mt-0.5">
                   {colcha.dictamen}
                 </span>
               </div>
 
               <div className="text-right">
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 uppercase font-bold block">OPERARIO A CARGO</span>
-                <span className="text-xs font-bold text-white dark:text-zinc-950 flex items-center gap-1 mt-0.5 justify-end">
-                  <User className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase font-bold block">OPERARIO A CARGO</span>
+                <span className="text-xs font-bold text-zinc-950 dark:text-white flex items-center gap-1 mt-0.5 justify-end">
+                  <User className="w-3.5 h-3.5 text-zinc-500" />
                   {colcha.inspector}
                 </span>
               </div>
@@ -381,11 +381,11 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
         </div>
 
         {/* Modal Bottom Actions */}
-        <div className="p-4 sm:p-5 border-t border-zinc-800 dark:border-zinc-200 bg-zinc-900/80 dark:bg-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-white dark:text-zinc-950">
+        <div className="p-4 sm:p-5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-zinc-950 dark:text-white">
           <button
             type="button"
             onClick={handleDownloadPdfBackup}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-zinc-800/80 dark:bg-zinc-200 hover:bg-zinc-700 dark:hover:bg-zinc-300 text-zinc-300 dark:text-zinc-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-zinc-200 dark:bg-zinc-800/80 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-300 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
             title="Descargar archivo PDF de 100x100mm"
           >
             <Download className="w-3.5 h-3.5" />
@@ -395,7 +395,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               onClick={onClose}
-              className="flex-1 sm:flex-none px-6 py-3 rounded-2xl bg-zinc-800 dark:bg-zinc-200 hover:bg-zinc-700 dark:hover:bg-zinc-300 text-white dark:text-zinc-950 text-xs font-extrabold transition cursor-pointer"
+              className="flex-1 sm:flex-none px-6 py-3 rounded-2xl bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-950 dark:text-white text-xs font-extrabold transition cursor-pointer"
             >
               CANCELAR / VOLVER
             </button>

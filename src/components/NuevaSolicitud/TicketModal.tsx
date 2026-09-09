@@ -20,23 +20,23 @@ export const TicketModal: React.FC<TicketModalProps> = ({ colcha, onClose }) => 
   const trackingLink = generatePublicTrackingUrl(colcha);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl max-w-sm w-full p-6 space-y-5 shadow-2xl relative text-white dark:text-zinc-950">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-sm w-full p-6 space-y-5 shadow-2xl relative text-zinc-950 dark:text-white">
         
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-zinc-400 hover:text-white dark:text-zinc-600 dark:hover:text-zinc-950 p-1 rounded-lg cursor-pointer hover:bg-zinc-800 dark:hover:bg-zinc-200 transition"
+          className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white p-1.5 rounded-xl cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Success Header */}
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 dark:text-emerald-700 border border-emerald-500/40 flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto">
             <Check className="w-6 h-6" />
           </div>
-          <h3 className="text-base font-extrabold text-white dark:text-zinc-950">¡Solicitud Registrada!</h3>
-          <p className="text-xs text-zinc-400 dark:text-zinc-600">Colcha de control generada para trazabilidad</p>
+          <h3 className="text-base font-extrabold text-zinc-950 dark:text-white">¡Solicitud Registrada!</h3>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Colcha de control generada para trazabilidad</p>
         </div>
 
         {/* Thermal Ticket Simulation */}
@@ -89,14 +89,14 @@ export const TicketModal: React.FC<TicketModalProps> = ({ colcha, onClose }) => 
         <div className="flex gap-2">
           <button
             onClick={handleDownloadPdf}
-            className="flex-1 bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition shadow-lg cursor-pointer"
+            className="flex-1 bg-gradient-to-r from-emerald-500 to-green-400 hover:from-emerald-400 hover:to-green-300 text-black py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition shadow-lg cursor-pointer font-mono"
           >
             <Printer className="w-4 h-4" />
-            <span>DESCARGAR TICKET PDF</span>
+            <span>DESCARGAR PDF</span>
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2.5 bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-950 hover:bg-zinc-700 dark:hover:bg-zinc-300 rounded-xl text-xs font-bold transition cursor-pointer"
+            className="px-4 py-2.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-950 dark:text-white hover:bg-zinc-300 dark:hover:bg-zinc-700 rounded-xl text-xs font-bold transition cursor-pointer"
           >
             Cerrar
           </button>

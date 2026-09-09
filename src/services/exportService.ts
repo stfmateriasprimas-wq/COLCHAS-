@@ -241,12 +241,11 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
 
 /**
  * Envía el comando directo de impresión nativa del sistema operativo (100mm x 100mm / 4" x 4")
+ * Utiliza un iframe invisible para evitar ventanas emergentes negras o bloqueos del navegador.
  */
 export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: string) {
   const trackingUrl = generatePublicTrackingUrl(colcha);
 
-  const printWindow = window.open('', '_blank', 'width=480,height=520');
-  
   const qrImgTag = qrDataUrl 
     ? `<img src="${qrDataUrl}" class="qr-img" alt="QR Trazabilidad" />`
     : `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(trackingUrl)}" class="qr-img" alt="QR Trazabilidad" />`;
@@ -284,8 +283,8 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
             width: 100mm;
             height: 100mm;
             padding: 2.5mm;
-            background: #ffffff;
-            color: #000000;
+            background: #ffffff !important;
+            color: #000000 !important;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -299,6 +298,7 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            background: #ffffff !important;
           }
           .ticket-header {
             text-align: center;
@@ -320,7 +320,7 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
           }
           .tela-badge {
             border: 1.5px solid #000000;
-            background: #f4f4f5;
+            background: #f4f4f5 !important;
             text-align: center;
             font-size: 8pt;
             font-weight: 900;
@@ -462,23 +462,37 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
             </div>
           </div>
         </div>
-
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-            }, 300);
-          };
-        </script>
       </body>
     </html>
   `;
 
-  if (printWindow) {
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-  } else {
-    window.print();
+  // Crear o reutilizar un iframe invisible para enviar la orden de impresión nativa sin pantallas negras
+  let printIframe = document.getElementById('stf-direct-print-iframe') as HTMLIFrameElement | null;
+  if (!printIframe) {
+    printIframe = document.createElement('iframe');
+    printIframe.id = 'stf-direct-print-iframe';
+    printIframe.style.position = 'fixed';
+    printIframe.style.right = '0';
+    printIframe.style.bottom = '0';
+    printIframe.style.width = '0';
+    printIframe.style.height = '0';
+    printIframe.style.border = '0';
+    printIframe.style.visibility = 'hidden';
+    document.body.appendChild(printIframe);
+  }
+
+  const iframeDoc = printIframe.contentDocument || printIframe.contentWindow?.document;
+  if (iframeDoc) {
+    iframeDoc.open();
+    iframeDoc.write(html);
+    iframeDoc.close();
+    setTimeout(() => {
+      try {
+        printIframe?.contentWindow?.focus();
+        printIframe?.contentWindow?.print();
+      } catch (e) {
+        window.print();
+      }
+    }, 250);
   }
 }
