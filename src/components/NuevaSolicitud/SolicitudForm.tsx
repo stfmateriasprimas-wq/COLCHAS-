@@ -41,7 +41,6 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   });
   const [autoSendEmail, setAutoSendEmail] = useState<boolean>(true);
   const [isSendingManualEmail, setIsSendingManualEmail] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Sede and Status determination according to user origin (Zona Franca vs Others)
   const isZonaFranca = isUserFromZonaFranca(currentUser);
