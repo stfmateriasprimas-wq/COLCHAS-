@@ -1384,6 +1384,17 @@ export async function removeOpFromAlertasSheet(op: string): Promise<{ success: b
   };
 }
 
+export async function deleteOpFromGoogleSheets(op: string): Promise<{ success: boolean; message: string }> {
+  if (!op) return { success: true, message: 'OP vacía' };
+  const cleanOp = op.trim().toUpperCase();
+
+  const res = await sendAppsScriptPost('DELETE_OP', { op: cleanOp });
+  return {
+    success: res.success,
+    message: `OP ${op} eliminada en tiempo real de Google Sheets`
+  };
+}
+
 export async function pushAlertsNotificationReportToSheets(
   ops: SolicitudColcha[],
   notifiedBy?: string

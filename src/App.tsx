@@ -35,6 +35,7 @@ import {
   deleteOrConsumeMonitoreoOpFromSheets,
   syncAllAlertasToSheets,
   removeOpFromAlertasSheet,
+  deleteOpFromGoogleSheets,
   formatOpCode,
   getCachedSolicitudes,
   saveCachedSolicitudes,
@@ -272,27 +273,31 @@ export function App() {
     }
   };
 
-  const handleDeleteOp = (solicitud: SolicitudColcha) => {
-    setConfirmDeleteOp(solicitud);
+  const handleDeleteOp = async (solicitud: SolicitudColcha) => {
+    // Al pulsar ELIMINAR, se ejecuta la eliminación de forma automática e inmediata
+    await executeDeleteOp(solicitud);
   };
 
-  const executeDeleteOp = (solicitud: SolicitudColcha) => {
+  const executeDeleteOp = async (solicitud: SolicitudColcha) => {
     const adminName = currentUser ? `${currentUser.nombre} (Administrador)` : 'Edwin Diaz (Administrador)';
     addOpToDeletedHistory(solicitud, adminName);
     
     const targetCleanOp = solicitud.op.replace(/^OP-+/i, '').trim().toUpperCase();
+    const targetDigits = solicitud.op.replace(/\D/g, '');
 
+    // 1. Eliminar inmediatamente del estado activo en memoria
     setSolicitudes(prev => {
       const updated = prev.filter(s => {
         const sClean = s.op.replace(/^OP-+/i, '').trim().toUpperCase();
-        return sClean !== targetCleanOp && s.id !== solicitud.id;
+        const sDigits = s.op.replace(/\D/g, '');
+        return sClean !== targetCleanOp && (targetDigits === '' || sDigits !== targetDigits) && s.id !== solicitud.id;
       });
       // Guardar lista filtrada en caché para evitar que reaparezca al recargar
       saveCachedSolicitudes(updated);
       return updated;
     });
 
-    // Limpiar de local created ops si existiera
+    // 2. Limpiar de local created ops si existiera
     try {
       const localCreated = localStorage.getItem('stf_colchas_local_created_ops');
       if (localCreated) {
@@ -300,7 +305,8 @@ export function App() {
         if (Array.isArray(parsed)) {
           const filteredLocal = parsed.filter((item: any) => {
             const itemClean = String(item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
-            return itemClean !== targetCleanOp && item.id !== solicitud.id;
+            const itemDigits = String(item.op || '').replace(/\D/g, '');
+            return itemClean !== targetCleanOp && (targetDigits === '' || itemDigits !== targetDigits) && item.id !== solicitud.id;
           });
           localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify(filteredLocal));
         }
@@ -309,10 +315,12 @@ export function App() {
       console.warn('Error clearing deleted op from local storage:', e);
     }
     
-    // Depuración en tiempo real de la página ALERTAS de Google Sheets
+    // 3. Depuración en tiempo real de Google Sheets (ALERTAS y BASE_DE_DATOS)
     removeOpFromAlertasSheet(solicitud.op);
+    deleteOpFromGoogleSheets(solicitud.op).catch(() => {});
 
-    notificationService.playAlertSound('NOTIFICACION');
+    // 4. Feedback sonoro de éxito
+    notificationService.playAlertSound('EXITO');
     setConfirmDeleteOp(null);
   };
 

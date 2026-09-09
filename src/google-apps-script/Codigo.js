@@ -288,6 +288,49 @@ function doPost(e) {
     }
 
     // -----------------------------------------------------------------------
+    // ACCIÓN DELETE_OP (Eliminación manual en tiempo real de BASE_DE_DATOS y ALERTAS)
+    // -----------------------------------------------------------------------
+    if (action === 'DELETE_OP') {
+      var sheetBdDel = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+      var targetOp = String(payload.op || '').trim().toUpperCase().replace('OP-', '');
+      var deletedBd = 0;
+      if (sheetBdDel) {
+        var lastRowBd = sheetBdDel.getLastRow();
+        if (lastRowBd > 1) {
+          var valsBd = sheetBdDel.getRange(2, 6, lastRowBd - 1, 1).getValues(); // Columna F = Columna 6 (OP)
+          for (var r = valsBd.length - 1; r >= 0; r--) {
+            var curOpBd = String(valsBd[r][0] || '').trim().toUpperCase().replace('OP-', '');
+            if (curOpBd === targetOp) {
+              sheetBdDel.deleteRow(r + 2);
+              deletedBd++;
+            }
+          }
+        }
+      }
+
+      // También depurar de ALERTAS
+      var sheetAlDel = ss.getSheetByName(SHEET_ALERTAS);
+      if (sheetAlDel) {
+        var lastRowAl = sheetAlDel.getLastRow();
+        if (lastRowAl > 1) {
+          var valsAl = sheetAlDel.getRange(2, 1, lastRowAl - 1, 1).getValues();
+          for (var a = valsAl.length - 1; a >= 0; a--) {
+            var curOpAl = String(valsAl[a][0] || '').trim().toUpperCase().replace('OP-', '');
+            if (curOpAl === targetOp) {
+              sheetAlDel.deleteRow(a + 2);
+            }
+          }
+        }
+      }
+
+      return createJsonResponse({
+        status: 'success',
+        message: 'OP ' + payload.op + ' eliminada permanentemente de Google Sheets',
+        deletedCount: deletedBd
+      });
+    }
+
+    // -----------------------------------------------------------------------
     // ACCIÓN NORMALIZE_ALL_OPS (Normalizar Columna F OP en BASE_DE_DATOS)
     // -----------------------------------------------------------------------
     if (action === 'NORMALIZE_ALL_OPS' || action === 'NORMALIZE_OPS') {
