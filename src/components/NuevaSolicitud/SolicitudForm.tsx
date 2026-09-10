@@ -32,9 +32,9 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   const [observaciones, setObservaciones] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
-  // Determinación estricta del origen y estado inicial inmutable según reglas STF Colchas:
-  // - Sede Zona Franca -> PRE_SOLICITUD (Atelier)
-  // - Planta Principal -> SOLICITADO (En Tránsito)
+  // Determinación estricta del origen y estado inicial inmutable según reglas maestras STF Colchas:
+  // - Perfil Calidad / Planta Principal -> SOLICITADO (En Tránsito a Lavandería ZF)
+  // - Sede Zona Franca (Atelier ZF) -> PRE_SOLICITUD (Corte y preparación de muestra)
   const isZonaFranca = isUserFromZonaFranca(currentUser);
   const initialEstado: SectorType = isZonaFranca ? 'PRE_SOLICITUD' : 'SOLICITADO';
   const initialAreaName = isZonaFranca ? 'CALIDAD 2F / ATELIER' : 'TRÁNSITO / DESPACHO';
@@ -128,9 +128,9 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       lote: lote || '1',
       estado: initialEstado,
       dictamen: 'PENDIENTE',
-      inspector: currentUser ? currentUser.nombre : (isZonaFranca ? 'CALIDAD ZF' : 'OPERARIO STF'),
+      inspector: currentUser ? currentUser.nombre : (isZonaFranca ? 'CALIDAD ZF' : 'CALIDAD STF'),
       fechaCreacion: colombianNowStr,
-      observacionesOperario: finalObs || (isZonaFranca ? 'Muestra registrada en Atelier ZF (Zona Franca)' : 'Muestra solicitada en Planta Principal'),
+      observacionesOperario: finalObs || (isZonaFranca ? 'Muestra registrada en Atelier ZF (Zona Franca)' : 'Muestra solicitada por Calidad (Planta Principal) para despacho a Lavandería'),
       fotoMuestraUrl: photoUrl || undefined,
       areaActual: initialAreaName,
       pruebas: {
@@ -195,14 +195,14 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
         {/* Dynamic User Origin Badge */}
         <div className="flex items-center gap-2">
           {isZonaFranca ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-950/80 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/50 dark:border-emerald-300">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>SEDE ZONA FRANCA ➔ PRE-SOLICITUD</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-cyan-950/80 dark:bg-cyan-100 text-cyan-300 dark:text-cyan-800 border border-cyan-500/50 dark:border-cyan-300">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+              <span>SEDE ZONA FRANCA (ATELIER) ➔ PRE-SOLICITUD</span>
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-950/80 dark:bg-amber-100 text-amber-300 dark:text-amber-800 border border-amber-500/50 dark:border-amber-300">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-              <span>PLANTA PRINCIPAL ➔ SOLICITADO</span>
+              <span>PERFIL CALIDAD / PLANTA ➔ SOLICITADOS</span>
             </span>
           )}
         </div>
@@ -223,8 +223,8 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                 </h2>
                 <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
                   {isZonaFranca 
-                    ? 'Muestra textil originada en Zona Franca (Atelier). Quedará registrada automáticamente en estado PRE-SOLICITUD.'
-                    : 'Muestra textil originada en Planta Principal. Quedará registrada automáticamente en estado SOLICITADO.'}
+                    ? 'Muestra textil originada en Zona Franca (Atelier). Quedará registrada automáticamente en estado PRE-SOLICITUD para despacho a Lavandería ZF.'
+                    : 'Muestra textil originada por Calidad (Planta Principal). Quedará registrada automáticamente en estado SOLICITADOS para que Lavandería pueda llamarla y cargarla en Lavandería.'}
                 </p>
               </div>
             </div>

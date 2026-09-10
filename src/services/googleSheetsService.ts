@@ -57,13 +57,16 @@ function parseCsvRows(text: string): string[][] {
 export function mapEstadoStringToSector(rawEstado: string): SectorType {
   const s = (rawEstado || '').toUpperCase().trim();
 
-  // 1. Pre-solicitud / Atelier (Zona Franca / Calidad 2F)
+  // 1. Pre-solicitud / Atelier (Zona Franca / Calidad 2F / ZF)
+  // NOTA: Se debe evaluar antes que 'CALIDAD' para evitar que 'CALIDAD ZF' se clasifique erróneamente
   if (
     s.includes('PRE-SOLICITUD') || 
     s.includes('PRE_SOLICITUD') || 
     s.includes('PRE SOLICITUD') || 
     s.includes('ATELIER') || 
     s.includes('2F') || 
+    s.includes('CALIDAD ZF') ||
+    s.includes('ZF') ||
     s.includes('ZONA FRANCA') || 
     s.includes('MUESTRA NUEVA')
   ) {
@@ -86,7 +89,7 @@ export function mapEstadoStringToSector(rawEstado: string): SectorType {
     return 'FINALIZADO';
   }
 
-  // 4. Calidad Laboratorio / Auditoría STF
+  // 4. Calidad Laboratorio / Auditoría STF (Exclusivo Auditoría Laboratorio)
   if (
     s === 'ENVIADO A STF' || 
     s.includes('CALIDAD') || 
@@ -97,8 +100,8 @@ export function mapEstadoStringToSector(rawEstado: string): SectorType {
     return 'CALIDAD';
   }
 
-  // 5. Solicitado / Despacho / Tránsito
-  if (s.includes('SOLICITAD') || s.includes('DESPACH') || s.includes('TRANSIT') || s.includes('CORTE')) {
+  // 5. Solicitado / Despacho / Tránsito / Corte Planta Principal
+  if (s.includes('SOLICITAD') || s.includes('DESPACH') || s.includes('TRANSIT') || s.includes('CORTE') || s.includes('PLANTA')) {
     return 'SOLICITADO';
   }
 

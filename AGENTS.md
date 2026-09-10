@@ -16,12 +16,18 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
 
 ---
 
-## 2. Flujo de Estados y Trazabilidad (5 Etapas de Producción)
-1. **PRE_SOLICITUD**: Atelier / Corte (Corte de muestra textil y registro inicial).
-2. **SOLICITADO**: En Tránsito (Despacho desde Atelier hacia Lavandería ZF).
-3. **LAVANDERIA**: Lavandería Colfactory ZF (Proceso de lavado industrial, SLA máximo: 2 días hábiles).
-4. **CALIDAD**: Calidad Lab (Auditoría técnica, tono, estabilidad, SLA máximo: 1 día hábil).
-5. **FINALIZADO**: Liberado (Aprobado o Rechazado formalmente para producción).
+## 2. Flujo de Estados, Roles y Trazabilidad (5 Etapas de Producción)
+1. **Lógica Inmutable de Registro Inicial**:
+   - **Perfil Calidad / Planta Principal / Admin**: Toda nueva colcha creada por personal de Calidad o Planta Principal DEBE registrarse obligatoriamente en **`SOLICITADO`** (`TRÁNSITO / DESPACHO`). *Bajo ninguna circunstancia debe registrarse directamente en `CALIDAD`*, ya que la muestra física requiere ser lavada primero.
+   - **Perfil Zona Franca (Atelier ZF / Didier Muñoz / Sebastian Herrera / Calidad ZF)**: Toda nueva colcha creada por Atelier ZF DEBE registrarse obligatoriamente en **`PRE_SOLICITUD`** (`CALIDAD 2F / ATELIER`).
+2. **Recepción en Lavandería Colfactory ZF**:
+   - Tanto las OPs en `SOLICITADO` como en `PRE_SOLICITUD` están en espera de ser recibidas en planta de lavado.
+   - El personal de Lavandería (y Administrador) es el encargado de **"llamar esa OP y cargarla en Lavandería"**, pasando su estado a **`LAVANDERIA`** (SLA máximo: 2 días hábiles).
+3. **Paso a Calidad Laboratorio**:
+   - Una vez concluido el ciclo de lavado, Lavandería transfiere la OP hacia **`CALIDAD`** (`CALIDAD STF LABORATORIO`, SLA máximo: 1 día hábil).
+4. **Auditoría Técnica y Finalización**:
+   - En `CALIDAD`, los auditores técnicos evalúan la muestra (encogimiento, tono, revirado), ingresan el veredicto formal (`APROBADO` o `RECHAZADO`), la observación final de calidad y la Foto 2 (Post-Lavado).
+   - Al confirmar, la OP pasa a **`FINALIZADO`** (Liberado) y se activa la Fase 2 de etiqueta térmica.
 
 ---
 
