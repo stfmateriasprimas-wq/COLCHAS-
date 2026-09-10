@@ -271,10 +271,23 @@ export function App() {
       if (baseDatosData.length > 0) {
         // Exclude OPs that have been deleted by Edwin into history
         const activeOnly = baseDatosData.filter(item => !isOpDeleted(item.op));
-        setSolicitudes(activeOnly);
+
+        // Blindaje contra condición de carrera: asegurar que cualquier OP creada localmente nunca se pierda
+        const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
+        const mergedLive = [...activeOnly];
+        localOps.forEach(loc => {
+          const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
+          const exists = mergedLive.some(m => ((m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()) === cleanLocOp);
+          if (!exists) {
+            mergedLive.unshift(loc);
+          }
+        });
+
+        setSolicitudes(mergedLive);
+        saveCachedSolicitudes(mergedLive);
 
         // Sincronización automática de alertas activas hacia la página ALERTAS de Google Sheets
-        const delayedOps = activeOnly.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO');
+        const delayedOps = mergedLive.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO');
         if (delayedOps.length > 0) {
           syncAllAlertasToSheets(delayedOps);
         }
@@ -447,7 +460,11 @@ export function App() {
       // Save to persistent storage so it survives sync and reloads
       saveLocalCreatedOp(nueva);
       const cleanTarget = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
-      setSolicitudes(prev => [nueva, ...prev.filter(s => (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) !== cleanTarget)]);
+      setSolicitudes(prev => {
+        const nextList = [nueva, ...prev.filter(s => (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) !== cleanTarget)];
+        saveCachedSolicitudes(nextList);
+        return nextList;
+      });
 
       // Eliminar OP de la lista de Monitoreo en tiempo real (de 6 quedan 5)
       const cleanOpNumber = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
@@ -459,7 +476,17 @@ export function App() {
       deleteOrConsumeMonitoreoOpFromSheets(nueva.op).catch(() => {});
 
       // Sincronización en vivo hacia Google Sheets & Drive (Página BASE_DE_DATOS) en segundo plano
-      pushSolicitudToSheets(nueva).catch(err => {
+      pushSolicitudToSheets(nueva).then(res => {
+        if (res && res.driveUrl) {
+          updateLocalOpPhoto(nueva.op, res.driveUrl, false);
+          setSolicitudes(prev => prev.map(s => {
+            if ((s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) === cleanTarget) {
+              return { ...s, fotoMuestraUrl: res.driveUrl };
+            }
+            return s;
+          }));
+        }
+      }).catch(err => {
         console.warn('Error sincronizando nueva solicitud con Google Sheets:', err);
       });
 
@@ -509,10 +536,9 @@ export function App() {
         };
 
         if (nuevaObservacion) {
-          if (nuevoEstado === 'LAVANDERIA' || item.estado === 'LAVANDERIA') {
+          if (item.estado === 'LAVANDERIA' || nuevoEstado === 'LAVANDERIA') {
             updated.observacionesLavanderia = nuevaObservacion;
-          }
-          if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CALIDAD') {
+          } else if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CALIDAD') {
             updated.observacionesCalidad = nuevaObservacion;
           }
         }
@@ -556,7 +582,17 @@ export function App() {
         const localOps = getLocalCreatedOps();
         const localMatch = localOps.find(l => l.id === solicitudId || l.op.replace(/\D/g, '') === opNumber.replace(/\D/g, ''));
         const photoToSend = fotoCalidad || targetItem?.fotoCalidadUrl || localMatch?.fotoCalidadUrl;
-        await pushDictamenToSheets(opNumber, dictamen, currentUser?.nombre || 'AUDITOR STF', nuevaObservacion, photoToSend);
+        const colObsToSend = targetItem?.observacionesLavanderia || localMatch?.observacionesLavanderia || '';
+        const dictRes = await pushDictamenToSheets(opNumber, dictamen, currentUser?.nombre || 'AUDITOR STF', nuevaObservacion, photoToSend, colObsToSend);
+        if (dictRes && dictRes.driveUrl) {
+          updateLocalOpPhoto(opNumber, dictRes.driveUrl, true);
+          setSolicitudes(prev => prev.map(s => {
+            if (s.id === solicitudId || (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) === (opNumber.replace(/\D/g, '') || opNumber.trim().toUpperCase())) {
+              return { ...s, fotoCalidadUrl: dictRes.driveUrl };
+            }
+            return s;
+          }));
+        }
       }
 
       // Automatización: Abrir de inmediato el modal de impresión de la etiqueta final (Fase 2 / Finalizado)
@@ -575,7 +611,17 @@ export function App() {
     } else {
       notificationService.playAlertSound('TRANSFERENCIA');
       if (opNumber) {
-        await pushTransferToSheets(opNumber, nuevoEstado, currentUser?.nombre || 'OPERARIO STF', nuevaObservacion);
+        const isFromLav = targetItem?.estado === 'LAVANDERIA';
+        const isToLav = nuevoEstado === 'LAVANDERIA';
+        const colObs = (isFromLav || isToLav) ? nuevaObservacion : targetItem?.observacionesLavanderia;
+        await pushTransferToSheets(
+          opNumber, 
+          nuevoEstado, 
+          currentUser?.nombre || 'OPERARIO STF', 
+          nuevaObservacion,
+          targetItem?.estado,
+          colObs
+        );
       }
     }
   };

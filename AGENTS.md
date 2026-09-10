@@ -49,18 +49,24 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
 
 ---
 
-## 4. Arquitectura de Evidencias Fotográficas y Compatibilidad Móvil (iOS / Safari / Android)
-- **Columna 12 en `BASE_DE_DATOS`**: Almacena ambas fotos unificadas mediante el separador ` | ` (`foto1 | foto2`).
+## 4. Arquitectura de Evidencias Fotográficas y Almacenamiento en Google Drive
+- **Estructura Jerárquica en Google Drive**:
+  - Carpeta Raíz: `STF_COLCHAS_EVIDENCIAS/` (en la cuenta oficial o carpeta contenedora de Drive).
+  - Carpetas Mensuales: `YYYY-MM - MES/` (ej. `2026-09 - SEPTIEMBRE/`).
+  - Subcarpetas por OP: `OP-XXXXX/` (ej. `OP-00096156/`).
+  - Archivos: `OP-XXXXX_MUESTRA_INICIAL.jpg` (Pre-Solicitud) y `OP-XXXXX_POST_LAVADO_CALIDAD.jpg` (Auditoría Calidad).
+  - Permisos: Lectura pública por enlace (`ANYONE_WITH_LINK, VIEW`) para acceso móvil instantáneo sin login.
+- **Columna M (13) en `BASE_DE_DATOS`**: Almacena los enlaces oficiales de Google Drive unificados mediante el separador ` | ` (`linkDriveFoto1 | linkDriveFoto2`).
 - **Reparación Automática (`repairBase64Jpeg`)**:
   - Si una foto en Base64 fue cortada por límites de celda en Google Sheets perdiendo su marcador `\xFF\xD9`, el frontend la repara de inmediato anexando el marcador de fin de archivo JPEG.
   - Esto previene el icono de imagen rota `[?]` en Safari de iOS (iPhone).
 - **Compresión Adaptativa en Cliente (`compressImageFile`)**:
   - Dimensiones máximas: 440px, calidad: 0.42.
-  - Se garantiza que cualquier foto tomada desde la cámara pese < 14 KB (< 18.500 caracteres Base64) para que quepan 2 fotos completas en una sola celda sin truncamiento.
+  - Se garantiza que cualquier foto tomada desde la cámara pese < 14 KB (< 18.500 caracteres Base64) para carga ultra-veloz.
 - **Visor de Fotos (`SmartPhotoDisplay.tsx`)**:
   - **PROHIBIDO usar `crossOrigin="anonymous"` en `<img>`**: Evita que Safari bloquee imágenes por CORS en redes celulares (4G/5G).
   - Siempre usar `referrerPolicy="no-referrer"`, `loading="eager"` y `decoding="async"`.
-  - Detección de dimensiones nulas (`naturalWidth === 0`) para reintentar con miniaturas de Google Drive (`sz=w1000`).
+  - Conversión inteligente de enlaces Drive a miniaturas CDN ultra-rápidas (`thumbnail?id=...&sz=w1000` y `lh3.googleusercontent.com`).
 
 ---
 

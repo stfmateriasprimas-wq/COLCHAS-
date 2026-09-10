@@ -85,6 +85,15 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
   const delaysCal = solicitudes.filter(s => s.estado === 'CALIDAD' && s.tieneRetraso).length;
   const alertCount = solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length;
 
+  // Detectar si hay una OP creada recientemente en la sesión local que está en otra etapa distinta a la activa
+  const recentlyCreatedOp = solicitudes.find(s => s.id && s.id.startsWith('colcha-')) || (solicitudes.length > 0 ? solicitudes[0] : undefined);
+  const isRecentOpInOtherStage = Boolean(
+    recentlyCreatedOp && 
+    selectedStage !== 'ALL' && 
+    selectedStage !== 'EN_PROCESO' && 
+    recentlyCreatedOp.estado !== selectedStage
+  );
+
   /**
    * Helper de Búsqueda Inteligente Multicriterio (Bloque 1)
    * Detecta coincidencias por OP, REFERENCIA, NOMBRE DE TELA, COLOR, FECHA, MT/ROLLOS, INSPECTOR
@@ -218,6 +227,31 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         totalHistorico={metrics.totalHistorico}
         alertCount={alertCount}
       />
+
+      {/* 1.5. BANNER DE SOLICITUD RECIENTE EN OTRA ETAPA */}
+      {isRecentOpInOtherStage && recentlyCreatedOp && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-purple-500/15 to-emerald-500/15 border border-amber-500/50 rounded-2xl p-3.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300 shadow-xl">
+          <div className="flex items-center gap-3">
+            <span className="text-lg sm:text-xl shrink-0">📌</span>
+            <div className="text-xs">
+              <p className="font-bold text-white">
+                Solicitud reciente <span className="font-mono font-black text-amber-400">{recentlyCreatedOp.op}</span> ({recentlyCreatedOp.tela}) registrada en etapa <span className="font-mono font-black text-emerald-400 uppercase px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/40">{recentlyCreatedOp.estado}</span>
+              </p>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Actualmente estás filtrando por <span className="font-bold text-white uppercase">{selectedStage}</span>. Haz clic para verla de inmediato.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedStage(recentlyCreatedOp.estado)}
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-mono font-black text-xs rounded-xl transition cursor-pointer shrink-0 shadow-md flex items-center gap-1"
+          >
+            <span>Ver en {recentlyCreatedOp.estado}</span>
+            <span>➔</span>
+          </button>
+        </div>
+      )}
 
       {/* 2. SEARCH BAR & SORT SELECTOR (BLOQUES 1 Y 2) */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 relative z-30" ref={searchContainerRef}>
@@ -566,8 +600,48 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
       {/* 4. OP CARDS LIST */}
       <div className="space-y-4">
         {filteredList.length === 0 ? (
-          <div className="bg-white dark:bg-black/80 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-12 text-center text-zinc-500 text-xs shadow-xs">
-            No se encontraron órdenes de producción en la sección seleccionada ({selectedStage}).
+          <div className="bg-[#0c1017] dark:bg-black/80 border border-zinc-800 dark:border-zinc-800 rounded-3xl p-8 sm:p-12 text-center text-zinc-400 text-xs shadow-xl space-y-4">
+            <p className="text-sm font-semibold text-zinc-300">
+              No se encontraron órdenes de producción en la sección seleccionada ({selectedStage}).
+            </p>
+            <div className="flex items-center justify-center gap-2 flex-wrap pt-1">
+              {selectedStage !== 'EN_PROCESO' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedStage('EN_PROCESO')}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs rounded-xl transition cursor-pointer shadow-md"
+                >
+                  ⚡ Ver Todas en Proceso ({metrics.totalEnProceso})
+                </button>
+              )}
+              {selectedStage !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedStage('ALL')}
+                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white font-mono font-bold text-xs rounded-xl transition cursor-pointer border border-zinc-700"
+                >
+                  📊 Ver Total Histórico ({metrics.totalHistorico})
+                </button>
+              )}
+              {selectedStage !== 'SOLICITADO' && metrics.solicitados > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedStage('SOLICITADO')}
+                  className="px-3.5 py-2 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 font-mono font-bold text-xs rounded-xl transition cursor-pointer border border-amber-500/40"
+                >
+                  📦 Solicitados ({metrics.solicitados})
+                </button>
+              )}
+              {selectedStage !== 'CALIDAD' && metrics.calidad > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedStage('CALIDAD')}
+                  className="px-3.5 py-2 bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 font-mono font-bold text-xs rounded-xl transition cursor-pointer border border-purple-500/40"
+                >
+                  🔬 Calidad ({metrics.calidad})
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           filteredList.map(colcha => (

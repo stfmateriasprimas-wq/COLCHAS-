@@ -512,6 +512,15 @@ export function saveLocalCreatedOp(newOp: SolicitudColcha): void {
     const filtered = current.filter(o => o.id !== newOp.id && (o.op.replace(/\D/g, '') || o.op.trim().toUpperCase()) !== cleanTargetOp);
     localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify([newOp, ...filtered]));
     localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify([newOp, ...filtered]));
+
+    // Sincronizar inmediatamente la caché local para evitar cualquier borrado por condición de carrera
+    try {
+      const cached = getCachedSolicitudes();
+      const updatedCache = [newOp, ...cached.filter(c => (c.op.replace(/\D/g, '') || c.op.trim().toUpperCase()) !== cleanTargetOp)];
+      saveCachedSolicitudes(updatedCache);
+    } catch (e) {
+      console.warn('Error syncing cache in saveLocalCreatedOp:', e);
+    }
   }
 }
 
@@ -1049,7 +1058,32 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           });
 
           if (parsedList.length > 0) {
-            const finalActive = parsedList.filter(item => !isOpDeleted(item.op));
+            const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
+            const merged = [...parsedList];
+            localOps.forEach(loc => {
+              const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
+              const remoteIdx = merged.findIndex(m => {
+                const cleanRemoteOp = (m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase();
+                return cleanRemoteOp === cleanLocOp;
+              });
+
+              if (remoteIdx === -1) {
+                merged.unshift(loc);
+              } else {
+                const remote = merged[remoteIdx];
+                merged[remoteIdx] = {
+                  ...remote,
+                  id: (loc.id && loc.id.startsWith('colcha-')) ? loc.id : remote.id,
+                  fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
+                  fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
+                  observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad,
+                  estado: loc.fechaActualizacion ? loc.estado : (loc.estado || remote.estado),
+                  areaActual: loc.fechaActualizacion ? loc.areaActual : (loc.areaActual || remote.areaActual),
+                  dictamen: loc.fechaActualizacion && loc.dictamen ? loc.dictamen : remote.dictamen
+                };
+              }
+            });
+            const finalActive = merged.filter(item => !isOpDeleted(item.op));
             saveCachedSolicitudes(finalActive);
             return finalActive;
           }
@@ -1060,8 +1094,17 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
     }
   }
 
-  // 4. RETORNO DE SEGURIDAD DESDE CACHE O CONSTANTES MAESTRAS
-  return getCachedSolicitudes();
+  // 4. RETORNO DE SEGURIDAD DESDE CACHE O CONSTANTES MAESTRAS (Fusionando localOps)
+  const cachedList = getCachedSolicitudes();
+  const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
+  if (localOps.length === 0) return cachedList;
+  const mergedFallback = [...cachedList];
+  localOps.forEach(loc => {
+    const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
+    const exists = mergedFallback.some(m => ((m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()) === cleanLocOp);
+    if (!exists) mergedFallback.unshift(loc);
+  });
+  return mergedFallback.filter(item => !isOpDeleted(item.op));
 }
 
 /**
@@ -1235,7 +1278,7 @@ export async function deleteOrConsumeMonitoreoOp(op: string): Promise<void> {
  * =========================================================================
  */
 
-export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & { imageBase64?: string }): Promise<{ success: boolean; message: string; driveUrl?: string }> {
+export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & { imageBase64?: string }): Promise<{ success: boolean; message: string; driveUrl?: string; folderUrl?: string }> {
   const now = new Date();
   const d = now.getDate();
   const m = now.getMonth() + 1;
@@ -1279,8 +1322,8 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     cleanObsColfactory = '';
   }
 
-  // Columna M: vacía según especificación
-  const evidenciaDrive = '';
+  // Columna M: enlace oficial de Google Drive si ya es URL remota, o vacío si es Base64 (Apps Script generará el enlace de Drive)
+  const evidenciaDrive = (payload.fotoMuestraUrl && payload.fotoMuestraUrl.startsWith('http')) ? payload.fotoMuestraUrl : '';
 
   const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')
     ? window.location.origin
@@ -1338,10 +1381,14 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     appUrl: `${origin}/?op=${encodeURIComponent(formattedOp)}&view=public`
   });
 
+  const driveUrl = res.data?.driveUrl || (typeof (res as any).driveUrl === 'string' ? (res as any).driveUrl : undefined);
+  const folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
+
   return {
     success: res.success,
     message: res.message || 'Solicitud guardada en Google Sheets (BASE_DE_DATOS)',
-    driveUrl: res.data ? res.data.driveUrl : undefined
+    driveUrl,
+    folderUrl
   };
 }
 
@@ -1369,11 +1416,63 @@ export async function sendOpEmailNotification(
   };
 }
 
+/**
+ * Actualiza de forma directa la Observación de Lavandería (Columna L: OBSERVACIÓN COLFACTORY)
+ * en Google Sheets BASE_DE_DATOS y en el almacenamiento local.
+ */
+export async function pushColfactoryObservationToSheets(
+  op: string, 
+  observacionColfactory: string
+): Promise<{ success: boolean; message: string }> {
+  const formattedOp = formatOpCode(op);
+  const cleanObs = (observacionColfactory || '').trim();
+
+  // 1. Persistencia local inmediata (offline first)
+  if (typeof window !== 'undefined') {
+    const cleanTarget = formattedOp.replace(/\D/g, '') || formattedOp;
+    const current = getLocalCreatedOps();
+    const updated = current.map(item => {
+      const cleanItemOp = item.op.replace(/\D/g, '') || item.op.trim().toUpperCase();
+      if (cleanItemOp === cleanTarget || item.op === formattedOp) {
+        return {
+          ...item,
+          observacionesLavanderia: cleanObs,
+          fechaActualizacion: new Date().toISOString()
+        };
+      }
+      return item;
+    });
+    localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify(updated));
+  }
+
+  // 2. Enviar a Google Apps Script para impactar directamente en Columna L (12)
+  const res = await sendAppsScriptPost('UPDATE_COLFACTORY_OBS', {
+    op: formattedOp,
+    observacionColfactory: cleanObs,
+    observacionesLavanderia: cleanObs,
+    observacion: cleanObs
+  });
+
+  // Fallback con TRANSFER_OP si el Apps Script requiriera compatibilidad
+  if (!res.success) {
+    return await sendAppsScriptPost('TRANSFER_OP', {
+      op: formattedOp,
+      observacionColfactory: cleanObs,
+      observacionesLavanderia: cleanObs,
+      observaciones: cleanObs
+    });
+  }
+
+  return res;
+}
+
 export async function pushTransferToSheets(
   op: string, 
   nuevoEstado: string, 
   nuevoInspector: string, 
-  observaciones?: string
+  observaciones?: string,
+  estadoAnterior?: string,
+  observacionColfactory?: string
 ): Promise<{ success: boolean; message: string }> {
   const estadoFormateado = nuevoEstado === 'PRE_SOLICITUD' ? 'PRE-SOLICITUD' : nuevoEstado;
   const formattedOp = formatOpCode(op);
@@ -1383,13 +1482,18 @@ export async function pushTransferToSheets(
   const isReceipt = cleanObs.toLowerCase().includes('colcha recibida') || cleanObs.includes('[LAVANDERIA]');
   const realCustomObs = isReceipt ? '' : cleanObs;
 
+  const isFromOrToLav = (estadoAnterior === 'LAVANDERIA' || nuevoEstado === 'LAVANDERIA');
+  const colObsToSend = observacionColfactory || (isFromOrToLav && realCustomObs ? realCustomObs : undefined);
+
   return await sendAppsScriptPost('TRANSFER_OP', { 
     op: formattedOp, 
     nuevoEstado: estadoFormateado, 
     estado: estadoFormateado,
+    estadoAnterior: estadoAnterior,
     observaciones: realCustomObs,
-    observacionColfactory: (nuevoEstado === 'LAVANDERIA' && realCustomObs) ? realCustomObs : undefined,
-    obsOperarioFinal: ((nuevoEstado === 'CALIDAD' || nuevoEstado === 'FINALIZADO') && realCustomObs) ? realCustomObs : undefined
+    observacionColfactory: colObsToSend,
+    observacionesLavanderia: colObsToSend,
+    obsOperarioFinal: (nuevoEstado === 'FINALIZADO' && !isFromOrToLav && realCustomObs) ? realCustomObs : undefined
   });
 }
 
@@ -1398,8 +1502,9 @@ export async function pushDictamenToSheets(
   dictamen: DictamenType, 
   inspector: string, 
   observacionesTecnicas?: string,
-  fotoCalidad?: string
-): Promise<{ success: boolean; message: string }> {
+  fotoCalidad?: string,
+  observacionColfactory?: string
+): Promise<{ success: boolean; message: string; driveUrl?: string; folderUrl?: string }> {
   const formattedOp = formatOpCode(op);
   let cleanObs = observacionesTecnicas || '';
   if (cleanObs.includes('[DICTAMEN:')) {
@@ -1414,42 +1519,65 @@ export async function pushDictamenToSheets(
     inspector: inspector,
     observacionesTecnicas: cleanObs,
     obsOperarioFinal: cleanObs,
+    observacionColfactory: observacionColfactory || undefined,
+    observacionesLavanderia: observacionColfactory || undefined,
     veredicto: dictamen,
     fotoCalidadUrl: fotoCalidad,
     fotoCalidad: fotoCalidad
   });
 
-  if (fotoCalidad) {
+  let driveUrl = res.data?.driveUrl || (typeof (res as any).driveUrl === 'string' ? (res as any).driveUrl : undefined);
+  let folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
+
+  if (fotoCalidad && (!driveUrl || fotoCalidad.startsWith('data:'))) {
     try {
-      await sendAppsScriptPost('UPDATE_OP_PHOTO', {
+      const photoRes = await sendAppsScriptPost('UPDATE_OP_PHOTO', {
         op: formattedOp,
+        imageBase64: fotoCalidad.startsWith('data:') ? fotoCalidad : undefined,
         fotoCalidadUrl: fotoCalidad,
         fotoCalidad: fotoCalidad,
+        observacionColfactory: observacionColfactory || undefined,
+        observacionesLavanderia: observacionColfactory || undefined,
         isCalidad: true
       });
+      if (photoRes.data?.driveUrl || (photoRes as any).driveUrl) {
+        driveUrl = photoRes.data?.driveUrl || (photoRes as any).driveUrl;
+      }
+      if (photoRes.data?.folderUrl || (photoRes as any).folderUrl) {
+        folderUrl = photoRes.data?.folderUrl || (photoRes as any).folderUrl;
+      }
     } catch (photoErr) {
       console.warn('Redundant photo update caught:', photoErr);
     }
   }
 
-  return res;
+  return {
+    ...res,
+    driveUrl,
+    folderUrl
+  };
 }
 
 export async function pushOpPhotoToSheets(
   op: string, 
   photoUrl: string,
   isCalidad: boolean = false
-): Promise<{ success: boolean; message: string; driveUrl?: string }> {
+): Promise<{ success: boolean; message: string; driveUrl?: string; folderUrl?: string }> {
+  const formattedOp = formatOpCode(op);
   const res = await sendAppsScriptPost('UPDATE_OP_PHOTO', { 
-    op, 
-    fotoMuestraUrl: photoUrl,
-    fotoCalidadUrl: photoUrl,
+    op: formattedOp, 
+    imageBase64: photoUrl.startsWith('data:') ? photoUrl : undefined,
+    fotoMuestraUrl: !isCalidad ? photoUrl : undefined,
+    fotoCalidadUrl: isCalidad ? photoUrl : undefined,
     isCalidad
   });
+  const driveUrl = res.data?.driveUrl || (typeof (res as any).driveUrl === 'string' ? (res as any).driveUrl : undefined);
+  const folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
   return {
     success: res.success,
-    message: res.message || 'Fotografía sincronizada correctamente con Google Sheets',
-    driveUrl: res.data ? res.data.driveUrl : undefined
+    message: res.message || 'Fotografía sincronizada correctamente con Google Sheets y archivada en Drive',
+    driveUrl,
+    folderUrl
   };
 }
 

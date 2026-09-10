@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ImageIcon, Maximize2, ExternalLink, RefreshCw } from 'lucide-react';
+import { ImageIcon, Maximize2, ExternalLink, RefreshCw, FolderOpen } from 'lucide-react';
 import { repairBase64Jpeg } from '../../services/googleSheetsService';
 
 interface SmartPhotoDisplayProps {
@@ -30,30 +30,35 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
   const [hasFailedAll, setHasFailedAll] = useState<boolean>(false);
 
   // Extract candidate URLs from rawUrl
-  const { candidates, driveId, isDrive } = useMemo(() => {
+  const { candidates, driveId, isDrive, isFolder, folderUrl } = useMemo(() => {
     if (!rawUrl || typeof rawUrl !== 'string') {
-      return { candidates: [] as string[], driveId: null, isDrive: false };
+      return { candidates: [] as string[], driveId: null, isDrive: false, isFolder: false, folderUrl: '' };
     }
 
     const str = rawUrl.trim();
     if (!str) {
-      return { candidates: [] as string[], driveId: null, isDrive: false };
+      return { candidates: [] as string[], driveId: null, isDrive: false, isFolder: false, folderUrl: '' };
     }
 
-    // 1. Data URLs or local blobs (reparar JPEG si está truncado por límites de celda)
+    // 1. Google Drive Folder Link (carpeta oficial de la OP con ambas fotos)
+    if (str.includes('/folders/')) {
+      return { candidates: [] as string[], driveId: null, isDrive: true, isFolder: true, folderUrl: str };
+    }
+
+    // 2. Data URLs or local blobs (reparar JPEG si está truncado por límites de celda)
     if (str.startsWith('data:image/') || str.startsWith('blob:')) {
       const repaired = repairBase64Jpeg(str) || str;
-      return { candidates: [repaired], driveId: null, isDrive: false };
+      return { candidates: [repaired], driveId: null, isDrive: false, isFolder: false, folderUrl: '' };
     }
 
-    // 2. Base64 strings without MIME prefix
+    // 3. Base64 strings without MIME prefix
     if (str.length > 50 && (str.startsWith('/9j/') || str.startsWith('iVBORw0KGgo') || str.startsWith('R0lGOD') || str.startsWith('UklGR') || str.startsWith('AAAA'))) {
       const fullB64 = `data:image/jpeg;base64,${str}`;
       const repaired = repairBase64Jpeg(fullB64) || fullB64;
-      return { candidates: [repaired], driveId: null, isDrive: false };
+      return { candidates: [repaired], driveId: null, isDrive: false, isFolder: false, folderUrl: '' };
     }
 
-    // 3. Google Drive / Google UserContent links
+    // 4. Google Drive / Google UserContent direct file links
     if (str.includes('drive.google.com') || str.includes('googleusercontent.com')) {
       const match = str.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
                     str.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
@@ -69,17 +74,19 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
             'https://docs.google.com/uc?export=download&id=' + id
           ],
           driveId: id,
-          isDrive: true
+          isDrive: true,
+          isFolder: false,
+          folderUrl: ''
         };
       }
     }
 
-    // 4. Standard HTTP/HTTPS URLs
+    // 5. Standard HTTP/HTTPS URLs
     if (str.startsWith('http://') || str.startsWith('https://')) {
-      return { candidates: [str], driveId: null, isDrive: false };
+      return { candidates: [str], driveId: null, isDrive: false, isFolder: false, folderUrl: '' };
     }
 
-    return { candidates: [] as string[], driveId: null, isDrive: false };
+    return { candidates: [] as string[], driveId: null, isDrive: false, isFolder: false, folderUrl: '' };
   }, [rawUrl]);
 
   // Reset state when rawUrl changes
@@ -104,7 +111,6 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
-    // En WebKit/iOS Safari, una imagen con decodificación corrupta puede disparar 'load' con dimensiones 0x0
     if (img.naturalWidth === 0 || img.naturalHeight === 0) {
       handleImageError();
       return;
@@ -130,6 +136,29 @@ export const SmartPhotoDisplay: React.FC<SmartPhotoDisplayProps> = ({
       border: 'border-amber-500/30'
     }
   }[accentColor];
+
+  if (isFolder && folderUrl) {
+    return (
+      <div className={`h-44 sm:h-52 rounded-2xl bg-zinc-950 dark:bg-zinc-100 border border-indigo-500/30 dark:border-indigo-400/40 p-3 flex flex-col items-center justify-center text-center shadow-inner space-y-2.5 ${className}`}>
+        <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 dark:bg-indigo-100 flex items-center justify-center text-indigo-400 dark:text-indigo-600">
+          <FolderOpen className="w-5 h-5" />
+        </div>
+        <div className="space-y-0.5">
+          <span className="text-[11px] font-bold text-white dark:text-zinc-950 font-mono block">Carpeta de la OP en Drive</span>
+          <span className="text-[9px] text-zinc-400 dark:text-zinc-600 font-mono block">Ambas fotos archivadas</span>
+        </div>
+        <a
+          href={folderUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold font-mono transition shadow-md cursor-pointer"
+        >
+          <span>Abrir en Google Drive</span>
+          <ExternalLink className="w-3 h-3" />
+        </a>
+      </div>
+    );
+  }
 
   if (!candidates || candidates.length === 0) {
     return (

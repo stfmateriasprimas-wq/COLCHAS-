@@ -1,13 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Eye, Printer, ArrowRight, Camera, Calendar, Clock, Trash2, 
   CheckCircle2, RotateCcw, Droplets, Upload, Check, X, Microscope, 
-  Lock, AlertCircle, AlertTriangle, Layers, Sparkles 
+  Lock, AlertCircle, AlertTriangle, Layers, Sparkles, Save, RefreshCw 
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser, isEdiazUser } from '../../services/authService';
-import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto } from '../../services/googleSheetsService';
+import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, pushColfactoryObservationToSheets } from '../../services/googleSheetsService';
 
 interface SolicitudCardProps {
   solicitud: SolicitudColcha;
@@ -129,7 +129,30 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const cardId = `op-card-${solicitud.op.replace(/\D/g, '') || solicitud.op}`;
 
   // Estado local para Gestión Lavandería
-  const [notasLavado, setNotasLavado] = useState('');
+  const [notasLavado, setNotasLavado] = useState(solicitud.observacionesLavanderia || '');
+  const [isSavingLavado, setIsSavingLavado] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+
+  useEffect(() => {
+    if (solicitud.observacionesLavanderia !== undefined) {
+      setNotasLavado(solicitud.observacionesLavanderia || '');
+    }
+  }, [solicitud.observacionesLavanderia]);
+
+  // Guardar Observación de Lavandería en Columna L de forma instantánea
+  const handleGuardarObservacionLavado = async (textoAGuardar?: string) => {
+    const obs = (textoAGuardar !== undefined ? textoAGuardar : notasLavado).trim();
+    setIsSavingLavado(true);
+    try {
+      await pushColfactoryObservationToSheets(solicitud.op, obs);
+      setSaveSuccessMsg('Guardado en Columna L (Sheets)');
+      setTimeout(() => setSaveSuccessMsg(''), 3500);
+    } catch (err) {
+      console.error('Error al guardar observación en Columna L:', err);
+    } finally {
+      setIsSavingLavado(false);
+    }
+  };
 
   // Estado local para Control de Calidad (STF)
   const [veredictoLocal, setVeredictoLocal] = useState<'APROBADO' | 'RECHAZADO' | ''>('');
@@ -155,8 +178,13 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const returnStage: SectorType = origenIsZF ? 'PRE_SOLICITUD' : 'SOLICITADO';
   const returnStageLabel = origenIsZF ? 'PRE-SOLICITUD (ZONA FRANCA / ATELIER)' : 'SOLICITADOS (PLANTA PRINCIPAL)';
 
-  const handleEnviarCalidad = () => {
+  const handleEnviarCalidad = async () => {
     const obs = notasLavado.trim();
+    // Garantizar guardado en Columna L antes de transferir
+    try {
+      await pushColfactoryObservationToSheets(solicitud.op, obs || 'Muestra procesada en Lavandería Colfactory ZF');
+    } catch (e) {}
+
     if (onDirectTransfer) {
       onDirectTransfer(solicitud.id, 'CALIDAD', obs || 'Muestra procesada en Lavandería Colfactory ZF');
     } else {
@@ -554,7 +582,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   <span>OBSERVACIONES DE ENVÍO Y PROCESO</span>
                 </label>
                 
-                {/* Quick tags */}
+                {/* Quick tags con auto-guardado en Columna L */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[9.5px] text-zinc-400 dark:text-zinc-500 font-mono">Sugeridos:</span>
                   {[
@@ -567,7 +595,9 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                       key={tag}
                       type="button"
                       onClick={() => {
-                        setNotasLavado(prev => prev ? `${prev} • ${tag}` : tag);
+                        const nextVal = notasLavado ? `${notasLavado} • ${tag}` : tag;
+                        setNotasLavado(nextVal);
+                        handleGuardarObservacionLavado(nextVal);
                       }}
                       className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-lg bg-zinc-900/90 hover:bg-sky-950 text-zinc-300 hover:text-sky-300 dark:bg-zinc-100 dark:hover:bg-sky-100 dark:text-zinc-700 dark:hover:text-sky-800 border border-zinc-700/80 hover:border-sky-500/50 transition cursor-pointer"
                     >
@@ -580,10 +610,41 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               <textarea
                 value={notasLavado}
                 onChange={(e) => setNotasLavado(e.target.value)}
+                onBlur={() => handleGuardarObservacionLavado()}
                 rows={2}
                 placeholder="Describa el proceso técnico realizado, formulación o novedades..."
                 className="w-full bg-zinc-950/90 dark:bg-white border-2 border-zinc-800 dark:border-zinc-300 rounded-2xl p-3.5 text-xs text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none focus:border-sky-500 transition font-mono shadow-inner"
               />
+
+              {/* Botón de Guardado Directo en Columna L & Confirmación Visual */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => handleGuardarObservacionLavado()}
+                  disabled={isSavingLavado}
+                  className="inline-flex items-center gap-1.5 text-[10.5px] font-mono font-bold px-3 py-1.5 rounded-xl bg-sky-950/90 hover:bg-sky-900 text-sky-300 hover:text-sky-100 border border-sky-500/50 hover:border-sky-400 transition cursor-pointer active:scale-95 shadow-xs disabled:opacity-50"
+                  title="Guardar de inmediato esta observación en la Columna L (OBSERVACIÓN COLFACTORY) de Google Sheets"
+                >
+                  {isSavingLavado ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                      <span>Guardando en Columna L...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5 text-sky-400" />
+                      <span>💾 GUARDAR EN COLUMNA L (COLFACTORY)</span>
+                    </>
+                  )}
+                </button>
+
+                {saveSuccessMsg && (
+                  <span className="text-[11px] font-mono text-emerald-400 dark:text-emerald-600 flex items-center gap-1 font-bold animate-pulse">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{saveSuccessMsg}</span>
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Action Buttons: Enviar a Calidad & Devolver (Error) */}

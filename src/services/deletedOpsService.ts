@@ -65,17 +65,18 @@ export function isOpDeleted(opNumber?: string | null): boolean {
   const clean = String(opNumber).replace(/^OP-+/i, '').trim().toUpperCase();
   const digits = String(opNumber).replace(/\D/g, '');
   const rawClean = String(opNumber).trim().toUpperCase();
+  const numVal = digits ? parseInt(digits, 10) : null;
   const deletedHistory = getDeletedOpsHistory();
   return deletedHistory.some(item => {
     const itemRaw = (item.op || '').trim().toUpperCase();
     const itemClean = (item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
     const itemDigits = (item.op || '').replace(/\D/g, '');
+    const itemNum = itemDigits ? parseInt(itemDigits, 10) : null;
     return (
       itemRaw === rawClean ||
       (clean !== '' && itemClean === clean) ||
       (digits !== '' && itemDigits === digits) ||
-      (itemDigits !== '' && rawClean.includes(itemDigits)) ||
-      (digits !== '' && itemRaw.includes(digits))
+      (numVal !== null && itemNum !== null && numVal === itemNum)
     );
   });
 }
@@ -85,14 +86,17 @@ export function unmarkOpAsDeleted(opNumber?: string | null): void {
   const clean = String(opNumber).replace(/^OP-+/i, '').trim().toUpperCase();
   const digits = String(opNumber).replace(/\D/g, '');
   const rawClean = String(opNumber).trim().toUpperCase();
+  const numVal = digits ? parseInt(digits, 10) : null;
   const history = getDeletedOpsHistory();
   const filtered = history.filter(item => {
     const itemRaw = (item.op || '').trim().toUpperCase();
     const itemClean = (item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
     const itemDigits = (item.op || '').replace(/\D/g, '');
+    const itemNum = itemDigits ? parseInt(itemDigits, 10) : null;
     const isMatch = itemRaw === rawClean ||
                     (clean !== '' && itemClean === clean) ||
-                    (digits !== '' && itemDigits === digits);
+                    (digits !== '' && itemDigits === digits) ||
+                    (numVal !== null && itemNum !== null && numVal === itemNum);
     return !isMatch;
   });
   if (filtered.length !== history.length) {

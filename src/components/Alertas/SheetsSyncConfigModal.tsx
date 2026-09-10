@@ -42,7 +42,8 @@ var SPREADSHEET_ID = "${SPREADSHEET_ID}";
 var SHEET_BASE_DATOS = "BASE_DE_DATOS";
 var SHEET_MONITOREO = "MONITOREO";
 var SHEET_ALERTAS = "ALERTAS";
-var DRIVE_FOLDER_NAME = "EVIDENCIAS_COLCHAS_STF";
+var DRIVE_FOLDER_NAME = "STF_COLCHAS_EVIDENCIAS";
+var TARGET_DRIVE_SPREADSHEET_OR_FOLDER_ID = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms";
 
 function doGet(e) {
   try {
@@ -90,6 +91,25 @@ function doPost(e) {
     var payload = body.payload || body;
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
+    // 0. ACTUALIZACIÓN DIRECTA DE OBSERVACIÓN DE LAVANDERÍA (COLUMNA L - OBSERVACIÓN COLFACTORY)
+    if (action === "UPDATE_COLFACTORY_OBS" || action === "UPDATE_LAVANDERIA_OBS") {
+      var sh = ss.getSheetByName(SHEET_BASE_DATOS);
+      if (!sh) return jsonOutput({ status: "error", message: "Hoja BASE_DE_DATOS no existe" });
+      var targetOp = String(payload.op || "").trim().toUpperCase().replace("OP-", "");
+      var obsCol = String(payload.observacionColfactory || payload.observacionesLavanderia || payload.observaciones || "").trim();
+      var lastRow = sh.getLastRow();
+      if (lastRow > 1) {
+        var opVals = sh.getRange(2, 6, lastRow - 1, 1).getValues();
+        for (var i = 0; i < opVals.length; i++) {
+          if (String(opVals[i][0] || "").trim().toUpperCase().replace("OP-", "") === targetOp) {
+            sh.getRange(i + 2, 12).setValue(obsCol);
+            return jsonOutput({ status: "success", message: "Observación Colfactory guardada en Columna L" });
+          }
+        }
+      }
+      return jsonOutput({ status: "error", message: "OP no encontrada" });
+    }
+
     // 1. TRASLADO Y CAMBIO DE ESTADO DE OP (COLUMNA J - ESTADO)
     if (action === "TRANSFER_OP") {
       var sh = ss.getSheetByName(SHEET_BASE_DATOS);
@@ -98,7 +118,7 @@ function doPost(e) {
       var targetOp = String(payload.op || "").trim().toUpperCase().replace("OP-", "");
       var nuevoEstado = String(payload.nuevoEstado || payload.estado || "LAVANDERIA").trim();
       var nuevoInspector = String(payload.nuevoInspector || payload.inspector || "").trim();
-      var obs = String(payload.observaciones || payload.observacionColfactory || payload.obsOperarioFinal || "").trim();
+      var obs = String(payload.observaciones || payload.observacionColfactory || payload.observacionesLavanderia || "").trim();
       
       var lastRow = sh.getLastRow();
       var updated = false;
@@ -116,18 +136,18 @@ function doPost(e) {
               sh.getRange(rowIndex, 2).setValue(nuevoInspector);
             }
             
-            // Si pasa a LAVANDERIA -> Actualizar Columna L (Index 12: OBSERVACIÓN COLFACTORY)
-            if (nuevoEstado === "LAVANDERIA" && obs) {
-              var prevObs = String(sh.getRange(rowIndex, 12).getValue() || "").trim();
-              var newObsCol = prevObs ? (prevObs + " | " + obs) : obs;
-              sh.getRange(rowIndex, 12).setValue(newObsCol);
+            // Si viene de LAVANDERIA o pasa a CALIDAD o está en LAVANDERIA -> Actualizar Columna L (Index 12: OBSERVACIÓN COLFACTORY)
+            var colObs = payload.observacionColfactory || payload.observacionesLavanderia || "";
+            if (!colObs && (nuevoEstado === "LAVANDERIA" || payload.estadoAnterior === "LAVANDERIA" || nuevoEstado === "CALIDAD")) {
+              colObs = obs;
+            }
+            if (colObs && colObs.toLowerCase().indexOf("colcha recibida") === -1 && colObs.indexOf("[LAVANDERIA]") === -1) {
+              sh.getRange(rowIndex, 12).setValue(colObs);
             }
             
-            // Si pasa a CALIDAD o FINALIZADO -> Actualizar Columna O (Index 15: OBS.OPERARIO FINAL)
-            if ((nuevoEstado === "CALIDAD" || nuevoEstado === "FINALIZADO") && obs) {
-              var prevFinal = String(sh.getRange(rowIndex, 15).getValue() || "").trim();
-              var newFinal = prevFinal ? (prevFinal + " | " + obs) : obs;
-              sh.getRange(rowIndex, 15).setValue(newFinal);
+            // Si pasa a FINALIZADO -> Actualizar Columna O (Index 15: OBS.OPERARIO FINAL)
+            if (nuevoEstado === "FINALIZADO" && payload.obsOperarioFinal) {
+              sh.getRange(rowIndex, 15).setValue(payload.obsOperarioFinal);
             }
             
             updated = true;
@@ -145,26 +165,25 @@ function doPost(e) {
       var fechaStr = payload.fecha || Utilities.formatDate(now, "America/Bogota", "d/M/yyyy HH:mm:ss");
       var mes = now.getMonth() + 1;
       
+      var rawOp = String(payload.op || payload.OP || "").trim();
+      var opVal = rawOp.toUpperCase().indexOf("OP-") === 0 ? ("OP-" + rawOp.substring(3).trim()) : (rawOp.toUpperCase().indexOf("OP") === 0 ? ("OP-" + rawOp.substring(2).replace(/^[-_\s]+/, "").trim()) : ("OP-" + rawOp));
+      
       var driveUrl = "";
-      if (payload.imageBase64 && payload.imageBase64.indexOf("data:image") === 0) {
+      var folderUrl = "";
+      var photoRaw = payload.imageBase64 || payload.fotoMuestraUrl || payload.evidenciaLinkDrive || "";
+      if (photoRaw && photoRaw.indexOf("data:image") === 0) {
         try {
-          var folder = getOrCreateFolder(DRIVE_FOLDER_NAME);
-          var parts = payload.imageBase64.split(",");
-          var mimeMatch = parts[0].match(/:(.*?);/);
-          var mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
-          var blob = Utilities.newBlob(Utilities.base64Decode(parts[1]), mime, "Muestra_" + (payload.op || "OP") + "_" + now.getTime() + ".jpg");
-          var file = folder.createFile(blob);
-          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-          driveUrl = file.getUrl();
+          var savedPhoto = saveImageToDriveHierarchical(photoRaw, opVal + "_MUESTRA_INICIAL.jpg", opVal, fechaStr);
+          if (savedPhoto && savedPhoto.driveUrl) {
+            driveUrl = savedPhoto.driveUrl;
+            folderUrl = savedPhoto.folderUrl || "";
+          }
         } catch (eDrive) {
           driveUrl = payload.fotoMuestraUrl || "";
         }
       } else {
         driveUrl = payload.fotoMuestraUrl || payload.evidenciaLinkDrive || "";
       }
-
-      var rawOp = String(payload.op || payload.OP || "").trim();
-      var opVal = rawOp.toUpperCase().indexOf("OP-") === 0 ? ("OP-" + rawOp.substring(3).trim()) : (rawOp.toUpperCase().indexOf("OP") === 0 ? ("OP-" + rawOp.substring(2).replace(/^[-_\s]+/, "").trim()) : ("OP-" + rawOp));
 
       var row = [
         fechaStr,
@@ -284,21 +303,21 @@ function doPost(e) {
       return jsonOutput({ status: "success", count: rows.length });
     }
 
-    // 6. ACTUALIZAR FOTO DE OP EN DRIVE
+    // 6. ACTUALIZAR FOTO DE OP EN DRIVE (ORGANIZADA POR MES Y POR OP)
     if (action === "UPDATE_OP_PHOTO") {
       var sh = ss.getSheetByName(SHEET_BASE_DATOS);
       var targetOp = String(payload.op || "").trim().toUpperCase().replace("OP-", "");
-      var photoUrl = payload.fotoMuestraUrl || "";
+      var opFormatted = "OP-" + targetOp;
+      var photoUrl = payload.fotoCalidadUrl || payload.fotoMuestraUrl || "";
+      var fileName = opFormatted + (payload.isCalidad ? "_POST_LAVADO_CALIDAD.jpg" : "_MUESTRA_INICIAL.jpg");
+      var folderUrl = "";
       if (photoUrl && photoUrl.indexOf("data:image") === 0) {
         try {
-          var folder = getOrCreateFolder(DRIVE_FOLDER_NAME);
-          var parts = photoUrl.split(",");
-          var mimeMatch = parts[0].match(/:(.*?);/);
-          var mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
-          var blob = Utilities.newBlob(Utilities.base64Decode(parts[1]), mime, "FotoCalidad_" + targetOp + "_" + new Date().getTime() + ".jpg");
-          var file = folder.createFile(blob);
-          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-          photoUrl = file.getUrl();
+          var savedPhoto = saveImageToDriveHierarchical(photoUrl, fileName, opFormatted, new Date());
+          if (savedPhoto && savedPhoto.driveUrl) {
+            photoUrl = savedPhoto.driveUrl;
+            folderUrl = savedPhoto.folderUrl || "";
+          }
         } catch (ePhoto) {}
       }
       if (sh) {
@@ -308,13 +327,24 @@ function doPost(e) {
           for (var i = 0; i < opVals.length; i++) {
             var curOp = String(opVals[i][0] || "").trim().toUpperCase().replace("OP-", "");
             if (curOp === targetOp) {
-              sh.getRange(i + 2, 13).setValue(photoUrl);
+              var currentCol13 = String(sh.getRange(i + 2, 13).getValue() || "");
+              var newCol13 = photoUrl;
+              if (payload.isCalidad) {
+                var p1 = currentCol13.indexOf("|") !== -1 ? currentCol13.split("|")[0].trim() : currentCol13.trim();
+                if (p1.indexOf("data:") === 0 && p1.length > 500) p1 = "";
+                newCol13 = (p1 ? p1 + " | " : "") + photoUrl;
+              } else {
+                var p2 = currentCol13.indexOf("|") !== -1 ? currentCol13.split("|")[1].trim() : "";
+                if (p2.indexOf("data:") === 0 && p2.length > 500) p2 = "";
+                newCol13 = photoUrl + (p2 ? " | " + p2 : "");
+              }
+              sh.getRange(i + 2, 13).setValue(newCol13);
               break;
             }
           }
         }
       }
-      return jsonOutput({ status: "success", driveUrl: photoUrl });
+      return jsonOutput({ status: "success", driveUrl: photoUrl, folderUrl: folderUrl });
     }
 
     return jsonOutput({ status: "ok" });
@@ -370,11 +400,92 @@ function deleteOpFromMonitoreo(ss, opToDelete) {
   }
 }
 
-function getOrCreateFolder(folderName) {
-  var folders = DriveApp.getFoldersByName(folderName);
+var MESES_NOMBRES = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
+
+function getRootDriveFolder() {
+  try {
+    if (TARGET_DRIVE_SPREADSHEET_OR_FOLDER_ID) {
+      try {
+        var folder = DriveApp.getFolderById(TARGET_DRIVE_SPREADSHEET_OR_FOLDER_ID);
+        if (folder) return folder;
+      } catch (eF) {
+        try {
+          var file = DriveApp.getFileById(TARGET_DRIVE_SPREADSHEET_OR_FOLDER_ID);
+          if (file) {
+            var parents = file.getParents();
+            if (parents.hasNext()) {
+              var parentF = parents.next();
+              var subF = parentF.getFoldersByName(DRIVE_FOLDER_NAME);
+              if (subF.hasNext()) return subF.next();
+              var created = parentF.createFolder(DRIVE_FOLDER_NAME);
+              created.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+              return created;
+            }
+          }
+        } catch (eFi) {}
+      }
+    }
+  } catch (e) {}
+  var folders = DriveApp.getFoldersByName(DRIVE_FOLDER_NAME);
   if (folders.hasNext()) return folders.next();
-  return DriveApp.createFolder(folderName);
+  var newRoot = DriveApp.createFolder(DRIVE_FOLDER_NAME);
+  newRoot.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return newRoot;
 }
+
+function getMonthDriveFolder(rootFolder, dateInput) {
+  var d = new Date();
+  if (dateInput) {
+    if (dateInput instanceof Date && !isNaN(dateInput.getTime())) d = dateInput;
+    else if (typeof dateInput === "string") {
+      var match = dateInput.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (match) d = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+      else { var p = new Date(dateInput); if (!isNaN(p.getTime())) d = p; }
+    }
+  }
+  var y = d.getFullYear();
+  var m = d.getMonth() + 1;
+  var mStr = m < 10 ? "0" + m : "" + m;
+  var folderName = y + "-" + mStr + " - " + (MESES_NOMBRES[d.getMonth()] || "MES");
+  var mFolders = rootFolder.getFoldersByName(folderName);
+  if (mFolders.hasNext()) return mFolders.next();
+  var newMFolder = rootFolder.createFolder(folderName);
+  newMFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return newMFolder;
+}
+
+function getOpDriveFolder(monthFolder, rawOp) {
+  var cleanOp = String(rawOp || "OP-GENERAL").trim();
+  if (cleanOp.toUpperCase().indexOf("OP-") !== 0) cleanOp = "OP-" + cleanOp.replace(/^OP-?/i, "");
+  var opFolders = monthFolder.getFoldersByName(cleanOp);
+  if (opFolders.hasNext()) return opFolders.next();
+  var newOpFolder = monthFolder.createFolder(cleanOp);
+  newOpFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return newOpFolder;
+}
+
+function saveImageToDriveHierarchical(base64Data, fileName, rawOp, dateInput) {
+  var rootFolder = getRootDriveFolder();
+  var monthFolder = getMonthDriveFolder(rootFolder, dateInput);
+  var opFolder = getOpDriveFolder(monthFolder, rawOp);
+  var cleanB64 = String(base64Data || "").replace(/^data:image\/\w+;base64,/, "").trim();
+  var decoded = Utilities.base64Decode(cleanB64);
+  var blob = Utilities.newBlob(decoded, "image/jpeg", fileName);
+  var file = opFolder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  var fileId = file.getId();
+  return {
+    success: true,
+    fileId: fileId,
+    driveUrl: "https://drive.google.com/uc?id=" + fileId,
+    folderUrl: opFolder.getUrl()
+  };
+}
+
+function getOrCreateFolder(folderName) {
+  return getRootDriveFolder();
+}
+
 
 function jsonOutput(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);

@@ -8,7 +8,7 @@
 
 ## 🎯 1. Estructura y Mapeo Exacto de Columnas
 
-### A. Pestaña `BASE_DE_DATOS` (16 Columnas Maestras)
+### A. Pestaña `BASE_DE_DATOS` (17 Columnas Maestras)
 | Col | Nombre de Columna | Descripción / Tipo | Origen en Antigravity |
 |---|---|---|---|
 | **1** | `FECHA` | Fecha y hora (D/M/YYYY HH:mm:ss) | `solicitud.fechaCreacion` |
@@ -21,12 +21,13 @@
 | **8** | `ROLLOS` | Número de rollos inspeccionados | `solicitud.rollos` |
 | **9** | `LOTE` | Número de lote o rango | `solicitud.lote` |
 | **10** | `ESTADO` | Fase actual (`PRE_SOLICITUD`, `SOLICITADO`, `LAVANDERIA`, `CALIDAD`, `FINALIZADO`) | `solicitud.estado` |
-| **11** | `OBSERVACIÓN OPERARIO` | Historial de observaciones concatenadas | `solicitud.observacionesOperario` |
-| **12** | `OBSERVACIÓN COLFACTORY` | Notas de lavandería | `solicitud.observacionesLavanderia` |
-| **13** | `EVIDENCIA (LINK DRIVE)` | Enlace público de la foto en Google Drive | `solicitud.fotoMuestraUrl` |
-| **14** | `CORREO NOTIFICADO` | Registro de correos notificados | Campo de auditoría |
-| **15** | `OBS.OPERARIO FINAL` | Dictamen y notas finales | Concepto final |
-| **16** | `MES` | Número de mes (1 al 12) | Mes de ingreso |
+| **11** | `OBSERVACIÓN OPERARIO` | Observación inicial pura del operario | `solicitud.observacionesOperario` |
+| **12** | `OBSERVACIÓN COLFACTORY` | Notas reales de lavandería | `solicitud.observacionesLavanderia` |
+| **13** | `EVIDENCIA (LINK DRIVE)` | Enlace público de la foto en Google Drive (`foto1 \| foto2`) | `solicitud.fotoMuestraUrl` |
+| **14** | `CORREO NOTIFICADO` | Correos limpios de usuarios notificados | `solicitud.emailUsuario` |
+| **15** | `OBS.OPERARIO FINAL` | Observación final pura de Calidad | `solicitud.observacionesCalidad` |
+| **16** | `DICTAMEN FINAL` | Veredicto formal (`APROBADO` o `RECHAZADO`) | `solicitud.dictamen` |
+| **17** | `MES` | Número de mes (1 al 12) | Mes de ingreso |
 
 ---
 
@@ -59,7 +60,30 @@
 
 ---
 
-## ⚡ 2. Contrato de API (Acciones Soportadas por el Webhook)
+## 📁 2. Estructura Jerárquica en Google Drive (Por Mes y por OP)
+Las evidencias fotográficas se organizan de forma 100% automática en Google Drive:
+```text
+📁 Google Drive (Cuenta Oficial STF)
+ └── 📁 STF_COLCHAS_EVIDENCIAS/
+      ├── 📁 2026-09 - SEPTIEMBRE/
+      │    ├── 📁 OP-00096156/
+      │    │    ├── 🖼️ OP-00096156_MUESTRA_INICIAL.jpg       (Foto Inicial Atelier)
+      │    │    └── 🖼️ OP-00096156_POST_LAVADO_CALIDAD.jpg  (Foto Calidad Post-Lavado)
+      │    ├── 📁 OP-00096157/
+      │    │    └── 🖼️ OP-00096157_MUESTRA_INICIAL.jpg
+      │    └── ...
+      ├── 📁 2026-10 - OCTUBRE/
+      └── ...
+```
+- **Carpeta Raíz**: `STF_COLCHAS_EVIDENCIAS` (resuelta automáticamente en la cuenta o en la carpeta contenedora del archivo configurado `TARGET_DRIVE_SPREADSHEET_OR_FOLDER_ID`).
+- **Carpetas Mensuales**: Nombradas `YYYY-MM - MES` para ordenamiento cronológico natural.
+- **Carpetas de OP**: Nombradas con el código oficial `OP-XXXXX`.
+- **Archivos**: Nombrados `OP-XXXXX_MUESTRA_INICIAL.jpg` y `OP-XXXXX_POST_LAVADO_CALIDAD.jpg`.
+- **Permisos Públicos**: Cada archivo y carpeta se configura con permiso de lectura por enlace (`ANYONE_WITH_LINK, VIEW`), garantizando compatibilidad con dispositivos móviles sin requerir inicio de sesión en Google.
+
+---
+
+## ⚡ 3. Contrato de API (Acciones Soportadas por el Webhook)
 
 ### Métodos GET:
 - `?action=GET_MONITOREO`: Retorna la lista en vivo de OPs pendientes por hacer.
@@ -67,27 +91,30 @@
 - `?action=GET_ALERTAS`: Retorna las filas activas de `ALERTAS`.
 
 ### Métodos POST:
-- `action: "SYNC_ALERTAS"`: Sobrescribe e inserta en tiempo real todas las OPs con desviación SLA en la pestaña `ALERTAS` con formato institucional.
-- `action: "DELETE_ALERTA_OP"`: Elimina la fila de la OP especificada cuando se libera o finaliza.
-- `action: "CREATE_OP"`: Añade una nueva fila a `BASE_DE_DATOS`, guarda la foto en Google Drive (`STF_COLCHAS_EVIDENCIAS`) y retira la OP de `MONITOREO`.
+- `action: "SYNC_ALERTAS"`: Sobrescribe e inserta en tiempo real todas las OPs con desviación SLA en la pestaña `ALERTAS`.
+- `action: "DELETE_ALERTA_OP"`: Elimina la fila de la OP especificada al liberarse o finalizarse.
+- `action: "CREATE_OP"`: Añade una nueva fila a `BASE_DE_DATOS`, guarda la foto en Google Drive (`STF_COLCHAS_EVIDENCIAS / YYYY-MM / OP-XXXXX`), registra el link en Columna M y retira la OP de `MONITOREO`.
 - `action: "TRANSFER_OP"`: Actualiza el estado, área e inspector de la OP.
-- `action: "UPDATE_DICTAMEN"`: Registra el dictamen final (`APROBADO`/`RECHAZADO`), marca como `FINALIZADO` y depura de `ALERTAS`.
+- `action: "UPDATE_OP_PHOTO"`: Guarda la foto en la carpeta de la OP en Google Drive y actualiza Columna M unificando enlaces (`foto1 \| foto2`).
+- `action: "UPDATE_DICTAMEN"`: Registra el dictamen final (`APROBADO`/`RECHAZADO`), archiva foto de calidad en Drive si viene adjunta, marca como `FINALIZADO` y depura de `ALERTAS`.
 - `action: "UPDATE_ALERTA_REPORT_SENT"`: Actualiza la columna 14 (`FECHA ENVIO REPORTE`).
 - `action: "DELETE_MONITOREO_OP"`: Elimina la OP de la pestaña `MONITOREO`.
 
 ---
 
-## 🚀 3. Instrucciones de Instalación en Google Sheets (Solo 3 Pasos):
+## 🚀 4. Instrucciones de Instalación y Actualización en Google Sheets:
 
 1. **Abrir Apps Script**:
    En tu hoja de cálculo, ve al menú superior: **Extensiones > Apps Script**.
 2. **Pegar el Código Maestro**:
-   Borra cualquier código anterior y pega el contenido del archivo [`Codigo.js`](file:///C:/Users/joseo/.gemini/antigravity/scratch/stf-colchas-app/src/google-apps-script/Codigo.js). Guarda con **Ctrl + S** o el icono 💾.
-3. **Implementar como Web App**:
-   Haz clic en **Implementar > Nueva implementación**:
-   - **Tipo**: Aplicación web
-   - **Ejecutar como**: Yo (*tu cuenta Google*)
-   - **Quién tiene acceso**: Cualquier usuario (*Anyone*)
-   - Haz clic en **Implementar** y copia la URL generada (`https://script.google.com/macros/s/.../exec`).
-4. **Vincular en Antigravity**:
-   En la interfaz de Antigravity (Pestaña **ALERTAS**), haz clic en el botón de engranaje **`[ ⚙️ ]`** o en **`[ 🔄 SHEETS ]`**, pega la URL y presiona **Guardar y Enlazar**.
+   Borra cualquier código anterior y pega el contenido completo del archivo [`Codigo.js`](file:///c:/Users/joseo/Downloads/remix_-stf-group---quality-control%20(6)/COLCHAS-/src/google-apps-script/Codigo.js). Guarda con **Ctrl + S** o el icono 💾.
+3. **Implementar / Actualizar como Web App**:
+   Haz clic en **Implementar > Administrar implementaciones**:
+   - Haz clic en el icono de **Lápiz (Editar)**.
+   - En **Versión**, selecciona **Nueva versión**.
+   - Haz clic en **Implementar**.
+   *(O si es la primera vez: **Implementar > Nueva implementación > Aplicación web**, Ejecutar como: Yo, Quién tiene acceso: Cualquier usuario).*
+4. **Verificar Menú en Google Sheets**:
+   Recarga la hoja de cálculo. En el menú superior **🚀 STF GROUP**, haz clic en:
+   `📁 Crear / Verificar Estructura en Google Drive (Mes y OPs)` para comprobar que las carpetas se creen correctamente.
+

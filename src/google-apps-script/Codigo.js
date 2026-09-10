@@ -1,16 +1,15 @@
 /**
  * =========================================================================
- * STF GROUP S.A. - SISTEMA DE CONTROL DE COLCHAS & CALIDAD TEXTIL
- * SCRIPT MAESTRO DE INTEGRACIÓN BIDIRECCIONAL EN TIEMPO REAL
+ * STF GROUP S.A. - CONTROL DE CALIDAD DE COLCHAS & TRAZABILIDAD TEXTIL
+ * SCRIPT MAESTRO INTEGRAL DE INTEGRACIÓN BIDIRECCIONAL, DRIVE Y 3 FLUJOS DE CORREO
  * =========================================================================
  * ID de Hoja de Cálculo: 1jTM8OG2u3bO9Cyrlyn3DJSnGcyLOzA8EWwxwOyWgXdc
- * URL: https://docs.google.com/spreadsheets/d/1jTM8OG2u3bO9Cyrlyn3DJSnGcyLOzA8EWwxwOyWgXdc/edit?usp=sharing
+ * Carpeta Oficial Google Drive: STF_COLCHAS_EVIDENCIAS (Mi Unidad)
  *
- * PESTAÑAS ADMINISTRADAS:
- * 1. BASE_DE_DATOS (16 Columnas Maestras)
- * 2. ALERTAS (14 Columnas SLA > 3 Días)
- * 3. MONITOREO (5 Columnas OPs por Hacer)
- * 4. GOOGLE DRIVE (Carpeta: STF_COLCHAS_EVIDENCIAS para fotos de muestras)
+ * LOS 3 FLUJOS DE CORREO AUTOMATIZADOS:
+ * - Flujo A: Envío Inmediato al Registrar Nueva Colcha (Ficha Técnica + Foto 1 Drive)
+ * - Flujo B: Envío Matutino Automático Diario a las 7:00 AM (Alertas SLA > 3 Días)
+ * - Flujo C: Envío Inmediato al Dictaminar / Liberar OP (Aprobado/Rechazado + Foto 2 Drive)
  * =========================================================================
  */
 
@@ -19,45 +18,48 @@ var SHEET_BASE_DATOS = "BASE_DE_DATOS";
 var SHEET_ALERTAS = "ALERTAS";
 var SHEET_MONITOREO = "MONITOREO";
 var DRIVE_FOLDER_NAME = "STF_COLCHAS_EVIDENCIAS";
+var TARGET_DRIVE_FOLDER_ID = ""; // Opcional: ID de carpeta específica en Drive
+var TARGET_DRIVE_SPREADSHEET_OR_FOLDER_ID = "";
 
-// Encabezados oficiales de la pestaña ALERTAS (14 Columnas)
 var ALERTAS_HEADERS = [
-  "OP",
-  "REFERENCIA",
-  "TELA",
-  "COLOR",
-  "METROS (MT)",
-  "AREA ACTUAL",
-  "FECHA SOLICITUD",
-  "DÍAS HÁBILES EN ÁREA",
-  "DÍAS RETRASO (>3 DÍAS)",
-  "HORAS HÁBILES",
-  "SOLICITANTE / RESPONSABLE",
-  "OBS. OPERARIO",
-  "OBS. LAVANDERÍA",
-  "FECHA ENVIO REPORTE"
+  "OP", "REFERENCIA", "TELA", "COLOR", "METROS (MT)", "AREA ACTUAL",
+  "FECHA SOLICITUD", "DÍAS HÁBILES EN ÁREA", "DÍAS RETRASO (>3 DÍAS)",
+  "HORAS HÁBILES", "SOLICITANTE / RESPONSABLE", "OBS. OPERARIO",
+  "OBS. LAVANDERÍA", "FECHA ENVIO REPORTE"
 ];
 
-// Encabezados oficiales de la pestaña BASE_DE_DATOS (17 Columnas)
 var BASE_DATOS_HEADERS = [
-  "FECHA",
-  "INSPECTOR / OPERARIO",
-  "TELA",
-  "CÓDIGO MT",
-  "COLOR",
-  "OP",
-  "REFERENCIA",
-  "ROLLOS",
-  "LOTE",
-  "ESTADO",
-  "OBSERVACIÓN OPERARIO",
-  "OBSERVACIÓN COLFACTORY",
-  "EVIDENCIA (LINK DRIVE)",
-  "CORREO NOTIFICADO",
-  "OBS.OPERARIO FINAL",
-  "DICTAMEN FINAL",
-  "MES"
+  "FECHA", "INSPECTOR / OPERARIO", "TELA", "CÓDIGO MT", "COLOR", "OP",
+  "REFERENCIA", "ROLLOS", "LOTE", "ESTADO", "OBSERVACIÓN OPERARIO",
+  "OBSERVACIÓN COLFACTORY", "EVIDENCIA (LINK DRIVE)", "CORREO NOTIFICADO",
+  "OBS.OPERARIO FINAL", "DICTAMEN FINAL", "MES"
 ];
+
+/**
+ * Función Maestra para Conceder y Autorizar TODOS los Permisos de Google:
+ * 1. Google Sheets (SpreadsheetApp)
+ * 2. Google Drive (DriveApp)
+ * 3. Correo Electrónico (MailApp)
+ * 4. Activadores Automáticos / Triggers (ScriptApp)
+ */
+function autorizarTodosLosPermisosSTF() {
+  var ss = getTargetSpreadsheet();
+  var ssName = ss.getName();
+  var root = getRootDriveFolder();
+  var rootName = root.getName();
+  var quota = MailApp.getRemainingDailyQuota();
+  var triggers = ScriptApp.getProjectTriggers();
+
+  Logger.log('✅ Permisos 100% Autorizados:');
+  Logger.log('   - Google Sheets: ' + ssName);
+  Logger.log('   - Google Drive: ' + rootName);
+  Logger.log('   - MailApp (Cuota restante diaria: ' + quota + ')');
+  Logger.log('   - ScriptApp (Activadores: ' + triggers.length + ')');
+}
+
+function forzarAutorizacionDrive() {
+  autorizarTodosLosPermisosSTF();
+}
 
 /**
  * Menú interactivo automático dentro de Google Sheets
@@ -66,68 +68,91 @@ function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('🚀 STF GROUP')
     .addItem('⚡ Sincronizar y Alimentar Hoja ALERTAS', 'syncAlertasFromBaseDeDatos')
+    .addItem('👥 Ver Destinatarios de la Hoja USUARIOS', 'verUsuariosMenuAction')
+    .addItem('📧 Enviar Correo de Prueba (Verificar Conexión)', 'probarPermisosYEnvioCorreo')
+    .addItem('🚨 Enviar Reporte Matutino SLA Ahora Mismo', 'enviarReporteDiarioAutomaticoSLA')
+    .addItem('⏰ Programar Envío Automático Diario (7:00 AM)', 'instalarActivadorDiario7AM')
     .addItem('🗑️ Auto-Eliminar OPs ya Realizadas de MONITOREO', 'cleanMonitoreoMenuAction')
     .addItem('🏷️ Normalizar Prefijos OP (OP-XXXX) en BASE_DE_DATOS', 'normalizeOpCodesMenuAction')
+    .addItem('🔗 Unificar Links de Drive a Carpeta Única (Columna M)', 'unificarLinksDriveMenuAction')
     .addItem('✨ Depurar y Limpiar Columnas K, L, M y N', 'cleanColumnsKLMNMenuAction')
     .addItem('🧹 Dar Formato Profesional a Todas las Hojas', 'formatAllSheets')
-    .addItem('📁 Crear / Verificar Carpeta en Google Drive', 'getOrCreateDriveFolder')
+    .addItem('📁 Crear / Verificar Estructura en Google Drive (Mes y OPs)', 'verifyAndBuildDriveStructureMenuAction')
     .addToUi();
 
-  // Depuración y normalización automática en segundo plano al abrir la hoja de cálculo
   var ss = getTargetSpreadsheet();
   normalizeAllOpCodesInBaseDeDatos(ss);
   autoCleanMonitoreoFromBaseDeDatos(ss);
   cleanColumnsKLMN(ss);
 }
 
+function unificarLinksDriveMenuAction() {
+  var ss = getTargetSpreadsheet();
+  var count = cleanColumnsKLMN(ss);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se unificaron los enlaces de Drive a carpeta única por OP en Columna M (' + count + ' filas procesadas)', '🚀 STF GROUP', 6);
+}
+
+function verifyAndBuildDriveStructureMenuAction() {
+  try {
+    var root = getRootDriveFolder();
+    var month = getMonthDriveFolder(root, new Date());
+    var opDemo = getOpDriveFolder(month, 'OP-DEMO');
+    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Estructura Drive lista: ' + root.getName() + ' > ' + month.getName(), '🚀 STF GROUP', 6);
+  } catch (e) {
+    SpreadsheetApp.getActiveSpreadsheet().toast('⚠️ Error Drive: ' + e.toString(), '🚀 STF GROUP', 8);
+  }
+}
+
 function cleanColumnsKLMNMenuAction() {
   var ss = getTargetSpreadsheet();
   var count = cleanColumnsKLMN(ss);
-  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se depuraron y limpiaron ' + count + ' filas en columnas K, L, M y N de BASE_DE_DATOS', '🚀 STF GROUP');
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se depuraron y limpiaron ' + count + ' filas en columnas K, L, M y N', '🚀 STF GROUP', 5);
 }
 
 function normalizeOpCodesMenuAction() {
   var ss = getTargetSpreadsheet();
   var count = normalizeAllOpCodesInBaseDeDatos(ss);
-  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se normalizaron ' + count + ' códigos de OP con prefijo OP- en BASE_DE_DATOS', '🚀 STF GROUP');
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se normalizaron ' + count + ' códigos de OP con prefijo OP-', '🚀 STF GROUP', 5);
 }
 
 function cleanMonitoreoMenuAction() {
   var ss = getTargetSpreadsheet();
   var removed = autoCleanMonitoreoFromBaseDeDatos(ss);
-  SpreadsheetApp.getActiveSpreadsheet().toast('Se depuraron ' + (removed || 0) + ' OPs de la hoja MONITOREO', '🚀 STF GROUP');
+  SpreadsheetApp.getActiveSpreadsheet().toast('Se depuraron ' + (removed || 0) + ' OPs de la hoja MONITOREO', '🚀 STF GROUP', 5);
 }
 
-/**
- * Disparador onEdit automático: Se activa cada vez que un usuario edita o ingresa datos en la hoja
- * Si se escribe un valor en la columna F (OP) sin el prefijo "OP-", se normaliza instantáneamente.
- */
+function verUsuariosMenuAction() {
+  var ss = getTargetSpreadsheet();
+  var userSheet = getUsuariosSheet(ss);
+  var emails = getAllUserEmails(ss);
+  var ui = SpreadsheetApp.getUi();
+
+  var sheetInfo = userSheet
+    ? ('Hoja detectada: "' + userSheet.getName() + '" (GID: ' + userSheet.getSheetId() + ')')
+    : '⚠️ Pestaña USUARIOS no detectada (usando lista de respaldo)';
+
+  var preview = emails.map(function (m, idx) { return (idx + 1) + '. ' + m; }).join('\n');
+
+  ui.alert(
+    '👥 Destinatarios Activos (Hoja USUARIOS)',
+    sheetInfo + '\n' +
+    'Total de destinatarios activos: ' + emails.length + '\n\n' +
+    'Lista de correos que recibirán los 3 flujos automáticos:\n' + preview,
+    ui.ButtonSet.OK
+  );
+}
+
 function onEdit(e) {
   try {
     if (!e || !e.range) return;
     var sheet = e.range.getSheet();
     var sheetName = sheet.getName();
     if (sheetName !== SHEET_BASE_DATOS && sheetName !== '01_BASE_DE_DATOS') return;
-
-    var col = e.range.getColumn();
-    var row = e.range.getRow();
-
-    // Columna 6 = Columna F (OP)
-    if (col === 6 && row > 1) {
+    if (e.range.getColumn() === 6 && e.range.getRow() > 1) {
       var val = String(e.value || e.range.getValue() || '').trim();
       if (val && val.toUpperCase() !== 'OP') {
-        var formatted = val;
-        var upper = val.toUpperCase();
-        if (upper.indexOf('OP-') === 0) {
-          formatted = 'OP-' + val.substring(3).trim();
-        } else if (upper.indexOf('OP') === 0) {
-          formatted = 'OP-' + val.substring(2).replace(/^[-_\s]+/, '').trim();
-        } else {
-          formatted = 'OP-' + val;
-        }
-        if (formatted !== val) {
-          e.range.setValue(formatted);
-        }
+        var formatted = val.toUpperCase().indexOf('OP-') === 0 ? ('OP-' + val.substring(3).trim()) : (val.toUpperCase().indexOf('OP') === 0 ? ('OP-' + val.substring(2).replace(/^[-_\s]+/, '').trim()) : ('OP-' + val));
+        if (formatted !== val) e.range.setValue(formatted);
       }
     }
   } catch (err) {
@@ -137,7 +162,7 @@ function onEdit(e) {
 
 /**
  * =========================================================================
- * ENDPOINT GET (Lectura de datos en formato JSON en tiempo real)
+ * ENDPOINT GET (Lectura en tiempo real)
  * =========================================================================
  */
 function doGet(e) {
@@ -145,59 +170,38 @@ function doGet(e) {
     var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'GET_MONITOREO';
     var ss = getTargetSpreadsheet();
 
-    // 1. GET_MONITOREO: Obtiene listado de OPs pendientes por hacer
     if (action === 'GET_MONITOREO') {
-      var sheetMon = null;
-      var sheets = ss.getSheets();
-      for (var s = 0; s < sheets.length; s++) {
-        if (sheets[s].getSheetId() === 1356774059 || sheets[s].getName().trim().toUpperCase() === 'MONITOREO') {
-          sheetMon = sheets[s];
-          break;
-        }
-      }
-      if (!sheetMon) {
-        sheetMon = ss.getSheetByName(SHEET_MONITOREO) || ss.getSheetByName('monitoreo');
-      }
-      if (!sheetMon) {
-        return createJsonResponse({ status: 'error', message: 'Hoja MONITOREO no encontrada' });
-      }
+      var sheetMon = getMonitoreoSheet(ss);
+      if (!sheetMon) return createJsonResponse({ status: 'error', message: 'Hoja MONITOREO no encontrada' });
       var values = sheetMon.getDataRange().getValues();
       var items = [];
       for (var i = 1; i < values.length; i++) {
-        var row = values[i];
-        var rawTela = String(row[0] || '').trim();
+        var rawTela = String(values[i][0] || '').trim();
         if (rawTela && rawTela.toUpperCase() !== 'TELA') {
           items.push({
             tela: rawTela,
-            mt: String(row[1] || 'MT-AUTO').trim(),
-            color: String(row[2] || 'AZUL').trim(),
-            op: String(row[3] || '').trim(),
-            referencia: String(row[4] || '').trim()
+            mt: String(values[i][1] || 'MT-AUTO').trim(),
+            color: String(values[i][2] || 'AZUL').trim(),
+            op: String(values[i][3] || '').trim(),
+            referencia: String(values[i][4] || '').trim()
           });
         }
       }
       return createJsonResponse({ status: 'success', count: items.length, data: items });
     }
 
-    // 2. GET_BASE_DATOS: Obtiene todas las filas de la base de datos maestra
     if (action === 'GET_BASE_DATOS') {
       var sheetBd = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
-      var valuesBd = sheetBd.getDataRange().getValues();
-      return createJsonResponse({ status: 'success', totalRows: valuesBd.length, data: valuesBd });
+      return createJsonResponse({ status: 'success', totalRows: sheetBd.getLastRow(), data: sheetBd.getDataRange().getValues() });
     }
 
-    // 3. GET_ALERTAS: Obtiene las filas de la hoja de alertas
     if (action === 'GET_ALERTAS') {
       var sheetAl = ss.getSheetByName(SHEET_ALERTAS);
-      if (!sheetAl) {
-        return createJsonResponse({ status: 'success', count: 0, data: [] });
-      }
-      var valuesAl = sheetAl.getDataRange().getValues();
-      return createJsonResponse({ status: 'success', totalRows: valuesAl.length, data: valuesAl });
+      if (!sheetAl) return createJsonResponse({ status: 'success', count: 0, data: [] });
+      return createJsonResponse({ status: 'success', totalRows: sheetAl.getLastRow(), data: sheetAl.getDataRange().getValues() });
     }
 
     return createJsonResponse({ status: 'error', message: 'Acción GET no reconocida: ' + action });
-
   } catch (err) {
     return createJsonResponse({ status: 'error', message: err.toString() });
   }
@@ -205,168 +209,95 @@ function doGet(e) {
 
 /**
  * =========================================================================
- * ENDPOINT POST (Escritura, Transferencias, Dictámenes y Alertas en vivo)
+ * ENDPOINT POST (Escritura, Transferencias, Dictámenes y Fotos en Drive)
  * =========================================================================
  */
 function doPost(e) {
   try {
-    var rawContents = e.postData ? e.postData.contents : '{}';
-    var data = JSON.parse(rawContents);
+    var data = JSON.parse(e.postData ? e.postData.contents : '{}');
     var action = data.action;
     var payload = data.payload || {};
     var ss = getTargetSpreadsheet();
 
-    // -----------------------------------------------------------------------
-    // ACCIÓN 1: SYNC_ALERTAS (Alimenta y actualiza la hoja ALERTAS en tiempo real)
-    // -----------------------------------------------------------------------
+    // 1. SYNC_ALERTAS
     if (action === 'SYNC_ALERTAS') {
-      var sheetAlertas = ss.getSheetByName(SHEET_ALERTAS);
-      if (!sheetAlertas) {
-        sheetAlertas = ss.insertSheet(SHEET_ALERTAS);
-      }
-
-      // Limpiar contenido anterior respetando fila 1
+      var sheetAlertas = ss.getSheetByName(SHEET_ALERTAS) || ss.insertSheet(SHEET_ALERTAS);
       var lastRow = sheetAlertas.getLastRow();
-      var lastCol = Math.max(14, sheetAlertas.getLastColumn());
-      if (lastRow > 1) {
-        sheetAlertas.getRange(2, 1, lastRow - 1, lastCol).clearContent();
-      }
-
-      // Encabezados con formato rojo vino corporativo STF
+      if (lastRow > 1) sheetAlertas.getRange(2, 1, lastRow - 1, Math.max(14, sheetAlertas.getLastColumn())).clearContent();
       sheetAlertas.getRange(1, 1, 1, ALERTAS_HEADERS.length).setValues([ALERTAS_HEADERS]);
       formatAlertasSheetHeader(sheetAlertas);
 
       var rows = payload.rows || [];
       if (rows.length > 0) {
-        var matrix = rows.map(function(r) {
+        var matrix = rows.map(function (r) {
           return [
-            r.op || '',
-            r.referencia || '',
-            r.tela || '',
-            r.color || '',
-            r.metros || '',
-            r.areaActual || '',
-            r.fechaSolicitud || '',
-            r.diasHabiles || '',
-            r.diasRetraso || '',
-            r.horasHabiles || '',
-            r.responsable || '',
-            r.obsOperario || '',
-            r.obsLavanderia || '',
+            r.op || '', r.referencia || '', r.tela || '', r.color || '', r.metros || '',
+            r.areaActual || '', r.fechaSolicitud || '', r.diasHabiles || '', r.diasRetraso || '',
+            r.horasHabiles || '', r.responsable || '', r.obsOperario || '', r.obsLavanderia || '',
             r.fechaEnvioReporte || ''
           ];
         });
-
         sheetAlertas.getRange(2, 1, matrix.length, ALERTAS_HEADERS.length).setValues(matrix);
         formatAlertasSheetRows(sheetAlertas, matrix.length);
       }
-
-      return createJsonResponse({
-        status: 'success',
-        message: 'Hoja ALERTAS actualizada en tiempo real con ' + rows.length + ' órdenes',
-        count: rows.length
-      });
+      return createJsonResponse({ status: 'success', message: 'Hoja ALERTAS sincronizada con ' + rows.length + ' órdenes', count: rows.length });
     }
 
-    // -----------------------------------------------------------------------
-    // ACCIÓN 2: DELETE_ALERTA_OP (Depuración en vivo al liberar o finalizar OP)
-    // -----------------------------------------------------------------------
+    // 2. DELETE_ALERTA_OP
     if (action === 'DELETE_ALERTA_OP') {
-      var sheetAlertasDel = ss.getSheetByName(SHEET_ALERTAS);
+      var shAlDel = ss.getSheetByName(SHEET_ALERTAS);
       var deletedCount = 0;
-      if (sheetAlertasDel) {
-        var targetOp = String(payload.op || '').trim().toUpperCase().replace('OP-', '');
-        var lastRowAl = sheetAlertasDel.getLastRow();
-        if (lastRowAl > 1) {
-          var vals = sheetAlertasDel.getRange(2, 1, lastRowAl - 1, 1).getValues();
-          for (var i = vals.length - 1; i >= 0; i--) {
-            var curOp = String(vals[i][0] || '').trim().toUpperCase().replace('OP-', '');
-            if (curOp === targetOp) {
-              sheetAlertasDel.deleteRow(i + 2);
-              deletedCount++;
-            }
+      if (shAlDel && shAlDel.getLastRow() > 1) {
+        var tOp = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
+        var vAl = shAlDel.getRange(2, 1, shAlDel.getLastRow() - 1, 1).getValues();
+        for (var i = vAl.length - 1; i >= 0; i--) {
+          if (String(vAl[i][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === tOp) {
+            shAlDel.deleteRow(i + 2);
+            deletedCount++;
           }
         }
       }
-      return createJsonResponse({
-        status: 'success',
-        message: 'OP ' + payload.op + ' depurada de la hoja ALERTAS',
-        deletedCount: deletedCount
-      });
+      return createJsonResponse({ status: 'success', deletedCount: deletedCount });
     }
 
-    // -----------------------------------------------------------------------
-    // ACCIÓN DELETE_OP (Eliminación manual en tiempo real de BASE_DE_DATOS y ALERTAS)
-    // -----------------------------------------------------------------------
+    // 3. DELETE_OP
     if (action === 'DELETE_OP') {
-      var sheetBdDel = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
-      var targetOp = String(payload.op || '').trim().toUpperCase().replace('OP-', '');
+      var shBdDel = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+      var targetOpDel = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
       var deletedBd = 0;
-      if (sheetBdDel) {
-        var lastRowBd = sheetBdDel.getLastRow();
-        if (lastRowBd > 1) {
-          var valsBd = sheetBdDel.getRange(2, 6, lastRowBd - 1, 1).getValues(); // Columna F = Columna 6 (OP)
-          for (var r = valsBd.length - 1; r >= 0; r--) {
-            var curOpBd = String(valsBd[r][0] || '').trim().toUpperCase().replace('OP-', '');
-            if (curOpBd === targetOp) {
-              sheetBdDel.deleteRow(r + 2);
-              deletedBd++;
-            }
+      if (shBdDel && shBdDel.getLastRow() > 1) {
+        var vBd = shBdDel.getRange(2, 6, shBdDel.getLastRow() - 1, 1).getValues();
+        for (var r = vBd.length - 1; r >= 0; r--) {
+          if (String(vBd[r][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpDel) {
+            shBdDel.deleteRow(r + 2);
+            deletedBd++;
           }
         }
       }
-
-      // También depurar de ALERTAS
-      var sheetAlDel = ss.getSheetByName(SHEET_ALERTAS);
-      if (sheetAlDel) {
-        var lastRowAl = sheetAlDel.getLastRow();
-        if (lastRowAl > 1) {
-          var valsAl = sheetAlDel.getRange(2, 1, lastRowAl - 1, 1).getValues();
-          for (var a = valsAl.length - 1; a >= 0; a--) {
-            var curOpAl = String(valsAl[a][0] || '').trim().toUpperCase().replace('OP-', '');
-            if (curOpAl === targetOp) {
-              sheetAlDel.deleteRow(a + 2);
-            }
-          }
+      var shAl = ss.getSheetByName(SHEET_ALERTAS);
+      if (shAl && shAl.getLastRow() > 1) {
+        var vAlDel = shAl.getRange(2, 1, shAl.getLastRow() - 1, 1).getValues();
+        for (var a = vAlDel.length - 1; a >= 0; a--) {
+          if (String(vAlDel[a][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpDel) shAl.deleteRow(a + 2);
         }
       }
-
-      return createJsonResponse({
-        status: 'success',
-        message: 'OP ' + payload.op + ' eliminada permanentemente de Google Sheets',
-        deletedCount: deletedBd
-      });
+      return createJsonResponse({ status: 'success', deletedCount: deletedBd });
     }
 
-    // -----------------------------------------------------------------------
-    // ACCIÓN NORMALIZE_ALL_OPS (Normalizar Columna F OP en BASE_DE_DATOS)
-    // -----------------------------------------------------------------------
+    // 4. NORMALIZE_ALL_OPS
     if (action === 'NORMALIZE_ALL_OPS' || action === 'NORMALIZE_OPS') {
       var normCount = normalizeAllOpCodesInBaseDeDatos(ss);
-      return createJsonResponse({
-        status: 'success',
-        message: 'Normalización completada. Se formatearon ' + normCount + ' celdas con el prefijo OP- en BASE_DE_DATOS',
-        normalizedCount: normCount
-      });
+      return createJsonResponse({ status: 'success', normalizedCount: normCount });
     }
 
     // -----------------------------------------------------------------------
-    // ACCIÓN 3: CREATE_OP (Crear nueva solicitud en BASE_DE_DATOS y Drive)
+    // ACCIÓN 5: CREATE_OP (FLUJO A: Notificación Automática de Nueva Colcha)
     // -----------------------------------------------------------------------
     if (action === 'CREATE_OP') {
       var sheetBd = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
       var opData = payload;
       var rawOp = String(opData['OP'] || opData.op || '').trim();
       var opVal = rawOp.toUpperCase().indexOf('OP-') === 0 ? ('OP-' + rawOp.substring(3).trim()) : (rawOp.toUpperCase().indexOf('OP') === 0 ? ('OP-' + rawOp.substring(2).replace(/^[-_\s]+/, '').trim()) : ('OP-' + rawOp));
-
-      // 1. Guardar imagen en Google Drive y obtener enlace oficial
-      var driveUrl = '';
-      var photoRaw = opData.fotoMuestraUrl || opData.imageBase64 || opData['EVIDENCIA (LINK DRIVE)'] || '';
-      if (photoRaw && photoRaw.length > 50 && photoRaw.indexOf('data:image/') === 0) {
-        driveUrl = saveImageToDrive(photoRaw, 'OP_' + (opVal || 'NUEVA') + '.jpg');
-      } else if (photoRaw && photoRaw.indexOf('http') === 0) {
-        driveUrl = photoRaw;
-      }
 
       var now = new Date();
       var fechaFormatted = opData['FECHA'] || opData.fecha || Utilities.formatDate(now, 'America/Bogota', 'd/M/yyyy HH:mm:ss');
@@ -379,97 +310,113 @@ function doPost(e) {
       var loteVal = opData['LOTE'] || opData.lote || '1';
       var estadoVal = opData['ESTADO'] || opData.estado || 'SOLICITADO';
 
-      // REGLA COLUMNA K (11): Solo la observación inicial del operario (sin historial de pasos ni dictamen)
-      var rawObsOp = String(opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || opData.observacionOperario || '').trim();
-      var obsOpVal = rawObsOp.indexOf(' | ') !== -1 ? rawObsOp.split(' | ')[0].trim() : rawObsOp;
-      obsOpVal = obsOpVal.replace(/^\[[^\]]+\]:\s*/, '').trim();
+      // Guardar Foto 1 en Google Drive (Mes / OP)
+      var driveUrl = '';
+      var savedPhotoRes = null;
+      var photoRaw = opData.fotoMuestraUrl || opData.imageBase64 || opData['EVIDENCIA (LINK DRIVE)'] || '';
+      var fileNameInitial = opVal + '_MUESTRA_INICIAL.jpg';
+      if (photoRaw && photoRaw.length > 50 && photoRaw.indexOf('data:image/') === 0) {
+        savedPhotoRes = saveImageToDriveHierarchical(photoRaw, fileNameInitial, opVal, now);
+        if (savedPhotoRes && savedPhotoRes.driveUrl) driveUrl = savedPhotoRes.driveUrl;
+      } else if (photoRaw && photoRaw.indexOf('http') === 0) {
+        driveUrl = photoRaw;
+      }
 
-      // REGLA COLUMNA L (12): Solo la observación real de Colfactory (sin textos de recibo automático)
-      var rawObsCol = String(opData['OBSERVACIÓN COLFACTORY'] || opData.observacionColfactory || opData.observacionesLavanderia || '').trim();
+      var rawObsOp = String(opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || opData.observacionOperario || '').trim();
+      var obsOpVal = (rawObsOp.indexOf(' | ') !== -1 ? rawObsOp.split(' | ')[0].trim() : rawObsOp).replace(/^\[[^\]]+\]:\s*/, '').trim();
+
+      var rawObsCol = String(opData['OBSERVACIÓN COLFACTORY'] || opData.observacionColfactory || opData.observacionesLavanderia || payload['OBSERVACIÓN COLFACTORY'] || payload.observacionColfactory || payload.observacionesLavanderia || '').trim();
       var obsColVal = '';
       if (rawObsCol && rawObsCol.toLowerCase().indexOf('colcha recibida') === -1 && rawObsCol.indexOf('[LAVANDERIA]') === -1) {
         obsColVal = rawObsCol.indexOf(' | ') !== -1 ? rawObsCol.split(' | ')[0].trim() : rawObsCol;
       }
 
-      // REGLA COLUMNA M (13): Vacía ("") según especificación del usuario
-      var evidenciaVal = '';
-
-      // REGLA COLUMNA N (14): Únicamente las direcciones de correo separadas por coma (sin links, sin fechas, sin error de envío)
+      var evidenciaVal = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : (driveUrl || '');
+      var usersFromSheet = getAllUserEmails(ss);
       var recipientsList = payload.userEmails || payload.recipients || [];
       if (!Array.isArray(recipientsList) || recipientsList.length === 0) {
-        recipientsList = getAllUserEmails(ss);
+        recipientsList = usersFromSheet;
+      } else {
+        for (var us = 0; us < usersFromSheet.length; us++) {
+          if (recipientsList.indexOf(usersFromSheet[us]) === -1) recipientsList.push(usersFromSheet[us]);
+        }
       }
-      var cleanEmailArray = (recipientsList || []).map(function(e) { return String(e).trim().toLowerCase(); }).filter(function(e) { return e.indexOf('@') !== -1; });
+      var cleanEmailArray = (recipientsList || []).map(function (e) { return String(e).trim().toLowerCase(); }).filter(function (e) { return e.indexOf('@') !== -1; });
       var uniqueEmails = [];
       for (var u = 0; u < cleanEmailArray.length; u++) {
         if (uniqueEmails.indexOf(cleanEmailArray[u]) === -1) uniqueEmails.push(cleanEmailArray[u]);
       }
       var correoNotificadoStr = uniqueEmails.join(', ');
 
-      // 2. Envío de correo electrónico automático a los usuarios seleccionados
+      // FLUJO A: Envío automático inmediato por correo de la nueva OP
       if (uniqueEmails.length > 0) {
         try {
           var appUrl = payload.appUrl || ('https://colchas.vercel.app/?op=' + encodeURIComponent(opVal) + '&view=public');
-          var subject = '🧵 [NUEVA COLCHA CREADA] ' + opVal + ' • ' + (refVal || 'S/R') + ' (' + telaVal + ')';
-          var htmlBody = buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl);
-
           MailApp.sendEmail({
             to: uniqueEmails.join(','),
-            subject: subject,
-            htmlBody: htmlBody,
+            subject: '🧵 [NUEVA COLCHA CREADA] ' + opVal + ' • ' + (refVal || 'S/R') + ' (' + telaVal + ')',
+            htmlBody: buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl),
             name: 'COLCHAS STF GROUP - SISTEMA OFICIAL'
           });
         } catch (mailErr) {
-          console.error('Error enviando correo de creación:', mailErr);
+          console.error('Error enviando correo creación:', mailErr);
         }
       }
 
       var obsFinalVal = opData['OBS.OPERARIO FINAL'] || opData.obsOperarioFinal || opData.observacionesCalidad || '';
       var mesNumero = Number(opData['MES'] || opData.mes || (now.getMonth() + 1));
       var dictVal = payload.dictamenFinal || payload.dictamen || payload.veredicto || '';
+
       var newRow = [
-        fechaFormatted,        // 1 (A) FECHA
-        inspectorVal,          // 2 (B) INSPECTOR / OPERARIO
-        telaVal,               // 3 (C) TELA
-        mtVal,                 // 4 (D) CÓDIGO MT
-        colorVal,              // 5 (E) COLOR
-        opVal,                 // 6 (F) OP
-        refVal,                // 7 (G) REFERENCIA
-        rollosVal,             // 8 (H) ROLLOS
-        loteVal,               // 9 (I) LOTE
-        estadoVal,             // 10 (J) ESTADO
-        obsOpVal,              // 11 (K) OBSERVACIÓN OPERARIO (PURA)
-        obsColVal,             // 12 (L) OBSERVACIÓN COLFACTORY (PURA)
-        evidenciaVal,          // 13 (M) EVIDENCIA (LINK DRIVE) -> VACÍA ("")
-        correoNotificadoStr,   // 14 (N) CORREO NOTIFICADO (SOLO CORREOS)
-        obsFinalVal,           // 15 (O) OBS.OPERARIO FINAL
-        dictVal,               // 16 (P) DICTAMEN FINAL
-        mesNumero              // 17 (Q) MES
+        fechaFormatted, inspectorVal, telaVal, mtVal, colorVal, opVal,
+        refVal, rollosVal, loteVal, estadoVal, obsOpVal, obsColVal,
+        evidenciaVal, correoNotificadoStr, obsFinalVal, dictVal, mesNumero
       ];
 
       sheetBd.appendRow(newRow);
-
-      // Normalizar columna F (OP) para garantizar el prefijo OP-
       normalizeAllOpCodesInBaseDeDatos(ss);
-
-      // Consumir OP de la hoja MONITOREO automáticamente
-      if (opVal) {
-        removeOpFromMonitoreoSheet(ss, opVal);
-      }
+      if (opVal) removeOpFromMonitoreoSheet(ss, opVal);
       autoCleanMonitoreoFromBaseDeDatos(ss);
 
       return createJsonResponse({
         status: 'success',
-        message: 'Solicitud ' + opVal + ' ingresada correctamente en BASE_DE_DATOS',
+        message: 'Solicitud ' + opVal + ' ingresada correctamente en BASE_DE_DATOS y archivada en Drive',
         driveUrl: driveUrl,
+        folderUrl: (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : '',
         correoNotificado: correoNotificadoStr
       });
     }
 
-    // -----------------------------------------------------------------------
-    // ACCIÓN 4: TRANSFER_OP (Actualizar área, fase e historial en BASE_DE_DATOS)
-    // NOTA: Columna B (INSPECTOR / OPERARIO CREADOR) se mantiene intacta
-    // -----------------------------------------------------------------------
+    // 6. ACCIÓN: UPDATE_COLFACTORY_OBS (Actualización Directa de Observación de Lavandería en Columna L)
+    if (action === 'UPDATE_COLFACTORY_OBS' || action === 'UPDATE_LAVANDERIA_OBS') {
+      var sheetBdCol = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+      var targetOpCol = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
+      var valuesBdCol = sheetBdCol.getDataRange().getValues();
+      var foundRowCol = -1;
+
+      for (var tc = 1; tc < valuesBdCol.length; tc++) {
+        if (String(valuesBdCol[tc][5] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpCol) {
+          foundRowCol = tc + 1;
+          break;
+        }
+      }
+
+      if (foundRowCol !== -1) {
+        var obsColfactory = String(payload.observacionColfactory || payload.observacionesLavanderia || payload.observacion || payload.observaciones || '').trim();
+        if (obsColfactory.toLowerCase().indexOf('colcha recibida') === -1 && obsColfactory.indexOf('[LAVANDERIA]') === -1) {
+          sheetBdCol.getRange(foundRowCol, 12).setValue(obsColfactory);
+        }
+        return createJsonResponse({
+          status: 'success',
+          message: 'Observación Colfactory registrada exitosamente en Columna L para OP-' + targetOpCol,
+          op: 'OP-' + targetOpCol,
+          observacion: obsColfactory
+        });
+      }
+      return createJsonResponse({ status: 'error', message: 'OP no encontrada en BASE_DE_DATOS' });
+    }
+
+    // 7. TRANSFER_OP
     if (action === 'TRANSFER_OP') {
       var sheetBdTrans = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
       var targetOpTrans = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
@@ -477,25 +424,21 @@ function doPost(e) {
       var foundRowTrans = -1;
 
       for (var t = 1; t < valuesBdTrans.length; t++) {
-        var rowOp = String(valuesBdTrans[t][5] || '').trim().toUpperCase().replace(/^OP-?/, '');
-        if (rowOp === targetOpTrans) {
+        if (String(valuesBdTrans[t][5] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpTrans) {
           foundRowTrans = t + 1;
           break;
         }
       }
 
       if (foundRowTrans !== -1) {
-        // Garantizar que la celda de la OP tenga siempre 'OP-'
-        var curOpCell = String(sheetBdTrans.getRange(foundRowTrans, 6).getValue() || '').trim();
-        if (curOpCell && curOpCell.toUpperCase().indexOf('OP-') !== 0) {
-          sheetBdTrans.getRange(foundRowTrans, 6).setValue('OP-' + curOpCell.replace(/^OP-?/i, '').trim());
-        }
-
+        sheetBdTrans.getRange(foundRowTrans, 6).setValue('OP-' + targetOpTrans);
         if (payload.nuevoEstado) sheetBdTrans.getRange(foundRowTrans, 10).setValue(payload.nuevoEstado);
-        
-        // REGLA COLUMNA L (12): OBSERVACIÓN COLFACTORY
-        // Solo la observación real ingresada por Colfactory (sin textos de recibo automático)
-        var obsColfactoryInput = payload.observacionColfactory || (payload.nuevoEstado === 'LAVANDERIA' ? payload.observaciones : '');
+
+        // Guardar Observación Colfactory en Columna L (Columna 12)
+        var obsColfactoryInput = payload.observacionColfactory || payload.observacionesLavanderia || '';
+        if (!obsColfactoryInput && (payload.nuevoEstado === 'LAVANDERIA' || payload.estadoAnterior === 'LAVANDERIA' || payload.nuevoEstado === 'CALIDAD' || payload.estado === 'LAVANDERIA' || payload.origen === 'LAVANDERIA')) {
+          obsColfactoryInput = payload.observaciones || '';
+        }
         if (obsColfactoryInput) {
           var cleanColObs = String(obsColfactoryInput).trim();
           if (cleanColObs.toLowerCase().indexOf('colcha recibida') === -1 && cleanColObs.indexOf('[LAVANDERIA]') === -1) {
@@ -503,140 +446,166 @@ function doPost(e) {
           }
         }
 
-        // Columna O (15): OBS.OPERARIO FINAL
-        if (payload.obsOperarioFinal || ((payload.nuevoEstado === 'CALIDAD' || payload.nuevoEstado === 'FINALIZADO') && payload.observaciones)) {
-          var finalObsToSet = payload.obsOperarioFinal || payload.observaciones || '';
+        // Columna O (15) es exclusiva para concepto final de calidad en estado FINALIZADO
+        if (payload.obsOperarioFinal && payload.nuevoEstado === 'FINALIZADO') {
+          var finalObsToSet = String(payload.obsOperarioFinal).trim();
           if (finalObsToSet.toLowerCase().indexOf('colcha recibida') === -1) {
             sheetBdTrans.getRange(foundRowTrans, 15).setValue(finalObsToSet);
           }
         }
 
-        // NOTA REGLA CRÍTICA: Columna K (11) (OBSERVACIÓN OPERARIO) NO SE MODIFICA durante transferencias.
-        // Se preserva intacta la observación original del operario.
-
-        return createJsonResponse({
-          status: 'success',
-          message: 'OP ' + payload.op + ' transferida a fase ' + payload.nuevoEstado
-        });
-      } else {
-        return createJsonResponse({ status: 'error', message: 'OP ' + payload.op + ' no encontrada en BASE_DE_DATOS' });
+        return createJsonResponse({ status: 'success', message: 'OP OP-' + targetOpTrans + ' transferida a fase ' + payload.nuevoEstado });
       }
+      return createJsonResponse({ status: 'error', message: 'OP no encontrada en BASE_DE_DATOS' });
     }
 
     // -----------------------------------------------------------------------
-    // ACCIÓN 5: UPDATE_DICTAMEN (Dictamen final Aprobado/Rechazado y Finalización)
+    // ACCIÓN 7: UPDATE_DICTAMEN (FLUJO C: Notificación de Liberación Aprobado/Rechazado)
     // -----------------------------------------------------------------------
     if (action === 'UPDATE_DICTAMEN') {
       var sheetBdDict = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
       var targetOpDict = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
+      var opFormattedDict = 'OP-' + targetOpDict;
       var valuesBdDict = sheetBdDict.getDataRange().getValues();
       var foundRowDict = -1;
 
       for (var d = 1; d < valuesBdDict.length; d++) {
-        var rOp = String(valuesBdDict[d][5] || '').trim().toUpperCase().replace(/^OP-?/, '');
-        if (rOp === targetOpDict) {
+        if (String(valuesBdDict[d][5] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpDict) {
           foundRowDict = d + 1;
           break;
         }
       }
 
       if (foundRowDict !== -1) {
-        // Garantizar que la celda de la OP tenga siempre 'OP-'
-        var curOpCellDict = String(sheetBdDict.getRange(foundRowDict, 6).getValue() || '').trim();
-        if (curOpCellDict && curOpCellDict.toUpperCase().indexOf('OP-') !== 0) {
-          sheetBdDict.getRange(foundRowDict, 6).setValue('OP-' + curOpCellDict.replace(/^OP-?/i, '').trim());
-        }
-
-        // Columna J (10): ESTADO = FINALIZADO
+        sheetBdDict.getRange(foundRowDict, 6).setValue(opFormattedDict);
         sheetBdDict.getRange(foundRowDict, 10).setValue('FINALIZADO');
-        
-        // NOTA REGLA CRÍTICA: Columna K (11) (OBSERVACIÓN OPERARIO) NO SE MODIFICA.
-        // Se preserva intacta la observación original del operario sin anexar [DICTAMEN:...].
 
-        // Columna M (13): EVIDENCIA (LINK DRIVE) -> Dejar vacía si contiene Base64
-        var curEvidenciaVal = String(sheetBdDict.getRange(foundRowDict, 13).getValue() || '');
-        if (curEvidenciaVal.indexOf('data:image/') !== -1 || curEvidenciaVal.indexOf('data:') === 0) {
-          sheetBdDict.getRange(foundRowDict, 13).setValue('');
+        // Foto 2 de Calidad en Google Drive y unificación de Columna M a UN SOLO LINK DE CARPETA
+        var savedCalPhoto = null;
+        var dictPhotoBase64 = payload.imageBase64 || payload.fotoCalidad || payload.fotoCalidadUrl || '';
+        if (dictPhotoBase64 && dictPhotoBase64.length > 50 && dictPhotoBase64.indexOf('data:image/') === 0) {
+          savedCalPhoto = saveImageToDriveHierarchical(dictPhotoBase64, opFormattedDict + '_POST_LAVADO_CALIDAD.jpg', opFormattedDict, new Date());
+          if (savedCalPhoto && savedCalPhoto.folderUrl) {
+            sheetBdDict.getRange(foundRowDict, 13).setValue(savedCalPhoto.folderUrl);
+          } else if (savedCalPhoto && savedCalPhoto.driveUrl) {
+            sheetBdDict.getRange(foundRowDict, 13).setValue(savedCalPhoto.driveUrl);
+          }
+        } else {
+          var curM = String(sheetBdDict.getRange(foundRowDict, 13).getValue() || '');
+          if (curM.indexOf('|') !== -1 || (curM.indexOf('drive.google.com') !== -1 && curM.indexOf('/folders/') === -1)) {
+            try {
+              var rootF = getRootDriveFolder();
+              var monthF = getMonthDriveFolder(rootF, new Date());
+              var opF = getOpDriveFolder(monthF, opFormattedDict);
+              sheetBdDict.getRange(foundRowDict, 13).setValue(opF.getUrl());
+            } catch (eF) {}
+          }
         }
 
-        // Columna O (15): OBS.OPERARIO FINAL (solo el texto puro ingresado en Observación Final)
+        // OBSERVACIÓN COLFACTORY (Columna L / 12)
+        var obsColDict = payload.observacionColfactory || payload.observacionesLavanderia || '';
+        if (obsColDict) {
+          var cleanColDict = String(obsColDict).trim();
+          if (cleanColDict.toLowerCase().indexOf('colcha recibida') === -1 && cleanColDict.indexOf('[LAVANDERIA]') === -1) {
+            var curColL = String(sheetBdDict.getRange(foundRowDict, 12).getValue() || '').trim();
+            if (!curColL || curColL.toLowerCase().indexOf('colcha recibida') !== -1) {
+              sheetBdDict.getRange(foundRowDict, 12).setValue(cleanColDict);
+            }
+          }
+        }
+
         var pureObs = payload.obsOperarioFinal || payload.observacionesTecnicas || payload.observaciones || '';
-        if (pureObs.indexOf('[DICTAMEN:') !== -1) {
-          pureObs = pureObs.replace(/^\[DICTAMEN:\s*(APROBADO|RECHAZADO|PENDIENTE)\]\s*/i, '').trim();
-        }
+        pureObs = pureObs.replace(/^\[DICTAMEN:\s*(APROBADO|RECHAZADO|PENDIENTE)\]\s*/i, '').trim();
         sheetBdDict.getRange(foundRowDict, 15).setValue(pureObs);
 
-        // Columna P (16): DICTAMEN FINAL (APROBADO o RECHAZADO)
         var dictVal = payload.dictamenFinal || payload.dictamen || payload.veredicto || 'APROBADO';
         sheetBdDict.getRange(foundRowDict, 16).setValue(dictVal);
 
-        // Depurar de la hoja ALERTAS si estaba allí
-        var sheetAl = ss.getSheetByName(SHEET_ALERTAS);
-        if (sheetAl) {
-          var alRows = sheetAl.getLastRow();
-          if (alRows > 1) {
-            var alOps = sheetAl.getRange(2, 1, alRows - 1, 1).getValues();
-            for (var a = alOps.length - 1; a >= 0; a--) {
-              var aOp = String(alOps[a][0] || '').trim().toUpperCase().replace('OP-', '');
-              if (aOp === targetOpDict) {
-                sheetAl.deleteRow(a + 2);
-              }
-            }
+        // Depurar de hoja ALERTAS
+        var shAl = ss.getSheetByName(SHEET_ALERTAS);
+        if (shAl && shAl.getLastRow() > 1) {
+          var vAl = shAl.getRange(2, 1, shAl.getLastRow() - 1, 1).getValues();
+          for (var a = vAl.length - 1; a >= 0; a--) {
+            if (String(vAl[a][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpDict) shAl.deleteRow(a + 2);
           }
         }
 
-        return createJsonResponse({
-          status: 'success',
-          message: 'Dictamen ' + dictVal + ' registrado en Columna P y Observación en Columna O de BASE_DE_DATOS'
-        });
-      } else {
-        return createJsonResponse({ status: 'error', message: 'OP no encontrada para dictamen' });
+        // FLUJO C: Envío automático inmediato de Correo de Dictamen / Liberación
+        var recipientsDict = getAllUserEmails(ss);
+        var col14Emails = String(sheetBdDict.getRange(foundRowDict, 14).getValue() || '');
+        if (col14Emails) {
+          var extraMails = col14Emails.split(',').map(function (e) { return e.trim().toLowerCase(); }).filter(function (e) { return e.indexOf('@') !== -1; });
+          for (var em = 0; em < extraMails.length; em++) {
+            if (recipientsDict.indexOf(extraMails[em]) === -1) recipientsDict.push(extraMails[em]);
+          }
+        }
+        var uniqueRecipientsDict = [];
+        for (var rd = 0; rd < recipientsDict.length; rd++) {
+          if (uniqueRecipientsDict.indexOf(recipientsDict[rd]) === -1) uniqueRecipientsDict.push(recipientsDict[rd]);
+        }
+
+        if (uniqueRecipientsDict.length > 0) {
+          try {
+            var rowVals = sheetBdDict.getRange(foundRowDict, 1, 1, 10).getValues()[0];
+            var telaDict = rowVals[2] || 'TELA TEXTIL';
+            var refDict = rowVals[6] || 'S/R';
+            var auditorName = payload.auditorCalidad || payload.inspector || 'LABORATORIO DE CALIDAD';
+            var appUrlDict = 'https://colchas.vercel.app/?op=' + encodeURIComponent(opFormattedDict) + '&view=public';
+            var isAprobado = String(dictVal).toUpperCase().indexOf('APROB') !== -1;
+            var subjectDict = (isAprobado ? '✅ [COLCHA APROBADA] ' : '❌ [COLCHA RECHAZADA] ') + opFormattedDict + ' • REF: ' + refDict + ' (' + telaDict + ')';
+            var driveFotoCalUrl = (savedCalPhoto && savedCalPhoto.driveUrl) ? savedCalPhoto.driveUrl : '';
+            var htmlDict = buildDictamenEmailHtml(opFormattedDict, refDict, telaDict, dictVal, pureObs, auditorName, appUrlDict, driveFotoCalUrl);
+
+            MailApp.sendEmail({
+              to: uniqueRecipientsDict.join(','),
+              subject: subjectDict,
+              htmlBody: htmlDict,
+              name: 'CALIDAD STF GROUP - SISTEMA OFICIAL'
+            });
+          } catch (mailErr) {
+            console.error('Error enviando correo de dictamen:', mailErr);
+          }
+        }
+
+        return createJsonResponse({ status: 'success', message: 'Dictamen registrado en BASE_DE_DATOS y notificado por correo' });
       }
+      return createJsonResponse({ status: 'error', message: 'OP no encontrada para dictamen' });
     }
 
-    // -----------------------------------------------------------------------
-    // ACCIÓN 6: UPDATE_ALERTA_REPORT_SENT (Registrar fecha y hora de envío)
-    // -----------------------------------------------------------------------
+    // 8. UPDATE_ALERTA_REPORT_SENT
     if (action === 'UPDATE_ALERTA_REPORT_SENT') {
-      var sheetAlRep = ss.getSheetByName(SHEET_ALERTAS);
-      if (sheetAlRep) {
-        var opsToUpdate = (payload.ops || []).map(function(o) { return String(o).trim().toUpperCase().replace('OP-', ''); });
-        var fechaReporte = payload.fechaEnvioReporte || new Date().toLocaleString();
-        var lastRowRep = sheetAlRep.getLastRow();
-        if (lastRowRep > 1) {
-          var opColVals = sheetAlRep.getRange(2, 1, lastRowRep - 1, 1).getValues();
-          for (var k = 0; k < opColVals.length; k++) {
-            var curClean = String(opColVals[k][0] || '').trim().toUpperCase().replace('OP-', '');
-            if (opsToUpdate.indexOf(curClean) !== -1) {
-              sheetAlRep.getRange(k + 2, 14).setValue(fechaReporte);
-            }
+      var shAlRep = ss.getSheetByName(SHEET_ALERTAS);
+      if (shAlRep && shAlRep.getLastRow() > 1) {
+        var opsToUp = (payload.ops || []).map(function (o) { return String(o).trim().toUpperCase().replace(/^OP-?/, ''); });
+        var fechaRep = payload.fechaEnvioReporte || new Date().toLocaleString();
+        var opVals = shAlRep.getRange(2, 1, shAlRep.getLastRow() - 1, 1).getValues();
+        for (var k = 0; k < opVals.length; k++) {
+          if (opsToUp.indexOf(String(opVals[k][0] || '').trim().toUpperCase().replace(/^OP-?/, '')) !== -1) {
+            shAlRep.getRange(k + 2, 14).setValue(fechaRep);
           }
         }
       }
-      return createJsonResponse({ status: 'success', message: 'Fecha de reporte actualizada en ALERTAS' });
+      return createJsonResponse({ status: 'success' });
     }
 
-    // -----------------------------------------------------------------------
-    // ACCIÓN 7: DELETE_MONITOREO_OP (Consumir OP de Monitoreo)
-    // -----------------------------------------------------------------------
+    // 9. DELETE_MONITOREO_OP
     if (action === 'DELETE_MONITOREO_OP') {
       removeOpFromMonitoreoSheet(ss, payload.op);
-      return createJsonResponse({ status: 'success', message: 'OP removida de MONITOREO' });
+      return createJsonResponse({ status: 'success' });
     }
 
-    // -----------------------------------------------------------------------
-    // ACCIÓN 8: UPDATE_OP_PHOTO (Guardar o actualizar foto desde móvil / app)
-    // -----------------------------------------------------------------------
+    // 10. UPDATE_OP_PHOTO
     if (action === 'UPDATE_OP_PHOTO') {
       var sheetBdPhoto = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
       var targetOpPhoto = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
+      var opFormattedPhoto = 'OP-' + targetOpPhoto;
       var lastRowBdPhoto = sheetBdPhoto.getLastRow();
       var foundRowPhoto = -1;
+
       if (lastRowBdPhoto > 1) {
         var opValsPhoto = sheetBdPhoto.getRange(2, 6, lastRowBdPhoto - 1, 1).getValues();
         for (var p = 0; p < opValsPhoto.length; p++) {
-          var curCleanOp = String(opValsPhoto[p][0] || '').trim().toUpperCase().replace(/^OP-?/, '');
-          if (curCleanOp === targetOpPhoto) {
+          if (String(opValsPhoto[p][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpPhoto) {
             foundRowPhoto = p + 2;
             break;
           }
@@ -644,286 +613,107 @@ function doPost(e) {
       }
 
       if (foundRowPhoto !== -1) {
-        // Garantizar que la celda de la OP tenga siempre 'OP-'
-        var curOpCellPhoto = String(sheetBdPhoto.getRange(foundRowPhoto, 6).getValue() || '').trim();
-        if (curOpCellPhoto && curOpCellPhoto.toUpperCase().indexOf('OP-') !== 0) {
-          sheetBdPhoto.getRange(foundRowPhoto, 6).setValue('OP-' + curOpCellPhoto.replace(/^OP-?/i, '').trim());
-        }
-
+        sheetBdPhoto.getRange(foundRowPhoto, 6).setValue(opFormattedPhoto);
         var photoUrl = payload.fotoCalidadUrl || payload.fotoCalidad || payload.fotoMuestraUrl || payload.photoUrl || '';
+        var isCalidad = !!payload.isCalidad;
+        var fileNamePhoto = opFormattedPhoto + (isCalidad ? '_POST_LAVADO_CALIDAD.jpg' : '_MUESTRA_INICIAL.jpg');
+        var savedPhotoRes = null;
+
         if (payload.imageBase64 && payload.imageBase64.length > 50 && payload.imageBase64.indexOf('data:image/') === 0) {
-          var dUrl = saveImageToDrive(payload.imageBase64, 'OP_' + targetOpPhoto + (payload.isCalidad ? '_CALIDAD.jpg' : '_INICIAL.jpg'));
-          if (dUrl) photoUrl = dUrl;
+          savedPhotoRes = saveImageToDriveHierarchical(payload.imageBase64, fileNamePhoto, opFormattedPhoto, new Date());
+          if (savedPhotoRes && savedPhotoRes.driveUrl) photoUrl = savedPhotoRes.driveUrl;
         } else if (photoUrl && photoUrl.length > 50 && photoUrl.indexOf('data:image/') === 0) {
-          var dUrl2 = saveImageToDrive(photoUrl, 'OP_' + targetOpPhoto + (payload.isCalidad ? '_CALIDAD.jpg' : '_INICIAL.jpg'));
-          if (dUrl2) photoUrl = dUrl2;
+          savedPhotoRes = saveImageToDriveHierarchical(photoUrl, fileNamePhoto, opFormattedPhoto, new Date());
+          if (savedPhotoRes && savedPhotoRes.driveUrl) photoUrl = savedPhotoRes.driveUrl;
         }
 
-        var currentPhoto = String(sheetBdPhoto.getRange(foundRowPhoto, 13).getValue() || '');
-        var newCol13 = photoUrl;
-        if (payload.isCalidad) {
-          var part1 = currentPhoto.indexOf('|') !== -1 ? currentPhoto.split('|')[0].trim() : currentPhoto.trim();
-          if (part1.length > 22000) part1 = part1.substring(0, 22000);
-          if (photoUrl.length > 22000) photoUrl = photoUrl.substring(0, 22000);
-          newCol13 = (part1 ? part1 + ' | ' : '') + photoUrl;
-        } else {
-          var part2 = currentPhoto.indexOf('|') !== -1 ? currentPhoto.split('|')[1].trim() : '';
-          if (photoUrl.length > 22000) photoUrl = photoUrl.substring(0, 22000);
-          if (part2.length > 22000) part2 = part2.substring(0, 22000);
-          newCol13 = photoUrl + (part2 ? ' | ' + part2 : '');
-        }
-
+        var newCol13 = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : photoUrl;
         sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(newCol13);
-        if (payload.obsOperarioFinal) {
-          sheetBdPhoto.getRange(foundRowPhoto, 15).setValue(payload.obsOperarioFinal);
+
+        if (payload.observacionColfactory || payload.observacionesLavanderia) {
+          var cleanColPh = String(payload.observacionColfactory || payload.observacionesLavanderia).trim();
+          if (cleanColPh.toLowerCase().indexOf('colcha recibida') === -1 && cleanColPh.indexOf('[LAVANDERIA]') === -1) {
+            sheetBdPhoto.getRange(foundRowPhoto, 12).setValue(cleanColPh);
+          }
         }
+        if (payload.obsOperarioFinal) sheetBdPhoto.getRange(foundRowPhoto, 15).setValue(payload.obsOperarioFinal);
 
         return createJsonResponse({
           status: 'success',
-          message: 'Foto de OP ' + targetOpPhoto + ' actualizada correctamente',
-          driveUrl: photoUrl
+          message: 'Foto de OP ' + opFormattedPhoto + ' archivada en Drive y actualizada en Columna M',
+          driveUrl: photoUrl,
+          folderUrl: (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : ''
         });
       }
-
       return createJsonResponse({ status: 'error', message: 'OP no encontrada en BASE_DE_DATOS' });
     }
 
-    // -----------------------------------------------------------------------
-    // -----------------------------------------------------------------------
-    // ACCIÓN 9: SEND_OP_EMAIL (Envío dedicado de ficha técnica de OP por correo)
-    // -----------------------------------------------------------------------
+    // 11. SEND_OP_EMAIL
     if (action === 'SEND_OP_EMAIL') {
       var opValMail = String(payload.op || payload.opNumber || '').trim().toUpperCase();
-      if (opValMail && opValMail.indexOf('OP-') !== 0) {
-        opValMail = 'OP-' + opValMail.replace(/^OP-?/i, '').trim();
-      }
+      if (opValMail && opValMail.indexOf('OP-') !== 0) opValMail = 'OP-' + opValMail.replace(/^OP-?/i, '').trim();
       var recipientsMail = payload.userEmails || payload.recipients || [];
-      if (!Array.isArray(recipientsMail) || recipientsMail.length === 0) {
-        recipientsMail = getAllUserEmails(ss);
-      }
-
-      var cleanMailList = (recipientsMail || []).map(function(e) { return String(e).trim().toLowerCase(); }).filter(function(e) { return e.indexOf('@') !== -1; });
+      if (!Array.isArray(recipientsMail) || recipientsMail.length === 0) recipientsMail = getAllUserEmails(ss);
+      var cleanMailList = (recipientsMail || []).map(function (e) { return String(e).trim().toLowerCase(); }).filter(function (e) { return e.indexOf('@') !== -1; });
       var uniqueCleanMails = [];
       for (var um = 0; um < cleanMailList.length; um++) {
         if (uniqueCleanMails.indexOf(cleanMailList[um]) === -1) uniqueCleanMails.push(cleanMailList[um]);
       }
-      var cleanMailStr = uniqueCleanMails.join(', ');
+      if (uniqueCleanMails.length === 0) return createJsonResponse({ status: 'error', message: 'Sin destinatarios válidos' });
 
-      if (uniqueCleanMails.length === 0) {
-        return createJsonResponse({ status: 'error', message: 'No hay destinatarios de correo válidos' });
-      }
+      var appUrlMail = payload.appUrl || ('https://colchas.vercel.app/?op=' + encodeURIComponent(opValMail) + '&view=public');
+      var refValMail = payload.referencia || payload['REFERENCIA'] || 'S/R';
+      var telaValMail = payload.tela || payload['TELA'] || 'TELA TEXTIL';
+      var nowMail = new Date();
+      var fechaFormattedMail = payload.fecha || Utilities.formatDate(nowMail, 'America/Bogota', 'd/M/yyyy HH:mm:ss');
 
-      try {
-        var appUrlMail = payload.appUrl || ('https://colchas.vercel.app/?op=' + encodeURIComponent(opValMail) + '&view=public');
-        var refValMail = payload.referencia || payload['REFERENCIA'] || 'S/R';
-        var telaValMail = payload.tela || payload['TELA'] || 'TELA TEXTIL';
-        var nowMail = new Date();
-        var fechaFormattedMail = payload.fecha || Utilities.formatDate(nowMail, 'America/Bogota', 'd/M/yyyy HH:mm:ss');
-        var subjectMail = '🧵 [FICHA TÉCNICA OP] ' + opValMail + ' • REF: ' + refValMail + ' (' + telaValMail + ')';
-        var htmlBodyMail = buildNewOpEmailHtml(payload, opValMail, fechaFormattedMail, appUrlMail, payload.fotoMuestraUrl || payload.driveUrl || '');
+      MailApp.sendEmail({
+        to: uniqueCleanMails.join(','),
+        subject: '🧵 [FICHA TÉCNICA OP] ' + opValMail + ' • REF: ' + refValMail + ' (' + telaValMail + ')',
+        htmlBody: buildNewOpEmailHtml(payload, opValMail, fechaFormattedMail, appUrlMail, payload.fotoMuestraUrl || payload.driveUrl || ''),
+        name: 'COLCHAS STF GROUP - SISTEMA OFICIAL'
+      });
 
-        MailApp.sendEmail({
-          to: uniqueCleanMails.join(','),
-          subject: subjectMail,
-          htmlBody: htmlBodyMail,
-          name: 'COLCHAS STF GROUP - SISTEMA OFICIAL'
-        });
-
-        // Actualizar Columna N (14) en BASE_DE_DATOS con las direcciones de correo limpias
-        var sheetBdMail = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
-        var targetOpMail = opValMail.replace(/^OP-?/, '');
-        var lastRowBdMail = sheetBdMail.getLastRow();
-        if (lastRowBdMail > 1 && cleanMailStr) {
-          var opValsMail = sheetBdMail.getRange(2, 6, lastRowBdMail - 1, 1).getValues();
-          for (var m = 0; m < opValsMail.length; m++) {
-            var curOpMailRow = String(opValsMail[m][0] || '').trim().toUpperCase().replace(/^OP-?/, '');
-            if (curOpMailRow === targetOpMail) {
-              sheetBdMail.getRange(m + 2, 14).setValue(cleanMailStr);
-              break;
-            }
-          }
-        }
-
-        return createJsonResponse({
-          status: 'success',
-          message: 'Ficha de ' + opValMail + ' enviada a ' + uniqueCleanMails.length + ' correo(s)',
-          recipientsCount: uniqueCleanMails.length,
-          correoNotificado: cleanMailStr
-        });
-      } catch (errMail) {
-        console.error('Error en SEND_OP_EMAIL:', errMail);
-        return createJsonResponse({ status: 'error', message: 'Error enviando correo: ' + errMail.toString() });
-      }
+      return createJsonResponse({ status: 'success', count: uniqueCleanMails.length });
     }
 
     // -----------------------------------------------------------------------
-    // ACCIÓN 8: SEND_ALERTA_EMAIL (Envío 100% Automático de Correo HTML vía MailApp)
+    // ACCIÓN 12: SEND_ALERTA_EMAIL (FLUJO B: Envío de Alertas SLA por Demanda)
     // -----------------------------------------------------------------------
     if (action === 'SEND_ALERTA_EMAIL') {
-      var recipientsList = payload.recipients || [];
-      if (!Array.isArray(recipientsList)) {
-        recipientsList = String(recipientsList).split(',').map(function(e) { return e.trim(); }).filter(Boolean);
-      }
-      
-      var cleanAlertList = (recipientsList || []).map(function(e) { return String(e).trim().toLowerCase(); }).filter(function(e) { return e.indexOf('@') !== -1; });
+      var recAlert = payload.recipients || [];
+      if (!Array.isArray(recAlert)) recAlert = String(recAlert).split(',').map(function (e) { return e.trim(); }).filter(Boolean);
+      var cleanAlertList = recAlert.map(function (e) { return String(e).trim().toLowerCase(); }).filter(function (e) { return e.indexOf('@') !== -1; });
       var uniqueAlertMails = [];
       for (var ua = 0; ua < cleanAlertList.length; ua++) {
         if (uniqueAlertMails.indexOf(cleanAlertList[ua]) === -1) uniqueAlertMails.push(cleanAlertList[ua]);
       }
-      var cleanAlertStr = uniqueAlertMails.join(', ');
-
-      if (uniqueAlertMails.length === 0) {
-        return createJsonResponse({ status: 'error', message: 'No se especificaron destinatarios válidos' });
-      }
+      if (uniqueAlertMails.length === 0) return createJsonResponse({ status: 'error', message: 'Sin destinatarios' });
 
       var opsList = payload.ops || [];
       var senderName = payload.senderName || 'EDWIN DIAZ (ADMINISTRADOR)';
       var fechaReporte = payload.fechaReporte || Utilities.formatDate(new Date(), 'America/Bogota', 'd/M/yyyy HH:mm:ss');
-      var appUrl = payload.appUrl || 'https://colchas.vercel.app/?tab=alertas';
-      var subject = payload.subject || ('🚨 [ALERTA SLA - STF GROUP] ' + opsList.length + ' Órdenes de Producción con Retraso');
+      var appUrlAl = payload.appUrl || 'https://colchas.vercel.app/?tab=alertas';
+      var subjectAlert = payload.subject || ('🚨 [ALERTA SLA - STF GROUP] ' + opsList.length + ' Órdenes con Retraso');
+      var htmlAlert = buildAlertaEmailHtml(opsList, senderName, fechaReporte, appUrlAl);
 
-      // Construcción del cuerpo HTML del correo
-      var htmlRows = '';
-      for (var r = 0; r < opsList.length; r++) {
-        var item = opsList[r];
-        var itemOp = item.op || '';
-        var itemRef = item.referencia || 'S/R';
-        var itemTela = item.tela || '';
-        var itemArea = item.areaActual || 'PLANTA';
-        var itemDias = item.diasHabiles || 0;
-        var retrasoDias = Math.max(0, itemDias - 3);
-        var itemObs = item.observacionesOperario || item.observacionesLavanderia || 'En seguimiento';
-        var itemColor = item.color || '';
-        var itemRollos = item.rollos || 1;
-
-        var rowBg = (r % 2 === 0) ? '#ffffff' : '#f9fafb';
-        htmlRows += '<tr style="background-color: ' + rowBg + '; border-bottom: 1px solid #e5e7eb;">';
-        htmlRows += '<td style="padding: 10px 8px; font-weight: 900; font-family: monospace; color: #111827;">OP-' + itemOp + '</td>';
-        htmlRows += '<td style="padding: 10px 8px; color: #374151;"><strong>' + itemRef + '</strong><br/><span style="font-size: 11px; color: #6b7280;">' + itemTela + ' (' + itemColor + ') - ' + itemRollos + ' rls</span></td>';
-        htmlRows += '<td style="padding: 10px 8px; font-size: 11px; color: #4b5563;">' + itemArea + '</td>';
-        htmlRows += '<td style="padding: 10px 8px; font-weight: bold; color: #111827; text-align: center;">' + itemDias + ' Días</td>';
-        htmlRows += '<td style="padding: 10px 8px; font-weight: 900; color: #dc2626; text-align: center;">+' + retrasoDias + 'd Retraso</td>';
-        htmlRows += '<td style="padding: 10px 8px; font-size: 11px; color: #4b5563;">' + itemObs + '</td>';
-        htmlRows += '</tr>';
-      }
-
-      var htmlBody = '<!DOCTYPE html>' +
-        '<html lang="es"><head><meta charset="utf-8"></head><body style="margin: 0; padding: 20px; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;">' +
-        '<div style="max-width: 720px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">' +
-        
-        // Header
-        '<div style="background: linear-gradient(135deg, #881337 0%, #4c0519 100%); padding: 24px; color: #ffffff; text-align: center;">' +
-        '<h1 style="margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">STF GROUP S.A.</h1>' +
-        '<p style="margin: 4px 0 0 0; font-size: 13px; font-weight: bold; color: #fecdd3; letter-spacing: 0.5px;">INFORME OFICIAL DE CALIDAD • ALERTA DE DESVIACIÓN SLA EN PLANTA</p>' +
-        '</div>' +
-
-        // Summary Bar
-        '<div style="padding: 16px 24px; background-color: #fff1f2; border-bottom: 1px solid #fecdd3;">' +
-        '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">' +
-        '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">📊 Órdenes con Retraso:</td><td style="padding: 3px 0; font-weight: 900; color: #881337; text-align: right;">' + opsList.length + ' OP(s) Críticas</td></tr>' +
-        '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">👤 Emitido por:</td><td style="padding: 3px 0; font-weight: bold; color: #111827; text-align: right;">' + senderName + '</td></tr>' +
-        '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">📅 Fecha de Notificación:</td><td style="padding: 3px 0; font-family: monospace; color: #374151; text-align: right;">' + fechaReporte + '</td></tr>' +
-        '<tr><td style="padding: 3px 0; color: #9f1239; font-weight: bold;">👥 Destinatarios:</td><td style="padding: 3px 0; font-size: 12px; color: #4b5563; text-align: right;">' + uniqueAlertMails.length + ' Contacto(s) Registrados</td></tr>' +
-        '</table>' +
-        '</div>' +
-
-        // Table Content
-        '<div style="padding: 20px 24px;">' +
-        '<h2 style="font-size: 13px; font-weight: 900; text-transform: uppercase; color: #881337; margin: 0 0 12px 0; letter-spacing: 0.5px;">📋 Detalle de Órdenes Notificadas</h2>' +
-        '<table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">' +
-        '<thead>' +
-        '<tr style="background-color: #f3f4f6; border-bottom: 2px solid #d1d5db;">' +
-        '<th style="padding: 8px; font-weight: 800; color: #374151;">OP</th>' +
-        '<th style="padding: 8px; font-weight: 800; color: #374151;">Referencia / Tela</th>' +
-        '<th style="padding: 8px; font-weight: 800; color: #374151;">Área</th>' +
-        '<th style="padding: 8px; font-weight: 800; color: #374151; text-align: center;">Días</th>' +
-        '<th style="padding: 8px; font-weight: 800; color: #dc2626; text-align: center;">Retraso SLA</th>' +
-        '<th style="padding: 8px; font-weight: 800; color: #374151;">Observación</th>' +
-        '</tr>' +
-        '</thead>' +
-        '<tbody>' + htmlRows + '</tbody>' +
-        '</table>' +
-        '</div>' +
-
-        // Action CTA
-        '<div style="padding: 10px 24px 24px 24px; text-align: center;">' +
-        '<a href="' + appUrl + '" style="display: inline-block; background-color: #881337; color: #ffffff; font-weight: bold; font-size: 13px; text-decoration: none; padding: 12px 28px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px;">🚀 Abrir Sistema de Trazabilidad Colchas</a>' +
-        '<p style="margin: 12px 0 0 0; font-size: 11px; color: #6b7280;">Este es un mensaje automático enviado por el Sistema de Control de Calidad STF Group S.A.</p>' +
-        '</div>' +
-
-        // Footer
-        '<div style="background-color: #f9fafb; border-top: 1px solid #e5e7eb; padding: 12px 24px; text-align: center; font-size: 11px; color: #6b7280;">' +
-        '© 2026 STF GROUP S.A. • Todos los derechos reservados.' +
-        '</div>' +
-
-        '</div></body></html>';
-
-      // Envío de correo electrónico a los destinatarios mediante MailApp
-      try {
-        MailApp.sendEmail({
-          to: uniqueAlertMails.join(','),
-          subject: subject,
-          htmlBody: htmlBody,
-          name: 'ALERTA COLCHAS - STF GROUP'
-        });
-      } catch (mailErr) {
-        console.error('Error enviando correo con MailApp:', mailErr);
-      }
-
-      // Actualizar columna 14 en la hoja ALERTAS
-      var sheetAlRep = ss.getSheetByName(SHEET_ALERTAS);
-      if (sheetAlRep) {
-        var opsToUpdate = (opsList || []).map(function(o) { return String(o.op || o).trim().toUpperCase().replace('OP-', ''); });
-        var lastRowRep = sheetAlRep.getLastRow();
-        if (lastRowRep > 1) {
-          var opColVals = sheetAlRep.getRange(2, 1, lastRowRep - 1, 1).getValues();
-          for (var k = 0; k < opColVals.length; k++) {
-            var curClean = String(opColVals[k][0] || '').trim().toUpperCase().replace('OP-', '');
-            if (opsToUpdate.indexOf(curClean) !== -1) {
-              sheetAlRep.getRange(k + 2, 14).setValue(fechaReporte + ' (' + uniqueAlertMails.length + ' usuarios)');
-            }
-          }
-        }
-      }
-
-      // Actualizar columna 14 (CORREO NOTIFICADO) en BASE_DE_DATOS con las direcciones limpias
-      var sheetBdAlert = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
-      if (sheetBdAlert && cleanAlertStr) {
-        var bdLastRow = sheetBdAlert.getLastRow();
-        if (bdLastRow > 1) {
-          var bdOps = sheetBdAlert.getRange(2, 6, bdLastRow - 1, 1).getValues();
-          var opsToUpdateAlert = (opsList || []).map(function(o) { return String(o.op || o).trim().toUpperCase().replace(/^OP-?/, ''); });
-          for (var b = 0; b < bdOps.length; b++) {
-            var bOp = String(bdOps[b][0] || '').trim().toUpperCase().replace(/^OP-?/, '');
-            if (opsToUpdateAlert.indexOf(bOp) !== -1) {
-              sheetBdAlert.getRange(b + 2, 14).setValue(cleanAlertStr);
-            }
-          }
-        }
-      }
-
-      return createJsonResponse({
-        status: 'success',
-        message: 'Correo enviado exitosamente a ' + uniqueAlertMails.length + ' destinatario(s)',
-        sentCount: uniqueAlertMails.length,
-        correoNotificado: cleanAlertStr
+      MailApp.sendEmail({
+        to: uniqueAlertMails.join(','),
+        subject: subjectAlert,
+        htmlBody: htmlAlert,
+        name: 'ALERTA COLCHAS - STF GROUP'
       });
+
+      return createJsonResponse({ status: 'success', sentCount: uniqueAlertMails.length });
     }
 
-    // -----------------------------------------------------------------------
-    // ACCIÓN 10: CLEAN_COLUMNS_KLMN (Depuración y limpieza de columnas K, L, M y N)
-    // -----------------------------------------------------------------------
+    // 13. CLEAN_COLUMNS_KLMN
     if (action === 'CLEAN_COLUMNS_KLMN') {
       var cleanedCount = cleanColumnsKLMN(ss);
-      return createJsonResponse({
-        status: 'success',
-        message: 'Columnas K, L, M y N depuradas exitosamente en ' + cleanedCount + ' filas.',
-        cleanedCount: cleanedCount
-      });
+      return createJsonResponse({ status: 'success', cleanedCount: cleanedCount });
     }
 
     return createJsonResponse({ status: 'error', message: 'Acción POST no reconocida: ' + action });
-
   } catch (err) {
     return createJsonResponse({ status: 'error', message: err.toString() });
   }
@@ -931,10 +721,9 @@ function doPost(e) {
 
 /**
  * =========================================================================
- * FUNCIONES AUXILIARES Y FORMATO AUTOMÁTICO
+ * FUNCIONES AUXILIARES Y GESTIÓN JERÁRQUICA EN GOOGLE DRIVE
  * =========================================================================
  */
-
 function getTargetSpreadsheet() {
   try {
     return SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -944,154 +733,164 @@ function getTargetSpreadsheet() {
 }
 
 function createJsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getMonitoreoSheet(ss) {
+  var sheets = ss.getSheets();
+  for (var s = 0; s < sheets.length; s++) {
+    if (sheets[s].getSheetId() === 1356774059 || sheets[s].getName().trim().toUpperCase() === 'MONITOREO') return sheets[s];
+  }
+  return ss.getSheetByName(SHEET_MONITOREO) || ss.getSheetByName('monitoreo');
 }
 
 function removeOpFromMonitoreoSheet(ss, op) {
   if (!op) return;
-  var sheetMon = null;
-  var sheets = ss.getSheets();
-  for (var s = 0; s < sheets.length; s++) {
-    if (sheets[s].getSheetId() === 1356774059 || sheets[s].getName().trim().toUpperCase() === 'MONITOREO') {
-      sheetMon = sheets[s];
-      break;
-    }
-  }
-  if (!sheetMon) {
-    sheetMon = ss.getSheetByName(SHEET_MONITOREO) || ss.getSheetByName('monitoreo');
-  }
-  if (!sheetMon) return;
-
+  var sheetMon = getMonitoreoSheet(ss);
+  if (!sheetMon || sheetMon.getLastRow() <= 1) return;
   var cleanTarget = String(op).trim().toUpperCase();
-  var cleanTargetNoPrefix = cleanTarget.replace(/^OP-?/, '');
-  var targetDigits = cleanTarget.replace(/\D/g, '');
-  var lastRow = sheetMon.getLastRow();
-  var lastCol = Math.max(5, sheetMon.getLastColumn());
+  var cleanNoPrefix = cleanTarget.replace(/^OP-?/, '');
+  var vals = sheetMon.getRange(2, 1, sheetMon.getLastRow() - 1, Math.max(5, sheetMon.getLastColumn())).getValues();
 
-  if (lastRow > 1) {
-    var vals = sheetMon.getRange(2, 1, lastRow - 1, lastCol).getValues();
-    for (var i = vals.length - 1; i >= 0; i--) {
-      var rowVals = vals[i];
-      var isMatch = false;
-
-      // Buscar coincidencia en todas las columnas de la fila (OP, TELA, REF)
-      for (var c = 0; c < rowVals.length; c++) {
-        var cellVal = String(rowVals[c] || '').trim().toUpperCase();
-        var cellNoPrefix = cellVal.replace(/^OP-?/, '');
-        var cellDigits = cellVal.replace(/\D/g, '');
-
-        if (cellVal && (cellVal === cleanTarget || cellNoPrefix === cleanTargetNoPrefix)) {
-          isMatch = true;
-          break;
-        }
-        if (targetDigits && cellDigits && targetDigits === cellDigits && targetDigits.length >= 3) {
-          isMatch = true;
-          break;
-        }
-      }
-
-      if (isMatch) {
-        sheetMon.deleteRow(i + 2);
-      }
+  for (var i = vals.length - 1; i >= 0; i--) {
+    var match = false;
+    for (var c = 0; c < vals[i].length; c++) {
+      var cv = String(vals[i][c] || '').trim().toUpperCase();
+      if (cv && (cv === cleanTarget || cv.replace(/^OP-?/, '') === cleanNoPrefix)) { match = true; break; }
     }
+    if (match) sheetMon.deleteRow(i + 2);
   }
 }
 
-/**
- * Cruza todas las OPs registradas en BASE_DE_DATOS contra MONITOREO
- * y elimina automáticamente cualquier fila de MONITOREO que ya haya sido ingresada al sistema.
- */
 function autoCleanMonitoreoFromBaseDeDatos(ss) {
   try {
     var sheetBd = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
     var sheetMon = getMonitoreoSheet(ss);
-    if (!sheetBd || !sheetMon) return 0;
+    if (!sheetBd || !sheetMon || sheetBd.getLastRow() <= 1 || sheetMon.getLastRow() <= 1) return 0;
 
-    var lastRowBd = sheetBd.getLastRow();
-    if (lastRowBd <= 1) return 0;
-
-    // 1. Obtener listado de todas las OPs registradas en BASE_DE_DATOS (Columna F = index 6)
-    var bdValues = sheetBd.getRange(2, 6, lastRowBd - 1, 1).getValues();
+    var bdValues = sheetBd.getRange(2, 6, sheetBd.getLastRow() - 1, 1).getValues();
     var registeredMap = {};
     for (var b = 0; b < bdValues.length; b++) {
       var opVal = String(bdValues[b][0] || '').trim().toUpperCase();
       if (opVal) {
         registeredMap[opVal] = true;
         registeredMap[opVal.replace(/^OP-?/, '')] = true;
-        var digits = opVal.replace(/\D/g, '');
-        if (digits) registeredMap[digits] = true;
       }
     }
 
-    // 2. Recorrer MONITOREO y eliminar las OPs coincidentes
-    var lastRowMon = sheetMon.getLastRow();
-    var lastColMon = Math.max(5, sheetMon.getLastColumn());
+    var monValues = sheetMon.getRange(2, 1, sheetMon.getLastRow() - 1, Math.max(5, sheetMon.getLastColumn())).getValues();
     var deletedCount = 0;
-
-    if (lastRowMon > 1) {
-      var monValues = sheetMon.getRange(2, 1, lastRowMon - 1, lastColMon).getValues();
-      for (var m = monValues.length - 1; m >= 0; m--) {
-        var row = monValues[m];
-        var isMatch = false;
-
-        for (var c = 0; c < row.length; c++) {
-          var cellVal = String(row[c] || '').trim().toUpperCase();
-          var cellNoPrefix = cellVal.replace(/^OP-?/, '');
-          var cellDigits = cellVal.replace(/\D/g, '');
-
-          if (cellVal && (registeredMap[cellVal] || registeredMap[cellNoPrefix])) {
-            isMatch = true;
-            break;
-          }
-          if (cellDigits && cellDigits.length >= 3 && registeredMap[cellDigits]) {
-            isMatch = true;
-            break;
-          }
-        }
-
-        if (isMatch) {
-          sheetMon.deleteRow(m + 2);
-          deletedCount++;
+    for (var m = monValues.length - 1; m >= 0; m--) {
+      var isMatch = false;
+      for (var c = 0; c < monValues[m].length; c++) {
+        var cellVal = String(monValues[m][c] || '').trim().toUpperCase();
+        if (cellVal && (registeredMap[cellVal] || registeredMap[cellVal.replace(/^OP-?/, '')])) {
+          isMatch = true;
+          break;
         }
       }
+      if (isMatch) {
+        sheetMon.deleteRow(m + 2);
+        deletedCount++;
+      }
     }
-
     return deletedCount;
   } catch (e) {
-    console.error('Error en autoCleanMonitoreoFromBaseDeDatos:', e);
+    console.error('Error autoCleanMonitoreoFromBaseDeDatos:', e);
     return 0;
   }
 }
 
-function saveImageToDrive(base64Data, fileName) {
-  try {
-    var folder = getOrCreateDriveFolder();
-    var cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
-    var decoded = Utilities.base64Decode(cleanBase64);
-    var blob = Utilities.newBlob(decoded, 'image/jpeg', fileName);
-    var file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return 'https://drive.google.com/uc?id=' + file.getId();
-  } catch (e) {
-    console.error('Error guardando imagen en Google Drive:', e);
-    return '';
+/**
+ * GESTIÓN DE GOOGLE DRIVE: JERARQUÍA RAÍZ -> MES -> OP
+ */
+function getRootDriveFolder() {
+  var folderId = (typeof TARGET_DRIVE_FOLDER_ID !== 'undefined' && TARGET_DRIVE_FOLDER_ID) ? TARGET_DRIVE_FOLDER_ID : TARGET_DRIVE_SPREADSHEET_OR_FOLDER_ID;
+  if (folderId && String(folderId).trim().length > 5) {
+    try {
+      var candidate = DriveApp.getFileById(String(folderId).trim());
+      if (candidate.getMimeType() === 'application/vnd.google-apps.folder') {
+        return DriveApp.getFolderById(String(folderId).trim());
+      }
+      var parents = candidate.getParents();
+      if (parents.hasNext()) {
+        var parentFolder = parents.next();
+        var subFolders = parentFolder.getFoldersByName(DRIVE_FOLDER_NAME);
+        if (subFolders.hasNext()) return subFolders.next();
+        var createdInParent = parentFolder.createFolder(DRIVE_FOLDER_NAME);
+        createdInParent.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        return createdInParent;
+      }
+    } catch (err) {
+      console.warn('Aviso: Pasando a Mi Unidad de Drive:', err);
+    }
   }
-}
 
-function getOrCreateDriveFolder() {
   var folders = DriveApp.getFoldersByName(DRIVE_FOLDER_NAME);
-  if (folders.hasNext()) {
-    return folders.next();
-  }
+  if (folders.hasNext()) return folders.next();
   var newFolder = DriveApp.createFolder(DRIVE_FOLDER_NAME);
   newFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return newFolder;
 }
 
+function getMonthDriveFolder(rootFolder, dateInput) {
+  var d = dateInput ? new Date(dateInput) : new Date();
+  if (isNaN(d.getTime())) d = new Date();
+  var monthsEs = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+  var folderName = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + ' - ' + monthsEs[d.getMonth()];
+  var subFolders = rootFolder.getFoldersByName(folderName);
+  if (subFolders.hasNext()) return subFolders.next();
+  var created = rootFolder.createFolder(folderName);
+  created.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return created;
+}
+
+function getOpDriveFolder(monthFolder, rawOp) {
+  var cleanOp = String(rawOp || 'OP-GENERAL').trim().toUpperCase();
+  if (cleanOp.indexOf('OP-') !== 0) cleanOp = 'OP-' + cleanOp.replace(/^OP-?/i, '').trim();
+  var subFolders = monthFolder.getFoldersByName(cleanOp);
+  if (subFolders.hasNext()) return subFolders.next();
+  var created = monthFolder.createFolder(cleanOp);
+  created.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return created;
+}
+
+function saveImageToDriveHierarchical(base64Data, fileName, rawOp, dateInput) {
+  try {
+    if (!base64Data || base64Data.length < 50) return { driveUrl: '', folderUrl: '' };
+    var root = getRootDriveFolder();
+    var monthFolder = getMonthDriveFolder(root, dateInput);
+    var opFolder = getOpDriveFolder(monthFolder, rawOp);
+
+    var cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
+    var decoded = Utilities.base64Decode(cleanBase64);
+    var blob = Utilities.newBlob(decoded, 'image/jpeg', fileName);
+    var file = opFolder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    return {
+      driveUrl: 'https://drive.google.com/uc?id=' + file.getId(),
+      folderUrl: opFolder.getUrl(),
+      fileId: file.getId()
+    };
+  } catch (e) {
+    console.error('Error guardando imagen en Google Drive:', e);
+    return { driveUrl: '', folderUrl: '' };
+  }
+}
+
+function saveImageToDrive(base64Data, fileName, rawOp, dateInput) {
+  var res = saveImageToDriveHierarchical(base64Data, fileName, rawOp, dateInput);
+  return res ? res.driveUrl : '';
+}
+
+function getOrCreateDriveFolder() {
+  return getRootDriveFolder();
+}
+
 function formatAlertasSheetHeader(sheet) {
   var headerRange = sheet.getRange(1, 1, 1, ALERTAS_HEADERS.length);
-  headerRange.setBackground('#991b1b'); // Rojo vino institucional
+  headerRange.setBackground('#991b1b');
   headerRange.setFontColor('#ffffff');
   headerRange.setFontWeight('bold');
   headerRange.setFontFamily('Consolas');
@@ -1106,23 +905,17 @@ function formatAlertasSheetRows(sheet, numRows) {
   dataRange.setFontSize(10);
   dataRange.setVerticalAlignment('middle');
   dataRange.setBorder(true, true, true, true, true, true, '#e5e7eb', SpreadsheetApp.BorderStyle.SOLID);
-  sheet.getRange(2, 1, numRows, 1).setHorizontalAlignment('center').setFontWeight('bold'); // OP
-  sheet.getRange(2, 5, numRows, 1).setHorizontalAlignment('center'); // Metros
-  sheet.getRange(2, 7, numRows, 4).setHorizontalAlignment('center'); // Fechas y Días
-  sheet.getRange(2, 9, numRows, 1).setFontColor('#dc2626').setFontWeight('bold'); // Días retraso
-  for (var col = 1; col <= ALERTAS_HEADERS.length; col++) {
-    sheet.autoResizeColumn(col);
-  }
+  sheet.getRange(2, 1, numRows, 1).setHorizontalAlignment('center').setFontWeight('bold');
+  sheet.getRange(2, 5, numRows, 1).setHorizontalAlignment('center');
+  sheet.getRange(2, 7, numRows, 4).setHorizontalAlignment('center');
+  sheet.getRange(2, 9, numRows, 1).setFontColor('#dc2626').setFontWeight('bold');
+  for (var col = 1; col <= ALERTAS_HEADERS.length; col++) sheet.autoResizeColumn(col);
 }
 
 function syncAlertasFromBaseDeDatos() {
   var ss = getTargetSpreadsheet();
   var sheetBd = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
-  var sheetAlertas = ss.getSheetByName(SHEET_ALERTAS);
-  if (!sheetAlertas) {
-    sheetAlertas = ss.insertSheet(SHEET_ALERTAS);
-  }
-
+  var sheetAlertas = ss.getSheetByName(SHEET_ALERTAS) || ss.insertSheet(SHEET_ALERTAS);
   var data = sheetBd.getDataRange().getValues();
   if (data.length < 2) return;
 
@@ -1131,57 +924,26 @@ function syncAlertasFromBaseDeDatos() {
 
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var fechaStr = row[0];
-    var inspector = row[1];
-    var tela = row[2];
-    var codigoMt = row[3];
-    var color = row[4];
     var op = row[5];
-    var ref = row[6];
-    var rollos = row[7] || 1;
     var estado = String(row[9] || '').toUpperCase();
-    var obsOp = row[10] || '';
-    var obsCol = row[11] || '';
-
     if (!op || estado === 'FINALIZADO') continue;
 
-    var diasHabiles = calcularDiasHabiles(fechaStr, now);
+    var diasHabiles = calcularDiasHabiles(row[0], now);
     if (diasHabiles > 3) {
-      var excesoSla = diasHabiles - 3;
-      var areaActual = mapAreaToTitle(estado);
+      var rollos = row[7] || 1;
+      var codigoMt = row[3];
       var metrosStr = codigoMt ? (String(codigoMt).indexOf('MT') !== -1 ? codigoMt : codigoMt + ' (' + (rollos * 85) + ' MT)') : (rollos * 85) + ' MT';
-      
       alertasRows.push([
-        op,
-        ref || 'S/R',
-        tela || '',
-        color || 'AZUL',
-        metrosStr,
-        areaActual,
-        fechaStr,
-        diasHabiles + ' Días',
-        '+' + excesoSla + ' Días',
-        (diasHabiles * 12) + 'h',
-        inspector || 'CALIDAD ZF',
-        obsOp,
-        obsCol,
-        ''
+        op, row[6] || 'S/R', row[2] || '', row[4] || 'AZUL', metrosStr,
+        mapAreaToTitle(estado), row[0], diasHabiles + ' Días', '+' + (diasHabiles - 3) + ' Días',
+        (diasHabiles * 12) + 'h', row[1] || 'CALIDAD ZF', row[10] || '', row[11] || '', ''
       ]);
     }
   }
 
-  // Ordenar por mayor retraso
-  alertasRows.sort(function(a, b) {
-    var dA = parseInt(a[7]) || 0;
-    var dB = parseInt(b[7]) || 0;
-    return dB - dA;
-  });
-
+  alertasRows.sort(function (a, b) { return (parseInt(b[7]) || 0) - (parseInt(a[7]) || 0); });
   var lastRow = sheetAlertas.getLastRow();
-  if (lastRow > 1) {
-    sheetAlertas.getRange(2, 1, lastRow - 1, Math.max(14, sheetAlertas.getLastColumn())).clearContent();
-  }
-
+  if (lastRow > 1) sheetAlertas.getRange(2, 1, lastRow - 1, Math.max(14, sheetAlertas.getLastColumn())).clearContent();
   sheetAlertas.getRange(1, 1, 1, ALERTAS_HEADERS.length).setValues([ALERTAS_HEADERS]);
   formatAlertasSheetHeader(sheetAlertas);
 
@@ -1189,16 +951,14 @@ function syncAlertasFromBaseDeDatos() {
     sheetAlertas.getRange(2, 1, alertasRows.length, ALERTAS_HEADERS.length).setValues(alertasRows);
     formatAlertasSheetRows(sheetAlertas, alertasRows.length);
   }
-
-  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Hoja ALERTAS sincronizada con ' + alertasRows.length + ' órdenes retrasadas.', 'STF Group SLA', 5);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Hoja ALERTAS sincronizada con ' + alertasRows.length + ' órdenes.', 'STF Group SLA', 5);
 }
 
 function calcularDiasHabiles(fechaInicio, fechaFin) {
   if (!fechaInicio) return 0;
-  var dInicio = new Date(fechaInicio);
-  if (isNaN(dInicio.getTime())) return 0;
+  var cur = new Date(fechaInicio);
+  if (isNaN(cur.getTime())) return 0;
   var count = 0;
-  var cur = new Date(dInicio.getTime());
   while (cur < fechaFin) {
     cur.setDate(cur.getDate() + 1);
     var day = cur.getDay();
@@ -1220,393 +980,615 @@ function formatAllSheets() {
   normalizeAllOpCodesInBaseDeDatos(ss);
   var sheets = ss.getSheets();
   for (var s = 0; s < sheets.length; s++) {
-    var sh = sheets[s];
-    sh.setFrozenRows(1);
-    for (var c = 1; c <= sh.getLastColumn(); c++) {
-      sh.autoResizeColumn(c);
-    }
+    sheets[s].setFrozenRows(1);
+    for (var c = 1; c <= sheets[s].getLastColumn(); c++) sheets[s].autoResizeColumn(c);
   }
-  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Formato profesional y normalización de OPs aplicados a todas las pestañas.', 'STF Group', 5);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Formato profesional y normalización aplicados.', 'STF Group', 5);
 }
 
-/**
- * Normaliza y formatea todos los códigos de OP en la columna F de BASE_DE_DATOS
- * Garantiza que siempre tengan el prefijo oficial "OP-" (Ej: 5665 -> OP-5665)
- */
 function normalizeAllOpCodesInBaseDeDatos(ss) {
   if (!ss) ss = getTargetSpreadsheet();
   var sheetBd = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
-  if (!sheetBd) return 0;
+  if (!sheetBd || sheetBd.getLastRow() <= 1) return 0;
 
-  var lastRow = sheetBd.getLastRow();
-  if (lastRow <= 1) return 0;
-
-  var range = sheetBd.getRange(2, 6, lastRow - 1, 1); // Columna F (OP)
+  var range = sheetBd.getRange(2, 6, sheetBd.getLastRow() - 1, 1);
   var values = range.getValues();
-  var updatedCount = 0;
+  var updated = 0;
 
   for (var i = 0; i < values.length; i++) {
-    var cellVal = String(values[i][0] || '').trim();
-    if (cellVal && cellVal.toUpperCase() !== 'OP') {
-      var formatted = cellVal;
-      var upper = cellVal.toUpperCase();
-      if (upper.indexOf('OP-') === 0) {
-        var rest = cellVal.substring(3).trim();
-        formatted = 'OP-' + rest;
-      } else if (upper.indexOf('OP') === 0) {
-        var rest = cellVal.substring(2).replace(/^[-_\s]+/, '').trim();
-        formatted = 'OP-' + rest;
-      } else {
-        formatted = 'OP-' + cellVal;
-      }
-
-      if (formatted !== cellVal) {
-        values[i][0] = formatted;
-        updatedCount++;
-      }
+    var v = String(values[i][0] || '').trim();
+    if (v && v.toUpperCase() !== 'OP') {
+      var f = v.toUpperCase().indexOf('OP-') === 0 ? ('OP-' + v.substring(3).trim()) : (v.toUpperCase().indexOf('OP') === 0 ? ('OP-' + v.substring(2).replace(/^[-_\s]+/, '').trim()) : ('OP-' + v));
+      if (f !== v) { values[i][0] = f; updated++; }
     }
   }
-
-  if (updatedCount > 0) {
-    range.setValues(values);
-  }
-  return updatedCount;
+  if (updated > 0) range.setValues(values);
+  return updated;
 }
 
-function getMonitoreoSheet(ss) {
+/**
+ * Localiza de forma infalible la hoja USUARIOS (por GID 335635630 o por nombre)
+ */
+function getUsuariosSheet(ss) {
+  if (!ss) ss = getTargetSpreadsheet();
   var sheets = ss.getSheets();
-  for (var s = 0; s < sheets.length; s++) {
-    if (sheets[s].getSheetId() === 1356774059 || sheets[s].getName().trim().toUpperCase() === 'MONITOREO') {
-      return sheets[s];
+
+  // 1. Buscar por GID oficial de USUARIOS (335635630)
+  for (var i = 0; i < sheets.length; i++) {
+    try {
+      if (String(sheets[i].getSheetId()) === '335635630') {
+        return sheets[i];
+      }
+    } catch (e) { }
+  }
+
+  // 2. Buscar por nombre exacto común
+  var direct = ss.getSheetByName('USUARIOS') ||
+    ss.getSheetByName('DIRECTORIO') ||
+    ss.getSheetByName('CONTACTOS') ||
+    ss.getSheetByName('ROLES');
+  if (direct) return direct;
+
+  // 3. Buscar insensible a mayúsculas, tildes o espacios
+  for (var j = 0; j < sheets.length; j++) {
+    var name = sheets[j].getName().trim().toUpperCase();
+    if (name === 'USUARIOS' || name === 'DIRECTORIO' || name === 'CONTACTOS' || name.indexOf('USUARIO') !== -1) {
+      return sheets[j];
     }
   }
-  return ss.getSheetByName(SHEET_MONITOREO) || ss.getSheetByName('monitoreo');
+  return null;
 }
 
+/**
+ * Extrae dinámicamente en tiempo real todos los correos válidos de la pestaña USUARIOS
+ */
 function getAllUserEmails(ss) {
+  if (!ss) ss = getTargetSpreadsheet();
   var emails = [];
+  var emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
   try {
-    var userSheet = ss.getSheetByName('USUARIOS') || ss.getSheetByName('DIRECTORIO') || ss.getSheetByName('CONTACTOS');
-    if (userSheet) {
+    var userSheet = getUsuariosSheet(ss);
+    if (userSheet && userSheet.getLastRow() >= 2) {
       var data = userSheet.getDataRange().getValues();
-      for (var r = 0; r < data.length; r++) {
-        for (var c = 0; c < data[r].length; c++) {
-          var val = String(data[r][c] || '').trim();
-          if (val.indexOf('@') !== -1 && val.indexOf('.') !== -1 && emails.indexOf(val) === -1) {
-            emails.push(val);
+
+      // Detectar índice de columna de correo por encabezado si existe
+      var emailColIdx = -1;
+      if (data.length > 0) {
+        for (var c = 0; c < data[0].length; c++) {
+          var header = String(data[0][c] || '').trim().toUpperCase();
+          if (header.indexOf('CORREO') !== -1 || header.indexOf('EMAIL') !== -1 || header.indexOf('MAIL') !== -1) {
+            emailColIdx = c;
+            break;
+          }
+        }
+      }
+
+      // Recorrer filas de usuarios omitiendo encabezado (fila 0)
+      for (var r = 1; r < data.length; r++) {
+        var row = data[r];
+        if (!row || row.length === 0) continue;
+
+        // Si encontramos la columna de correo, evaluar primero esa celda
+        if (emailColIdx !== -1 && emailColIdx < row.length) {
+          var colVal = String(row[emailColIdx] || '').trim().toLowerCase();
+          if (colVal && emailRegex.test(colVal)) {
+            if (emails.indexOf(colVal) === -1) emails.push(colVal);
+            continue;
+          }
+        }
+
+        // Si no se encontró columna o estaba vacía, escanear toda la fila
+        for (var c2 = 0; c2 < row.length; c2++) {
+          var val = String(row[c2] || '').trim().toLowerCase();
+          if (val && emailRegex.test(val)) {
+            if (emails.indexOf(val) === -1) emails.push(val);
           }
         }
       }
     }
   } catch (e) {
-    console.error('Error obteniendo correos de usuarios:', e);
+    Logger.log('⚠️ Error al leer hoja USUARIOS: ' + e.toString());
   }
 
-  // Lista de correos corporativos predeterminados del sistema STF si no hay hoja de usuarios
+  // Lista de respaldo completa según el directorio maestro de STF Group
   if (emails.length === 0) {
     emails = [
-      'edwin.diaz@stfgroup.com',
-      'calidad.textil@stfgroup.com',
-      'lavanderia.colfactory@stfgroup.com',
-      'planta.colchas@stfgroup.com',
-      'auditoria.calidad@stfgroup.com'
+      'auditorcalidad2@studiof.com.co',
+      'edwin.diaz@studiof.com.co',
+      'lavanderia1@colfactory.com',
+      'calidadzf@studiof.com.co',
+      'laboratorio.textil@studiof.com.co',
+      'maria.zouein@studiof.com.co',
+      'jesus.salcedo@studiof.com.co',
+      'robert.dazad@studiof.com.co',
+      'luisa.medina@studiof.com.co',
+      'valentina.giraldo@studiof.com.co',
+      'jefe.lavanderia@colfactory.com',
+      'didier.munoz@studiof.com.co',
+      'andres.tascon@studiof.com.co',
+      'dilan.soto@studiof.com.co',
+      'jhon.eyder@studiof.com.co',
+      'wilmer.maya@studiof.com.co',
+      'juan.cortez@studiof.com.co',
+      'jhon.gonzalez@studiof.com.co',
+      'sebastian.herrera@studiof.com.co',
+      'sandra.vanegas@studiof.com.co',
+      'milena.garcia@studiof.com.co',
+      'jonhatan.pinzon@studiof.com.co',
+      'joseoneiber711@hotmail.com'
     ];
   }
+
   return emails;
 }
 
+/**
+ * =========================================================================
+ * PLANTILLAS HTML PROFESIONALES DE CORREO (STF GROUP S.A.)
+ * =========================================================================
+ */
+
+/**
+ * Plantilla Flujo A: Creación de Nueva Colcha (Diseño Amarillo & Tipografía Ultra Profesional)
+ */
 function buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl) {
-  var telaVal = opData['TELA'] || opData.tela || 'TELA INDIGO';
-  var mtVal = opData['CÓDIGO MT'] || opData.codigoMt || 'MT-AUTO';
-  var colorVal = opData['COLOR'] || opData.color || 'AZUL';
   var refVal = opData['REFERENCIA'] || opData.referencia || 'S/R';
+  var telaVal = opData['TELA'] || opData.tela || 'TELA TEXTIL';
+  var colorVal = opData['COLOR'] || opData.color || 'AZUL';
+  var mtVal = opData['CÓDIGO MT'] || opData.codigoMt || 'MT-AUTO';
   var rollosVal = Number(opData['ROLLOS'] || opData.rollos || 1);
-  var loteVal = opData['LOTE'] || opData.lote || '1';
-  var inspectorVal = opData['INSPECTOR / OPERARIO'] || opData.inspector || 'OPERARIO STF';
-  var obsOpVal = opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || opData.observacionOperario || 'Sin observaciones registradas';
-  var estadoVal = opData['ESTADO'] || opData.estado || 'SOLICITADO';
-  var metrajeCalculado = (rollosVal * 85) + ' Metros';
+  var obsOp = opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || opData.observacionOperario || 'Muestra ingresada para proceso textil';
+  var inspectorVal = opData['INSPECTOR / OPERARIO'] || opData.inspector || 'ATELIER / CORTE';
 
-  var imageBlock = '';
-  if (driveUrl) {
-    imageBlock = '<div style="margin: 20px 0 10px 0; text-align: center; background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 16px;">' +
-      '<p style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin: 0 0 10px 0; letter-spacing: 1px;">📸 EVIDENCIA FOTOGRÁFICA DE MUESTRA TEXTIL</p>' +
-      '<a href="' + driveUrl + '" target="_blank" style="display: inline-block; background-color: #0f172a; color: #ffffff; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">' +
-      '🔗 Ver Fotografía en Google Drive / Alta Resolución</a>' +
-      '</div>';
-  }
+  var imgBlock = driveUrl
+    ? '<div style="margin: 18px 0 6px; text-align: center;">' +
+        '<a href="' + driveUrl + '" target="_blank" style="display: inline-block; background: #0f172a; color: #ffffff; padding: 11px 22px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 11.5px; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(15,23,42,0.25);">' +
+          '📷 Ver Fotografía de Muestra en Google Drive' +
+        '</a>' +
+      '</div>'
+    : '';
 
-  return '<!DOCTYPE html>' +
-    '<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>' +
-    '<body style="margin: 0; padding: 24px 12px; background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;">' +
-    '<div style="max-width: 640px; margin: 0 auto; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); border: 1px solid #334155;">' +
-    
-    // Header Corporativo STF GROUP
-    '<div style="background: linear-gradient(135deg, #09090b 0%, #18181b 50%, #27272a 100%); padding: 28px 24px; text-align: center; border-bottom: 3px solid #e11d48;">' +
-    '<h1 style="margin: 0; font-size: 24px; font-weight: 900; letter-spacing: 3px; color: #ffffff; text-transform: uppercase;">STF GROUP S.A.</h1>' +
-    '<div style="margin: 8px 0 0 0; display: inline-block;">' +
-    '<span style="font-size: 11px; font-weight: 800; color: #f43f5e; letter-spacing: 1.5px; text-transform: uppercase;">STUDIO F</span>' +
-    '<span style="color: #71717a; margin: 0 8px;">•</span>' +
-    '<span style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 1.5px; text-transform: uppercase;">ELA</span>' +
-    '<span style="color: #71717a; margin: 0 8px;">•</span>' +
-    '<span style="font-size: 11px; font-weight: 800; color: #e2e8f0; letter-spacing: 1.5px; text-transform: uppercase;">STUDIO F MAN</span>' +
-    '</div>' +
-    '<p style="margin: 12px 0 0 0; font-size: 12px; font-weight: 700; color: #a1a1aa; letter-spacing: 0.5px; text-transform: uppercase;">SISTEMA INTEGRAL DE CONTROL DE CALIDAD DE COLCHAS</p>' +
+  return '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);">' +
+    // Barra superior de acento Amarillo Textil
+    '<div style="background: #F59E0B; height: 5px; width: 100%;"></div>' +
+
+    // Encabezado Corporativo Premium
+    '<div style="background: linear-gradient(135deg, #09090b 0%, #18181b 100%); color: #ffffff; padding: 26px 22px; text-align: center;">' +
+      '<h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; color: #ffffff;">STF GROUP S.A.</h1>' +
+      '<p style="margin: 5px 0 0; font-size: 11px; color: #FBBF24; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase;">STUDIO F • ELA • STUDIO F MAN</p>' +
+      '<div style="display: inline-block; margin-top: 10px; padding: 4px 12px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px;">' +
+        '<span style="font-size: 10px; color: #cbd5e1; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;">SISTEMA INTEGRAL DE CONTROL DE CALIDAD DE COLCHAS</span>' +
+      '</div>' +
     '</div>' +
 
-    // OP Summary Banner
-    '<div style="background-color: #fff1f2; padding: 18px 24px; border-bottom: 1px solid #ffe4e6;">' +
-    '<table style="width: 100%; border-collapse: collapse;">' +
-    '<tr>' +
-    '<td style="vertical-align: middle;">' +
-    '<span style="font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase; font-family: monospace;">ORDEN DE PRODUCCIÓN</span><br>' +
-    '<span style="font-size: 22px; font-weight: 900; color: #881337; font-family: monospace; letter-spacing: 1px;">' + opVal + '</span>' +
-    '</td>' +
-    '<td style="text-align: right; vertical-align: middle;">' +
-    '<span style="display: inline-block; background-color: #881337; color: #ffffff; padding: 6px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; font-family: monospace;">' + estadoVal.replace('_', ' ') + '</span>' +
-    '</td>' +
-    '</tr>' +
-    '</table>' +
+    // Hero de OP: Amarillo Cálido / Ámbar Vibrante
+    '<div style="background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%); border-top: 1px solid #FDE68A; border-bottom: 2px solid #F59E0B; padding: 18px 24px; text-align: center;">' +
+      '<div style="display: inline-block; background: #D97706; color: #ffffff; font-size: 10.5px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; padding: 4px 14px; border-radius: 20px; box-shadow: 0 2px 5px rgba(217,119,6,0.25);">' +
+        '⚡ NUEVA SOLICITUD REGISTRADA' +
+      '</div>' +
+      '<div style="font-size: 28px; font-weight: 900; color: #78350F; font-family: \'JetBrains Mono\', Consolas, Monaco, monospace; letter-spacing: -0.5px; margin: 8px 0 2px;">' +
+        opVal +
+      '</div>' +
+      '<span style="display: inline-block; background: #FEF08A; color: #854D0E; font-size: 10px; font-weight: 700; padding: 2px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">ESTADO: SOLICITADO / PRE-SOLICITUD</span>' +
     '</div>' +
 
-    // Ficha Técnica Completa
-    '<div style="padding: 24px;">' +
-    '<h2 style="font-size: 12px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin: 0 0 14px 0; letter-spacing: 1px; font-family: monospace;">📋 ESPECIFICACIONES TÉCNICAS DE LA MUESTRA</h2>' +
-    
-    '<table style="width: 100%; border-collapse: collapse; font-size: 12px; background-color: #f8fafc; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">' +
-    '<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 10px 14px; font-weight: 700; color: #64748b; width: 35%;">Referencia STF:</td><td style="padding: 10px 14px; font-weight: 900; color: #0f172a; font-family: monospace;">' + refVal + '</td></tr>' +
-    '<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 10px 14px; font-weight: 700; color: #64748b;">Tela Textil:</td><td style="padding: 10px 14px; font-weight: 900; color: #0f172a;">' + telaVal + '</td></tr>' +
-    '<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 10px 14px; font-weight: 700; color: #64748b;">Código MT / Color:</td><td style="padding: 10px 14px; font-weight: 800; color: #0f172a; font-family: monospace;">' + mtVal + ' • ' + colorVal + '</td></tr>' +
-    '<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 10px 14px; font-weight: 700; color: #64748b;">Rollos / Metraje:</td><td style="padding: 10px 14px; font-weight: 800; color: #0f172a;">' + rollosVal + ' Rollos (' + metrajeCalculado + ') • Lote: ' + loteVal + '</td></tr>' +
-    '<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 10px 14px; font-weight: 700; color: #64748b;">Inspector / Origen:</td><td style="padding: 10px 14px; font-weight: 800; color: #0f172a;">' + inspectorVal + '</td></tr>' +
-    '<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 10px 14px; font-weight: 700; color: #64748b;">Fecha de Registro:</td><td style="padding: 10px 14px; font-weight: 700; color: #334155; font-family: monospace;">' + fechaFormatted + '</td></tr>' +
-    '<tr><td style="padding: 10px 14px; font-weight: 700; color: #64748b; vertical-align: top;">Observaciones:</td><td style="padding: 10px 14px; color: #334155; font-style: italic; line-height: 1.4;">' + obsOpVal + '</td></tr>' +
-    '</table>' +
+    // Cuerpo Principal
+    '<div style="padding: 24px 22px;">' +
+      // Ficha Técnica en Tarjeta Limpia
+      '<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">' +
+        '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">' +
+          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px; width: 36%;">Referencia:</td>' +
+            '<td style="padding: 10px 14px; font-weight: 800; color: #0f172a; font-family: \'JetBrains Mono\', Consolas, monospace; font-size: 13px;">' + refVal + '</td>' +
+          '</tr>' +
+          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Tela / Código MT:</td>' +
+            '<td style="padding: 10px 14px; font-weight: 700; color: #0f172a;">' + telaVal + ' <span style="display: inline-block; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; margin-left: 4px;">' + mtVal + '</span></td>' +
+          '</tr>' +
+          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Color / Rollos:</td>' +
+            '<td style="padding: 10px 14px; font-weight: 700; color: #0f172a;">' + colorVal + ' <span style="color: #cbd5e1; margin: 0 4px;">•</span> ' + rollosVal + ' Rollos</td>' +
+          '</tr>' +
+          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Fecha Registro:</td>' +
+            '<td style="padding: 10px 14px; font-weight: 600; color: #334155;">' + fechaFormatted + '</td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Registrado Por:</td>' +
+            '<td style="padding: 10px 14px; font-weight: 600; color: #334155;">' + inspectorVal + '</td>' +
+          '</tr>' +
+        '</table>' +
+      '</div>' +
 
-    imageBlock +
+      // Caja de Observación Inicial
+      '<div style="margin-top: 14px; background: #FFFBEB; border: 1px solid #FDE68A; border-left: 4px solid #F59E0B; border-radius: 8px; padding: 12px 16px;">' +
+        '<div style="font-size: 10px; font-weight: 800; color: #B45309; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">' +
+          '💬 Observación Inicial del Operario:' +
+        '</div>' +
+        '<div style="font-size: 12.5px; color: #451A03; font-style: italic; line-height: 1.45;">' +
+          '&ldquo;' + obsOp + '&rdquo;' +
+        '</div>' +
+      '</div>' +
 
-    // CTA Botón Interactivo
-    '<div style="margin-top: 24px; text-align: center;">' +
-    '<a href="' + appUrl + '" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: #ffffff; padding: 14px 32px; border-radius: 12px; font-size: 13px; font-weight: 900; text-decoration: none; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);">' +
-    '📱 Abrir Ficha Interactiva en Tiempo Real</a>' +
-    '<p style="margin: 10px 0 0 0; font-size: 11px; color: #64748b;">Acceso directo compatible con smartphones, tablets y computadores de escritorio.</p>' +
+      imgBlock +
+
+      // Botón CTA Principal Amarillo / Ámbar Llamativo
+      '<div style="margin-top: 20px; text-align: center;">' +
+        '<a href="' + appUrl + '" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #000000; padding: 13px 30px; border-radius: 10px; font-weight: 900; text-decoration: none; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4); border: 1px solid #D97706;">' +
+          '📱 ABRIR FICHA PÚBLICA EN TIEMPO REAL' +
+        '</a>' +
+      '</div>' +
     '</div>' +
 
+    // Pie de Página Corporativo
+    '<div style="background: #f8fafc; padding: 16px 20px; text-align: center; font-size: 10.5px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.5;">' +
+      '<strong style="color: #64748b;">STF GROUP S.A.</strong> • Notificación Corporativa Automática de Calidad Textil<br>' +
+      '<span style="font-size: 9.5px; color: #cbd5e1;">Este es un mensaje generado automáticamente por el sistema. Por favor no responder a esta dirección.</span>' +
+    '</div>' +
+  '</div>';
+}
+
+/**
+ * Plantilla Flujo C: Dictamen Oficial de Calidad (Diseño Super Actualizado - Aprobado / Rechazado)
+ */
+function buildDictamenEmailHtml(opVal, refVal, telaVal, dictVal, obsFinal, auditorName, appUrl, driveFotoCalUrl) {
+  var isAprob = String(dictVal).toUpperCase().indexOf('APROB') !== -1;
+
+  // Paleta temática dinámica
+  var topStripeColor = isAprob ? '#10B981' : '#EF4444';
+  var headerBg = isAprob
+    ? 'linear-gradient(135deg, #064E3B 0%, #022C22 100%)'
+    : 'linear-gradient(135deg, #7F1D1D 0%, #450A0A 100%)';
+  var subheaderColor = isAprob ? '#6EE7B7' : '#FCA5A5';
+  var heroBg = isAprob
+    ? 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)'
+    : 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)';
+  var heroBorderBottom = isAprob ? '2px solid #10B981' : '2px solid #EF4444';
+  var heroBorderTop = isAprob ? '1px solid #A7F3D0' : '1px solid #FECACA';
+  var badgeBg = isAprob ? '#059669' : '#DC2626';
+  var badgeShadow = isAprob ? 'rgba(5,150,105,0.3)' : 'rgba(220,38,38,0.3)';
+  var statusText = isAprob ? 'DICTAMEN: APROBADO PARA CORTE / PRODUCCIÓN' : 'DICTAMEN: RECHAZADO / NO CONFORME';
+  var icon = isAprob ? '✅' : '❌';
+
+  var obsBoxBg = isAprob ? '#F0FDF4' : '#FEF2F2';
+  var obsBoxBorder = isAprob ? '#BBF7D0' : '#FECACA';
+  var obsBoxLeft = isAprob ? '#059669' : '#DC2626';
+  var obsTitleColor = isAprob ? '#166534' : '#991B1B';
+  var obsTextColor = isAprob ? '#14532D' : '#7F1D1D';
+  var obsTitle = isAprob ? '🔬 Dictamen y Concepto Final de Calidad:' : '⚠️ Motivo Técnico de Rechazo:';
+
+  var ctaBg = isAprob
+    ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+    : 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)';
+  var ctaShadow = isAprob ? 'rgba(5,150,105,0.35)' : 'rgba(220,38,38,0.35)';
+
+  var imgBlock = driveFotoCalUrl
+    ? '<div style="margin: 18px 0 6px; text-align: center;">' +
+        '<a href="' + driveFotoCalUrl + '" target="_blank" style="display: inline-block; background: #0f172a; color: #ffffff; padding: 11px 22px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 11.5px; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(15,23,42,0.25);">' +
+          '📸 Ver Foto de Auditoría en Google Drive (Calidad)' +
+        '</a>' +
+      '</div>'
+    : '';
+
+  return '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);">' +
+    // Barra superior de acento
+    '<div style="background: ' + topStripeColor + '; height: 5px; width: 100%;"></div>' +
+
+    // Encabezado Temático
+    '<div style="background: ' + headerBg + '; color: #ffffff; padding: 26px 22px; text-align: center;">' +
+      '<h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; color: #ffffff;">STF GROUP S.A.</h1>' +
+      '<p style="margin: 5px 0 0; font-size: 11px; color: ' + subheaderColor + '; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase;">LABORATORIO & AUDITORÍA DE CALIDAD TEXTIL</p>' +
+      '<div style="display: inline-block; margin-top: 10px; padding: 4px 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 20px;">' +
+        '<span style="font-size: 10px; color: #ffffff; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;">DICTAMEN OFICIAL TEXTIL</span>' +
+      '</div>' +
     '</div>' +
 
-    // Footer Institucional
-    '<div style="background-color: #f1f5f9; padding: 16px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #64748b;">' +
-    '<p style="margin: 0; font-weight: 700;">STF GROUP S.A. — Planta y Laboratorio de Control Textil</p>' +
-    '<p style="margin: 4px 0 0 0; font-size: 10px; color: #94a3b8;">Mensaje corporativo automatizado emitido por el Sistema de Calidad de Colchas.</p>' +
+    // Hero Insignia de Veredicto
+    '<div style="background: ' + heroBg + '; border-top: ' + heroBorderTop + '; border-bottom: ' + heroBorderBottom + '; padding: 18px 24px; text-align: center;">' +
+      '<div style="display: inline-block; background: ' + badgeBg + '; color: #ffffff; padding: 8px 22px; border-radius: 50px; font-size: 12.5px; font-weight: 900; letter-spacing: 0.8px; text-transform: uppercase; box-shadow: 0 4px 12px ' + badgeShadow + ';">' +
+        icon + ' ' + statusText +
+      '</div>' +
+      '<div style="margin-top: 6px; font-size: 11px; font-weight: 700; color: #475569; letter-spacing: 0.5px;">' +
+        'ORDEN AUDITADA: <span style="font-family: \'JetBrains Mono\', monospace; font-weight: 900; color: #0f172a;">' + opVal + '</span>' +
+      '</div>' +
     '</div>' +
 
-    '</div></body></html>';
+    // Contenido Principal
+    '<div style="padding: 24px 22px;">' +
+      // Tarjeta Técnica
+      '<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">' +
+        '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">' +
+          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px; width: 36%;">Orden de Producción:</td>' +
+            '<td style="padding: 10px 14px; font-weight: 900; color: #0f172a; font-family: \'JetBrains Mono\', Consolas, monospace; font-size: 14px;">' + opVal + '</td>' +
+          '</tr>' +
+          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Referencia / Tela:</td>' +
+            '<td style="padding: 10px 14px; font-weight: 700; color: #0f172a;">' + refVal + ' <span style="color: #64748b; font-weight: 600;">(' + telaVal + ')</span></td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Auditor Responsable:</td>' +
+            '<td style="padding: 10px 14px; font-weight: 800; color: #0f172a;"><span style="display: inline-block; background: #f1f5f9; color: #0f172a; padding: 2px 8px; border-radius: 4px; font-size: 11px;">👤 ' + auditorName + '</span></td>' +
+          '</tr>' +
+        '</table>' +
+      '</div>' +
+
+      // Caja de Observación Final / Concepto
+      '<div style="margin-top: 14px; background: ' + obsBoxBg + '; border: 1px solid ' + obsBoxBorder + '; border-left: 4px solid ' + obsBoxLeft + '; border-radius: 8px; padding: 14px 16px;">' +
+        '<div style="font-size: 10px; font-weight: 800; color: ' + obsTitleColor + '; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">' +
+          obsTitle +
+        '</div>' +
+        '<div style="font-size: 13px; font-weight: 700; color: ' + obsTextColor + '; line-height: 1.5;">' +
+          (obsFinal || 'Colcha evaluada conforme a los estándares de calidad de STF Group S.A.') +
+        '</div>' +
+      '</div>' +
+
+      imgBlock +
+
+      // Botón CTA Principal
+      '<div style="margin-top: 20px; text-align: center;">' +
+        '<a href="' + appUrl + '" target="_blank" style="display: inline-block; background: ' + ctaBg + '; color: #ffffff; padding: 13px 30px; border-radius: 10px; font-weight: 900; text-decoration: none; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; box-shadow: 0 4px 14px ' + ctaShadow + ';">' +
+          '📱 VER TRAZABILIDAD COMPLETA EN LA APP' +
+        '</a>' +
+      '</div>' +
+    '</div>' +
+
+    // Pie de Página
+    '<div style="background: #f8fafc; padding: 16px 20px; text-align: center; font-size: 10.5px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.5;">' +
+      '<strong style="color: #64748b;">STF GROUP S.A.</strong> • Notificación Oficial de Dictamen de Calidad Textil<br>' +
+      '<span style="font-size: 9.5px; color: #cbd5e1;">Laboratorio de Calidad ZF • Mensaje automático generado por el sistema</span>' +
+    '</div>' +
+  '</div>';
+}
+
+/**
+ * Plantilla Flujo B: Alertas SLA (Reporte Matutino y Bajo Demanda - Diseño Moderno)
+ */
+function buildAlertaEmailHtml(opsList, senderName, fechaReporte, appUrl) {
+  var rowsHtml = opsList.map(function (item) {
+    var ret = Math.max(0, (item.diasHabiles || 0) - 3);
+    return '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+      '<td style="padding: 10px; font-family: \'JetBrains Mono\', monospace; font-weight: 800; color: #0f172a;">OP-' + (item.op || '').replace(/^OP-?/i, '') + '</td>' +
+      '<td style="padding: 10px;"><strong>' + (item.referencia || 'S/R') + '</strong><br><span style="font-size: 10.5px; color: #64748b;">' + (item.tela || '') + ' (' + (item.color || '') + ')</span></td>' +
+      '<td style="padding: 10px; font-size: 11px;"><span style="display: inline-block; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-weight: 600;">' + (item.areaActual || 'PLANTA') + '</span></td>' +
+      '<td style="padding: 10px; text-align: center; font-weight: 700; color: #334155;">' + (item.diasHabiles || 0) + 'd</td>' +
+      '<td style="padding: 10px; color: #dc2626; font-weight: 900; text-align: center;"><span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px;">+' + ret + 'd</span></td>' +
+      '<td style="padding: 10px; font-size: 11px; color: #475569; font-style: italic;">' + (item.observacionesOperario || 'En seguimiento') + '</td>' +
+      '</tr>';
+  }).join('');
+
+  return '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; max-width: 720px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);">' +
+    '<div style="background: #E11D48; height: 5px; width: 100%;"></div>' +
+    '<div style="background: linear-gradient(135deg, #881337 0%, #4c0519 100%); color: #ffffff; padding: 24px 20px; text-align: center;">' +
+      '<h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">STF GROUP S.A.</h1>' +
+      '<p style="margin: 4px 0 0; font-size: 11.5px; font-weight: 800; color: #fecdd3; letter-spacing: 1.5px; text-transform: uppercase;">INFORME OFICIAL • ALERTA DE DESVIACIÓN SLA EN PLANTA</p>' +
+    '</div>' +
+    '<div style="padding: 14px 22px; background: #fff1f2; border-bottom: 1px solid #fecdd3; font-size: 12px; color: #881337;">' +
+      '<strong>Órdenes con Retraso Crítico:</strong> ' + opsList.length + ' OP(s) | <strong>Emitido por:</strong> ' + senderName + ' | <strong>Fecha:</strong> ' + fechaReporte +
+    '</div>' +
+    '<div style="padding: 20px 22px;">' +
+      '<div style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">' +
+        '<table style="width: 100%; border-collapse: collapse; font-size: 11.5px; text-align: left;">' +
+          '<thead><tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #64748b; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px;"><th style="padding: 10px;">OP</th><th style="padding: 10px;">Referencia / Tela</th><th style="padding: 10px;">Área</th><th style="padding: 10px; text-align: center;">Días</th><th style="padding: 10px; text-align: center;">Retraso</th><th style="padding: 10px;">Observación</th></tr></thead>' +
+          '<tbody>' + rowsHtml + '</tbody>' +
+        '</table>' +
+      '</div>' +
+      '<div style="margin-top: 20px; text-align: center;">' +
+        '<a href="' + appUrl + '" style="display: inline-block; background: linear-gradient(135deg, #881337 0%, #4c0519 100%); color: #ffffff; padding: 13px 30px; border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; box-shadow: 0 4px 14px rgba(136,19,55,0.35);">' +
+          '🚀 ABRIR MÓDULO DE ALERTAS EN LA APP' +
+        '</a>' +
+      '</div>' +
+    '</div>' +
+    '<div style="background: #f8fafc; padding: 14px 20px; text-align: center; font-size: 10.5px; color: #94a3b8; border-top: 1px solid #e2e8f0;">' +
+      'STF GROUP S.A. • Sistema Integral de Control y Calidad Textil' +
+    '</div>' +
+  '</div>';
 }
 
 /**
  * =========================================================================
- * AUTOMATIZACIÓN DE CORREOS: FUNCIONES DE PRUEBA Y ACTIVADORES POR TIEMPO
+ * AUTOMATIZACIÓN DE ACTIVADORES Y REPORTES MATUTINOS (7:00 AM)
  * =========================================================================
  */
 
-/**
- * 1. Ejecutar esta función en el editor de Apps Script para autorizar los permisos
- * de MailApp / GmailApp por primera y única vez con el botón "Ejecutar".
- */
 function probarPermisosYEnvioCorreo() {
-  var emailPrueba = Session.getActiveUser().getEmail() || 'calidadzf@studiof.com.co';
-  var subject = '✅ [PRUEBA DE CONEXIÓN] Sistema STF Colchas - Correos Automáticos Activos';
-  var body = 'El sistema STF Colchas ha verificado con éxito los permisos de envío automático de correos electrónicos.\n\nFecha: ' + new Date().toLocaleString();
-  
-  MailApp.sendEmail({
-    to: emailPrueba,
-    subject: subject,
-    body: body,
-    name: 'COLCHAS STF GROUP'
-  });
-
-  Logger.log('Correo de prueba enviado con éxito a: ' + emailPrueba);
+  try {
+    var email = Session.getActiveUser().getEmail() || 'calidadzf@studiof.com.co';
+    MailApp.sendEmail({
+      to: email,
+      subject: '✅ [PRUEBA CONEXIÓN STF] Correos Automáticos Operativos',
+      body: 'El servicio de correo automático de STF Group Colchas está funcionando correctamente.\n\nFecha de verificación: ' + new Date().toLocaleString(),
+      name: 'COLCHAS STF GROUP'
+    });
+    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Correo de prueba enviado con éxito a ' + email, '🚀 STF GROUP', 5);
+  } catch (err) {
+    SpreadsheetApp.getUi().alert(
+      '⚠️ Autorización de Permisos Requerida',
+      'Google requiere autorizar el servicio de correo por primera vez desde el editor de Apps Script:\n\n' +
+      '1. Ve a: Extensiones > Apps Script\n' +
+      '2. En la barra superior, selecciona la función "autorizarTodosLosPermisosSTF"\n' +
+      '3. Haz clic en el botón "Ejecutar" (Run)\n' +
+      '4. Concede los permisos en la ventana de Google y vuelve a intentar.',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  }
 }
 
 /**
- * 2. Función programada para ejecutarse automáticamente todas las mañanas (ej. 7:00 AM).
- * Revisa la hoja ALERTAS o calcula las OPs con retraso SLA > 2 días y despacha el correo consolidado.
+ * Función que ejecuta el Disparador de las 7:00 AM todos los días hábiles
  */
 function enviarReporteDiarioAutomaticoSLA() {
   var ss = getTargetSpreadsheet();
   autoCleanMonitoreoFromBaseDeDatos(ss);
-  
-  var sheetAl = ss.getSheetByName(SHEET_ALERTAS);
-  if (!sheetAl) return;
-  
-  var data = sheetAl.getDataRange().getValues();
-  if (data.length <= 1) {
-    Logger.log('No hay OPs con retraso en la hoja ALERTAS. No se envía correo.');
-    return;
-  }
-  
+
+  var sheetBd = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+  if (!sheetBd || sheetBd.getLastRow() <= 1) return;
+
+  var data = sheetBd.getDataRange().getValues();
+  var now = new Date();
   var opsList = [];
-  for (var r = 1; r < data.length; r++) {
-    var row = data[r];
-    if (row[0]) {
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var op = row[5];
+    var estado = String(row[9] || '').toUpperCase();
+    if (!op || estado === 'FINALIZADO') continue;
+
+    var diasHabiles = calcularDiasHabiles(row[0], now);
+    if (diasHabiles > 3) {
       opsList.push({
-        op: String(row[0]).replace(/^OP-?/i, ''),
-        referencia: String(row[1] || 'S/R'),
+        op: String(op).replace(/^OP-?/i, ''),
+        referencia: String(row[6] || 'S/R'),
         tela: String(row[2] || ''),
-        color: String(row[3] || ''),
-        areaActual: String(row[5] || 'PLANTA'),
-        diasHabiles: Number(row[7]) || 0,
-        observacionesOperario: String(row[11] || row[12] || 'Retraso crítico detectado')
+        color: String(row[4] || 'AZUL'),
+        areaActual: mapAreaToTitle(estado),
+        diasHabiles: diasHabiles,
+        observacionesOperario: String(row[10] || row[11] || 'En seguimiento SLA')
       });
     }
   }
 
-  if (opsList.length === 0) return;
+  if (opsList.length === 0) {
+    Logger.log('Excelente: No hay órdenes con retraso SLA > 3 días. No se despacha correo para evitar spam.');
+    return;
+  }
 
+  opsList.sort(function (a, b) { return b.diasHabiles - a.diasHabiles; });
   var recipients = getAllUserEmails(ss);
   var appUrl = 'https://colchas.vercel.app/?tab=alertas';
+  var fechaReporte = Utilities.formatDate(now, 'America/Bogota', 'd/M/yyyy HH:mm:ss');
   var subject = '🚨 [ALERTA MATUTINA SLA STF] ' + opsList.length + ' Órdenes de Producción con Retraso en Planta';
-  
-  // Reutiliza la plantilla corporativa
-  var mockE = {
-    postData: {
-      contents: JSON.stringify({
-        action: 'SEND_ALERTA_EMAIL',
-        payload: {
-          recipients: recipients,
-          ops: opsList,
-          senderName: 'SISTEMA AUTOMÁTICO STF (TRIGGER MATUTINO)',
-          fechaReporte: Utilities.formatDate(new Date(), 'America/Bogota', 'd/M/yyyy HH:mm:ss'),
-          appUrl: appUrl,
-          subject: subject
-        }
-      })
-    }
-  };
-  
-  doPost(mockE);
-  Logger.log('Reporte matutino de SLA enviado a ' + recipients.length + ' destinatarios.');
-}
+  var htmlBody = buildAlertaEmailHtml(opsList, 'TRIGGER MATUTINO AUTOMÁTICO (7:00 AM)', fechaReporte, appUrl);
 
-/**
- * 3. Ejecuta esta función UNA SOLA VEZ para programar el envío automático
- * todos los días de lunes a viernes a las 7:00 AM hora de Colombia.
- */
-function instalarActivadorDiario7AM() {
-  // Eliminar activadores previos para evitar duplicados
-  var triggers = ScriptApp.getProjectTriggers();
-  for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === 'enviarReporteDiarioAutomaticoSLA') {
-      ScriptApp.deleteTrigger(triggers[i]);
+  MailApp.sendEmail({
+    to: recipients.join(','),
+    subject: subject,
+    htmlBody: htmlBody,
+    name: 'ALERTAS SLA - STF GROUP'
+  });
+
+  // Actualizar columna 14 en ALERTAS
+  var sheetAlRep = ss.getSheetByName(SHEET_ALERTAS);
+  if (sheetAlRep && sheetAlRep.getLastRow() > 1) {
+    var lastRowRep = sheetAlRep.getLastRow();
+    for (var k = 2; k <= lastRowRep; k++) {
+      sheetAlRep.getRange(k, 14).setValue(fechaReporte + ' (7AM Auto)');
     }
   }
 
-  // Crear nuevo activador diario a las 7:00 AM
-  ScriptApp.newTrigger('enviarReporteDiarioAutomaticoSLA')
-    .timeBased()
-    .everyDays(1)
-    .atHour(7)
-    .inTimezone('America/Bogota')
-    .create();
-
-  Logger.log('✅ Activador automático de las 7:00 AM programado exitosamente.');
+  Logger.log('✅ Reporte matutino de SLA enviado a ' + recipients.length + ' destinatarios.');
 }
 
 /**
- * -----------------------------------------------------------------------
+ * Instala el activador diario en 1 solo clic desde el menú
+ */
+function instalarActivadorDiario7AM() {
+  try {
+    var triggers = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < triggers.length; i++) {
+      if (triggers[i].getHandlerFunction() === 'enviarReporteDiarioAutomaticoSLA') {
+        ScriptApp.deleteTrigger(triggers[i]);
+      }
+    }
+
+    ScriptApp.newTrigger('enviarReporteDiarioAutomaticoSLA')
+      .timeBased()
+      .everyDays(1)
+      .atHour(7)
+      .inTimezone('America/Bogota')
+      .create();
+
+    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Activador de las 7:00 AM programado exitosamente.', '🚀 STF GROUP', 6);
+  } catch (err) {
+    SpreadsheetApp.getUi().alert(
+      '⚠️ Autorización de Activadores Requerida',
+      'Google exige autorizar la creación de activadores automáticos desde el editor de Apps Script:\n\n' +
+      '1. Ve a: Extensiones > Apps Script\n' +
+      '2. En el selector superior de funciones, selecciona "instalarActivadorDiario7AM"\n' +
+      '3. Haz clic en "Ejecutar" (Run)\n' +
+      '4. Haz clic en "Revisar permisos" > Selecciona tu cuenta > "Configuración avanzada" > "Ir a... (no seguro)" > "Permitir".',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  }
+}
+
+/**
+ * =========================================================================
  * DEPURACIÓN Y NORMALIZACIÓN DE COLUMNAS K, L, M y N EN BASE_DE_DATOS
- * -----------------------------------------------------------------------
- * - Columna K (11 - OBSERVACIÓN OPERARIO): Conserva estrictamente la
- *   observación inicial del operario. Elimina textos concatenados de
- *   recepción de colcha, transferencias o dictámenes.
- * - Columna L (12 - OBSERVACIÓN COLFACTORY): Elimina textos automáticos
- *   tipo "Colcha recibida en Lavandería Colfactory ZF desde Planta...",
- *   manteniendo solo observaciones reales si las hubiere.
- * - Columna M (13 - EVIDENCIA): Vacía celdas que contengan texto Base64
- *   largo (data:image/...) dejándolas en blanco ("").
- * - Columna N (14 - CORREO NOTIFICADO): Limpia strings tipo
- *   "9/9/2026 12:23.59 (Error de envio)" o fechas sin correos,
- *   reemplazándolas por las direcciones de correo oficiales limpias.
+ * =========================================================================
  */
 function cleanColumnsKLMN(ss) {
   if (!ss) ss = getTargetSpreadsheet();
   var sheet = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
-  if (!sheet) return 0;
-
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return 0;
+  if (!sheet || sheet.getLastRow() < 2) return 0;
 
   var allEmails = getAllUserEmails(ss);
-  var cleanAllEmailsList = (allEmails || []).map(function(e) { return String(e).trim().toLowerCase(); }).filter(function(e) { return e.indexOf('@') !== -1; });
-  var uniqueDefaultEmails = [];
-  for (var de = 0; de < cleanAllEmailsList.length; de++) {
-    if (uniqueDefaultEmails.indexOf(cleanAllEmailsList[de]) === -1) uniqueDefaultEmails.push(cleanAllEmailsList[de]);
+  var defEmails = allEmails.join(', ');
+  var lastRow = sheet.getLastRow();
+
+  var opRangeVals = sheet.getRange(2, 6, lastRow - 1, 1).getValues();
+  var range = sheet.getRange(2, 11, lastRow - 1, 4);
+  var vals = range.getValues();
+  var mod = 0;
+
+  var rootFld = null;
+  var monthFld = null;
+
+  for (var i = 0; i < vals.length; i++) {
+    var rawOp = String(opRangeVals[i][0] || '').trim();
+    var formattedOp = rawOp.toUpperCase().indexOf('OP-') === 0 ? ('OP-' + rawOp.substring(3).trim()) : (rawOp.toUpperCase().indexOf('OP') === 0 ? ('OP-' + rawOp.substring(2).replace(/^[-_\s]+/, '').trim()) : ('OP-' + rawOp));
+
+    var op = String(vals[i][0] || '');
+    var col = String(vals[i][1] || '');
+    var ev = String(vals[i][2] || '');
+    var mail = String(vals[i][3] || '');
+    var ch = false;
+
+    // 1. Limpieza de Observación Operario (Columna K)
+    if (op.indexOf(' | ') !== -1) { op = op.split(' | ')[0].trim(); ch = true; }
+    if (op.toLowerCase().indexOf('colcha recibida') !== -1) { op = op.replace(/colcha recibida.*/i, '').trim(); ch = true; }
+    if (op.indexOf('[DICTAMEN:') !== -1) { op = op.replace(/\[DICTAMEN:.*\]/i, '').trim(); ch = true; }
+    var cleanP = op.replace(/^\[[^\]]+\]:\s*/, '').trim();
+    if (cleanP !== op) { op = cleanP; ch = true; }
+
+    // 2. Limpieza de Observación Colfactory (Columna L)
+    if (col.toLowerCase().indexOf('colcha recibida') !== -1 || col.indexOf('[LAVANDERIA]') !== -1) { col = ''; ch = true; }
+
+    // 3. Unificación de Evidencias a UN SOLO LINK DE CARPETA (Columna M)
+    if (ev.indexOf('data:image/') !== -1 || ev.indexOf('data:') === 0) { 
+      ev = ''; 
+      ch = true; 
+    } else if (ev && (ev.indexOf('|') !== -1 || (ev.indexOf('drive.google.com') !== -1 && ev.indexOf('/folders/') === -1))) {
+      // Tiene dos o más links, o es un archivo suelto -> Unificar a la carpeta oficial de la OP en Drive
+      try {
+        if (formattedOp && formattedOp.length > 3) {
+          if (!rootFld) rootFld = getRootDriveFolder();
+          if (!monthFld) monthFld = getMonthDriveFolder(rootFld, new Date());
+          var opFold = getOpDriveFolder(monthFld, formattedOp);
+          var fUrl = opFold.getUrl();
+          if (fUrl && fUrl !== ev) {
+            ev = fUrl;
+            ch = true;
+          }
+        }
+      } catch (errF) {}
+    }
+
+    // 4. Depuración de correos
+    if (mail.indexOf('(Error') !== -1 || mail.indexOf('usuarios)') !== -1 || (mail.indexOf('@') === -1 && mail.length > 0)) { 
+      mail = defEmails; 
+      ch = true; 
+    }
+
+    if (ch) { 
+      vals[i][0] = op; 
+      vals[i][1] = col; 
+      vals[i][2] = ev; 
+      vals[i][3] = mail; 
+      mod++; 
+    }
   }
-  var defaultEmailsStr = uniqueDefaultEmails.join(', ');
-
-  // Obtenemos rango de columnas K a N (columnas 11 a 14, 4 columnas)
-  var rangeKLMN = sheet.getRange(2, 11, lastRow - 1, 4);
-  var values = rangeKLMN.getValues();
-  var modifiedCount = 0;
-
-  for (var i = 0; i < values.length; i++) {
-    var obsOp = String(values[i][0] || '');       // Col K (11)
-    var obsCol = String(values[i][1] || '');      // Col L (12)
-    var evidencia = String(values[i][2] || '');   // Col M (13)
-    var correoNotif = String(values[i][3] || ''); // Col N (14)
-    var changed = false;
-
-    // 1. Limpiar Columna K (OBSERVACIÓN OPERARIO)
-    if (obsOp.indexOf(' | ') !== -1) {
-      obsOp = obsOp.split(' | ')[0].trim();
-      changed = true;
-    }
-    if (obsOp.toLowerCase().indexOf('colcha recibida') !== -1) {
-      obsOp = obsOp.replace(/colcha recibida.*/i, '').trim();
-      changed = true;
-    }
-    if (obsOp.indexOf('[DICTAMEN:') !== -1) {
-      obsOp = obsOp.replace(/\[DICTAMEN:.*\]/i, '').trim();
-      changed = true;
-    }
-    var cleanObsOpPrefix = obsOp.replace(/^\[[^\]]+\]:\s*/, '').trim();
-    if (cleanObsOpPrefix !== obsOp) {
-      obsOp = cleanObsOpPrefix;
-      changed = true;
-    }
-
-    // 2. Limpiar Columna L (OBSERVACIÓN COLFACTORY)
-    if (obsCol.toLowerCase().indexOf('colcha recibida') !== -1 || obsCol.indexOf('[LAVANDERIA]') !== -1) {
-      obsCol = '';
-      changed = true;
-    }
-
-    // 3. Limpiar Columna M (EVIDENCIA DRIVE)
-    if (evidencia.indexOf('data:image/') !== -1 || evidencia.indexOf('data:') === 0) {
-      evidencia = '';
-      changed = true;
-    }
-
-    // 4. Limpiar Columna N (CORREO NOTIFICADO)
-    if (correoNotif.indexOf('(Error de envio)') !== -1 || correoNotif.indexOf('(Error de env') !== -1 || correoNotif.indexOf('usuarios)') !== -1 || (correoNotif.indexOf('@') === -1 && correoNotif.length > 0)) {
-      correoNotif = defaultEmailsStr;
-      changed = true;
-    }
-
-    if (changed) {
-      values[i][0] = obsOp;
-      values[i][1] = obsCol;
-      values[i][2] = evidencia;
-      values[i][3] = correoNotif;
-      modifiedCount++;
-    }
-  }
-
-  if (modifiedCount > 0) {
-    rangeKLMN.setValues(values);
-  }
-
-  return modifiedCount;
+  if (mod > 0) range.setValues(vals);
+  return mod;
 }
-
-
