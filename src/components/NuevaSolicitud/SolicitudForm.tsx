@@ -32,24 +32,12 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   const [observaciones, setObservaciones] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
-  // Sede and Status determination according to user origin (Calidad vs Zona Franca vs Others)
+  // Determinación estricta del origen y estado inicial inmutable según reglas STF Colchas:
+  // - Sede Zona Franca -> PRE_SOLICITUD (Atelier)
+  // - Planta Principal -> SOLICITADO (En Tránsito)
   const isZonaFranca = isUserFromZonaFranca(currentUser);
-  const isCalidad = isCalidadUser(currentUser);
-
-  // Smart initial stage based on user role:
-  // - Calidad inspector -> defaults to 'CALIDAD'
-  // - Zona Franca -> defaults to 'PRE_SOLICITUD'
-  // - Others / Planta -> defaults to 'SOLICITADO'
-  const defaultInitialStage: SectorType = isCalidad 
-    ? 'CALIDAD' 
-    : (isZonaFranca ? 'PRE_SOLICITUD' : 'SOLICITADO');
-
-  const [selectedInitialStage, setSelectedInitialStage] = useState<SectorType>(defaultInitialStage);
-
-  const initialAreaName = 
-    selectedInitialStage === 'CALIDAD' ? 'CALIDAD STF LABORATORIO' :
-    selectedInitialStage === 'PRE_SOLICITUD' ? 'CALIDAD 2F / ATELIER' :
-    'TRÁNSITO / DESPACHO';
+  const initialEstado: SectorType = isZonaFranca ? 'PRE_SOLICITUD' : 'SOLICITADO';
+  const initialAreaName = isZonaFranca ? 'CALIDAD 2F / ATELIER' : 'TRÁNSITO / DESPACHO';
 
   // Parámetros técnicos textiles opcionales
   const [showTechnicalParams, setShowTechnicalParams] = useState(false);
@@ -138,15 +126,11 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       color: color || 'AZUL',
       rollos: Number(rollos) || 1,
       lote: lote || '1',
-      estado: selectedInitialStage,
+      estado: initialEstado,
       dictamen: 'PENDIENTE',
-      inspector: currentUser ? currentUser.nombre : (selectedInitialStage === 'CALIDAD' ? 'CALIDAD LAB' : (isZonaFranca ? 'CALIDAD ZF' : 'OPERARIO STF')),
+      inspector: currentUser ? currentUser.nombre : (isZonaFranca ? 'CALIDAD ZF' : 'OPERARIO STF'),
       fechaCreacion: colombianNowStr,
-      observacionesOperario: finalObs || (
-        selectedInitialStage === 'CALIDAD' ? 'Muestra registrada directamente en Laboratorio de Calidad STF' :
-        selectedInitialStage === 'PRE_SOLICITUD' ? 'Muestra registrada en Atelier ZF (Zona Franca)' :
-        'Muestra solicitada en Planta Principal'
-      ),
+      observacionesOperario: finalObs || (isZonaFranca ? 'Muestra registrada en Atelier ZF (Zona Franca)' : 'Muestra solicitada en Planta Principal'),
       fotoMuestraUrl: photoUrl || undefined,
       areaActual: initialAreaName,
       pruebas: {
@@ -182,7 +166,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       colcha.op = finalOp;
       colcha.tela = finalTela;
       colcha.rollos = finalRollos;
-      colcha.estado = selectedInitialStage;
+      colcha.estado = initialEstado;
       colcha.areaActual = initialAreaName;
       if (currentUser) {
         colcha.inspector = currentUser.nombre;
@@ -208,50 +192,19 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
           <span>VOLVER AL PANEL DE CONTROL</span>
         </button>
         
-        {/* Dynamic User Origin Badge & Stage Selector */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 font-mono uppercase mr-1">
-            Etapa Destino:
-          </span>
-          <button
-            type="button"
-            onClick={() => setSelectedInitialStage('CALIDAD')}
-            className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold border transition cursor-pointer flex items-center gap-1.5 ${
-              selectedInitialStage === 'CALIDAD'
-                ? 'bg-purple-950/90 text-purple-300 border-purple-500 ring-2 ring-purple-500/40 shadow-lg'
-                : 'bg-zinc-900/80 text-zinc-400 border-zinc-700 hover:text-white'
-            }`}
-            title="Registrar muestra directamente para auditoría en Laboratorio STF"
-          >
-            <span className={`w-2 h-2 rounded-full ${selectedInitialStage === 'CALIDAD' ? 'bg-purple-400 animate-pulse' : 'bg-zinc-500'}`}></span>
-            <span>CALIDAD STF</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedInitialStage('SOLICITADO')}
-            className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold border transition cursor-pointer flex items-center gap-1.5 ${
-              selectedInitialStage === 'SOLICITADO'
-                ? 'bg-amber-950/90 text-amber-300 border-amber-500 ring-2 ring-amber-500/40 shadow-lg'
-                : 'bg-zinc-900/80 text-zinc-400 border-zinc-700 hover:text-white'
-            }`}
-            title="Registrar muestra en Tránsito / Despacho a Lavandería ZF"
-          >
-            <span className={`w-2 h-2 rounded-full ${selectedInitialStage === 'SOLICITADO' ? 'bg-amber-400 animate-pulse' : 'bg-zinc-500'}`}></span>
-            <span>SOLICITADOS (PLANTA)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedInitialStage('PRE_SOLICITUD')}
-            className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold border transition cursor-pointer flex items-center gap-1.5 ${
-              selectedInitialStage === 'PRE_SOLICITUD'
-                ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500 ring-2 ring-cyan-500/40 shadow-lg'
-                : 'bg-zinc-900/80 text-zinc-400 border-zinc-700 hover:text-white'
-            }`}
-            title="Registrar corte inicial de muestra en Atelier Zona Franca"
-          >
-            <span className={`w-2 h-2 rounded-full ${selectedInitialStage === 'PRE_SOLICITUD' ? 'bg-cyan-400 animate-pulse' : 'bg-zinc-500'}`}></span>
-            <span>PRE-SOLICITUD (ZF)</span>
-          </button>
+        {/* Dynamic User Origin Badge */}
+        <div className="flex items-center gap-2">
+          {isZonaFranca ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-950/80 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/50 dark:border-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>SEDE ZONA FRANCA ➔ PRE-SOLICITUD</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-950/80 dark:bg-amber-100 text-amber-300 dark:text-amber-800 border border-amber-500/50 dark:border-amber-300">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              <span>PLANTA PRINCIPAL ➔ SOLICITADO</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -269,9 +222,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                   Registro de Nueva Solicitud
                 </h2>
                 <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
-                  {selectedInitialStage === 'CALIDAD'
-                    ? 'Muestra originada en Laboratorio STF. Quedará registrada y visualizada directamente en etapa CALIDAD.'
-                    : selectedInitialStage === 'PRE_SOLICITUD'
+                  {isZonaFranca 
                     ? 'Muestra textil originada en Zona Franca (Atelier). Quedará registrada automáticamente en estado PRE-SOLICITUD.'
                     : 'Muestra textil originada en Planta Principal. Quedará registrada automáticamente en estado SOLICITADO.'}
                 </p>
