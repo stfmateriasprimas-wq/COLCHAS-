@@ -10,7 +10,7 @@ import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { FloatingScrollPill } from '../Common/FloatingScrollPill';
 import { TabType } from '../Navigation';
 import { getOpChronologicalTimestamp } from '../../services/slaCalculator';
-import { UsuarioSTF, isAdminUser, isLavanderiaUser } from '../../services/authService';
+import { UsuarioSTF, isAdminUser } from '../../services/authService';
 import { notificationService } from '../../services/notificationService';
 import { AdminSlaAlertBanner } from '../Alertas/AdminSlaAlertBanner';
 
@@ -85,74 +85,6 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
   const delaysLav = solicitudes.filter(s => s.estado === 'LAVANDERIA' && s.tieneRetraso).length;
   const delaysCal = solicitudes.filter(s => s.estado === 'CALIDAD' && s.tieneRetraso).length;
   const alertCount = solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length;
-
-  // Conteo de OPs listas para ser recibidas en Lavandería
-  const countSolicitados = solicitudes.filter(s => s.estado === 'SOLICITADO').length;
-  const countPreSol = solicitudes.filter(s => s.estado === 'PRE_SOLICITUD').length;
-  const totalPendingToReceive = countSolicitados + countPreSol;
-
-  // Estado local para "Llamar OP y cargarla en Lavandería"
-  const [opToCall, setOpToCall] = useState('');
-  const [callFeedback, setCallFeedback] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
-
-  const handleLlamarYRecibirOp = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const cleanQuery = opToCall.trim().toUpperCase();
-    if (!cleanQuery) return;
-
-    const queryDigits = cleanQuery.replace(/\D/g, '');
-    const foundOp = solicitudes.find(s => {
-      const sDigits = (s.op || '').replace(/\D/g, '');
-      return (
-        s.op.toUpperCase() === cleanQuery ||
-        (queryDigits.length >= 2 && sDigits === queryDigits) ||
-        s.op.toUpperCase().includes(cleanQuery)
-      );
-    });
-
-    if (!foundOp) {
-      setCallFeedback({
-        type: 'error',
-        message: `No se encontró la OP "${cleanQuery}" en el sistema.`
-      });
-      return;
-    }
-
-    if (foundOp.estado === 'LAVANDERIA') {
-      setSelectedStage('LAVANDERIA');
-      setSearch(foundOp.op);
-      setCallFeedback({
-        type: 'warning',
-        message: `La OP ${foundOp.op} ya se encuentra cargada en LAVANDERÍA.`
-      });
-      return;
-    }
-
-    if (foundOp.estado === 'CALIDAD' || foundOp.estado === 'FINALIZADO') {
-      setCallFeedback({
-        type: 'warning',
-        message: `La OP ${foundOp.op} ya avanzó a etapa ${foundOp.estado}.`
-      });
-      return;
-    }
-
-    // Está en SOLICITADO o PRE_SOLICITUD -> Cargarla inmediatamente en Lavandería!
-    const obsRecepcion = `Colcha recibida en túnel de lavado por ${currentUser?.nombre || 'LAVANDERÍA'}`;
-    if (onDirectTransfer) {
-      onDirectTransfer(foundOp.id, 'LAVANDERIA', obsRecepcion);
-    } else {
-      onTransfer(foundOp);
-    }
-
-    notificationService.playAlertSound('TRANSFERENCIA');
-    setSelectedStage('LAVANDERIA');
-    setSearch(foundOp.op);
-    setOpToCall('');
-    setCallFeedback({
-      type: 'success',
-      message: `🎉 ¡OP ${foundOp.op} llamada y cargada con éxito en LAVANDERÍA!`
-    });
-  };
 
   /**
    * Helper de Búsqueda Inteligente Multicriterio (Bloque 1)
@@ -300,116 +232,6 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         alertCount={alertCount}
       />
 
-      {/* 1.5. COCKPIT DE RECEPCIÓN: LLAMAR OP Y CARGARLA EN LAVANDERÍA (EXCLUSIVO LAVANDERÍA / ADMIN) */}
-      {(isLavanderiaUser(currentUser) || isAdminUser(currentUser)) && (
-        <div className="relative overflow-hidden bg-gradient-to-br from-[#0b1b2b] via-[#091524] to-[#060e18] dark:from-sky-50 dark:via-blue-50/70 dark:to-white border-2 border-sky-500/40 dark:border-sky-300 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-md animate-in fade-in duration-300">
-          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
-          
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-sky-500/20 dark:border-sky-200 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-sky-500/20 dark:bg-sky-100 flex items-center justify-center border border-sky-400/40 text-sky-400 dark:text-sky-600 shadow-sm">
-                <Droplets className="w-5 h-5 animate-pulse" />
-              </div>
-              <div>
-                <h3 className="text-sm sm:text-base font-black text-white dark:text-zinc-950 font-sans tracking-wide flex items-center gap-2">
-                  LLAMAR OP Y CARGARLA EN LAVANDERÍA
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 dark:text-sky-700 border border-sky-500/30">
-                    COLFACTORY ZF
-                  </span>
-                </h3>
-                <p className="text-[11px] text-zinc-400 dark:text-zinc-600 font-mono">
-                  {totalPendingToReceive > 0 ? (
-                    <span>
-                      📌 Hay <strong className="text-amber-400 font-black">{countSolicitados}</strong> OPs en Solicitados (Planta) y <strong className="text-cyan-400 font-black">{countPreSol}</strong> en Pre-Solicitud (Atelier ZF) listas para ingresar a lavado.
-                    </span>
-                  ) : (
-                    <span>No hay OPs pendientes por recibir en Lavandería en este momento.</span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {/* Quick Filter Buttons */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setSelectedStage('SOLICITADO')}
-                className={`px-3 py-1.5 rounded-xl text-[10.5px] font-mono font-bold border transition cursor-pointer flex items-center gap-1.5 ${
-                  selectedStage === 'SOLICITADO'
-                    ? 'bg-amber-500 text-black border-amber-400 shadow-md font-black'
-                    : 'bg-amber-950/60 text-amber-300 border-amber-500/40 hover:bg-amber-900/60'
-                }`}
-              >
-                <span>📦 Ver Solicitados ({countSolicitados})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedStage('PRE_SOLICITUD')}
-                className={`px-3 py-1.5 rounded-xl text-[10.5px] font-mono font-bold border transition cursor-pointer flex items-center gap-1.5 ${
-                  selectedStage === 'PRE_SOLICITUD'
-                    ? 'bg-cyan-400 text-black border-cyan-300 shadow-md font-black'
-                    : 'bg-cyan-950/60 text-cyan-300 border-cyan-500/40 hover:bg-cyan-900/60'
-                }`}
-              >
-                <span>✂️ Ver Pre-Solicitud ({countPreSol})</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Form to Call and Load OP */}
-          <form onSubmit={handleLlamarYRecibirOp} className="mt-3 flex flex-col sm:flex-row items-stretch gap-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={opToCall}
-                onChange={(e) => {
-                  setOpToCall(e.target.value);
-                  if (callFeedback) setCallFeedback(null);
-                }}
-                placeholder="Escanear QR o ingresar OP a llamar (ej: OP-96270 o 96270)..."
-                className="w-full bg-zinc-950 dark:bg-white border-2 border-sky-500/50 dark:border-sky-300 rounded-2xl px-4 py-2.5 text-xs text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none focus:border-sky-400 font-mono shadow-inner transition"
-              />
-              {opToCall && (
-                <button
-                  type="button"
-                  onClick={() => setOpToCall('')}
-                  className="absolute right-3 top-2.5 text-zinc-500 hover:text-white p-1 rounded-full text-xs cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-            <button
-              type="submit"
-              disabled={!opToCall.trim()}
-              className="bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-2xl font-black text-xs uppercase tracking-wider font-mono flex items-center justify-center gap-2 transition shadow-lg shadow-sky-600/25 active:scale-95 cursor-pointer border border-sky-400/40 shrink-0"
-            >
-              <Zap className="w-3.5 h-3.5 text-sky-200 animate-bounce" />
-              <span>⚡ CARGAR EN LAVANDERÍA</span>
-            </button>
-          </form>
-
-          {/* Feedback message */}
-          {callFeedback && (
-            <div className={`mt-2.5 p-2.5 rounded-xl text-xs font-mono font-bold flex items-center justify-between gap-2 animate-in fade-in ${
-              callFeedback.type === 'success'
-                ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/50'
-                : callFeedback.type === 'warning'
-                ? 'bg-amber-950/80 text-amber-300 border border-amber-500/50'
-                : 'bg-rose-950/80 text-rose-300 border border-rose-500/50'
-            }`}>
-              <span>{callFeedback.message}</span>
-              <button
-                type="button"
-                onClick={() => setCallFeedback(null)}
-                className="text-zinc-400 hover:text-white p-0.5 rounded cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* 2. SEARCH BAR & SORT SELECTOR (BLOQUES 1 Y 2) */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 relative z-30" ref={searchContainerRef}>

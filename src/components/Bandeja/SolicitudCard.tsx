@@ -180,16 +180,21 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
   const handleEnviarCalidad = async () => {
     const obs = notasLavado.trim();
-    // Garantizar guardado en Columna L antes de transferir
-    try {
-      await pushColfactoryObservationToSheets(solicitud.op, obs || 'Muestra procesada en Lavandería Colfactory ZF');
-    } catch (e) {}
+    const finalObs = obs || 'Muestra procesada en Lavandería Colfactory ZF';
 
+    // 1. Transferencia instantánea en el frontend hacia CALIDAD
     if (onDirectTransfer) {
-      onDirectTransfer(solicitud.id, 'CALIDAD', obs || 'Muestra procesada en Lavandería Colfactory ZF');
+      onDirectTransfer(solicitud.id, 'CALIDAD', finalObs);
     } else {
       onTransfer(solicitud);
     }
+
+    // 2. Persistencia en segundo plano en Google Sheets (Columna L: OBSERVACIÓN COLFACTORY)
+    try {
+      pushColfactoryObservationToSheets(solicitud.op, finalObs).catch((err) => {
+        console.warn('Error sincronizando observación con Sheets en segundo plano:', err);
+      });
+    } catch (e) {}
   };
 
   const handleDevolver = () => {
@@ -681,107 +686,119 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
         )}
 
         {/* ========================================================================= */}
-        {/* CONTROL DE CALIDAD (STF) - MODULO INTEGRADO (CALIDAD / ADMIN)            */}
+        {/* CONTROL DE CALIDAD (STF) - MODULO INTEGRADO (EXCLUSIVO CALIDAD / ADMIN)   */}
         {/* ========================================================================= */}
-        {(isCalidadUser(currentUser) || isAdminUser(currentUser)) && solicitud.estado === 'CALIDAD' && (
-          <div className="bg-[#0e121e] dark:bg-purple-50/70 border-2 border-indigo-500/40 dark:border-purple-300 rounded-3xl p-5 space-y-4 mt-3 shadow-xl animate-in fade-in duration-200">
-            
-            {/* Header: (✓) CONTROL DE CALIDAD (STF) */}
-            <div className="flex items-center justify-between border-b border-zinc-800 dark:border-purple-200/80 pb-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-indigo-400 dark:text-indigo-600" />
-                <h4 className="text-sm sm:text-base font-black text-indigo-300 dark:text-indigo-900 tracking-wide font-sans">
-                  CONTROL DE CALIDAD (STF)
-                </h4>
-              </div>
-              <span className="text-[10px] font-mono font-black px-3 py-1 rounded-full bg-indigo-950/80 dark:bg-indigo-100 text-indigo-300 dark:text-indigo-800 border border-indigo-500/40 dark:border-indigo-300">
-                AUDITORÍA FINAL
-              </span>
-            </div>
-
-            {/* Form 3 Columns: Veredicto, Observación Final, Foto */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
+        {solicitud.estado === 'CALIDAD' && (
+          (isCalidadUser(currentUser) || isAdminUser(currentUser)) ? (
+            <div className="bg-[#0e121e] dark:bg-purple-50/70 border-2 border-indigo-500/40 dark:border-purple-300 rounded-3xl p-5 space-y-4 mt-3 shadow-xl animate-in fade-in duration-200">
               
-              {/* 1. VEREDICTO * */}
-              <div className="md:col-span-4 space-y-1.5">
-                <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono">
-                  VEREDICTO <span className="text-rose-500 font-black">*</span>
-                </label>
-                <select
-                  value={veredictoLocal}
-                  onChange={(e) => setVeredictoLocal(e.target.value as 'APROBADO' | 'RECHAZADO' | '')}
-                  className="w-full bg-zinc-950 dark:bg-white border-2 border-zinc-700 dark:border-zinc-300 rounded-2xl p-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-indigo-500 font-bold transition shadow-sm cursor-pointer"
-                >
-                  <option value="">-- Veredicto --</option>
-                  <option value="APROBADO">✅ APROBADO</option>
-                  <option value="RECHAZADO">❌ RECHAZADO</option>
-                </select>
-              </div>
-
-              {/* 2. OBSERVACIÓN FINAL * */}
-              <div className="md:col-span-5 space-y-1.5">
-                <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono">
-                  OBSERVACIÓN FINAL <span className="text-rose-500 font-black">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={obsCalidadLocal}
-                  onChange={(e) => setObsCalidadLocal(e.target.value)}
-                  placeholder="Escriba la observación..."
-                  className="w-full bg-zinc-950 dark:bg-white border-2 border-zinc-700 dark:border-zinc-300 rounded-2xl p-3 text-xs text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition font-mono shadow-sm"
-                />
-              </div>
-
-              {/* 3. FOTO * */}
-              <div className="md:col-span-3 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono flex items-center gap-1">
-                    <Camera className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>FOTO <span className="text-rose-500 font-black">*</span></span>
-                  </label>
-                  <span className={`text-[9.5px] font-mono font-bold ${
-                    fotoCalidadUrlActual 
-                      ? 'text-emerald-400 dark:text-emerald-600' 
-                      : 'text-zinc-500 dark:text-zinc-400'
-                  }`}>
-                    {fotoCalidadUrlActual ? '✓ CARGADA' : 'SIN FOTO'}
-                  </span>
+              {/* Header: (✓) CONTROL DE CALIDAD (STF) */}
+              <div className="flex items-center justify-between border-b border-zinc-800 dark:border-purple-200/80 pb-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-indigo-400 dark:text-indigo-600" />
+                  <h4 className="text-sm sm:text-base font-black text-indigo-300 dark:text-indigo-900 tracking-wide font-sans">
+                    CONTROL DE CALIDAD (STF)
+                  </h4>
                 </div>
+                <span className="text-[10px] font-mono font-black px-3 py-1 rounded-full bg-indigo-950/80 dark:bg-indigo-100 text-indigo-300 dark:text-indigo-800 border border-indigo-500/40 dark:border-indigo-300">
+                  AUDITORÍA FINAL
+                </span>
+              </div>
+
+              {/* Form 3 Columns: Veredicto, Observación Final, Foto */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
                 
+                {/* 1. VEREDICTO * */}
+                <div className="md:col-span-4 space-y-1.5">
+                  <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono">
+                    VEREDICTO <span className="text-rose-500 font-black">*</span>
+                  </label>
+                  <select
+                    value={veredictoLocal}
+                    onChange={(e) => setVeredictoLocal(e.target.value as 'APROBADO' | 'RECHAZADO' | '')}
+                    className="w-full bg-zinc-950 dark:bg-white border-2 border-zinc-700 dark:border-zinc-300 rounded-2xl p-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-indigo-500 font-bold transition shadow-sm cursor-pointer"
+                  >
+                    <option value="">-- Veredicto --</option>
+                    <option value="APROBADO">✅ APROBADO</option>
+                    <option value="RECHAZADO">❌ RECHAZADO</option>
+                  </select>
+                </div>
+
+                {/* 2. OBSERVACIÓN FINAL * */}
+                <div className="md:col-span-5 space-y-1.5">
+                  <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono">
+                    OBSERVACIÓN FINAL <span className="text-rose-500 font-black">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={obsCalidadLocal}
+                    onChange={(e) => setObsCalidadLocal(e.target.value)}
+                    placeholder="Escriba la observación técnica final..."
+                    className="w-full bg-zinc-950 dark:bg-white border-2 border-zinc-700 dark:border-zinc-300 rounded-2xl p-3 text-xs text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition font-mono shadow-sm"
+                  />
+                </div>
+
+                {/* 3. FOTO * */}
+                <div className="md:col-span-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono flex items-center gap-1">
+                      <Camera className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>FOTO 2 (CALIDAD) <span className="text-rose-500 font-black">*</span></span>
+                    </label>
+                    <span className={`text-[9.5px] font-mono font-bold ${
+                      fotoCalidadUrlActual 
+                        ? 'text-emerald-400 dark:text-emerald-600' 
+                        : 'text-zinc-500 dark:text-zinc-400'
+                    }`}>
+                      {fotoCalidadUrlActual ? '✓ CARGADA' : 'SIN FOTO'}
+                    </span>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => calidadFileInputRef.current?.click()}
+                    disabled={isUploadingCalidadPhoto}
+                    className="w-full bg-black hover:bg-zinc-900 text-white dark:bg-zinc-950 dark:hover:bg-zinc-800 border border-zinc-700 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-md active:scale-[0.99] disabled:opacity-50"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-white" />
+                    <span>{isUploadingCalidadPhoto ? 'CARGANDO...' : 'ACTUALIZAR FOTO'}</span>
+                  </button>
+                  <input
+                    type="file"
+                    ref={calidadFileInputRef}
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleCalidadPhotoUpload}
+                    className="hidden"
+                  />
+                </div>
+
+              </div>
+
+              {/* ACTION BUTTON: EMITIR DICTAMEN FINAL */}
+              <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => calidadFileInputRef.current?.click()}
-                  disabled={isUploadingCalidadPhoto}
-                  className="w-full bg-black hover:bg-zinc-900 text-white dark:bg-zinc-950 dark:hover:bg-zinc-800 border border-zinc-700 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-md active:scale-[0.99] disabled:opacity-50"
+                  onClick={handleEmitirDictamen}
+                  className="w-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-3.5 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-lg active:scale-[0.99]"
                 >
-                  <Upload className="w-3.5 h-3.5 text-white" />
-                  <span>{isUploadingCalidadPhoto ? 'CARGANDO...' : 'ACTUALIZAR FOTO'}</span>
+                  <span>EMITIR DICTAMEN FINAL {veredictoLocal ? `(${veredictoLocal})` : ''}</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
-                <input
-                  type="file"
-                  ref={calidadFileInputRef}
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleCalidadPhotoUpload}
-                  className="hidden"
-                />
               </div>
 
             </div>
-
-            {/* ACTION BUTTON: EMITIR DICTAMEN FINAL */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleEmitirDictamen}
-                className="w-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-3.5 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-lg active:scale-[0.99]"
-              >
-                <span>EMITIR DICTAMEN FINAL {veredictoLocal ? `(${veredictoLocal})` : ''}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+          ) : (
+            <div className="bg-purple-950/20 dark:bg-purple-50/50 border border-purple-500/30 dark:border-purple-200 rounded-3xl p-4 sm:p-5 text-center mt-3 animate-in fade-in duration-200">
+              <div className="flex items-center justify-center gap-2 text-purple-400 dark:text-purple-700 font-bold text-xs sm:text-sm font-mono">
+                <Microscope className="w-4 h-4 text-purple-400 animate-pulse" />
+                <span>OP EN AUDITORÍA TÉCNICA DE CALIDAD (LABORATORIO STF)</span>
+              </div>
+              <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-1.5 font-mono max-w-xl mx-auto">
+                Esta colcha física está en evaluación por los inspectores del laboratorio de Calidad para registrar el veredicto técnico (Aprobado/Rechazado), observación final y fotografía post-lavado.
+              </p>
             </div>
-
-          </div>
+          )
         )}
 
         {/* Bottom Actions Bar */}
@@ -820,7 +837,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             )}
 
             {/* BOTÓN FINALIZAR (EXCLUSIVO PERFIL CALIDAD / ADMINISTRADOR) */}
-            {(!isLavanderiaUser(currentUser)) && solicitud.estado !== 'FINALIZADO' && onFinalizar && (
+            {(isCalidadUser(currentUser) || isAdminUser(currentUser)) && solicitud.estado === 'CALIDAD' && onFinalizar && (
               <button
                 type="button"
                 onClick={(e) => {
