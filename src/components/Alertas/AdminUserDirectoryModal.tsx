@@ -189,8 +189,10 @@ export const AdminUserDirectoryModal: React.FC<AdminUserDirectoryModalProps> = (
                     </div>
 
                     <div className="text-xs text-zinc-400 dark:text-zinc-600 font-mono mt-0.5 flex items-center gap-1.5">
-                      <Mail className="w-3 h-3 text-amber-500 shrink-0" />
-                      <span className="truncate">{u.email}</span>
+                      <Mail className={`w-3 h-3 ${u.email ? 'text-amber-500' : 'text-zinc-600'} shrink-0`} />
+                      <span className={`truncate ${!u.email ? 'text-amber-500/80 italic text-[11px]' : ''}`}>
+                        {u.email || 'Sin correo en Columna E'}
+                      </span>
                       <span className="text-zinc-600">•</span>
                       <span>ID: {u.id}</span>
                     </div>

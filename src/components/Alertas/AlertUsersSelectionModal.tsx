@@ -313,8 +313,8 @@ export const AlertUsersSelectionModal: React.FC<AlertUsersSelectionModalProps> =
                           {user.area}
                         </span>
                       </div>
-                      <span className="text-[10.5px] text-zinc-400 dark:text-zinc-500 truncate block font-mono">
-                        {user.email}
+                      <span className={`text-[10.5px] truncate block font-mono ${user.email ? 'text-zinc-400 dark:text-zinc-500' : 'text-amber-500/80 italic'}`}>
+                        {user.email || '⚠️ Sin correo en Columna E (No se enviará)'}
                       </span>
                     </div>
                   </div>

@@ -130,15 +130,17 @@ function verUsuariosMenuAction() {
 
   var sheetInfo = userSheet
     ? ('Hoja detectada: "' + userSheet.getName() + '" (GID: ' + userSheet.getSheetId() + ')')
-    : '⚠️ Pestaña USUARIOS no detectada (usando lista de respaldo)';
+    : '⚠️ Pestaña USUARIOS no detectada';
 
-  var preview = emails.map(function (m, idx) { return (idx + 1) + '. ' + m; }).join('\n');
+  var preview = emails.length > 0 
+    ? emails.map(function (m, idx) { return (idx + 1) + '. ' + m; }).join('\n')
+    : '⚠️ No hay correos registrados en la Columna E ("CORREO ELECTRÓNICO") de la hoja USUARIOS.\n(Si dejas celdas vacías, el sistema no enviará correos a esas personas).';
 
   ui.alert(
-    '👥 Destinatarios Activos (Hoja USUARIOS)',
+    '👥 Destinatarios Activos (Columna E - Hoja USUARIOS)',
     sheetInfo + '\n' +
-    'Total de destinatarios activos: ' + emails.length + '\n\n' +
-    'Lista de correos que recibirán los 3 flujos automáticos:\n' + preview,
+    'Total de correos activos configurados en Columna E: ' + emails.length + '\n\n' +
+    'Lista de correos leídos en tiempo real para envíos automáticos:\n' + preview,
     ui.ButtonSet.OK
   );
 }
@@ -333,15 +335,16 @@ function doPost(e) {
       }
 
       var evidenciaVal = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : (driveUrl || '');
-      var usersFromSheet = getAllUserEmails(ss);
-      var recipientsList = payload.userEmails || payload.recipients || [];
-      if (!Array.isArray(recipientsList) || recipientsList.length === 0) {
-        recipientsList = usersFromSheet;
+      
+      // La Columna E de la hoja USUARIOS es la FUENTE MAESTRA DE LA VERDAD
+      var userSheetRef = getUsuariosSheet(ss);
+      var recipientsList = [];
+      if (userSheetRef) {
+        recipientsList = getAllUserEmails(ss);
       } else {
-        for (var us = 0; us < usersFromSheet.length; us++) {
-          if (recipientsList.indexOf(usersFromSheet[us]) === -1) recipientsList.push(usersFromSheet[us]);
-        }
+        recipientsList = payload.userEmails || payload.recipients || [];
       }
+
       var cleanEmailArray = (recipientsList || []).map(function (e) { return String(e).trim().toLowerCase(); }).filter(function (e) { return e.indexOf('@') !== -1; });
       var uniqueEmails = [];
       for (var u = 0; u < cleanEmailArray.length; u++) {
@@ -532,12 +535,13 @@ function doPost(e) {
         }
 
         // FLUJO C: Envío automático inmediato de Correo de Dictamen / Liberación
-        var recipientsDict = getAllUserEmails(ss);
-        var col14Emails = String(sheetBdDict.getRange(foundRowDict, 14).getValue() || '');
-        if (col14Emails) {
-          var extraMails = col14Emails.split(',').map(function (e) { return e.trim().toLowerCase(); }).filter(function (e) { return e.indexOf('@') !== -1; });
-          for (var em = 0; em < extraMails.length; em++) {
-            if (recipientsDict.indexOf(extraMails[em]) === -1) recipientsDict.push(extraMails[em]);
+        // Fuente de la verdad: Correos configurados en la Columna E de la hoja USUARIOS
+        var emailsFromSheetDict = getAllUserEmails(ss);
+        var recipientsDict = emailsFromSheetDict;
+        if (recipientsDict.length === 0) {
+          var col14Emails = String(sheetBdDict.getRange(foundRowDict, 14).getValue() || '');
+          if (col14Emails) {
+            recipientsDict = col14Emails.split(',').map(function (e) { return e.trim().toLowerCase(); }).filter(function (e) { return e.indexOf('@') !== -1; });
           }
         }
         var uniqueRecipientsDict = [];
@@ -1159,7 +1163,13 @@ function getUsuariosSheet(ss) {
 }
 
 /**
- * Extrae dinámicamente en tiempo real todos los correos válidos de la pestaña USUARIOS
+ * Extrae en tiempo real única y exclusivamente los correos electrónicos válidos
+ * presentes en la Columna E ("CORREO ELECTRÓNICO") de la pestaña USUARIOS.
+ * 
+ * Reglas de Negocio Automatizadas:
+ * 1. Si la celda de una fila está vacía, NO se enviará correo a esa persona.
+ * 2. Si el usuario deja 2, 3 o N correos en la Columna E, el sistema enviará única y exclusivamente a esos correos.
+ * 3. Si se retira manualmente un correo de la Columna E, queda excluido al instante.
  */
 function getAllUserEmails(ss) {
   if (!ss) ss = getTargetSpreadsheet();
@@ -1171,8 +1181,8 @@ function getAllUserEmails(ss) {
     if (userSheet && userSheet.getLastRow() >= 2) {
       var data = userSheet.getDataRange().getValues();
 
-      // Detectar índice de columna de correo por encabezado si existe
-      var emailColIdx = -1;
+      // Detectar índice de columna de correo por encabezado (por defecto columna E = índice 4)
+      var emailColIdx = 4;
       if (data.length > 0) {
         for (var c = 0; c < data[0].length; c++) {
           var header = String(data[0][c] || '').trim().toUpperCase();
@@ -1186,22 +1196,13 @@ function getAllUserEmails(ss) {
       // Recorrer filas de usuarios omitiendo encabezado (fila 0)
       for (var r = 1; r < data.length; r++) {
         var row = data[r];
-        if (!row || row.length === 0) continue;
+        if (!row || row.length <= emailColIdx) continue;
 
-        // Si encontramos la columna de correo, evaluar primero esa celda
-        if (emailColIdx !== -1 && emailColIdx < row.length) {
-          var colVal = String(row[emailColIdx] || '').trim().toLowerCase();
-          if (colVal && emailRegex.test(colVal)) {
-            if (emails.indexOf(colVal) === -1) emails.push(colVal);
-            continue;
-          }
-        }
-
-        // Si no se encontró columna o estaba vacía, escanear toda la fila
-        for (var c2 = 0; c2 < row.length; c2++) {
-          var val = String(row[c2] || '').trim().toLowerCase();
-          if (val && emailRegex.test(val)) {
-            if (emails.indexOf(val) === -1) emails.push(val);
+        // Leer única y estrictamente la celda de la Columna E
+        var colVal = String(row[emailColIdx] || '').trim().toLowerCase();
+        if (colVal && emailRegex.test(colVal)) {
+          if (emails.indexOf(colVal) === -1) {
+            emails.push(colVal);
           }
         }
       }
@@ -1210,35 +1211,7 @@ function getAllUserEmails(ss) {
     Logger.log('⚠️ Error al leer hoja USUARIOS: ' + e.toString());
   }
 
-  // Lista de respaldo completa según el directorio maestro de STF Group
-  if (emails.length === 0) {
-    emails = [
-      'auditorcalidad2@studiof.com.co',
-      'edwin.diaz@studiof.com.co',
-      'lavanderia1@colfactory.com',
-      'calidadzf@studiof.com.co',
-      'laboratorio.textil@studiof.com.co',
-      'maria.zouein@studiof.com.co',
-      'jesus.salcedo@studiof.com.co',
-      'robert.dazad@studiof.com.co',
-      'luisa.medina@studiof.com.co',
-      'valentina.giraldo@studiof.com.co',
-      'jefe.lavanderia@colfactory.com',
-      'didier.munoz@studiof.com.co',
-      'andres.tascon@studiof.com.co',
-      'dilan.soto@studiof.com.co',
-      'jhon.eyder@studiof.com.co',
-      'wilmer.maya@studiof.com.co',
-      'juan.cortez@studiof.com.co',
-      'jhon.gonzalez@studiof.com.co',
-      'sebastian.herrera@studiof.com.co',
-      'sandra.vanegas@studiof.com.co',
-      'milena.garcia@studiof.com.co',
-      'jonhatan.pinzon@studiof.com.co',
-      'joseoneiber711@hotmail.com'
-    ];
-  }
-
+  // Se retorna exactamente lo configurado por el usuario en la Columna E
   return emails;
 }
 
@@ -1575,6 +1548,10 @@ function enviarReporteDiarioAutomaticoSLA() {
 
   opsList.sort(function (a, b) { return b.diasHabiles - a.diasHabiles; });
   var recipients = getAllUserEmails(ss);
+  if (!recipients || recipients.length === 0) {
+    Logger.log('⚠️ No hay correos destinatarios registrados en la Columna E de la hoja USUARIOS. No se despacha reporte SLA.');
+    return;
+  }
   var appUrl = 'https://colchas.vercel.app/?tab=alertas';
   var fechaReporte = Utilities.formatDate(now, 'America/Bogota', 'd/M/yyyy HH:mm:ss');
   var subject = '🚨 [ALERTA MATUTINA SLA STF] ' + opsList.length + ' Órdenes de Producción con Retraso en Planta';

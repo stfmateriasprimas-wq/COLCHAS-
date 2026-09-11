@@ -16,7 +16,7 @@ export const USUARIOS_STF_MAESTROS: UsuarioSTF[] = [
   { id: "1111", nombre: "CALIDAD", rol: "OPERARIO", area: "CALIDAD", email: "auditorcalidad2@studiof.com.co", isZonaFranca: false, telefono: "+57 315 234 5678", whatsapp: "573152345678" },
   { id: "ediaz", nombre: "EDWIN", rol: "ADMINISTRADOR", area: "CALIDAD", email: "edwin.diaz@studiof.com.co", isZonaFranca: false, telefono: "+57 318 456 7890", whatsapp: "573184567890" },
   { id: "3333", nombre: "COLFACTORY", rol: "LAVANDERÍA", area: "LAVANDERÍA", email: "lavanderia1@colfactory.com", isZonaFranca: false, telefono: "+57 317 890 1234", whatsapp: "573178901234" },
-  { id: "2222", nombre: "CALIDAD ZF (ATELIER)", rol: "OPERARIO", area: "CALIDAD ZF", email: "calidadzf@studiof.com.co", isZonaFranca: true, telefono: "+57 312 456 7891", whatsapp: "573124567891" },
+  { id: "2222", nombre: "CALIDAD ZF", rol: "OPERARIO", area: "CALIDAD ZF", email: "", isZonaFranca: true, telefono: "+57 312 456 7891", whatsapp: "573124567891" },
   { id: "4321", nombre: "LIBIA LABORATORIO", rol: "ADMINISTRADOR", area: "CALIDAD", email: "laboratorio.textil@studiof.com.co", isZonaFranca: false, telefono: "+57 316 345 6789", whatsapp: "573163456789" },
   { id: "4444", nombre: "CAMILA", rol: "CLIENTE ELA", area: "COLECCIONES", email: "maria.zouein@studiof.com.co", isZonaFranca: false, telefono: "+57 310 567 8902", whatsapp: "573105678902" },
   { id: "9999", nombre: "JESUS", rol: "CLIENTE SF", area: "COLECCIONES", email: "jesus.salcedo@studiof.com.co", isZonaFranca: false, telefono: "+57 312 678 9013", whatsapp: "573126789013" },
@@ -24,18 +24,18 @@ export const USUARIOS_STF_MAESTROS: UsuarioSTF[] = [
   { id: "6666", nombre: "LUISA MEDINA", rol: "CLIENTE ELA", area: "COLECCIONES", email: "luisa.medina@studiof.com.co", isZonaFranca: false, telefono: "+57 311 890 1235", whatsapp: "573118901235" },
   { id: "7777", nombre: "VALENTINA", rol: "CLIENTE OUTLET", area: "COLECCIONES", email: "valentina.giraldo@studiof.com.co", isZonaFranca: false, telefono: "+57 313 901 2346", whatsapp: "573139012346" },
   { id: "8888", nombre: "PAOLA COLFACTORY", rol: "LAVANDERÍA", area: "LAVANDERÍA", email: "jefe.lavanderia@colfactory.com", isZonaFranca: false, telefono: "+57 319 012 3456", whatsapp: "573190123456" },
-  { id: "1107529604", nombre: "DIDIER MUÑOZ", rol: "OPERARIO", area: "CALIDAD ZF", email: "didier.munoz@studiof.com.co", isZonaFranca: true, telefono: "+57 318 123 4567", whatsapp: "573181234567" },
-  { id: "1114392241", nombre: "ANDRES FELIPE TASCON", rol: "OPERARIO", area: "CALIDAD", email: "andres.tascon@studiof.com.co", isZonaFranca: false, telefono: "+57 314 567 8902", whatsapp: "573145678902" },
-  { id: "1004670524", nombre: "DILAN SOTO", rol: "OPERARIO", area: "CALIDAD", email: "dilan.soto@studiof.com.co", isZonaFranca: false, telefono: "+57 310 678 9013", whatsapp: "573106789013" },
-  { id: "1010159672", nombre: "JHON EYDER", rol: "OPERARIO", area: "CALIDAD", email: "jhon.eyder@studiof.com.co", isZonaFranca: false, telefono: "+57 311 789 0124", whatsapp: "573117890124" },
-  { id: "1118309204", nombre: "WILMER MAYA", rol: "OPERARIO", area: "CALIDAD", email: "wilmer.maya@studiof.com.co", isZonaFranca: false, telefono: "+57 313 890 1235", whatsapp: "573138901235" },
-  { id: "1107047649", nombre: "JUAN DAVID CORTEZ", rol: "OPERARIO", area: "CALIDAD", email: "juan.cortez@studiof.com.co", isZonaFranca: false, telefono: "+57 318 901 2346", whatsapp: "573189012346" },
-  { id: "1005829307", nombre: "JHON FREDDY GONZÁLEZ", rol: "OPERARIO", area: "CALIDAD", email: "jhon.gonzalez@studiof.com.co", isZonaFranca: false, telefono: "+57 317 012 3457", whatsapp: "573170123457" },
-  { id: "1006099840", nombre: "SEBASTIAN HERRERA", rol: "OPERARIO", area: "CALIDAD ZF", email: "sebastian.herrera@studiof.com.co", isZonaFranca: true, telefono: "+57 315 123 4568", whatsapp: "573151234568" },
+  { id: "1107529604", nombre: "DIDIER MUÑOZ", rol: "OPERARIO", area: "CALIDAD ZF", email: "", isZonaFranca: true, telefono: "+57 318 123 4567", whatsapp: "573181234567" },
+  { id: "1114392241", nombre: "ANDRES FELIPE TASCON", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 314 567 8902", whatsapp: "573145678902" },
+  { id: "1004670524", nombre: "DILAN SOTO", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 310 678 9013", whatsapp: "573106789013" },
+  { id: "1010159672", nombre: "JHON EYDER", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 311 789 0124", whatsapp: "573117890124" },
+  { id: "1118309204", nombre: "STIVEN MAYA", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 313 890 1235", whatsapp: "573138901235" },
+  { id: "1107047649", nombre: "JUAN DAVID CORTEZ", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 318 901 2346", whatsapp: "573189012346" },
+  { id: "1005829307", nombre: "JHON FREDDY GONZÁLEZ", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 317 012 3457", whatsapp: "573170123457" },
+  { id: "1006099840", nombre: "SEBASTIAN HERRERA", rol: "OPERARIO", area: "CALIDAD ZF", email: "", isZonaFranca: true, telefono: "+57 315 123 4568", whatsapp: "573151234568" },
   { id: "66997344", nombre: "SANDRA VANEGAS", rol: "LAVANDERÍA", area: "LAVANDERÍA", email: "sandra.vanegas@studiof.com.co", isZonaFranca: false, telefono: "+57 316 234 5679", whatsapp: "573162345679" },
   { id: "66826345", nombre: "ANA MILENA GARCIA", rol: "LAVANDERÍA", area: "LAVANDERÍA", email: "milena.garcia@studiof.com.co", isZonaFranca: false, telefono: "+57 319 345 6780", whatsapp: "573193456780" },
   { id: "1130643859", nombre: "JHONATAN PINZON", rol: "LAVANDERÍA", area: "LAVANDERÍA", email: "jonhatan.pinzon@studiof.com.co", isZonaFranca: false, telefono: "+57 318 456 7891", whatsapp: "573184567891" },
-  { id: "1073524622", nombre: "JOSE GUZMAN", rol: "OPERARIO", area: "CALIDAD", email: "joseoneiber711@hotmail.com", isZonaFranca: false, telefono: "+57 311 679 5548", whatsapp: "573116795548" }
+  { id: "1073524622", nombre: "SOPORTE TEC.", rol: "OPERARIO", area: "CALIDAD", email: "joseoneiber711@gmail.com", isZonaFranca: false, telefono: "+57 311 679 5548", whatsapp: "573116795548" }
 ];
 
 export const ADMIN_USER_ID = "ediaz";
@@ -344,11 +344,8 @@ export async function syncUsuariosFromSheets(): Promise<UsuarioSTF[]> {
           doc === '1006099840'
         );
 
-        if (!email) {
-          const cleanName = nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '.');
-          email = `${cleanName}@studiof.com.co`;
-        }
-
+        // Si la celda de la Columna E está vacía en Google Sheets, email permanece vacío ("").
+        // NO se generan correos ficticios para que el usuario tenga control manual total.
         const phoneData = formatWhatsAppNumber(rawWhatsApp);
 
         parsedUsers.push({
