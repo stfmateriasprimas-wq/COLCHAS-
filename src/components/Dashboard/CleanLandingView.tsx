@@ -36,15 +36,15 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
     <div className="space-y-8 animate-in fade-in duration-300 select-none pb-8">
       
       {/* 1. CENTRAL ACTION CARD (MAIN BUTTONS) */}
-      <div className="flex justify-center pt-2">
-        <div className="w-full max-w-[440px] bg-[#0c1017] dark:bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-800 dark:border-zinc-200 space-y-3.5 transition-colors text-white dark:text-zinc-950">
+      <div className="flex justify-center pt-1 sm:pt-2">
+        <div className="w-full max-w-[440px] bg-[#0c1017] dark:bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-7 shadow-2xl border border-zinc-800 dark:border-zinc-200 space-y-2.5 sm:space-y-3.5 transition-colors text-white dark:text-zinc-950">
           
           {/* BUTTON 1: + NUEVA SOLICITUD (OCULTO PARA PERFILES DE LAVANDERÍA) */}
           {!isLavanderia && (
             <button
               type="button"
               onClick={() => onNavigate('nueva-solicitud')}
-              className="w-full bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 active:scale-[0.99] py-3.5 px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-md"
+              className="w-full bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 active:scale-[0.99] py-3 sm:py-3.5 px-4 sm:px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-md"
             >
               <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5 text-current" />
               <span>NUEVA SOLICITUD</span>
@@ -55,7 +55,7 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('solicitudes')}
-            className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 border border-zinc-700 dark:border-zinc-300 py-3.5 px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-sm"
+            className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 border border-zinc-700 dark:border-zinc-300 py-3 sm:py-3.5 px-4 sm:px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-sm"
           >
             <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-300 dark:text-zinc-700" />
             <span>BANDEJA DE SOLICITUDES</span>
@@ -65,7 +65,7 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
           <button
             type="button"
             onClick={onOpenChat}
-            className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 border border-zinc-700 dark:border-zinc-300 py-3.5 px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-sm"
+            className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 border border-zinc-700 dark:border-zinc-300 py-3 sm:py-3.5 px-4 sm:px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-sm"
           >
             <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400 dark:text-zinc-600" />
             <span>CHAT STF TEAMS</span>
@@ -75,12 +75,12 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
       </div>
 
       {/* 2. ROW OF 7 KPI CARDS IN REAL TIME */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3">
         
         {/* 1. Total Histórico */}
         <div
           onClick={() => onSelectArea('TOTAL')}
-          className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 hover:border-zinc-600 dark:hover:border-zinc-400 rounded-2xl p-4 flex flex-col justify-between shadow-md cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 group text-white dark:text-zinc-950"
+          className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 hover:border-zinc-600 dark:hover:border-zinc-400 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-md cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 group text-white dark:text-zinc-950"
           title="Clic para ver todas las OPs"
         >
           <div className="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-bold uppercase">
@@ -226,7 +226,7 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
         {/* 7. Finalizados */}
         <div
           onClick={() => onSelectArea('FINALIZADO')}
-          className="bg-[#0c1017] dark:bg-white border border-emerald-500/50 dark:border-emerald-500/60 rounded-2xl p-4 flex flex-col justify-between shadow-md cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 group text-white dark:text-zinc-950"
+          className="col-span-2 sm:col-span-1 bg-[#0c1017] dark:bg-white border border-emerald-500/50 dark:border-emerald-500/60 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-md cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 group text-white dark:text-zinc-950"
           title="Clic para ver OPs Finalizadas"
         >
           <div className="flex items-center justify-between text-[11px] text-emerald-400 dark:text-emerald-600 font-bold uppercase">
@@ -235,7 +235,7 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <div>
-              <span className="text-3xl font-black font-mono text-white dark:text-zinc-950">{metrics.finalizados}</span>
+              <span className="text-2xl sm:text-3xl font-black font-mono text-white dark:text-zinc-950">{metrics.finalizados}</span>
               <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium ml-1">OP</span>
             </div>
             <span className="text-[9px] bg-emerald-950/80 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-800 dark:border-emerald-300 px-1.5 py-0.5 rounded font-bold font-mono">
@@ -248,7 +248,7 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
       </div>
 
       {/* 3. SECTION: RENDIMIENTO Y TIEMPOS DE PROCESO POR ÁREA (TELEMETRÍA EN VIVO) */}
-      <div className="bg-[#0c1017] dark:bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-zinc-800 dark:border-zinc-200 text-white dark:text-zinc-950 space-y-6">
+      <div className="bg-[#0c1017] dark:bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-2xl border border-zinc-800 dark:border-zinc-200 text-white dark:text-zinc-950 space-y-4 sm:space-y-6">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 dark:border-zinc-200 pb-4">
@@ -412,49 +412,64 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
       </div>
 
       {/* 4. FAST ACTION TILES TO REMAINING MODULES */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
-        {/* Tile 1: Alertas */}
+        {/* Tile 1: Base de Datos Maestra */}
+        <div
+          onClick={() => onNavigate('base-datos')}
+          className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 hover:border-zinc-600 dark:hover:border-zinc-400 p-4 sm:p-5 rounded-2xl shadow-md flex items-center justify-between cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 text-white dark:text-zinc-950"
+        >
+          <div>
+            <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide block">REGISTRO MAESTRO</span>
+            <h4 className="text-sm font-bold text-white dark:text-zinc-950 mt-0.5">Base de Datos Maestra</h4>
+            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 block mt-1">Historial completo y Google Sheets</span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center shrink-0">
+            <ChevronRight className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Tile 2: Alertas */}
         <div
           onClick={() => onNavigate('alertas')}
-          className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 hover:border-zinc-600 dark:hover:border-zinc-400 p-5 rounded-2xl shadow-md flex items-center justify-between cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 text-white dark:text-zinc-950"
+          className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 hover:border-zinc-600 dark:hover:border-zinc-400 p-4 sm:p-5 rounded-2xl shadow-md flex items-center justify-between cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 text-white dark:text-zinc-950"
         >
           <div>
             <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide block">GESTIÓN DE RIESGOS</span>
             <h4 className="text-sm font-bold text-white dark:text-zinc-950 mt-0.5">Alertas y Retrasos Críticos</h4>
             <span className="text-[11px] text-zinc-400 dark:text-zinc-500 block mt-1">Revisión de OPs fuera de SLA</span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center shrink-0">
             <ChevronRight className="w-4 h-4" />
           </div>
         </div>
 
-        {/* Tile 2: Línea de Tiempo */}
+        {/* Tile 3: Línea de Tiempo */}
         <div
           onClick={() => onNavigate('timeline')}
-          className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 hover:border-zinc-600 dark:hover:border-zinc-400 p-5 rounded-2xl shadow-md flex items-center justify-between cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 text-white dark:text-zinc-950"
+          className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 hover:border-zinc-600 dark:hover:border-zinc-400 p-4 sm:p-5 rounded-2xl shadow-md flex items-center justify-between cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 text-white dark:text-zinc-950"
         >
           <div>
             <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide block">AUDITORÍA</span>
             <h4 className="text-sm font-bold text-white dark:text-zinc-950 mt-0.5">Línea del Tiempo OP</h4>
             <span className="text-[11px] text-zinc-400 dark:text-zinc-500 block mt-1">Evaluación de proceso por colcha</span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center shrink-0">
             <ChevronRight className="w-4 h-4" />
           </div>
         </div>
 
-        {/* Tile 3: Estadísticas */}
+        {/* Tile 4: Estadísticas */}
         <div
           onClick={() => onNavigate('estadisticas')}
-          className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 hover:border-zinc-600 dark:hover:border-zinc-400 p-5 rounded-2xl shadow-md flex items-center justify-between cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 text-white dark:text-zinc-950"
+          className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 hover:border-zinc-600 dark:hover:border-zinc-400 p-4 sm:p-5 rounded-2xl shadow-md flex items-center justify-between cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 text-white dark:text-zinc-950"
         >
           <div>
             <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide block">INTELIGENCIA DE DATOS</span>
             <h4 className="text-sm font-bold text-white dark:text-zinc-950 mt-0.5">Métricas y Estadísticas</h4>
             <span className="text-[11px] text-zinc-400 dark:text-zinc-500 block mt-1">Productividad, operarios y rendimiento</span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center shrink-0">
             <ChevronRight className="w-4 h-4" />
           </div>
         </div>

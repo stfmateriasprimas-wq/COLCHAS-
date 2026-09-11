@@ -47,10 +47,10 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
   ];
 
   return (
-    <div className="w-full flex justify-center py-1 select-none">
+    <div className="w-full flex sm:justify-center overflow-x-auto no-scrollbar py-1 px-1 select-none">
       <nav 
         aria-label="Pestañas de Navegación Principal"
-        className="inline-flex items-center justify-center gap-1.5 p-1.5 rounded-3xl bg-[#0c1017]/95 dark:bg-zinc-950/90 backdrop-blur-xl border border-zinc-800/90 dark:border-zinc-800 shadow-[0_12px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/5 max-w-full overflow-x-auto custom-scroll"
+        className="inline-flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl sm:rounded-3xl bg-[#0c1017]/95 dark:bg-zinc-950/90 backdrop-blur-xl border border-zinc-800/90 dark:border-zinc-800 shadow-[0_12px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/5 mx-auto sm:mx-0 shrink-0"
       >
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
@@ -60,7 +60,7 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
               key={tab.id}
               type="button"
               onClick={() => onSelectTab(tab.id)}
-              className={`relative px-4 sm:px-5 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all duration-200 cursor-pointer shrink-0 group ${
+              className={`relative px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-[11px] sm:text-xs font-bold flex items-center gap-1.5 sm:gap-2 transition-all duration-200 cursor-pointer shrink-0 group ${
                 isActive
                   ? 'bg-zinc-900/95 text-white border border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.22)] font-black'
                   : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 border border-transparent hover:border-zinc-700/60'
@@ -68,7 +68,7 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
             >
               {/* Active Ambient Glow Background */}
               {isActive && (
-                <span className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10 pointer-events-none" />
+                <span className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10 pointer-events-none" />
               )}
 
               {/* Icon with Futuristic Color Indicator */}
@@ -79,7 +79,7 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
               </span>
 
               {/* Label */}
-              <span className="relative z-10 tracking-wider text-[11px] sm:text-xs">
+              <span className="relative z-10 tracking-wider text-[10.5px] sm:text-xs">
                 {tab.label}
               </span>
 
@@ -90,7 +90,7 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
 
               {/* High-Tech Badge */}
               {tab.badge !== undefined && (
-                <span className={`relative z-10 text-[9.5px] px-2 py-0.5 rounded-full font-mono font-black border transition-all duration-200 ${
+                <span className={`relative z-10 text-[9px] sm:text-[9.5px] px-1.5 sm:px-2 py-0.5 rounded-full font-mono font-black border transition-all duration-200 ${
                   tab.badgeColor || (isActive 
                     ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/50 shadow-[0_0_8px_rgba(16,185,129,0.3)]' 
                     : 'bg-zinc-800/90 text-zinc-300 border-zinc-700 group-hover:border-zinc-500')

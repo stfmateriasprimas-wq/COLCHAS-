@@ -190,7 +190,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
             <span className="text-2xl font-black text-emerald-400 dark:text-emerald-600 font-mono">{calCount}</span>
           </div>
 
-          <div className="bg-zinc-900/90 dark:bg-zinc-100 p-3.5 rounded-2xl border border-zinc-800 dark:border-zinc-200 space-y-0.5">
+          <div className="col-span-2 sm:col-span-2 lg:col-span-1 bg-zinc-900/90 dark:bg-zinc-100 p-3.5 rounded-2xl border border-zinc-800 dark:border-zinc-200 space-y-0.5">
             <span className="text-[10px] text-emerald-400 dark:text-emerald-600 font-bold block uppercase">FINALIZADOS</span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-black text-emerald-400 dark:text-emerald-600 font-mono">{finCount}</span>
@@ -369,7 +369,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
         </div>
 
         {/* 4. QUICK FILTER PILLS */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs select-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs select-none no-scrollbar">
           <button
             type="button"
             onClick={() => setFilterEstado('TODOS')}
@@ -465,6 +465,14 @@ export const MasterTable: React.FC<MasterTableProps> = ({
           >
             RECHAZADOS ({rechazadosCount})
           </button>
+        </div>
+
+        {/* Mobile horizontal scroll hint */}
+        <div className="flex sm:hidden items-center justify-between px-3 py-1.5 bg-zinc-900/60 dark:bg-zinc-100 rounded-xl border border-zinc-800 dark:border-zinc-200 text-[10px] text-zinc-400 dark:text-zinc-600 font-mono">
+          <span className="flex items-center gap-1.5">
+            <span className="text-amber-400 animate-pulse">↔</span> Desliza la tabla para ver las 17 columnas
+          </span>
+          <span className="font-bold px-1.5 py-0.5 rounded bg-zinc-800 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 text-[9px]">17 COL</span>
         </div>
 
         {/* 4. MASTER DATA TABLE CON SCROLL VERTICAL CONTENIDO Y HEADER FIJO */}

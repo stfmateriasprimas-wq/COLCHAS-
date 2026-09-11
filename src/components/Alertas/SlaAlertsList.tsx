@@ -280,36 +280,36 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
       )}
 
       {/* 2. MAIN RED/DARK CONTAINER (EXACT DESIGN AS USER IMAGE 2) */}
-      <div className="bg-[#0b0709] dark:bg-white border-2 border-rose-600/80 rounded-3xl p-5 sm:p-7 shadow-2xl shadow-rose-950/40 space-y-6 text-white dark:text-zinc-950 relative overflow-hidden">
+      <div className="bg-[#0b0709] dark:bg-white border-2 border-rose-600/80 rounded-3xl p-3.5 sm:p-7 shadow-2xl shadow-rose-950/40 space-y-6 text-white dark:text-zinc-950 relative overflow-hidden">
         
         {/* Glow accent */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-rose-600/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* TOP HEADER ROW WITH ICON, TITLE, ENVIAR ALERTA, USUARIOS, SHEETS, OCULTAR DETALLE */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-rose-950/80 dark:border-zinc-200 pb-5">
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3 sm:gap-4">
             {/* Warning Shield Hexagon Icon */}
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border-2 border-rose-500/40 flex items-center justify-center text-rose-500 shrink-0 shadow-lg shadow-rose-950/50">
-              <AlertTriangle className="w-6 h-6 animate-pulse" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-rose-500/20 border-2 border-rose-500/40 flex items-center justify-center text-rose-500 shrink-0 shadow-lg shadow-rose-950/50">
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" />
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-base sm:text-xl font-black tracking-wider uppercase font-mono text-white dark:text-zinc-950">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm sm:text-xl font-black tracking-wider uppercase font-mono text-white dark:text-zinc-950">
                   CENTRAL DE ALERTAS DE RETRASO (SLA &gt; 3 DÍAS)
                 </h2>
-                <span className="bg-rose-500/25 dark:bg-rose-100 text-rose-300 dark:text-rose-800 border border-rose-500/50 dark:border-rose-300 text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full uppercase">
-                  {allAlerts.length} OP(S) RETRASADA(S) EN PLANTA
+                <span className="bg-rose-500/25 dark:bg-rose-100 text-rose-300 dark:text-rose-800 border border-rose-500/50 dark:border-rose-300 text-[9.5px] sm:text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full uppercase">
+                  {allAlerts.length} OP(S) RETRASADA(S)
                 </span>
               </div>
-              <p className="text-xs text-zinc-300 dark:text-zinc-600 font-sans">
+              <p className="text-[11px] sm:text-xs text-zinc-300 dark:text-zinc-600 font-sans">
                 Hay <strong className="text-white dark:text-zinc-900 font-bold">{allAlerts.length} órdenes</strong> que superan el límite de <strong className="text-rose-400 dark:text-rose-600 font-bold">3 días laborales</strong> sin haber avanzado de área en el proceso de planta.
               </p>
             </div>
           </div>
 
           {/* TOP RIGHT ACTION BUTTONS */}
-          <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
             {/* ADMIN ONLY ACTIONS: ENVIAR ALERTA, USUARIOS, SHEETS, ENGRANAJE */}
             {isAdminUser(currentUser) && (
               <>
@@ -318,10 +318,10 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
                   type="button"
                   onClick={() => setIsUsersModalOpen(true)}
                   disabled={allAlerts.length === 0}
-                  className="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-mono text-xs font-black uppercase flex items-center gap-2 transition cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95 disabled:opacity-50"
+                  className="flex-1 xs:flex-none px-3.5 py-2 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-mono text-xs font-black uppercase flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95 disabled:opacity-50"
                 >
-                  <Mail className="w-4 h-4" />
-                  <span>Enviar Alerta ({selectedOpsList.length > 0 ? `${selectedOpsList.length} Selec.` : `${allAlerts.length} OPs`})</span>
+                  <Mail className="w-4 h-4 shrink-0" />
+                  <span>Enviar Alerta ({selectedOpsList.length > 0 ? `${selectedOpsList.length} Sel.` : `${allAlerts.length} OPs`})</span>
                 </button>
 
                 {/* BOTÓN ALERTAS WHATSAPP DIRECTO */}
@@ -329,9 +329,9 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
                   type="button"
                   onClick={() => setIsWhatsAppModalOpen(true)}
                   title="Enviar Alerta de Emergencia por WhatsApp (wa.me)"
-                  className="px-3.5 py-2 rounded-2xl bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-400 dark:text-emerald-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-md hover:scale-105 active:scale-95"
+                  className="px-3 py-2 rounded-2xl bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-400 dark:text-emerald-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-md hover:scale-105 active:scale-95"
                 >
-                  <MessageSquare className="w-4 h-4 text-emerald-400" />
+                  <MessageSquare className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>WhatsApp</span>
                 </button>
 
@@ -340,10 +340,10 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
                   type="button"
                   onClick={() => setIsUsersModalOpen(true)}
                   title="Seleccionar usuarios y enviar OPs seleccionadas o total"
-                  className="px-3.5 py-2 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-400 dark:text-amber-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-md hover:scale-105 active:scale-95"
+                  className="px-3 py-2 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-400 dark:text-amber-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-md hover:scale-105 active:scale-95"
                 >
-                  <Users className="w-4 h-4" />
-                  <span>Usuarios (22)</span>
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span>Usuarios</span>
                 </button>
 
                 {/* FLECHA 2: BOTÓN SHEETS (AUTOMATIZAR) */}
@@ -352,10 +352,10 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
                   onClick={handleLiveSheetsSync}
                   disabled={isSyncingSheets}
                   title="Automatizar - Alimentar y actualizar en tiempo real la base de datos de Google Sheets (pestaña ALERTAS)"
-                  className="px-3.5 py-2 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border-2 border-emerald-500/50 text-emerald-400 dark:text-emerald-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 disabled:opacity-50"
+                  className="px-3 py-2 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border-2 border-emerald-500/50 text-emerald-400 dark:text-emerald-700 font-mono text-xs font-black uppercase flex items-center gap-1.5 transition cursor-pointer shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 disabled:opacity-50"
                 >
-                  <RefreshCw className={`w-4 h-4 ${isSyncingSheets ? 'animate-spin text-emerald-300' : ''}`} />
-                  <span>{isSyncingSheets ? 'Sincronizando...' : 'Sheets'}</span>
+                  <RefreshCw className={`w-4 h-4 shrink-0 ${isSyncingSheets ? 'animate-spin text-emerald-300' : ''}`} />
+                  <span>{isSyncingSheets ? 'Sync...' : 'Sheets'}</span>
                 </button>
 
                 {/* BOTÓN ENGRANAJE CONFIGURACIÓN SHEETS */}
@@ -374,106 +374,108 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
             <button
               type="button"
               onClick={() => setIsDetailVisible(prev => !prev)}
-              className="px-3.5 py-2 rounded-2xl bg-zinc-900/90 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-300 dark:text-zinc-700 font-mono text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+              className="px-3 py-2 rounded-2xl bg-zinc-900/90 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-zinc-300 dark:text-zinc-700 font-mono text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
             >
-              <span>{isDetailVisible ? 'Ocultar Detalle' : 'Mostrar Detalle'}</span>
+              <span>{isDetailVisible ? 'Ocultar' : 'Mostrar'}</span>
               {isDetailVisible ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
         {/* 3. AREA FILTER PILLS ROW (EXACT COLORS & PILLS AS USER IMAGE 2) */}
-        <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
-          <span className="text-zinc-400 dark:text-zinc-600 font-bold uppercase tracking-wider text-[11px] mr-1">
-            ÁREAS:
-          </span>
-
-          {/* Consolidado */}
-          <button
-            type="button"
-            onClick={() => setSelectedAreaFilter('CONSOLIDADO')}
-            className={`px-3.5 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 ${
-              selectedAreaFilter === 'CONSOLIDADO'
-                ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/40 ring-2 ring-rose-400/40'
-                : 'bg-zinc-900/90 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800'
-            }`}
-          >
-            <span>Consolidado</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/40 text-white">
-              {allAlerts.length}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono no-scrollbar">
+            <span className="text-zinc-400 dark:text-zinc-600 font-bold uppercase tracking-wider text-[11px] mr-1 shrink-0">
+              ÁREAS:
             </span>
-          </button>
 
-          {/* Solicitados */}
-          <button
-            type="button"
-            onClick={() => setSelectedAreaFilter('SOLICITADOS')}
-            className={`px-3.5 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 ${
-              selectedAreaFilter === 'SOLICITADOS'
-                ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/40 ring-2 ring-amber-400/40'
-                : 'bg-zinc-900/90 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800'
-            }`}
-          >
-            <Plane className="w-3.5 h-3.5 text-amber-400" />
-            <span>Solicitados</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/30 text-amber-300 dark:text-amber-800 font-bold">
-              {countSol}
-            </span>
-          </button>
+            {/* Consolidado */}
+            <button
+              type="button"
+              onClick={() => setSelectedAreaFilter('CONSOLIDADO')}
+              className={`px-3 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                selectedAreaFilter === 'CONSOLIDADO'
+                  ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/40 ring-2 ring-rose-400/40'
+                  : 'bg-zinc-900/90 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800'
+              }`}
+            >
+              <span>Consolidado</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/40 text-white">
+                {allAlerts.length}
+              </span>
+            </button>
 
-          {/* Lavandería */}
-          <button
-            type="button"
-            onClick={() => setSelectedAreaFilter('LAVANDERIA')}
-            className={`px-3.5 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 ${
-              selectedAreaFilter === 'LAVANDERIA'
-                ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/40 ring-2 ring-sky-400/40'
-                : 'bg-zinc-900/90 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800'
-            }`}
-          >
-            <Droplets className="w-3.5 h-3.5 text-sky-400" />
-            <span>Lavandería</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-500/30 text-sky-300 dark:text-sky-800 font-bold">
-              {countLav}
-            </span>
-          </button>
+            {/* Solicitados */}
+            <button
+              type="button"
+              onClick={() => setSelectedAreaFilter('SOLICITADOS')}
+              className={`px-3 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                selectedAreaFilter === 'SOLICITADOS'
+                  ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/40 ring-2 ring-amber-400/40'
+                  : 'bg-zinc-900/90 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800'
+              }`}
+            >
+              <Plane className="w-3.5 h-3.5 text-amber-400" />
+              <span>Solicitados</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/30 text-amber-300 dark:text-amber-800 font-bold">
+                {countSol}
+              </span>
+            </button>
 
-          {/* Pre-Solicitud */}
-          <button
-            type="button"
-            onClick={() => setSelectedAreaFilter('PRE_SOLICITUD')}
-            className={`px-3.5 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 ${
-              selectedAreaFilter === 'PRE_SOLICITUD'
-                ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/40 ring-2 ring-purple-400/40'
-                : 'bg-zinc-900/90 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5 text-purple-400" />
-            <span>Pre-Solicitud</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-500/30 text-purple-300 dark:text-purple-800 font-bold">
-              {countPreSol}
-            </span>
-          </button>
+            {/* Lavandería */}
+            <button
+              type="button"
+              onClick={() => setSelectedAreaFilter('LAVANDERIA')}
+              className={`px-3 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                selectedAreaFilter === 'LAVANDERIA'
+                  ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/40 ring-2 ring-sky-400/40'
+                  : 'bg-zinc-900/90 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800'
+              }`}
+            >
+              <Droplets className="w-3.5 h-3.5 text-sky-400" />
+              <span>Lavandería</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-500/30 text-sky-300 dark:text-sky-800 font-bold">
+                {countLav}
+              </span>
+            </button>
 
-          {/* Calidad */}
-          <button
-            type="button"
-            onClick={() => setSelectedAreaFilter('CALIDAD')}
-            className={`px-3.5 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 ${
-              selectedAreaFilter === 'CALIDAD'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/40 ring-2 ring-emerald-400/40'
-                : 'bg-zinc-900/90 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Calidad</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500/30 text-emerald-300 dark:text-emerald-800 font-bold">
-              {countCal}
-            </span>
-          </button>
+            {/* Pre-Solicitud */}
+            <button
+              type="button"
+              onClick={() => setSelectedAreaFilter('PRE_SOLICITUD')}
+              className={`px-3 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                selectedAreaFilter === 'PRE_SOLICITUD'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/40 ring-2 ring-purple-400/40'
+                  : 'bg-zinc-900/90 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5 text-purple-400" />
+              <span>Pre-Solicitud</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-500/30 text-purple-300 dark:text-purple-800 font-bold">
+                {countPreSol}
+              </span>
+            </button>
+
+            {/* Calidad */}
+            <button
+              type="button"
+              onClick={() => setSelectedAreaFilter('CALIDAD')}
+              className={`px-3 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                selectedAreaFilter === 'CALIDAD'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/40 ring-2 ring-emerald-400/40'
+                  : 'bg-zinc-900/90 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Calidad</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500/30 text-emerald-300 dark:text-emerald-800 font-bold">
+                {countCal}
+              </span>
+            </button>
+          </div>
 
           {/* Search box right aligned */}
-          <div className="relative ml-auto flex-1 sm:max-w-xs min-w-[200px]">
+          <div className="relative w-full sm:ml-auto sm:max-w-xs shrink-0">
             <input
               type="text"
               value={searchTerm}
@@ -507,21 +509,30 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
               className="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-mono text-xs font-black uppercase flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-rose-600/30 active:scale-95 disabled:opacity-50 shrink-0"
             >
               <Mail className="w-4 h-4" />
-              <span>Notificar estas {selectedOpIds.length > 0 ? `${selectedOpIds.length} OPs Seleccionadas` : `${filteredAlerts.length} OPs`} por Gmail</span>
+              <span>Notificar {selectedOpsList.length > 0 ? `${selectedOpsList.length} OPs Seleccionadas` : `${filteredAlerts.length} OPs`} por Gmail</span>
             </button>
           )}
         </div>
 
         {/* 5. MASTER TABLE OF ALERTS (WITH SCROLLBAR & STICKY HEADER) */}
         {isDetailVisible && (
-          <div className="rounded-2xl border border-zinc-800 dark:border-zinc-200 overflow-hidden bg-[#070406] dark:bg-white shadow-xl">
-            {/* Scrollable Container with dedicated max height and custom scrollbar */}
-            <div className="overflow-x-auto max-h-[500px] overflow-y-auto custom-scroll">
-              <table className="w-full text-left text-xs font-mono border-collapse">
-                
-                {/* Header Row (Sticky) */}
-                <thead className="sticky top-0 z-20 bg-zinc-950 dark:bg-zinc-100 shadow-md">
-                  <tr className="border-b border-zinc-800 dark:border-zinc-200 text-zinc-400 dark:text-zinc-600 text-[10px] uppercase font-black">
+          <div className="space-y-2">
+            {/* Mobile horizontal scroll hint */}
+            <div className="flex sm:hidden items-center justify-between px-3 py-1.5 bg-zinc-900/60 dark:bg-zinc-100 rounded-xl border border-zinc-800 dark:border-zinc-200 text-[10px] text-zinc-400 dark:text-zinc-600 font-mono">
+              <span className="flex items-center gap-1.5">
+                <span className="text-rose-400 animate-pulse">↔</span> Desliza la tabla para ver todos los datos
+              </span>
+              <span className="font-bold px-1.5 py-0.5 rounded bg-zinc-800 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 text-[9px]">SLA</span>
+            </div>
+
+            <div className="rounded-2xl border border-zinc-800 dark:border-zinc-200 overflow-hidden bg-[#070406] dark:bg-white shadow-xl">
+              {/* Scrollable Container with dedicated max height and custom scrollbar */}
+              <div className="overflow-x-auto max-h-[500px] overflow-y-auto custom-scroll">
+                <table className="w-full text-left text-xs font-mono border-collapse">
+                  
+                  {/* Header Row (Sticky) */}
+                  <thead className="sticky top-0 z-20 bg-zinc-950 dark:bg-zinc-100 shadow-md">
+                    <tr className="border-b border-zinc-800 dark:border-zinc-200 text-zinc-400 dark:text-zinc-600 text-[10px] uppercase font-black">
                     {isAdminUser(currentUser) && (
                       <th className="py-3 px-3 w-8 text-center">
                         <button
@@ -683,7 +694,8 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
               </table>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* BOTTOM FOOTER STATUS BAR */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px] font-mono text-zinc-400 dark:text-zinc-600 border-t border-rose-950/80 dark:border-zinc-200 pt-3">

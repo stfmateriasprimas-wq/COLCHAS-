@@ -20,12 +20,12 @@ interface SolicitudCardProps {
   currentUser?: UsuarioSTF | null;
 }
 
-const STAGES: { key: SectorType; label: string }[] = [
-  { key: 'PRE_SOLICITUD', label: 'PRE-SOL.' },
-  { key: 'SOLICITADO', label: 'SOLICITADO' },
-  { key: 'LAVANDERIA', label: 'LAVANDERÍA' },
-  { key: 'CALIDAD', label: 'CALIDAD' },
-  { key: 'FINALIZADO', label: 'FINALIZADO' }
+const STAGES: { key: SectorType; label: string; shortLabel: string }[] = [
+  { key: 'PRE_SOLICITUD', label: 'PRE-SOL.', shortLabel: 'PRE-SOL' },
+  { key: 'SOLICITADO', label: 'SOLICITADO', shortLabel: 'SOLICIT.' },
+  { key: 'LAVANDERIA', label: 'LAVANDERÍA', shortLabel: 'LAVADO' },
+  { key: 'CALIDAD', label: 'CALIDAD', shortLabel: 'CALIDAD' },
+  { key: 'FINALIZADO', label: 'FINALIZADO', shortLabel: 'FINALIZ.' }
 ];
 
 const STAGE_CONFIG: Record<SectorType, { 
@@ -328,25 +328,53 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           <div className="space-y-2.5 flex-1">
             
             {/* Title & Ver Ficha */}
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-xl sm:text-2xl font-black text-white dark:text-zinc-950 font-mono tracking-tight">
+            <div className="flex items-center justify-between gap-2 sm:gap-3">
+              <h3 className="text-base sm:text-xl md:text-2xl font-black text-white dark:text-zinc-950 font-mono tracking-tight truncate">
                 {solicitud.op} <span className="text-zinc-500 dark:text-zinc-400 font-sans">/</span> REF – {solicitud.referencia}
               </h3>
 
               <button
                 onClick={() => onViewDetail(solicitud)}
-                className="text-xs font-bold text-indigo-300 dark:text-indigo-700 bg-indigo-950/80 dark:bg-indigo-50 hover:bg-indigo-900 dark:hover:bg-indigo-100 border border-indigo-500/50 dark:border-indigo-200 px-3.5 py-1.5 rounded-xl flex items-center gap-1 transition cursor-pointer shrink-0"
+                className="text-[11px] sm:text-xs font-bold text-indigo-300 dark:text-indigo-700 bg-indigo-950/80 dark:bg-indigo-50 hover:bg-indigo-900 dark:hover:bg-indigo-100 border border-indigo-500/50 dark:border-indigo-200 px-3 sm:px-3.5 py-1.5 rounded-xl flex items-center gap-1 transition cursor-pointer shrink-0"
               >
                 <span>Ver Ficha</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Fabric Tag */}
-            <div>
-              <span className="inline-block bg-indigo-950/80 dark:bg-indigo-50 text-indigo-300 dark:text-indigo-800 border border-indigo-500/50 dark:border-indigo-200 text-xs font-black px-3.5 py-1.5 rounded-xl font-mono">
+            {/* Fabric Tag & Mobile Photo Thumbnail Preview */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="inline-block bg-indigo-950/80 dark:bg-indigo-50 text-indigo-300 dark:text-indigo-800 border border-indigo-500/50 dark:border-indigo-200 text-[11px] sm:text-xs font-black px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-mono">
                 TELA: {solicitud.tela}
               </span>
+
+              {/* Mobile Photo Mini-Preview Button (Touch-Friendly) */}
+              <div className="flex sm:hidden items-center">
+                {(fotoCalidadUrlActual || solicitud.fotoMuestraUrl) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const targetPhoto = fotoCalidadUrlActual || solicitud.fotoMuestraUrl;
+                      if (targetPhoto) setZoomedPhotoUrl(targetPhoto);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900/90 dark:bg-zinc-100 border border-amber-500/60 text-amber-400 dark:text-amber-700 text-[10.5px] font-mono font-bold shadow-xs active:scale-95 transition"
+                    title="Toca para ver la foto de la muestra en grande"
+                  >
+                    <img
+                      src={fotoCalidadUrlActual || solicitud.fotoMuestraUrl}
+                      alt="Muestra"
+                      referrerPolicy="no-referrer"
+                      className="w-5 h-5 rounded-md object-cover border border-amber-500/40"
+                    />
+                    <span>VER FOTO</span>
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-900/50 dark:bg-zinc-100 text-zinc-500 text-[9.5px] font-mono">
+                    <Camera className="w-3 h-3" />
+                    <span>Sin foto</span>
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Operator & Color & Rollos Grid */}
@@ -465,14 +493,15 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
         {/* Stepper Pipeline */}
         <div className="pt-2">
-          <div className="grid grid-cols-5 text-center text-[10.5px] font-mono tracking-wider border-b border-zinc-800/80 dark:border-zinc-200/80 pb-2.5">
+          <div className="grid grid-cols-5 text-center text-[8.5px] sm:text-[10.5px] font-mono tracking-wider border-b border-zinc-800/80 dark:border-zinc-200/80 pb-2.5">
             {STAGES.map((st, i) => {
               const isActive = i === currentStageIndex;
               const isPassed = i < currentStageIndex;
               return (
                 <div key={st.key} className="relative pb-1">
                   <span className={isActive ? stageConfig.activeText : isPassed ? 'text-emerald-400 dark:text-emerald-600 font-bold' : 'text-zinc-500 dark:text-zinc-400'}>
-                    {st.label}
+                    <span className="sm:hidden">{st.shortLabel}</span>
+                    <span className="hidden sm:inline">{st.label}</span>
                   </span>
                   {isActive && (
                     <div className={`absolute -bottom-2.5 left-0 right-0 h-1 ${stageConfig.activeLine} bg-current rounded-full`}></div>
@@ -806,19 +835,19 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
         )}
 
         {/* Bottom Actions Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-zinc-800/80 dark:border-zinc-200/80">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pt-3 border-t border-zinc-800/80 dark:border-zinc-200/80">
+          <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => onViewDetail(solicitud)}
-              className="px-4 py-2.5 rounded-2xl bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-md"
+              className="px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-md"
             >
               <Eye className="w-4 h-4 text-amber-500" />
-              <span>VER DETALLE OP</span>
+              <span>VER DETALLE</span>
             </button>
 
             <button
               onClick={() => onPrint(solicitud)}
-              className="px-4 py-2.5 rounded-2xl bg-transparent border-2 border-zinc-700 text-white hover:bg-zinc-800 dark:border-zinc-300 dark:text-zinc-900 dark:hover:bg-zinc-100 text-xs font-black flex items-center gap-2 transition cursor-pointer"
+              className="px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-transparent border-2 border-zinc-700 text-white hover:bg-zinc-800 dark:border-zinc-300 dark:text-zinc-900 dark:hover:bg-zinc-100 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               <span>IMPRIMIR</span>
@@ -832,7 +861,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   e.stopPropagation();
                   onDelete(solicitud);
                 }}
-                className="px-4 py-2.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-600 border border-rose-400/60 dark:border-rose-300 text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
+                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-600 border border-rose-400/60 dark:border-rose-300 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
                 title="Eliminar esta OP automáticamente (Exclusivo Perfil ediaz)"
               >
                 <Trash2 className="w-4 h-4 text-rose-500" />
@@ -848,7 +877,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   e.stopPropagation();
                   onFinalizar(solicitud);
                 }}
-                className="px-4 py-2.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 dark:text-emerald-700 border border-emerald-500/60 dark:border-emerald-400 text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
+                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 dark:text-emerald-700 border border-emerald-500/60 dark:border-emerald-400 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
                 title="Dar por finalizada esta OP y moverla automáticamente a Finalizados en el sistema y base de datos"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
@@ -858,7 +887,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           </div>
 
           {solicitud.estado === 'FINALIZADO' ? (
-            <span className={`text-xs font-bold px-3.5 py-2 rounded-2xl border font-mono flex items-center gap-1.5 shadow-xs ${
+            <span className={`text-xs font-bold px-3.5 py-2 rounded-xl sm:rounded-2xl border font-mono flex items-center justify-center gap-1.5 shadow-xs w-full sm:w-auto ${
               solicitud.dictamen === 'RECHAZADO'
                 ? 'bg-rose-950/80 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border-rose-500/40 dark:border-rose-300'
                 : 'bg-emerald-950/60 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border-emerald-500/40 dark:border-emerald-300'

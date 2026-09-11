@@ -342,12 +342,12 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         </div>
 
         {/* BLOQUE 2: BOTÓN Y SELECTOR DE ORDENAMIENTO (MÁS RECIENTES / MÁS ANTIGUOS) */}
-        <div className="relative shrink-0">
-          <div className="flex items-center gap-1.5 bg-[#0c1017] dark:bg-[#12161f] border border-zinc-800 dark:border-zinc-700 rounded-2xl p-1 shadow-xl">
+        <div className="relative shrink-0 w-full sm:w-auto">
+          <div className="flex items-center gap-1 sm:gap-1.5 bg-[#0c1017] dark:bg-[#12161f] border border-zinc-800 dark:border-zinc-700 rounded-2xl p-1 shadow-xl w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setSortOrder('recientes')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold font-mono flex items-center gap-1.5 transition cursor-pointer ${
+              className={`flex-1 sm:flex-none justify-center px-2.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold font-mono flex items-center gap-1.5 transition cursor-pointer ${
                 sortOrder === 'recientes'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black font-black shadow-[0_0_12px_rgba(245,158,11,0.35)]'
                   : 'text-zinc-400 hover:text-white'
@@ -355,13 +355,13 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
               title="Mostrar las OPs creadas más recientemente en la parte superior"
             >
               <ArrowUp className="w-3.5 h-3.5" />
-              <span>Más Recientes Arriba</span>
+              <span>Más Recientes</span>
             </button>
 
             <button
               type="button"
               onClick={() => setSortOrder('antiguos')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold font-mono flex items-center gap-1.5 transition cursor-pointer ${
+              className={`flex-1 sm:flex-none justify-center px-2.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold font-mono flex items-center gap-1.5 transition cursor-pointer ${
                 sortOrder === 'antiguos'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black font-black shadow-[0_0_12px_rgba(245,158,11,0.35)]'
                   : 'text-zinc-400 hover:text-white'
@@ -369,7 +369,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
               title="Mostrar las OPs más antiguas sin finalizar en la parte superior para darles prioridad"
             >
               <ArrowDown className="w-3.5 h-3.5" />
-              <span>Más Antiguos Arriba</span>
+              <span>Más Antiguos</span>
             </button>
           </div>
         </div>
@@ -377,7 +377,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
       </div>
 
       {/* 3. ROW OF 7 STAGE FILTER CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3">
         
         {/* 1. Total Histórico */}
         <div
@@ -554,7 +554,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         {/* 7. Finalizados (Liberadas) */}
         <div
           onClick={() => setSelectedStage('FINALIZADO')}
-          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-[#0c1017] dark:bg-[#12161f] text-white ${
+          className={`col-span-2 sm:col-span-1 rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-[#0c1017] dark:bg-[#12161f] text-white ${
             selectedStage === 'FINALIZADO'
               ? 'border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.35)] ring-1 ring-emerald-500/50'
               : 'border border-zinc-800 dark:border-zinc-700 hover:border-emerald-500/50 shadow-xl'

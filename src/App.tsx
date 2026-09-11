@@ -258,6 +258,15 @@ export function App() {
   const [confirmDeleteOp, setConfirmDeleteOp] = useState<SolicitudColcha | null>(null);
   const [confirmFinalizarOp, setConfirmFinalizarOp] = useState<SolicitudColcha | null>(null);
 
+  const handleManualSync = async () => {
+    try {
+      localStorage.removeItem('STF_LOCAL_CREATED_OPS');
+      localStorage.removeItem('stf_colchas_local_created_ops');
+      localStorage.removeItem('STF_CACHED_BASE_DE_DATOS_V1');
+    } catch (e) {}
+    await loadAllLiveData(false);
+  };
+
   const loadAllLiveData = async (isBackground: boolean = false) => {
     if (!isBackground) setIsSyncing(true);
     try {
@@ -272,10 +281,28 @@ export function App() {
         // Exclude OPs that have been deleted by Edwin into history
         const activeOnly = baseDatosData.filter(item => !isOpDeleted(item.op));
 
-        // Blindaje contra condición de carrera: asegurar que cualquier OP creada localmente nunca se pierda
-        const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
+        // Sincronizar y limpiar de local created ops cualquier OP que ya exista en Google Sheets
+        const remoteOpsSet = new Set(activeOnly.map(m => (m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()));
+        const rawLocal = getLocalCreatedOps();
+        const validLocalOps = rawLocal.filter(loc => {
+          if (isOpDeleted(loc.op)) return false;
+          const cleanLoc = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
+          if (remoteOpsSet.has(cleanLoc)) {
+            removeLocalCreatedOp(loc.op);
+            return false;
+          }
+          if (loc.fechaCreacion) {
+            const time = new Date(loc.fechaCreacion).getTime();
+            if (!isNaN(time) && (Date.now() - time > 24 * 60 * 60 * 1000)) {
+              removeLocalCreatedOp(loc.op);
+              return false;
+            }
+          }
+          return true;
+        });
+
         const mergedLive = [...activeOnly];
-        localOps.forEach(loc => {
+        validLocalOps.forEach(loc => {
           const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
           const exists = mergedLive.some(m => ((m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()) === cleanLocOp);
           if (!exists) {
@@ -687,12 +714,12 @@ export function App() {
         onBackToDashboard={() => setActiveTab('dashboard')}
         onOpenProfileDirectory={() => setIsProfileDirectoryOpen(true)}
         isSyncing={isSyncing}
-        onManualSync={() => loadAllLiveData(false)}
+        onManualSync={handleManualSync}
         totalOpsCount={solicitudes.length}
       />
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto p-3 sm:p-6 space-y-6">
+      <main className="max-w-7xl mx-auto p-2.5 sm:p-6 space-y-4 sm:space-y-6">
         
         {/* VIEW 1: CLEAN LANDING DASHBOARD */}
         {activeTab === 'dashboard' && (

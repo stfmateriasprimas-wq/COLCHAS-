@@ -75,6 +75,7 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState<string>('general');
   const [isDirectRoom, setIsDirectRoom] = useState<boolean>(false);
+  const [mobileChatView, setMobileChatView] = useState<'list' | 'conversation'>('list');
   const [filterOnlyOps, setFilterOnlyOps] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [notificationsGranted, setNotificationsGranted] = useState<boolean>(() => notificationService.hasPermission());
@@ -529,14 +530,15 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className={`px-3.5 py-1.5 rounded-2xl border text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer shadow-sm hover:scale-105 active:scale-95 ${
+              className={`px-3 sm:px-3.5 py-1.5 rounded-2xl border text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer shadow-sm hover:scale-105 active:scale-95 ${
                 localDarkMode 
                   ? 'border-emerald-500/40 bg-zinc-950 hover:bg-emerald-500/10 text-emerald-400' 
                   : 'border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-800'
               }`}
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Cerrar Chat</span>
+              <span className="hidden xs:inline">Cerrar Chat</span>
+              <span className="xs:hidden">Cerrar</span>
             </button>
           </div>
         </div>
@@ -549,7 +551,7 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
           {/* ========================================================================= */}
           {/* LEFT SIDEBAR: CHAT LIST & ROOMS */}
           {/* ========================================================================= */}
-          <div className={`w-full md:w-80 lg:w-[380px] xl:w-[420px] border-r flex flex-col shrink-0 transition-colors duration-200 ${
+          <div className={`${mobileChatView === 'conversation' ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-[380px] xl:w-[420px] border-r flex-col shrink-0 transition-colors duration-200 ${
             localDarkMode 
               ? 'border-zinc-800/80 bg-[#070b13]' 
               : 'border-slate-200 bg-slate-50/90'
@@ -689,6 +691,7 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
                           setSelectedRoomId(channel.id);
                           setIsDirectRoom(false);
                           chatService.markAsRead(channel.id, false, activeUser.id);
+                          setMobileChatView('conversation');
                         }}
                         className={`p-3 rounded-2xl transition-all duration-200 cursor-pointer flex items-center justify-between gap-3 ${
                           unread > 0
@@ -766,6 +769,7 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
                           setSelectedRoomId(user.id);
                           setIsDirectRoom(true);
                           chatService.markAsRead(user.id, true, activeUser.id);
+                          setMobileChatView('conversation');
                         }}
                         className={`p-3 rounded-2xl transition-all duration-200 cursor-pointer flex items-center justify-between gap-3 ${
                           unread > 0
@@ -855,16 +859,26 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
           {/* ========================================================================= */}
           {/* RIGHT PANEL: CONVERSATION WINDOW (EXPANSIVE COMMAND CENTER) */}
           {/* ========================================================================= */}
-          <div className={`flex-1 flex flex-col overflow-hidden transition-colors duration-200 ${
+          <div className={`${mobileChatView === 'list' ? 'hidden md:flex' : 'flex'} flex-1 flex-col overflow-hidden transition-colors duration-200 ${
             localDarkMode ? 'bg-[#060a12]' : 'bg-slate-100/70'
           }`}>
             
             {/* Conversation Header */}
-            <div className={`px-4 sm:px-6 py-3 sm:py-3.5 border-b flex items-center justify-between gap-3 backdrop-blur-md transition-colors duration-200 ${
+            <div className={`px-3 sm:px-6 py-2.5 sm:py-3.5 border-b flex items-center justify-between gap-2.5 sm:gap-3 backdrop-blur-md transition-colors duration-200 ${
               localDarkMode ? 'border-zinc-800/80 bg-[#090f1c]/90' : 'border-slate-200 bg-white shadow-xs'
             }`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-2xl border flex items-center justify-center font-bold text-xs font-mono shadow-md ${
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                {/* Back button on mobile to return to chat list */}
+                <button
+                  type="button"
+                  onClick={() => setMobileChatView('list')}
+                  className="md:hidden p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 transition cursor-pointer shrink-0"
+                  title="Volver a canales y chats"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+
+                <div className={`w-9 h-9 rounded-2xl border flex items-center justify-center font-bold text-xs font-mono shadow-md shrink-0 ${
                   isDirectRoom && selectedRoomId === activeUser.id
                     ? 'bg-emerald-500 text-black border-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.6)]'
                     : localDarkMode 

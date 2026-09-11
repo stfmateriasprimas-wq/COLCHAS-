@@ -652,7 +652,7 @@ export function updateLocalOpPhoto(
   localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify(updated));
 }
 
-const CACHED_BASE_DATOS_KEY = 'STF_CACHED_BASE_DE_DATOS_V1';
+const CACHED_BASE_DATOS_KEY = 'STF_CACHED_BASE_DE_DATOS_V2';
 
 export function getCachedSolicitudes(): SolicitudColcha[] {
   if (typeof window !== 'undefined') {
@@ -699,8 +699,15 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
   for (const url of gvizUrls) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(url, { signal: controller.signal });
+      const timeoutId = setTimeout(() => controller.abort(), 9000);
+      const res = await fetch(url, { 
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       clearTimeout(timeoutId);
 
       if (res.ok) {
@@ -806,9 +813,30 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
             });
 
             if (parsedList.length > 0) {
-              const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
+              // Limpiar automáticamente de local created ops cualquier OP que ya exista en Google Sheets
+              const remoteOpsSet = new Set(parsedList.map(m => (m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()));
+              const rawLocal = getLocalCreatedOps();
+              const validLocalOps = rawLocal.filter(loc => {
+                if (isOpDeleted(loc.op)) return false;
+                const cleanLoc = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
+                // Si la OP ya fue guardada y confirmada en Google Sheets, retirarla de localOps
+                if (remoteOpsSet.has(cleanLoc)) {
+                  removeLocalCreatedOp(loc.op);
+                  return false;
+                }
+                // Si la OP local tiene más de 24 horas y nunca llegó a Google Sheets, depurarla como prueba huérfana
+                if (loc.fechaCreacion) {
+                  const createdTime = new Date(loc.fechaCreacion).getTime();
+                  if (!isNaN(createdTime) && (Date.now() - createdTime > 24 * 60 * 60 * 1000)) {
+                    removeLocalCreatedOp(loc.op);
+                    return false;
+                  }
+                }
+                return true;
+              });
+
               const merged = [...parsedList];
-              localOps.forEach(loc => {
+              validLocalOps.forEach(loc => {
                 const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
                 const remoteIdx = merged.findIndex(m => {
                   const cleanRemoteOp = (m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase();
@@ -825,10 +853,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                     fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
                     fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
                     driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl,
-                    observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad,
-                    estado: loc.fechaActualizacion ? loc.estado : (loc.estado || remote.estado),
-                    areaActual: loc.fechaActualizacion ? loc.areaActual : (loc.areaActual || remote.areaActual),
-                    dictamen: loc.fechaActualizacion && loc.dictamen ? loc.dictamen : remote.dictamen
+                    observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad
                   };
                 }
               });
@@ -853,7 +878,13 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
 
   for (const url of csvUrls) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       if (!res.ok) continue;
 
       const text = await res.text();
@@ -1183,8 +1214,15 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
   for (const url of gvizUrls) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(url, { signal: controller.signal });
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(url, { 
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       clearTimeout(timeoutId);
 
       if (res.ok) {
