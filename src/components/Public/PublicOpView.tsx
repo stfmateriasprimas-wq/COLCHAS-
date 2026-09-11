@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   QrCode, RefreshCw, CheckCircle2, AlertTriangle, Clock, 
   Layers, User, Calendar, Sparkles, Image as ImageIcon,
-  X, LogIn, Sun, Moon, Maximize2, Camera
+  X, LogIn, Sun, Moon, Maximize2, Camera, FolderOpen, ExternalLink
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
@@ -32,7 +32,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
   onToggleTheme
 }) => {
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
-  const [remoteDrivePhotos, setRemoteDrivePhotos] = useState<{ foto1?: string; foto2?: string } | null>(null);
+  const [remoteDrivePhotos, setRemoteDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(null);
 
   // Auto-cargar datos frescos al montar y cada 12 segundos para garantizar actualización en tiempo real en móviles
   useEffect(() => {
@@ -112,6 +112,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
       fechaCreacion: liveFound?.fechaCreacion || parsedQr?.fechaCreacion || base.fechaCreacion,
       fotoMuestraUrl: bestFotoMuestra,
       fotoCalidadUrl: bestFotoCalidad,
+      driveFolderUrl: liveFound?.driveFolderUrl || localFound?.driveFolderUrl || undefined,
       observacionesCalidad: obsCalidad,
       observacionesOperario: obsOperario,
       observacionesLavanderia: obsLavanderia,
@@ -142,7 +143,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
 
     let isMounted = true;
     fetchOpPhotosFromDrive(targetOp).then((photos) => {
-      if (isMounted && (photos.foto1 || photos.foto2)) {
+      if (isMounted && (photos.foto1 || photos.foto2 || photos.folderUrl)) {
         setRemoteDrivePhotos(photos);
       }
     });
@@ -151,6 +152,11 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
       isMounted = false;
     };
   }, [colcha?.op, opNumber, colcha?.fotoMuestraUrl, colcha?.fotoCalidadUrl]);
+
+  // Enlace directo oficial de la carpeta de Google Drive donde reposan las fotos de la OP
+  const folderDriveUrl = useMemo(() => {
+    return colcha?.driveFolderUrl || remoteDrivePhotos?.folderUrl || undefined;
+  }, [colcha?.driveFolderUrl, remoteDrivePhotos?.folderUrl]);
 
   // Normalized display photo URLs (priorizando fotos en alta resolución de Google Drive o locales)
   const fotoInicialUrl = useMemo(() => {
@@ -444,9 +450,24 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                     <Camera className="w-4 h-4 text-emerald-400" />
                     <span>REGISTRO FOTOGRÁFICO DE LA OP (2 FOTOS)</span>
                   </h3>
-                  <span className="text-[9px] px-2 py-0.5 rounded font-bold border bg-zinc-950 dark:bg-zinc-100 text-zinc-400 dark:text-zinc-500 border-zinc-800 dark:border-zinc-300 font-mono">
-                    Trazabilidad Visual
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {folderDriveUrl && (
+                      <a
+                        href={folderDriveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 dark:text-amber-700 border border-amber-500/30 text-[10px] font-black font-mono transition shadow-xs"
+                        title="Abrir carpeta oficial de la OP en Google Drive para ver o descargar ambas fotos"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">VER EN DRIVE</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    <span className="text-[9px] px-2 py-0.5 rounded font-bold border bg-zinc-950 dark:bg-zinc-100 text-zinc-400 dark:text-zinc-500 border-zinc-800 dark:border-zinc-300 font-mono">
+                      Trazabilidad Visual
+                    </span>
+                  </div>
                 </div>
 
                 {/* DUAL PHOTO GRID (2 COLUMNS SIDE-BY-SIDE) */}
@@ -493,6 +514,21 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                   </div>
 
                 </div>
+
+                {folderDriveUrl && (
+                  <div className="pt-2">
+                    <a
+                      href={folderDriveUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-2xl bg-zinc-800/80 hover:bg-zinc-700 dark:bg-zinc-100 dark:hover:bg-zinc-200 border border-zinc-700 dark:border-zinc-300 text-amber-400 dark:text-amber-700 text-xs font-mono font-bold transition shadow-sm"
+                    >
+                      <FolderOpen className="w-4 h-4 text-amber-400 dark:text-amber-600" />
+                      <span>Abrir Carpeta Oficial en Google Drive (2 Fotos)</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
 
               </div>
 

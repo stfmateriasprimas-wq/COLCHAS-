@@ -213,8 +213,8 @@ function doGet(e) {
 
       var photosFound = getOpPhotosFromDrive(cleanTargetOp);
 
-      // Auto-reparar Columna M en BASE_DE_DATOS si se encontraron fotos y no estaban en la celda
-      if (photosFound.foto1 || photosFound.foto2) {
+      // Auto-reparar Columna M en BASE_DE_DATOS con el enlace oficial clickeable a la carpeta de Drive de la OP
+      if (photosFound.foto1 || photosFound.foto2 || photosFound.folderUrl) {
         try {
           var shBdGet = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
           if (shBdGet && shBdGet.getLastRow() > 1) {
@@ -222,8 +222,10 @@ function doGet(e) {
             var targetPure = cleanTargetOp.replace(/^OP-?/, '');
             for (var b = 0; b < bdVals.length; b++) {
               if (String(bdVals[b][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetPure) {
-                var newColM = (photosFound.foto1 || '') + (photosFound.foto2 ? (' | ' + photosFound.foto2) : '');
-                shBdGet.getRange(b + 2, 13).setValue(newColM);
+                var newColM = photosFound.folderUrl || photosFound.foto1 || photosFound.foto2 || '';
+                if (newColM) {
+                  shBdGet.getRange(b + 2, 13).setValue(newColM);
+                }
                 break;
               }
             }
@@ -370,8 +372,8 @@ function doPost(e) {
         obsColVal = rawObsCol.indexOf(' | ') !== -1 ? rawObsCol.split(' | ')[0].trim() : rawObsCol;
       }
 
-      // Columna M (13 - EVIDENCIA): Guardar enlace directo de archivo público de Drive (para acceso y CDN móvil instantáneo)
-      var evidenciaVal = (savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (driveUrl || '');
+      // Columna M (13 - EVIDENCIA): Guardar enlace directo clickeable de la carpeta de Drive de la OP
+      var evidenciaVal = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : ((savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (driveUrl || ''));
       
       // La Columna E de la hoja USUARIOS es la FUENTE MAESTRA DE LA VERDAD
       var userSheetRef = getUsuariosSheet(ss);
@@ -532,34 +534,15 @@ function doPost(e) {
           calPhotoUrl = dictPhotoBase64;
         }
 
-        // Leer estado actual de Columna 13 (M)
-        var curMDict = String(sheetBdDict.getRange(foundRowDict, 13).getValue() || '').trim();
-        var existFoto1 = '';
-        var existFoto2 = '';
-        if (curMDict && curMDict.indexOf('http') !== -1) {
-          if (curMDict.indexOf('|') !== -1) {
-            var mParts = curMDict.split('|').map(function(p) { return p.trim(); });
-            existFoto1 = mParts[0];
-            existFoto2 = mParts[1] || '';
-          } else if (curMDict.indexOf('/folders/') === -1) {
-            existFoto1 = curMDict;
-          }
-        }
-
-        // Si falta alguna foto, descubrirla automáticamente desde la carpeta oficial de Drive
-        if (!existFoto1 || (!calPhotoUrl && !existFoto2)) {
+        // Columna 13 (M) - Guardar enlace oficial clickeable de la carpeta de Google Drive de la OP
+        var folderCol13 = (savedCalPhoto && savedCalPhoto.folderUrl) ? savedCalPhoto.folderUrl : '';
+        if (!folderCol13) {
           var discoveredDict = getOpPhotosFromDrive(opFormattedDict);
-          if (!existFoto1 && discoveredDict.foto1) existFoto1 = discoveredDict.foto1;
-          if (!calPhotoUrl && !existFoto2 && discoveredDict.foto2) calPhotoUrl = discoveredDict.foto2;
+          if (discoveredDict && discoveredDict.folderUrl) folderCol13 = discoveredDict.folderUrl;
+          else if (discoveredDict && (discoveredDict.foto2 || discoveredDict.foto1)) folderCol13 = discoveredDict.foto2 || discoveredDict.foto1;
         }
-
-        var finalFoto2 = calPhotoUrl || existFoto2;
-        var combinedCol13 = existFoto1;
-        if (finalFoto2) {
-          combinedCol13 = (existFoto1 || '') + ' | ' + finalFoto2;
-        }
-        if (combinedCol13) {
-          sheetBdDict.getRange(foundRowDict, 13).setValue(combinedCol13);
+        if (folderCol13) {
+          sheetBdDict.getRange(foundRowDict, 13).setValue(folderCol13);
         }
 
         // OBSERVACIÓN COLFACTORY (Columna L / 12)
@@ -693,35 +676,16 @@ function doPost(e) {
           if (savedPhotoRes && savedPhotoRes.driveUrl) photoUrl = savedPhotoRes.driveUrl;
         }
 
-        // Leer estado actual de Columna 13 (M) y preservar ambas fotos
-        var curMPhoto = String(sheetBdPhoto.getRange(foundRowPhoto, 13).getValue() || '').trim();
-        var existingFoto1 = '';
-        var existingFoto2 = '';
-        if (curMPhoto && curMPhoto.indexOf('http') !== -1) {
-          if (curMPhoto.indexOf('|') !== -1) {
-            var partsM = curMPhoto.split('|').map(function(p) { return p.trim(); });
-            existingFoto1 = partsM[0];
-            existingFoto2 = partsM[1] || '';
-          } else if (curMPhoto.indexOf('/folders/') === -1) {
-            existingFoto1 = curMPhoto;
-          }
-        }
-
-        // Si falta alguna foto, descubrirla automáticamente desde Drive
-        if (!existingFoto1 || (!existingFoto2 && isCalidad)) {
+        // Columna 13 (M) - Guardar enlace oficial clickeable de la carpeta de Google Drive de la OP
+        var folderColPhoto = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : '';
+        if (!folderColPhoto) {
           var disc = getOpPhotosFromDrive(opFormattedPhoto);
-          if (!existingFoto1 && disc.foto1) existingFoto1 = disc.foto1;
-          if (!existingFoto2 && disc.foto2) disc.foto2 = disc.foto2;
-          if (!existingFoto2 && disc.foto2) existingFoto2 = disc.foto2;
+          if (disc && disc.folderUrl) folderColPhoto = disc.folderUrl;
+          else if (disc && (disc.foto2 || disc.foto1)) folderColPhoto = disc.foto2 || disc.foto1;
         }
-
-        var newFoto1 = isCalidad ? existingFoto1 : photoUrl;
-        var newFoto2 = isCalidad ? photoUrl : existingFoto2;
-        var finalCol13 = newFoto1;
-        if (newFoto2) {
-          finalCol13 = (newFoto1 || '') + ' | ' + newFoto2;
+        if (folderColPhoto) {
+          sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(folderColPhoto);
         }
-        sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(finalCol13);
 
         if (payload.observacionColfactory || payload.observacionesLavanderia) {
           var cleanColPh = String(payload.observacionColfactory || payload.observacionesLavanderia).trim();
@@ -815,7 +779,7 @@ function doPost(e) {
       if (cleanOpP.indexOf('OP-') !== 0) cleanOpP = 'OP-' + cleanOpP.replace(/^OP-?/i, '').trim();
       var photosRes = getOpPhotosFromDrive(cleanOpP);
 
-      if (photosRes.foto1 || photosRes.foto2) {
+      if (photosRes.foto1 || photosRes.foto2 || photosRes.folderUrl) {
         try {
           var shBdP = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
           if (shBdP && shBdP.getLastRow() > 1) {
@@ -823,8 +787,10 @@ function doPost(e) {
             var targetPureP = cleanOpP.replace(/^OP-?/, '');
             for (var bp = 0; bp < bdOpsP.length; bp++) {
               if (String(bdOpsP[bp][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetPureP) {
-                var newColMP = (photosRes.foto1 || '') + (photosRes.foto2 ? (' | ' + photosRes.foto2) : '');
-                shBdP.getRange(bp + 2, 13).setValue(newColMP);
+                var newColMP = photosRes.folderUrl || photosRes.foto1 || photosRes.foto2 || '';
+                if (newColMP) {
+                  shBdP.getRange(bp + 2, 13).setValue(newColMP);
+                }
                 break;
               }
             }
@@ -1818,18 +1784,16 @@ function cleanColumnsKLMN(ss) {
     // 2. Limpieza de Observación Colfactory (Columna L)
     if (col.toLowerCase().indexOf('colcha recibida') !== -1 || col.indexOf('[LAVANDERIA]') !== -1) { col = ''; ch = true; }
 
-    // 3. Normalización y resolución de Evidencias en Drive (Columna M: foto1 | foto2)
-    if (ev.indexOf('data:image/') !== -1 || ev.indexOf('data:') === 0 || ev.indexOf('/folders/') !== -1 || ev === rawOp || ev === formattedOp || !ev) {
+    // 3. Normalización y resolución de Evidencias en Drive (Columna M: Link clickeable de la Carpeta de Drive de la OP)
+    if (ev.indexOf('/folders/') === -1 || ev.indexOf(' | ') !== -1 || ev.indexOf('data:') === 0 || ev === rawOp || ev === formattedOp || ev.indexOf('.jpg') !== -1 || !ev) {
       try {
         if (formattedOp && formattedOp.length > 3) {
           var opPhotosFound = getOpPhotosFromDrive(formattedOp);
-          if (opPhotosFound.foto1 || opPhotosFound.foto2) {
-            var resolvedColM = (opPhotosFound.foto1 || '') + (opPhotosFound.foto2 ? (' | ' + opPhotosFound.foto2) : '');
-            if (resolvedColM !== ev) {
-              ev = resolvedColM;
-              ch = true;
-            }
-          } else if (ev.indexOf('data:') === 0 || ev === rawOp || ev === formattedOp) {
+          var resolvedColM = opPhotosFound.folderUrl || opPhotosFound.foto1 || opPhotosFound.foto2 || '';
+          if (resolvedColM && resolvedColM !== ev) {
+            ev = resolvedColM;
+            ch = true;
+          } else if (!resolvedColM && (ev.indexOf('data:') === 0 || ev === rawOp || ev === formattedOp || ev.indexOf('.jpg') !== -1)) {
             ev = '';
             ch = true;
           }

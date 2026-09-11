@@ -421,6 +421,10 @@ export function normalizeImageUrl(rawUrl?: string): string | undefined {
 
   // 2. Enlaces de Google Drive -> Convertir a thumbnail CDN ultra compatible con iOS Safari y Android
   if (str.includes('drive.google.com') || str.includes('googleusercontent.com')) {
+    // Las carpetas de Google Drive (/folders/) NO son imágenes
+    if (str.includes('/drive/folders/') || str.includes('/folders/')) {
+      return undefined;
+    }
     const driveMatch = str.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
                        str.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
                        str.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -430,8 +434,11 @@ export function normalizeImageUrl(rawUrl?: string): string | undefined {
     }
   }
 
-  // 3. URLs HTTP/HTTPS tradicionales
+  // 3. URLs HTTP/HTTPS tradicionales (excepto carpetas de Drive)
   if (str.startsWith('http://') || str.startsWith('https://')) {
+    if (str.includes('/drive/folders/') || str.includes('/folders/')) {
+      return undefined;
+    }
     return str;
   }
 
@@ -445,16 +452,23 @@ export function normalizeImageUrl(rawUrl?: string): string | undefined {
 
 /**
  * Parsea el campo de evidencia fotográfica permitiendo almacenar y recuperar
- * tanto la foto 1 (muestra inicial) como la foto 2 (inspección calidad post-lavado)
+ * tanto la foto 1 (muestra inicial), la foto 2 (inspección calidad post-lavado)
+ * y el enlace oficial a la carpeta de Google Drive donde residen ambas fotos
  */
-export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: string } {
+export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: string; folderUrl?: string } {
   if (!fotoUrlRaw || typeof fotoUrlRaw !== 'string') return {};
   const str = fotoUrlRaw.trim();
   if (!str) return {};
 
-  // Descartar si el valor de la celda es solo el código de la OP ("OP-XXXXX") o texto plano
+  let folderUrl: string | undefined = undefined;
+  if (str.includes('/drive/folders/') || str.includes('/folders/')) {
+    const match = str.match(/https:\/\/drive\.google\.com\/drive\/folders\/[a-zA-Z0-9_-]+/);
+    folderUrl = match ? match[0] : (str.startsWith('http') ? str : undefined);
+  }
+
+  // Descartar si el valor de la celda es solo el código de la OP ("OP-XXXXX") o texto plano sin URLs
   if ((str.toUpperCase().startsWith('OP-') || str.toUpperCase().startsWith('OP')) && !str.includes('http') && !str.includes('data:')) {
-    return {};
+    return { folderUrl };
   }
 
   let parts: string[] = [];
@@ -473,7 +487,8 @@ export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: 
 
   return {
     foto1: parts[0] ? normalizeImageUrl(parts[0]) : undefined,
-    foto2: parts[1] ? normalizeImageUrl(parts[1]) : undefined
+    foto2: parts[1] ? normalizeImageUrl(parts[1]) : undefined,
+    folderUrl
   };
 }
 
@@ -481,7 +496,7 @@ export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: 
  * Consulta en tiempo real a Google Apps Script las fotografías oficiales
  * registradas en la carpeta de Google Drive para una OP determinada.
  */
-export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?: string; foto2?: string }> {
+export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?: string; foto2?: string; folderUrl?: string }> {
   try {
     const cleanOp = formatOpCode(opNumber);
     const scriptUrl = getAppsScriptUrl();
@@ -492,10 +507,11 @@ export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?
     clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
-      if (data && (data.foto1 || data.foto2)) {
+      if (data && (data.foto1 || data.foto2 || data.folderUrl)) {
         return {
           foto1: data.foto1 ? normalizeImageUrl(data.foto1) : undefined,
-          foto2: data.foto2 ? normalizeImageUrl(data.foto2) : undefined
+          foto2: data.foto2 ? normalizeImageUrl(data.foto2) : undefined,
+          folderUrl: data.folderUrl || undefined
         };
       }
     }
@@ -746,7 +762,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                 dictamen = fullObs.includes('RECHAZADO') || fullObs.includes('NO CUMPLE') ? 'RECHAZADO' : 'APROBADO';
               }
 
-              const { foto1, foto2 } = parseDualPhotos(fotoUrlRaw);
+              const { foto1, foto2, folderUrl } = parseDualPhotos(fotoUrlRaw);
 
                 let cleanObsOperario = (obsOperarioRaw || '').trim();
                 if (cleanObsOperario.includes(' | Colcha recibida') || cleanObsOperario.toLowerCase().includes('colcha recibida')) {
@@ -777,6 +793,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                   observacionesCalidad: obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''),
                   fotoMuestraUrl: foto1,
                   fotoCalidadUrl: foto2,
+                  driveFolderUrl: folderUrl,
                   areaActual: mapAreaName(estado),
                   horasEnProceso: horasHabiles,
                   diasHabiles: diasHabiles,
@@ -807,6 +824,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                     id: (loc.id && loc.id.startsWith('colcha-')) ? loc.id : remote.id,
                     fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
                     fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
+                    driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl,
                     observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad,
                     estado: loc.fechaActualizacion ? loc.estado : (loc.estado || remote.estado),
                     areaActual: loc.fechaActualizacion ? loc.areaActual : (loc.areaActual || remote.areaActual),
@@ -879,7 +897,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
 
         const cleanOp = formatOpCode(opRaw);
         if (isOpDeleted(opRaw) || isOpDeleted(cleanOp)) continue;
-        const { foto1, foto2 } = parseDualPhotos(r[12] || '');
+        const { foto1, foto2, folderUrl } = parseDualPhotos(r[12] || '');
 
         let cleanCsvObsOperario = obsOperarioStr.trim();
         if (cleanCsvObsOperario.includes(' | Colcha recibida') || cleanCsvObsOperario.toLowerCase().includes('colcha recibida')) {
@@ -910,6 +928,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           observacionesCalidad: obsFinalStr || cleanCsvObsOperario,
           fotoMuestraUrl: foto1,
           fotoCalidadUrl: foto2,
+          driveFolderUrl: folderUrl,
           areaActual: mapAreaName(estado),
           horasEnProceso: horasHabiles,
           diasHabiles: diasHabiles,
@@ -940,6 +959,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               id: (loc.id && loc.id.startsWith('colcha-')) ? loc.id : remote.id,
               fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
               fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
+              driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl,
               observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad,
               estado: loc.fechaActualizacion ? loc.estado : (loc.estado || remote.estado),
               areaActual: loc.fechaActualizacion ? loc.areaActual : (loc.areaActual || remote.areaActual),
@@ -1064,7 +1084,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               dictamen = fullObs.includes('RECHAZADO') || fullObs.includes('NO CUMPLE') ? 'RECHAZADO' : 'APROBADO';
             }
 
-            const { foto1, foto2 } = parseDualPhotos(fotoUrlRaw);
+            const { foto1, foto2, folderUrl } = parseDualPhotos(fotoUrlRaw);
 
             parsedList.push({
               id: `op-row-${idx + 1}-${cleanOp.replace(/\W/g, '')}`,
@@ -1084,6 +1104,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               observacionesCalidad: obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''),
               fotoMuestraUrl: foto1,
               fotoCalidadUrl: foto2,
+              driveFolderUrl: folderUrl,
               areaActual: mapAreaName(estado),
               horasEnProceso: horasHabiles,
               diasHabiles: diasHabiles,
@@ -1112,6 +1133,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                   id: (loc.id && loc.id.startsWith('colcha-')) ? loc.id : remote.id,
                   fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
                   fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
+                  driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl,
                   observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad,
                   estado: loc.fechaActualizacion ? loc.estado : (loc.estado || remote.estado),
                   areaActual: loc.fechaActualizacion ? loc.areaActual : (loc.areaActual || remote.areaActual),

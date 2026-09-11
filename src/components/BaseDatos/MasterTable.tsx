@@ -571,6 +571,16 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                         >
                           <img src={item.fotoMuestraUrl} alt="Muestra" className="w-full h-full object-cover" />
                         </div>
+                      ) : item.driveFolderUrl ? (
+                        <a
+                          href={item.driveFolderUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 dark:text-amber-700 mx-auto cursor-pointer hover:scale-110 transition shadow-xs text-xs font-bold"
+                          title="Abrir carpeta oficial de Drive con ambas fotos"
+                        >
+                          📁
+                        </a>
                       ) : (
                         <span className="text-zinc-500 text-xs">—</span>
                       )}
