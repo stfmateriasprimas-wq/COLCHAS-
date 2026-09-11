@@ -165,10 +165,86 @@ export function generatePublicTrackingUrl(colcha: SolicitudColcha): string {
 }
 
 /**
- * Genera de forma asíncrona el enlace QR asegurando que el QR siempre sea ligero y seguro.
+ * Genera de forma asíncrona el enlace QR asegurando que el QR siempre sea ligero, seguro
+ * y que cuando las fotos existan en Base64 local, se incrusten como micro-miniaturas (~300-400 bytes)
+ * permitiendo su renderizado inmediato en el teléfono celular sin esperas.
  */
 export async function generatePublicTrackingUrlAsync(colcha: SolicitudColcha): Promise<string> {
-  return generatePublicTrackingUrl(colcha);
+  if (!colcha || !colcha.op) return PRODUCTION_PUBLIC_URL;
+
+  const origin = getPublicBaseUrl();
+  const cleanOp = formatOpCode(colcha.op);
+  const fallbackUrl = `${origin}/?op=${encodeURIComponent(cleanOp)}&view=public`;
+
+  const isShortHttpUrl = (url?: string) => Boolean(url && url.startsWith('http') && url.length < 350);
+
+  let f1 = isShortHttpUrl(colcha.fotoMuestraUrl) ? colcha.fotoMuestraUrl : undefined;
+  let f2 = isShortHttpUrl(colcha.fotoCalidadUrl) ? colcha.fotoCalidadUrl : undefined;
+
+  // Si f1 es base64 y no tenemos URL corta, generar micro-thumbnail ligero para el QR
+  if (!f1 && colcha.fotoMuestraUrl && colcha.fotoMuestraUrl.startsWith('data:image/')) {
+    try {
+      f1 = await createMicroThumbnail(colcha.fotoMuestraUrl, 44, 0.25);
+    } catch (e) {}
+  }
+
+  // Si f2 es base64 y no tenemos URL corta, generar micro-thumbnail ligero para el QR
+  if (!f2 && colcha.fotoCalidadUrl && colcha.fotoCalidadUrl.startsWith('data:image/')) {
+    try {
+      f2 = await createMicroThumbnail(colcha.fotoCalidadUrl, 44, 0.25);
+    } catch (e) {}
+  }
+
+  const cleanObs = (colcha.observacionesOperario || '').slice(0, 100);
+  const cleanObsC = (colcha.observacionesCalidad || '').slice(0, 100);
+
+  const compact: CompactOpQrPayload = {
+    o: cleanOp,
+    r: colcha.referencia || 'S/R',
+    t: colcha.tela || 'TELA INDIGO',
+    c: colcha.color || 'AZUL',
+    rl: Number(colcha.rollos) || 1,
+    mt: colcha.codigoMt || 'MT-GEN',
+    l: colcha.lote || '1',
+    e: colcha.estado || 'SOLICITADO',
+    d: colcha.dictamen || (colcha.estado === 'FINALIZADO' ? 'APROBADO' : 'PENDIENTE'),
+    i: colcha.inspector || 'OPERARIO STF',
+    f: colcha.fechaCreacion || new Date().toISOString(),
+    obs: cleanObs,
+    obsC: cleanObsC,
+    a: colcha.areaActual || mapAreaName(colcha.estado),
+    f1,
+    f2
+  };
+
+  try {
+    let jsonStr = JSON.stringify(compact);
+    let base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
+
+    // Si excede 1150 caracteres, descartar primero observaciones largas antes de fotos
+    if (base64Data.length > 1150) {
+      delete compact.obs;
+      delete compact.obsC;
+      jsonStr = JSON.stringify(compact);
+      base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
+    }
+
+    // Si aún excede, descartar fotos del payload para garantizar escaneo fácil del QR
+    if (base64Data.length > 1150) {
+      delete compact.f1;
+      delete compact.f2;
+      jsonStr = JSON.stringify(compact);
+      base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
+      if (base64Data.length > 950) {
+        return fallbackUrl;
+      }
+    }
+
+    return `${origin}/?op=${encodeURIComponent(cleanOp)}&view=public&d=${encodeURIComponent(base64Data)}`;
+  } catch (e) {
+    console.warn('Error encoding async QR payload:', e);
+    return fallbackUrl;
+  }
 }
 
 /**

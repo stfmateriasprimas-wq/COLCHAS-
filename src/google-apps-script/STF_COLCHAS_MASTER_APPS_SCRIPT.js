@@ -204,6 +204,42 @@ function doGet(e) {
       return createJsonResponse({ status: 'success', totalRows: sheetAl.getLastRow(), data: sheetAl.getDataRange().getValues() });
     }
 
+    // RESOLUCIÓN EN VIVO DE FOTOGRAFÍAS DE OP DESDE DRIVE (PARA QR Y MÓVILES)
+    if (action === 'GET_OP_PHOTOS') {
+      var targetOpParam = (e && e.parameter && e.parameter.op) ? e.parameter.op : '';
+      if (!targetOpParam) return createJsonResponse({ status: 'error', message: 'Falta parámetro op' });
+      var cleanTargetOp = String(targetOpParam).trim().toUpperCase();
+      if (cleanTargetOp.indexOf('OP-') !== 0) cleanTargetOp = 'OP-' + cleanTargetOp.replace(/^OP-?/i, '').trim();
+
+      var photosFound = getOpPhotosFromDrive(cleanTargetOp);
+
+      // Auto-reparar Columna M en BASE_DE_DATOS si se encontraron fotos y no estaban en la celda
+      if (photosFound.foto1 || photosFound.foto2) {
+        try {
+          var shBdGet = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+          if (shBdGet && shBdGet.getLastRow() > 1) {
+            var bdVals = shBdGet.getRange(2, 6, shBdGet.getLastRow() - 1, 1).getValues();
+            var targetPure = cleanTargetOp.replace(/^OP-?/, '');
+            for (var b = 0; b < bdVals.length; b++) {
+              if (String(bdVals[b][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetPure) {
+                var newColM = (photosFound.foto1 || '') + (photosFound.foto2 ? (' | ' + photosFound.foto2) : '');
+                shBdGet.getRange(b + 2, 13).setValue(newColM);
+                break;
+              }
+            }
+          }
+        } catch (eBdFix) {}
+      }
+
+      return createJsonResponse({
+        status: 'success',
+        op: cleanTargetOp,
+        foto1: photosFound.foto1,
+        foto2: photosFound.foto2,
+        folderUrl: photosFound.folderUrl
+      });
+    }
+
     return createJsonResponse({ status: 'error', message: 'Acción GET no reconocida: ' + action });
   } catch (err) {
     return createJsonResponse({ status: 'error', message: err.toString() });
@@ -334,7 +370,8 @@ function doPost(e) {
         obsColVal = rawObsCol.indexOf(' | ') !== -1 ? rawObsCol.split(' | ')[0].trim() : rawObsCol;
       }
 
-      var evidenciaVal = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : (driveUrl || '');
+      // Columna M (13 - EVIDENCIA): Guardar enlace directo de archivo público de Drive (para acceso y CDN móvil instantáneo)
+      var evidenciaVal = (savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (driveUrl || '');
       
       // La Columna E de la hoja USUARIOS es la FUENTE MAESTRA DE LA VERDAD
       var userSheetRef = getUsuariosSheet(ss);
@@ -484,26 +521,45 @@ function doPost(e) {
         sheetBdDict.getRange(foundRowDict, 6).setValue(opFormattedDict);
         sheetBdDict.getRange(foundRowDict, 10).setValue('FINALIZADO');
 
-        // Foto 2 de Calidad en Google Drive y unificación de Columna M a UN SOLO LINK DE CARPETA
+        // Foto 2 de Calidad en Google Drive y persistencia oficial en Columna M (linkFoto1 | linkFoto2)
         var savedCalPhoto = null;
         var dictPhotoBase64 = payload.imageBase64 || payload.fotoCalidad || payload.fotoCalidadUrl || '';
+        var calPhotoUrl = '';
         if (dictPhotoBase64 && dictPhotoBase64.length > 50 && dictPhotoBase64.indexOf('data:image/') === 0) {
           savedCalPhoto = saveImageToDriveHierarchical(dictPhotoBase64, opFormattedDict + '_POST_LAVADO_CALIDAD.jpg', opFormattedDict, new Date());
-          if (savedCalPhoto && savedCalPhoto.folderUrl) {
-            sheetBdDict.getRange(foundRowDict, 13).setValue(savedCalPhoto.folderUrl);
-          } else if (savedCalPhoto && savedCalPhoto.driveUrl) {
-            sheetBdDict.getRange(foundRowDict, 13).setValue(savedCalPhoto.driveUrl);
+          if (savedCalPhoto && savedCalPhoto.driveUrl) calPhotoUrl = savedCalPhoto.driveUrl;
+        } else if (dictPhotoBase64 && dictPhotoBase64.indexOf('http') === 0) {
+          calPhotoUrl = dictPhotoBase64;
+        }
+
+        // Leer estado actual de Columna 13 (M)
+        var curMDict = String(sheetBdDict.getRange(foundRowDict, 13).getValue() || '').trim();
+        var existFoto1 = '';
+        var existFoto2 = '';
+        if (curMDict && curMDict.indexOf('http') !== -1) {
+          if (curMDict.indexOf('|') !== -1) {
+            var mParts = curMDict.split('|').map(function(p) { return p.trim(); });
+            existFoto1 = mParts[0];
+            existFoto2 = mParts[1] || '';
+          } else if (curMDict.indexOf('/folders/') === -1) {
+            existFoto1 = curMDict;
           }
-        } else {
-          var curM = String(sheetBdDict.getRange(foundRowDict, 13).getValue() || '');
-          if (curM.indexOf('|') !== -1 || (curM.indexOf('drive.google.com') !== -1 && curM.indexOf('/folders/') === -1)) {
-            try {
-              var rootF = getRootDriveFolder();
-              var monthF = getMonthDriveFolder(rootF, new Date());
-              var opF = getOpDriveFolder(monthF, opFormattedDict);
-              sheetBdDict.getRange(foundRowDict, 13).setValue(opF.getUrl());
-            } catch (eF) {}
-          }
+        }
+
+        // Si falta alguna foto, descubrirla automáticamente desde la carpeta oficial de Drive
+        if (!existFoto1 || (!calPhotoUrl && !existFoto2)) {
+          var discoveredDict = getOpPhotosFromDrive(opFormattedDict);
+          if (!existFoto1 && discoveredDict.foto1) existFoto1 = discoveredDict.foto1;
+          if (!calPhotoUrl && !existFoto2 && discoveredDict.foto2) calPhotoUrl = discoveredDict.foto2;
+        }
+
+        var finalFoto2 = calPhotoUrl || existFoto2;
+        var combinedCol13 = existFoto1;
+        if (finalFoto2) {
+          combinedCol13 = (existFoto1 || '') + ' | ' + finalFoto2;
+        }
+        if (combinedCol13) {
+          sheetBdDict.getRange(foundRowDict, 13).setValue(combinedCol13);
         }
 
         // OBSERVACIÓN COLFACTORY (Columna L / 12)
@@ -637,8 +693,35 @@ function doPost(e) {
           if (savedPhotoRes && savedPhotoRes.driveUrl) photoUrl = savedPhotoRes.driveUrl;
         }
 
-        var newCol13 = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : photoUrl;
-        sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(newCol13);
+        // Leer estado actual de Columna 13 (M) y preservar ambas fotos
+        var curMPhoto = String(sheetBdPhoto.getRange(foundRowPhoto, 13).getValue() || '').trim();
+        var existingFoto1 = '';
+        var existingFoto2 = '';
+        if (curMPhoto && curMPhoto.indexOf('http') !== -1) {
+          if (curMPhoto.indexOf('|') !== -1) {
+            var partsM = curMPhoto.split('|').map(function(p) { return p.trim(); });
+            existingFoto1 = partsM[0];
+            existingFoto2 = partsM[1] || '';
+          } else if (curMPhoto.indexOf('/folders/') === -1) {
+            existingFoto1 = curMPhoto;
+          }
+        }
+
+        // Si falta alguna foto, descubrirla automáticamente desde Drive
+        if (!existingFoto1 || (!existingFoto2 && isCalidad)) {
+          var disc = getOpPhotosFromDrive(opFormattedPhoto);
+          if (!existingFoto1 && disc.foto1) existingFoto1 = disc.foto1;
+          if (!existingFoto2 && disc.foto2) disc.foto2 = disc.foto2;
+          if (!existingFoto2 && disc.foto2) existingFoto2 = disc.foto2;
+        }
+
+        var newFoto1 = isCalidad ? existingFoto1 : photoUrl;
+        var newFoto2 = isCalidad ? photoUrl : existingFoto2;
+        var finalCol13 = newFoto1;
+        if (newFoto2) {
+          finalCol13 = (newFoto1 || '') + ' | ' + newFoto2;
+        }
+        sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(finalCol13);
 
         if (payload.observacionColfactory || payload.observacionesLavanderia) {
           var cleanColPh = String(payload.observacionColfactory || payload.observacionesLavanderia).trim();
@@ -724,9 +807,38 @@ function doPost(e) {
     }
 
     // 14. CLEAN_DRIVE_DUPLICATES (Depurar fotos duplicadas en Drive dejando exactamente 2 por OP)
-    if (action === 'CLEAN_DRIVE_DUPLICATES') {
-      var cleanedDups = cleanAllOpFolderDuplicatesInDrive();
-      return createJsonResponse({ status: 'success', cleanedDuplicates: cleanedDups });
+    // 15. GET_OP_PHOTOS (Resolución en tiempo real de fotos de la OP desde Drive)
+    if (action === 'GET_OP_PHOTOS') {
+      var targetOpPost = payload.op || payload.opNumber || '';
+      if (!targetOpPost) return createJsonResponse({ status: 'error', message: 'Falta parámetro op' });
+      var cleanOpP = String(targetOpPost).trim().toUpperCase();
+      if (cleanOpP.indexOf('OP-') !== 0) cleanOpP = 'OP-' + cleanOpP.replace(/^OP-?/i, '').trim();
+      var photosRes = getOpPhotosFromDrive(cleanOpP);
+
+      if (photosRes.foto1 || photosRes.foto2) {
+        try {
+          var shBdP = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+          if (shBdP && shBdP.getLastRow() > 1) {
+            var bdOpsP = shBdP.getRange(2, 6, shBdP.getLastRow() - 1, 1).getValues();
+            var targetPureP = cleanOpP.replace(/^OP-?/, '');
+            for (var bp = 0; bp < bdOpsP.length; bp++) {
+              if (String(bdOpsP[bp][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetPureP) {
+                var newColMP = (photosRes.foto1 || '') + (photosRes.foto2 ? (' | ' + photosRes.foto2) : '');
+                shBdP.getRange(bp + 2, 13).setValue(newColMP);
+                break;
+              }
+            }
+          }
+        } catch (eP) {}
+      }
+
+      return createJsonResponse({
+        status: 'success',
+        op: cleanOpP,
+        foto1: photosRes.foto1,
+        foto2: photosRes.foto2,
+        folderUrl: photosRes.folderUrl
+      });
     }
 
     return createJsonResponse({ status: 'error', message: 'Acción POST no reconocida: ' + action });
@@ -1005,6 +1117,61 @@ function cleanDuplicatesDriveMenuAction() {
 function saveImageToDrive(base64Data, fileName, rawOp, dateInput) {
   var res = saveImageToDriveHierarchical(base64Data, fileName, rawOp, dateInput);
   return res ? res.driveUrl : '';
+}
+
+/**
+ * Busca en Google Drive (Raíz -> Mes -> OP-XXXXX) los archivos fotográficos
+ * de la OP y devuelve sus enlaces directos para visualización móvil instantánea.
+ */
+function getOpPhotosFromDrive(rawOp) {
+  var res = { foto1: '', foto2: '', folderUrl: '' };
+  try {
+    var cleanOp = String(rawOp || '').trim().toUpperCase();
+    if (cleanOp.indexOf('OP-') !== 0) cleanOp = 'OP-' + cleanOp.replace(/^OP-?/i, '').trim();
+    var pureDigits = cleanOp.replace(/^OP-?/, '').trim();
+    var root = getRootDriveFolder();
+    if (!root) return res;
+    var monthFolders = root.getFolders();
+
+    while (monthFolders.hasNext()) {
+      var mFolder = monthFolders.next();
+      var opFolders = mFolder.getFolders();
+      while (opFolders.hasNext()) {
+        var opFolder = opFolders.next();
+        var fName = opFolder.getName().trim().toUpperCase();
+        if (fName === cleanOp || fName.replace(/^OP-?/, '').trim() === pureDigits) {
+          res.folderUrl = opFolder.getUrl();
+          var files = opFolder.getFiles();
+          var fileList = [];
+          while (files.hasNext()) {
+            fileList.push(files.next());
+          }
+          fileList.sort(function(a, b) {
+            return a.getDateCreated().getTime() - b.getDateCreated().getTime();
+          });
+
+          for (var fi = 0; fi < fileList.length; fi++) {
+            var file = fileList[fi];
+            var n = file.getName().toUpperCase();
+            var fUrl = 'https://drive.google.com/uc?id=' + file.getId();
+            if (n.indexOf('MUESTRA_INICIAL') !== -1 || n.indexOf('INICIAL') !== -1 || n.indexOf('FOTO1') !== -1) {
+              res.foto1 = fUrl;
+            } else if (n.indexOf('POST_LAVADO') !== -1 || n.indexOf('CALIDAD') !== -1 || n.indexOf('FOTO2') !== -1) {
+              res.foto2 = fUrl;
+            } else if (!res.foto1) {
+              res.foto1 = fUrl;
+            } else if (!res.foto2) {
+              res.foto2 = fUrl;
+            }
+          }
+          return res;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error in getOpPhotosFromDrive:', e);
+  }
+  return res;
 }
 
 function getOrCreateDriveFolder() {
@@ -1651,20 +1818,19 @@ function cleanColumnsKLMN(ss) {
     // 2. Limpieza de Observación Colfactory (Columna L)
     if (col.toLowerCase().indexOf('colcha recibida') !== -1 || col.indexOf('[LAVANDERIA]') !== -1) { col = ''; ch = true; }
 
-    // 3. Unificación de Evidencias a UN SOLO LINK DE CARPETA (Columna M)
-    if (ev.indexOf('data:image/') !== -1 || ev.indexOf('data:') === 0) { 
-      ev = ''; 
-      ch = true; 
-    } else if (ev && (ev.indexOf('|') !== -1 || (ev.indexOf('drive.google.com') !== -1 && ev.indexOf('/folders/') === -1))) {
-      // Tiene dos o más links, o es un archivo suelto -> Unificar a la carpeta oficial de la OP en Drive
+    // 3. Normalización y resolución de Evidencias en Drive (Columna M: foto1 | foto2)
+    if (ev.indexOf('data:image/') !== -1 || ev.indexOf('data:') === 0 || ev.indexOf('/folders/') !== -1 || ev === rawOp || ev === formattedOp || !ev) {
       try {
         if (formattedOp && formattedOp.length > 3) {
-          if (!rootFld) rootFld = getRootDriveFolder();
-          if (!monthFld) monthFld = getMonthDriveFolder(rootFld, new Date());
-          var opFold = getOpDriveFolder(monthFld, formattedOp);
-          var fUrl = opFold.getUrl();
-          if (fUrl && fUrl !== ev) {
-            ev = fUrl;
+          var opPhotosFound = getOpPhotosFromDrive(formattedOp);
+          if (opPhotosFound.foto1 || opPhotosFound.foto2) {
+            var resolvedColM = (opPhotosFound.foto1 || '') + (opPhotosFound.foto2 ? (' | ' + opPhotosFound.foto2) : '');
+            if (resolvedColM !== ev) {
+              ev = resolvedColM;
+              ch = true;
+            }
+          } else if (ev.indexOf('data:') === 0 || ev === rawOp || ev === formattedOp) {
+            ev = '';
             ch = true;
           }
         }

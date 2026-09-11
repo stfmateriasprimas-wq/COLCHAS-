@@ -452,6 +452,11 @@ export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: 
   const str = fotoUrlRaw.trim();
   if (!str) return {};
 
+  // Descartar si el valor de la celda es solo el código de la OP ("OP-XXXXX") o texto plano
+  if ((str.toUpperCase().startsWith('OP-') || str.toUpperCase().startsWith('OP')) && !str.includes('http') && !str.includes('data:')) {
+    return {};
+  }
+
   let parts: string[] = [];
   if (str.includes('|')) {
     parts = str.split('|').map(p => p.trim());
@@ -470,6 +475,34 @@ export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: 
     foto1: parts[0] ? normalizeImageUrl(parts[0]) : undefined,
     foto2: parts[1] ? normalizeImageUrl(parts[1]) : undefined
   };
+}
+
+/**
+ * Consulta en tiempo real a Google Apps Script las fotografías oficiales
+ * registradas en la carpeta de Google Drive para una OP determinada.
+ */
+export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?: string; foto2?: string }> {
+  try {
+    const cleanOp = formatOpCode(opNumber);
+    const scriptUrl = getAppsScriptUrl();
+    const targetUrl = `${scriptUrl}?action=GET_OP_PHOTOS&op=${encodeURIComponent(cleanOp)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(targetUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && (data.foto1 || data.foto2)) {
+        return {
+          foto1: data.foto1 ? normalizeImageUrl(data.foto1) : undefined,
+          foto2: data.foto2 ? normalizeImageUrl(data.foto2) : undefined
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('No se pudieron resolver fotos remotas de la OP:', err);
+  }
+  return {};
 }
 
 export function getLocalCreatedOps(): SolicitudColcha[] {

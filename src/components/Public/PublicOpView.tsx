@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp, isMatchingOp } from '../../services/googleSheetsService';
+import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp, isMatchingOp, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
 import { getCleanFinalQualityObservation, getCleanInitialObservation } from '../../services/exportService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 import { parsePublicTrackingPayload } from '../../services/qrTrackingService';
@@ -32,6 +32,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
   onToggleTheme
 }) => {
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
+  const [remoteDrivePhotos, setRemoteDrivePhotos] = useState<{ foto1?: string; foto2?: string } | null>(null);
 
   // Auto-cargar datos frescos al montar y cada 12 segundos para garantizar actualización en tiempo real en móviles
   useEffect(() => {
@@ -124,14 +125,41 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     };
   }, [solicitudes, opNumber]);
 
-  // Normalized display photo URLs
+  // Auto-descubrimiento en tiempo real de fotos en Google Drive si no vienen en la base de datos o el QR
+  useEffect(() => {
+    const targetOp = colcha?.op || opNumber;
+    if (!targetOp) return;
+
+    // Si ya tenemos ambas fotos con URLs remotas válidas, no es necesario consultar Drive
+    if (
+      colcha?.fotoMuestraUrl && 
+      colcha?.fotoCalidadUrl && 
+      colcha.fotoMuestraUrl.startsWith('http') && 
+      colcha.fotoCalidadUrl.startsWith('http')
+    ) {
+      return;
+    }
+
+    let isMounted = true;
+    fetchOpPhotosFromDrive(targetOp).then((photos) => {
+      if (isMounted && (photos.foto1 || photos.foto2)) {
+        setRemoteDrivePhotos(photos);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [colcha?.op, opNumber, colcha?.fotoMuestraUrl, colcha?.fotoCalidadUrl]);
+
+  // Normalized display photo URLs (priorizando fotos en alta resolución de Google Drive o locales)
   const fotoInicialUrl = useMemo(() => {
-    return normalizeImageUrl(colcha?.fotoMuestraUrl);
-  }, [colcha?.fotoMuestraUrl]);
+    return normalizeImageUrl(remoteDrivePhotos?.foto1 || colcha?.fotoMuestraUrl);
+  }, [remoteDrivePhotos?.foto1, colcha?.fotoMuestraUrl]);
 
   const fotoCalidadUrl = useMemo(() => {
-    return normalizeImageUrl(colcha?.fotoCalidadUrl);
-  }, [colcha?.fotoCalidadUrl]);
+    return normalizeImageUrl(remoteDrivePhotos?.foto2 || colcha?.fotoCalidadUrl);
+  }, [remoteDrivePhotos?.foto2, colcha?.fotoCalidadUrl]);
 
   // Clean digits and normalized formatted OP code
   const cleanOpDigits = useMemo(() => {
