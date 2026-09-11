@@ -123,12 +123,15 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
     return () => unsubscribe();
   }, []);
 
-  // Mark room as read on room change
+  // Mark room as read ONLY when user is actively viewing that specific conversation
   useEffect(() => {
     if (isOpen && selectedRoomId) {
-      chatService.markAsRead(selectedRoomId, isDirectRoom, activeUser.id);
+      const isViewingList = typeof window !== 'undefined' && window.innerWidth < 768 && mobileChatView === 'list';
+      if (!isViewingList) {
+        chatService.markAsRead(selectedRoomId, isDirectRoom, activeUser.id);
+      }
     }
-  }, [isOpen, selectedRoomId, isDirectRoom, activeUser.id, refreshTrigger]);
+  }, [isOpen, selectedRoomId, isDirectRoom, activeUser.id, refreshTrigger, mobileChatView]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -391,6 +394,29 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
     if (activeTab === 'NO_LEIDOS' && (!lastInfo || lastInfo.unreadCount === 0)) return false;
     if (!searchQuery) return true;
     return u.nombre.toLowerCase().includes(searchQuery.toLowerCase()) || u.rol.toLowerCase().includes(searchQuery.toLowerCase()) || u.area.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  // Ordenamiento dinámico idéntico a WhatsApp: mensajes no leídos y más recientes al principio
+  const sortedChannels = [...filteredChannels].sort((a, b) => {
+    const lastA = chatService.getRoomLastMessage(a.id, false, activeUser.id);
+    const lastB = chatService.getRoomLastMessage(b.id, false, activeUser.id);
+    const unreadA = lastA?.unreadCount || 0;
+    const unreadB = lastB?.unreadCount || 0;
+    if (unreadA !== unreadB) return unreadB - unreadA;
+    const timeA = lastA?.createdMillis || 0;
+    const timeB = lastB?.createdMillis || 0;
+    return timeB - timeA;
+  });
+
+  const sortedDirectUsers = [...filteredDirectUsers].sort((a, b) => {
+    const lastA = chatService.getRoomLastMessage(a.id, true, activeUser.id);
+    const lastB = chatService.getRoomLastMessage(b.id, true, activeUser.id);
+    const unreadA = lastA?.unreadCount || 0;
+    const unreadB = lastB?.unreadCount || 0;
+    if (unreadA !== unreadB) return unreadB - unreadA;
+    const timeA = lastA?.createdMillis || 0;
+    const timeB = lastB?.createdMillis || 0;
+    return timeB - timeA;
   });
 
   // Todas las OPs que están en proceso en tiempo real en la base de datos
@@ -695,20 +721,7 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
                     key={tab.id}
                     type="button"
                     onClick={() => {
-                      const tabId = tab.id as ChatTab;
-                      setActiveTab(tabId);
-                      if (tabId === 'DIRECTOS' && !isDirectRoom) {
-                        const targetUser = filteredDirectUsers[0] || otherDirectUsers[0];
-                        if (targetUser) {
-                          setSelectedRoomId(targetUser.id);
-                          setIsDirectRoom(true);
-                          chatService.markAsRead(targetUser.id, true, activeUser.id);
-                        }
-                      } else if (tabId === 'SALAS' && isDirectRoom) {
-                        setSelectedRoomId('general');
-                        setIsDirectRoom(false);
-                        chatService.markAsRead('general', false, activeUser.id);
-                      }
+                      setActiveTab(tab.id as ChatTab);
                     }}
                     className={`py-1.5 px-1 rounded-xl transition-all duration-150 cursor-pointer font-mono text-[9.5px] font-black flex flex-col items-center justify-center gap-0.5 border ${
                       activeTab === tab.id
@@ -752,7 +765,7 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
               {/* Official STF Channels Section */}
               {activeTab !== 'DIRECTOS' && (
                 <div className="space-y-1.5">
-                  {filteredChannels.map(channel => {
+                  {sortedChannels.map(channel => {
                     const isSelected = !isDirectRoom && selectedRoomId === channel.id;
                     const lastInfo = chatService.getRoomLastMessage(channel.id, false, activeUser.id);
                     const unread = lastInfo?.unreadCount || 0;
@@ -830,7 +843,7 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
               {/* Direct Messages Section */}
               {activeTab !== 'SALAS' && (
                 <div className="space-y-1.5 pt-1">
-                  {filteredDirectUsers.map(user => {
+                  {sortedDirectUsers.map(user => {
                     const isSelected = isDirectRoom && selectedRoomId === user.id;
                     const lastInfo = chatService.getRoomLastMessage(user.id, true, activeUser.id);
                     const unread = lastInfo?.unreadCount || 0;

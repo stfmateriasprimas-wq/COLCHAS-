@@ -2,7 +2,24 @@ import { ChatMessage } from '../types';
 import { USUARIOS_STF_MAESTROS, UsuarioSTF } from './authService';
 import { notificationService } from './notificationService';
 import { db } from './firebaseConfig';
-import { collection, onSnapshot, query, orderBy, limit, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+
+const MOCK_MESSAGE_PATTERNS = [
+  'ALERTA: OP-00095976',
+  'Por favor remitir muestras de prueba',
+  'Resultados de encogimiento para OP-00094060',
+  'Se generó colcha para OP-00095976',
+  'Recibida en planta OP-00095544',
+  'lote denim 80004',
+  'Tencel Malvina',
+  'Nota de voz (0:08 seg)'
+];
+
+export function isMockMessage(data: { mensaje?: string; opRelacionada?: string }): boolean {
+  const text = (data.mensaje || '').toLowerCase();
+  const op = (data.opRelacionada || '').toLowerCase();
+  return MOCK_MESSAGE_PATTERNS.some(p => text.includes(p.toLowerCase()) || op.includes(p.toLowerCase()));
+}
 
 export interface ChatChannel {
   id: string;
@@ -66,8 +83,8 @@ export const CHAT_CHANNELS_MAESTROS: ChatChannel[] = [
 
 // Chats 100% limpios desde cero tal cual WhatsApp
 const INITIAL_CHAT_MESSAGES: ChatMessage[] = [];
-const STORAGE_KEY = 'stf_colchas_chat_messages_v7_clean';
-const READ_IDS_KEY = 'stf_colchas_read_ids_v7';
+const STORAGE_KEY = 'stf_colchas_chat_messages_v8_clean';
+const READ_IDS_KEY = 'stf_colchas_read_ids_v8';
 
 class ChatService {
   private messages: ChatMessage[] = [];
@@ -141,6 +158,12 @@ class ChatService {
         const remoteMessages: ChatMessage[] = [];
         snapshot.forEach((docSnap) => {
           const d = docSnap.data();
+          if (isMockMessage(d)) {
+            try {
+              deleteDoc(doc(db, 'stf_teams_messages', docSnap.id)).catch(() => {});
+            } catch (e) {}
+            return;
+          }
           const isLocallyRead = this.localReadIds.has(docSnap.id);
           remoteMessages.push({
             id: docSnap.id,
@@ -215,9 +238,11 @@ class ChatService {
       localStorage.removeItem('stf_colchas_chat_messages_v5');
       localStorage.removeItem('stf_colchas_chat_messages_v6');
       localStorage.removeItem('stf_colchas_chat_messages_v6_clean');
+      localStorage.removeItem('stf_colchas_chat_messages_v7_clean');
       localStorage.removeItem('stf_colchas_chat_messages');
       localStorage.removeItem('stf_colchas_read_ids_v5');
       localStorage.removeItem('stf_colchas_read_ids_v6');
+      localStorage.removeItem('stf_colchas_read_ids_v7');
     } catch (e) {}
 
     try {
@@ -235,7 +260,7 @@ class ChatService {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          this.messages = parsed;
+          this.messages = parsed.filter(m => !isMockMessage(m));
           return;
         }
       } catch (e) {
@@ -466,7 +491,7 @@ class ChatService {
   /**
    * Obtiene el último mensaje registrado para una sala o contacto privado
    */
-  public getRoomLastMessage(roomId: string, isDirect: boolean, currentUserId: string): { text: string; timestamp: string; unreadCount: number } | null {
+  public getRoomLastMessage(roomId: string, isDirect: boolean, currentUserId: string): { text: string; timestamp: string; unreadCount: number; createdMillis: number } | null {
     const roomMsgs = this.getRoomMessages(roomId, isDirect, currentUserId);
     const unreadCount = this.getRoomUnreadCount(roomId, isDirect, currentUserId);
 
@@ -483,7 +508,8 @@ class ChatService {
     return {
       text,
       timestamp: last.timestamp,
-      unreadCount
+      unreadCount,
+      createdMillis: last.createdMillis || 0
     };
   }
 
