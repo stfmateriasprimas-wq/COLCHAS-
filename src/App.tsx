@@ -52,7 +52,8 @@ import {
   unmarkOpAsDeleted,
   getDeletedOpNumbers 
 } from './services/deletedOpsService';
-import { Trash2, CheckCircle2 } from 'lucide-react';
+import { Trash2, CheckCircle2, X } from 'lucide-react';
+import { chatService } from './services/chatService';
 
 export function App() {
   // Theme state persisted in localStorage
@@ -135,16 +136,38 @@ export function App() {
   const [aiStatSection, setAiStatSection] = useState<StatSectionTabType | undefined>(undefined);
   const [isReporteComiteForAi, setIsReporteComiteForAi] = useState<boolean>(false);
 
+  // Sincronizar usuario activo con el servicio de chat en tiempo real
+  useEffect(() => {
+    if (currentUser?.id) {
+      chatService.setActiveUserId(currentUser.id);
+    }
+  }, [currentUser?.id]);
+
   // Escuchar notificaciones flotantes de chat
   useEffect(() => {
     const unsub = notificationService.onInAppToast((toast) => {
       setInAppToast(toast);
       const timer = setTimeout(() => {
         setInAppToast(prev => prev === toast ? null : prev);
-      }, 5000);
+      }, 6500);
       return () => clearTimeout(timer);
     });
     return unsub;
+  }, []);
+
+  // Escuchar eventos del Service Worker para abrir chat desde notificación del sistema o lockscreen
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      const handleSwMsg = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'OPEN_CHAT_MODAL') {
+          setIsChatOpen(true);
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', handleSwMsg);
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleSwMsg);
+      };
+    }
   }, []);
 
   // Load from Sheets on mount, set up 15-second live polling & window focus auto-sync
@@ -1044,6 +1067,56 @@ export function App() {
           setActiveTab('solicitudes');
         }}
       />
+
+      {/* FLOATING IN-APP CHAT NOTIFICATION TOAST (DESKTOP & MOBILE) */}
+      {inAppToast && (
+        <div className="fixed top-3 sm:top-5 right-3 sm:right-6 z-[130] max-w-sm sm:max-w-md w-[calc(100vw-24px)] bg-[#0a0f1d]/95 text-white border border-emerald-500/60 shadow-[0_10px_35px_rgba(0,0,0,0.8),0_0_25px_rgba(16,185,129,0.3)] rounded-2xl sm:rounded-3xl p-3 sm:p-4 backdrop-blur-xl animate-in slide-in-from-top-4 duration-300 ring-1 ring-emerald-500/30 font-sans select-none">
+          <div className="flex items-start gap-3">
+            <div className="relative shrink-0 mt-0.5">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 text-black font-black font-mono text-xs flex items-center justify-center shadow-md">
+                {inAppToast.sender.slice(0, 2).toUpperCase()}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black animate-pulse" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-xs font-black font-mono uppercase text-white truncate">
+                    {inAppToast.sender}
+                  </span>
+                  {inAppToast.room && (
+                    <span className="text-[9px] font-mono px-2 py-0.2 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 shrink-0 font-bold">
+                      {inAppToast.room}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setInAppToast(null)}
+                  className="text-zinc-400 hover:text-white p-1 rounded-lg transition cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="text-xs text-zinc-300 font-mono mt-1 line-clamp-2">
+                {inAppToast.message}
+              </p>
+              <div className="mt-2.5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsChatOpen(true);
+                    setInAppToast(null);
+                  }}
+                  className="px-3 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-[10.5px] uppercase tracking-wider transition cursor-pointer shadow-sm active:scale-95"
+                >
+                  Abrir Chat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

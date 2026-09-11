@@ -76,6 +76,7 @@ export interface ChatMessage {
   archivoTipo?: 'imagen' | 'documento';
   leido?: boolean;
   tipo: 'texto' | 'alerta' | 'movimiento' | 'audio' | 'archivo' | 'op';
+  createdMillis?: number;
 }
 
 export interface KpiMetrics {

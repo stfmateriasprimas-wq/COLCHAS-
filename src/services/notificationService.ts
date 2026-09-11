@@ -232,30 +232,48 @@ class NotificationService {
     // 4. Notificar a los oyentes de Toast flotante interno
     this.inAppToastListeners.forEach(fn => fn({ sender: senderName, message, room: roomTitle }));
 
-    // 5. Notificación Nativa Push del Sistema Operativo (PC y Móvil)
+    // 5. Notificación Nativa Push del Sistema Operativo (PC y Móvil en barra superior y pantalla bloqueada)
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       try {
         const title = roomTitle ? `STF Teams • ${roomTitle}` : `STF Teams • ${senderName}`;
         const body = `${senderName}: ${message}`;
         const icon = '/logo-stf-white.png';
 
-        if (this.swRegistration && 'showNotification' in this.swRegistration) {
-          (this.swRegistration as any).showNotification(title, {
-            body,
-            icon,
-            badge: icon,
-            tag: `stf-msg-${Date.now()}`,
-            vibrate: [200, 100, 200, 100, 200],
-            renotify: true,
-            data: { url: '/' }
+        const showNative = (reg?: ServiceWorkerRegistration) => {
+          try {
+            if (reg && 'showNotification' in reg) {
+              reg.showNotification(title, {
+                body,
+                icon,
+                badge: icon,
+                tag: `stf-msg-${Date.now()}`,
+                vibrate: [200, 100, 200, 100, 200],
+                renotify: true,
+                data: { url: '/' }
+              } as any);
+            } else {
+              new Notification(title, {
+                body,
+                icon,
+                badge: icon,
+                tag: 'stf-chat-message'
+              });
+            }
+          } catch (eInner) {
+            try {
+              new Notification(title, { body, icon, badge: icon });
+            } catch (eFallback) {}
+          }
+        };
+
+        if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then(reg => {
+            showNative(reg);
+          }).catch(() => {
+            showNative(this.swRegistration || undefined);
           });
         } else {
-          new Notification(title, {
-            body,
-            icon,
-            badge: icon,
-            tag: 'stf-chat-message'
-          });
+          showNative(this.swRegistration || undefined);
         }
       } catch (err) {
         console.warn('Error al lanzar notificación de chat:', err);

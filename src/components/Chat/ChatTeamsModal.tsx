@@ -108,6 +108,13 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Sincronizar usuario activo con el servicio de chat en tiempo real
+  useEffect(() => {
+    if (activeUser?.id) {
+      chatService.setActiveUserId(activeUser.id);
+    }
+  }, [activeUser?.id]);
+
   // Subscribe to chat updates
   useEffect(() => {
     const unsubscribe = chatService.subscribe(() => {
@@ -526,6 +533,31 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
               )}
             </button>
 
+            {/* Notification Test / Permission Toggle */}
+            <button
+              type="button"
+              onClick={async () => {
+                if (!notificationsGranted) {
+                  const granted = await notificationService.requestNotificationPermission();
+                  setNotificationsGranted(granted);
+                } else {
+                  notificationService.testNotificationWithSound(activeUser.nombre);
+                }
+              }}
+              className={`p-2 rounded-2xl border transition cursor-pointer ${
+                notificationsGranted
+                  ? localDarkMode 
+                    ? 'border-emerald-500/40 bg-emerald-950/40 text-emerald-400 hover:bg-emerald-950/80 shadow-[0_0_10px_rgba(52,211,153,0.3)]' 
+                    : 'border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                  : localDarkMode 
+                    ? 'border-zinc-800 hover:border-emerald-500/40 bg-zinc-950 text-zinc-400 hover:text-white' 
+                    : 'border-slate-300 hover:border-emerald-500 bg-slate-100 text-slate-600 hover:text-slate-900'
+              }`}
+              title={notificationsGranted ? "Notificaciones activadas. Clic para probar alerta sonora y push" : "Activar notificaciones en pantalla y sonido"}
+            >
+              <Bell className={`w-4 h-4 ${notificationsGranted ? 'text-emerald-400' : 'text-zinc-400'}`} />
+            </button>
+
             {/* Close Button */}
             <button
               type="button"
@@ -542,6 +574,32 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* ========================================================================= */}
+        {/* BANNER INFORMATIVO PARA ACTIVAR NOTIFICACIONES EN MÓVIL Y PC */}
+        {/* ========================================================================= */}
+        {!notificationsGranted && (
+          <div className="bg-gradient-to-r from-emerald-950/90 via-teal-950/90 to-zinc-950 border-b border-emerald-500/30 px-3.5 sm:px-6 py-2 flex items-center justify-between gap-3 text-xs font-mono backdrop-blur-md">
+            <div className="flex items-center gap-2 min-w-0">
+              <Bell className="w-4 h-4 text-emerald-400 animate-bounce shrink-0" />
+              <div className="min-w-0">
+                <span className="font-black text-emerald-300 mr-1.5 uppercase">Activar Notificaciones:</span>
+                <span className="text-zinc-300 text-[11px] truncate hidden sm:inline">Recibe avisos sonoros y alertas en pantalla bloqueada y barra superior de tu celular o computador.</span>
+                <span className="text-zinc-300 text-[10px] truncate sm:hidden">Recibe avisos con sonido y en pantalla bloqueada.</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                const granted = await notificationService.requestNotificationPermission();
+                setNotificationsGranted(granted);
+              }}
+              className="px-3 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-[10px] sm:text-[11px] font-mono uppercase tracking-wider shrink-0 transition cursor-pointer shadow-md hover:scale-105 active:scale-95"
+            >
+              Activar Ahora
+            </button>
+          </div>
+        )}
 
         {/* ========================================================================= */}
         {/* MAIN BODY: 2 COLUMNS (SIDEBAR + EXPANSIVE CONVERSATION SCREEN) */}
@@ -636,7 +694,22 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id as ChatTab)}
+                    onClick={() => {
+                      const tabId = tab.id as ChatTab;
+                      setActiveTab(tabId);
+                      if (tabId === 'DIRECTOS' && !isDirectRoom) {
+                        const targetUser = filteredDirectUsers[0] || otherDirectUsers[0];
+                        if (targetUser) {
+                          setSelectedRoomId(targetUser.id);
+                          setIsDirectRoom(true);
+                          chatService.markAsRead(targetUser.id, true, activeUser.id);
+                        }
+                      } else if (tabId === 'SALAS' && isDirectRoom) {
+                        setSelectedRoomId('general');
+                        setIsDirectRoom(false);
+                        chatService.markAsRead('general', false, activeUser.id);
+                      }
+                    }}
                     className={`py-1.5 px-1 rounded-xl transition-all duration-150 cursor-pointer font-mono text-[9.5px] font-black flex flex-col items-center justify-center gap-0.5 border ${
                       activeTab === tab.id
                         ? localDarkMode 
@@ -896,6 +969,11 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
                       <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500 text-black font-black font-mono shadow-[0_0_8px_rgba(52,211,153,0.6)]">
                         CANAL PRIVADO
                       </span>
+                    ) : isDirectRoom ? (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500 text-black font-black font-mono shadow-[0_0_8px_rgba(52,211,153,0.6)] flex items-center gap-1">
+                        <span>🔒</span>
+                        <span>DIRECTO PRIVADO</span>
+                      </span>
                     ) : (
                       <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold border ${
                         localDarkMode 
@@ -914,7 +992,7 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
                       {isDirectRoom && selectedRoomId === activeUser.id
                         ? 'Notas personales y trazabilidad de borradores'
                         : isDirectRoom
-                          ? `${currentDirectUser?.rol || 'OPERARIO'} • ${currentDirectUser?.area || 'STF GROUP'}`
+                          ? `${currentDirectUser?.rol || 'OPERARIO'} • ${currentDirectUser?.area || 'STF GROUP'} • Mensajería privada en tiempo real`
                           : (currentChannel?.descripcion || 'Canal general de trazabilidad')}
                     </span>
                   </p>

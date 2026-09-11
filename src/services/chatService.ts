@@ -1,6 +1,8 @@
 import { ChatMessage } from '../types';
 import { USUARIOS_STF_MAESTROS, UsuarioSTF } from './authService';
 import { notificationService } from './notificationService';
+import { db } from './firebaseConfig';
+import { collection, onSnapshot, query, orderBy, limit, addDoc } from 'firebase/firestore';
 
 export interface ChatChannel {
   id: string;
@@ -75,7 +77,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '08:30 a. m.',
     fecha: 'Hoy',
     tipo: 'movimiento',
-    leido: true
+    leido: true,
+    createdMillis: Date.now() - 3600000 * 3
   },
   {
     id: 'gen-2',
@@ -88,7 +91,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '09:15 a. m.',
     fecha: 'Hoy',
     tipo: 'texto',
-    leido: true
+    leido: true,
+    createdMillis: Date.now() - 3600000 * 2.5
   },
   {
     id: 'gen-3',
@@ -101,7 +105,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '10:45 a. m.',
     fecha: 'Hoy',
     tipo: 'texto',
-    leido: true
+    leido: true,
+    createdMillis: Date.now() - 3600000 * 2
   },
 
   // #laboratorio-calidad
@@ -116,7 +121,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '07:45 a. m.',
     fecha: 'Hoy',
     tipo: 'texto',
-    leido: true
+    leido: true,
+    createdMillis: Date.now() - 3600000 * 3.5
   },
 
   // #alertas-ops
@@ -131,7 +137,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '09:30 a. m.',
     fecha: 'Hoy',
     tipo: 'alerta',
-    leido: false
+    leido: false,
+    createdMillis: Date.now() - 3600000 * 1.8
   },
 
   // Direct conversation with LUISA MEDINA
@@ -147,10 +154,11 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '07:30 a. m.',
     fecha: '14 de agosto',
     tipo: 'audio',
-    leido: true
+    leido: true,
+    createdMillis: Date.now() - 3600000 * 5
   },
 
-  // Direct conversations between CALIDAD and EDWIN (Exact match to screenshot media_1788448324509.png)
+  // Direct conversations between CALIDAD and EDWIN
   {
     id: 'dm-calidad-edwin-1',
     remitente: 'EDWIN',
@@ -161,7 +169,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '09:50 a. m.',
     fecha: '14 de agosto',
     tipo: 'texto',
-    leido: true
+    leido: true,
+    createdMillis: Date.now() - 3600000 * 4
   },
   {
     id: 'dm-calidad-edwin-2',
@@ -173,7 +182,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '10:08 a. m.',
     fecha: '14 de agosto',
     tipo: 'texto',
-    leido: true
+    leido: true,
+    createdMillis: Date.now() - 3600000 * 3.8
   },
   {
     id: 'dm-calidad-edwin-3',
@@ -185,7 +195,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '10:08 a. m.',
     fecha: '14 de agosto',
     tipo: 'texto',
-    leido: true
+    leido: true,
+    createdMillis: Date.now() - 3600000 * 3.7
   },
   {
     id: 'dm-calidad-edwin-4',
@@ -197,7 +208,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '10:09 a. m.',
     fecha: '14 de agosto',
     tipo: 'texto',
-    leido: true
+    leido: true,
+    createdMillis: Date.now() - 3600000 * 3.6
   },
   {
     id: 'dm-calidad-edwin-5',
@@ -210,7 +222,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '10:09 a. m.',
     fecha: '14 de agosto',
     tipo: 'op',
-    leido: true
+    leido: true,
+    createdMillis: Date.now() - 3600000 * 3.5
   },
 
   {
@@ -223,7 +236,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '09:06 a. m.',
     fecha: 'Hoy',
     tipo: 'texto',
-    leido: false
+    leido: false,
+    createdMillis: Date.now() - 3600000 * 2.8
   },
   {
     id: 'dm-calidad-libia-1',
@@ -235,7 +249,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '07:45 a. m.',
     fecha: 'Hoy',
     tipo: 'texto',
-    leido: false
+    leido: false,
+    createdMillis: Date.now() - 3600000 * 2.9
   },
 
   // Direct conversations when logged in as CAMILA
@@ -249,7 +264,8 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '09:06 a. m.',
     fecha: 'Hoy',
     tipo: 'texto',
-    leido: false
+    leido: false,
+    createdMillis: Date.now() - 3600000 * 2.7
   },
   {
     id: 'dm-camila-edwin-1',
@@ -261,16 +277,19 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     timestamp: '09:23 a. m.',
     fecha: 'Hoy',
     tipo: 'texto',
-    leido: false
+    leido: false,
+    createdMillis: Date.now() - 3600000 * 2.6
   }
 ];
 
-const STORAGE_KEY = 'stf_colchas_chat_messages_v4';
+const STORAGE_KEY = 'stf_colchas_chat_messages_v5';
 
 class ChatService {
   private messages: ChatMessage[] = [];
   private listeners: Array<() => void> = [];
   private broadcastChannel: BroadcastChannel | null = null;
+  private isInitialized = false;
+  private activeUserId: string = '1111';
 
   constructor() {
     this.loadInitialMessages();
@@ -301,6 +320,122 @@ class ChatService {
           // ignore
         }
       }
+
+      // Conexión a Firebase Firestore en tiempo real
+      this.initFirestoreSync();
+    }
+  }
+
+  public setActiveUserId(userId: string): void {
+    if (userId) {
+      this.activeUserId = userId;
+    }
+  }
+
+  private async initFirestoreSync(): Promise<void> {
+    try {
+      const msgsRef = collection(db, 'stf_teams_messages');
+      const q = query(msgsRef, orderBy('createdMillis', 'asc'), limit(500));
+
+      onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+          this.seedInitialMessagesToFirestore();
+          return;
+        }
+
+        const remoteMessages: ChatMessage[] = [];
+        snapshot.forEach((docSnap) => {
+          const d = docSnap.data();
+          remoteMessages.push({
+            id: docSnap.id,
+            canalId: d.canalId || undefined,
+            destinatarioId: d.destinatarioId || undefined,
+            remitente: d.remitente || 'USUARIO',
+            remitenteId: d.remitenteId || '',
+            area: d.area || '',
+            mensaje: d.mensaje || '',
+            opRelacionada: d.opRelacionada || undefined,
+            archivoUrl: d.archivoUrl || undefined,
+            archivoNombre: d.archivoNombre || undefined,
+            archivoTipo: d.archivoTipo || undefined,
+            audioUrl: d.audioUrl || undefined,
+            audioDuracion: d.audioDuracion || undefined,
+            tipo: d.tipo || 'texto',
+            timestamp: d.timestamp || 'Ahora',
+            fecha: d.fecha || 'Hoy',
+            leido: Boolean(d.leido),
+            createdMillis: d.createdMillis || Date.now()
+          });
+        });
+
+        if (remoteMessages.length > 0) {
+          // Notificar solo mensajes NUEVOS que llegaron mientras el usuario está activo
+          if (this.isInitialized) {
+            const currentIds = new Set(this.messages.map(m => m.id));
+            const newArrivals = remoteMessages.filter(m => !currentIds.has(m.id));
+
+            newArrivals.forEach(msg => {
+              const currentClean = (this.activeUserId || '').trim().toLowerCase();
+              const senderClean = (msg.remitenteId || '').trim().toLowerCase();
+              const recipientClean = (msg.destinatarioId || '').trim().toLowerCase();
+
+              // Solo alertar si el mensaje fue enviado por otra persona
+              if (senderClean && senderClean !== currentClean) {
+                // Si es para un canal o directo hacia mí
+                const isForMe = Boolean(msg.canalId) || (recipientClean === currentClean);
+                if (isForMe) {
+                  const roomLabel = msg.canalId ? `#${msg.canalId}` : `Mensaje privado de ${msg.remitente}`;
+                  notificationService.sendChatNotification(
+                    msg.remitente,
+                    msg.mensaje || (msg.tipo === 'audio' ? '🎤 Nota de voz' : '📎 Archivo adjunto'),
+                    roomLabel
+                  );
+                }
+              }
+            });
+          }
+
+          this.messages = remoteMessages;
+          this.isInitialized = true;
+          this.saveToStorage(false);
+          this.notifyListeners();
+        }
+      }, (err) => {
+        console.warn("Firestore onSnapshot error:", err);
+      });
+    } catch (err) {
+      console.warn("Firestore sync init failed:", err);
+    }
+  }
+
+  private async seedInitialMessagesToFirestore(): Promise<void> {
+    try {
+      const msgsRef = collection(db, 'stf_teams_messages');
+      const baseTime = Date.now() - 3600000 * 3;
+      for (let i = 0; i < INITIAL_CHAT_MESSAGES.length; i++) {
+        const m = INITIAL_CHAT_MESSAGES[i];
+        await addDoc(msgsRef, {
+          canalId: m.canalId || null,
+          destinatarioId: m.destinatarioId || null,
+          remitente: m.remitente,
+          remitenteId: m.remitenteId || '',
+          area: m.area || '',
+          mensaje: m.mensaje || '',
+          opRelacionada: m.opRelacionada || null,
+          archivoUrl: m.archivoUrl || null,
+          archivoNombre: m.archivoNombre || null,
+          archivoTipo: m.archivoTipo || null,
+          audioUrl: m.audioUrl || null,
+          audioDuracion: m.audioDuracion || null,
+          tipo: m.tipo || 'texto',
+          timestamp: m.timestamp,
+          fecha: m.fecha || 'Hoy',
+          leido: Boolean(m.leido),
+          createdMillis: baseTime + i * 60000
+        });
+      }
+    } catch (e) {
+      console.warn("Error seeding initial messages:", e);
     }
   }
 
@@ -324,14 +459,14 @@ class ChatService {
     }
 
     this.messages = INITIAL_CHAT_MESSAGES;
-    this.saveToStorage();
+    this.saveToStorage(false);
   }
 
-  private saveToStorage() {
+  private saveToStorage(broadcast: boolean = true) {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.messages));
-      if (this.broadcastChannel) {
+      if (broadcast && this.broadcastChannel) {
         this.broadcastChannel.postMessage({ type: 'NEW_MESSAGE' });
       }
     } catch (e) {
@@ -372,21 +507,25 @@ class ChatService {
     filterOnlyOps: boolean = false
   ): ChatMessage[] {
     let filtered: ChatMessage[] = [];
+    const cleanCurrent = (currentUserId || '').trim().toLowerCase();
 
     if (!isDirect) {
       // Es un canal de grupo (todos los usuarios ven el canal)
       filtered = this.messages.filter(m => m.canalId === roomId);
     } else {
-      // REQUERIMIENTO 2: En Directos nada más las dos personas involucradas pueden ver la conversación
-      const contactId = roomId;
+      // En Directos NADA MÁS las dos personas involucradas pueden ver la conversación
+      const cleanContact = (roomId || '').trim().toLowerCase();
       filtered = this.messages.filter(m => {
         if (m.canalId) return false;
+        const sender = (m.remitenteId || '').trim().toLowerCase();
+        const recipient = (m.destinatarioId || '').trim().toLowerCase();
+
         // Mensajes que envié a este contacto
-        const sentByMe = m.remitenteId === currentUserId && m.destinatarioId === contactId;
+        const sentByMe = sender === cleanCurrent && recipient === cleanContact;
         // Mensajes que este contacto me envió a mí
-        const sentToMe = m.remitenteId === contactId && m.destinatarioId === currentUserId;
+        const sentToMe = sender === cleanContact && recipient === cleanCurrent;
         // Notas personales (auto-chat)
-        const isSelf = currentUserId === contactId && m.remitenteId === contactId;
+        const isSelf = cleanCurrent === cleanContact && sender === cleanContact;
 
         return sentByMe || sentToMe || isSelf;
       });
@@ -400,33 +539,56 @@ class ChatService {
   }
 
   /**
-   * Envía un mensaje en tiempo real con sonido y push
+   * Envía un mensaje en tiempo real con sonido, push nativo y persistencia en Firestore
    */
-  public sendMessage(
+  public async sendMessage(
     msg: Omit<ChatMessage, 'id' | 'timestamp' | 'fecha'> & { timestamp?: string; fecha?: string }
-  ): ChatMessage {
+  ): Promise<ChatMessage> {
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const dateStr = 'Hoy';
+    const createdMillis = Date.now();
 
+    const localId = `msg-${createdMillis}-${Math.random().toString(36).substr(2, 5)}`;
     const newMsg: ChatMessage = {
       ...msg,
-      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      id: localId,
       timestamp: msg.timestamp || timeStr,
       fecha: msg.fecha || dateStr,
-      leido: false
+      leido: false,
+      createdMillis
     };
 
+    // Actualización optimista local inmediata (0ms de latencia para el usuario)
     this.messages.push(newMsg);
-    this.saveToStorage();
+    this.saveToStorage(true);
     this.notifyListeners();
 
-    // Notificación sonora y push para destinatario si está en otra ventana o móvil
-    notificationService.sendChatNotification(
-      newMsg.remitente,
-      newMsg.mensaje || (newMsg.tipo === 'audio' ? '🎤 Nota de voz' : '📎 Archivo adjunto'),
-      newMsg.canalId ? `#${newMsg.canalId}` : undefined
-    );
+    // Persistir en Firebase Firestore en segundo plano para distribución a todos los dispositivos
+    try {
+      const msgsRef = collection(db, 'stf_teams_messages');
+      await addDoc(msgsRef, {
+        canalId: newMsg.canalId || null,
+        destinatarioId: newMsg.destinatarioId || null,
+        remitente: newMsg.remitente,
+        remitenteId: newMsg.remitenteId || '',
+        area: newMsg.area || '',
+        mensaje: newMsg.mensaje || '',
+        opRelacionada: newMsg.opRelacionada || null,
+        archivoUrl: newMsg.archivoUrl || null,
+        archivoNombre: newMsg.archivoNombre || null,
+        archivoTipo: newMsg.archivoTipo || null,
+        audioUrl: newMsg.audioUrl || null,
+        audioDuracion: newMsg.audioDuracion || null,
+        tipo: newMsg.tipo || 'texto',
+        timestamp: newMsg.timestamp,
+        fecha: newMsg.fecha,
+        leido: false,
+        createdMillis
+      });
+    } catch (e) {
+      console.warn("Error guardando mensaje en Firestore:", e);
+    }
 
     return newMsg;
   }
@@ -435,34 +597,51 @@ class ChatService {
    * Marcar mensajes de una sala como leídos
    */
   public markAsRead(roomId: string, isDirect: boolean, currentUserId: string): void {
+    const cleanCurrent = (currentUserId || '').trim().toLowerCase();
     let changed = false;
+
     this.messages = this.messages.map(m => {
       if (!isDirect && m.canalId === roomId && !m.leido) {
         changed = true;
         return { ...m, leido: true };
       }
-      if (isDirect && m.remitenteId === roomId && m.destinatarioId === currentUserId && !m.leido) {
-        changed = true;
-        return { ...m, leido: true };
+      if (isDirect && !m.canalId) {
+        const sender = (m.remitenteId || '').trim().toLowerCase();
+        const recipient = (m.destinatarioId || '').trim().toLowerCase();
+        const contact = (roomId || '').trim().toLowerCase();
+        if (sender === contact && recipient === cleanCurrent && !m.leido) {
+          changed = true;
+          return { ...m, leido: true };
+        }
       }
       return m;
     });
 
     if (changed) {
-      this.saveToStorage();
+      this.saveToStorage(true);
       this.notifyListeners();
     }
   }
 
   /**
-   * Obtiene la cantidad de mensajes no leídos para una sala o contacto específico (REQUERIMIENTO 1 y 2)
+   * Obtiene la cantidad de mensajes no leídos para una sala o contacto específico
    */
   public getRoomUnreadCount(roomId: string, isDirect: boolean, currentUserId: string): number {
+    const cleanCurrent = (currentUserId || '').trim().toLowerCase();
     if (!isDirect) {
-      return this.messages.filter(m => m.canalId === roomId && !m.leido && m.remitenteId !== currentUserId).length;
+      return this.messages.filter(m => 
+        m.canalId === roomId && 
+        !m.leido && 
+        (m.remitenteId || '').trim().toLowerCase() !== cleanCurrent
+      ).length;
     } else {
-      const contactId = roomId;
-      return this.messages.filter(m => m.remitenteId === contactId && m.destinatarioId === currentUserId && !m.leido).length;
+      const cleanContact = (roomId || '').trim().toLowerCase();
+      return this.messages.filter(m => 
+        !m.canalId && 
+        (m.remitenteId || '').trim().toLowerCase() === cleanContact && 
+        (m.destinatarioId || '').trim().toLowerCase() === cleanCurrent && 
+        !m.leido
+      ).length;
     }
   }
 
@@ -494,11 +673,14 @@ class ChatService {
    * REQUERIMIENTO 1: Obtiene cantidad total de mensajes no leídos para mi usuario (canales + directos a mí)
    */
   public getUnreadCount(currentUserId: string): number {
+    const cleanCurrent = (currentUserId || '').trim().toLowerCase();
     return this.messages.filter(m => {
       if (m.leido) return false;
-      if (m.remitenteId === currentUserId) return false;
+      const sender = (m.remitenteId || '').trim().toLowerCase();
+      if (sender === cleanCurrent) return false;
       if (m.canalId) return true;
-      if (m.destinatarioId === currentUserId) return true;
+      const recipient = (m.destinatarioId || '').trim().toLowerCase();
+      if (recipient === cleanCurrent) return true;
       return false;
     }).length;
   }
@@ -507,14 +689,24 @@ class ChatService {
    * Obtiene no leídos en canales grupales
    */
   public getChannelsUnreadCount(currentUserId: string): number {
-    return this.messages.filter(m => Boolean(m.canalId) && !m.leido && m.remitenteId !== currentUserId).length;
+    const cleanCurrent = (currentUserId || '').trim().toLowerCase();
+    return this.messages.filter(m => 
+      Boolean(m.canalId) && 
+      !m.leido && 
+      (m.remitenteId || '').trim().toLowerCase() !== cleanCurrent
+    ).length;
   }
 
   /**
    * REQUERIMIENTO 1 y 2: Obtiene no leídos en directos que otros me enviaron a mí
    */
   public getDirectsUnreadCount(currentUserId: string): number {
-    return this.messages.filter(m => Boolean(m.destinatarioId) && !m.leido && m.destinatarioId === currentUserId).length;
+    const cleanCurrent = (currentUserId || '').trim().toLowerCase();
+    return this.messages.filter(m => 
+      Boolean(m.destinatarioId) && 
+      !m.leido && 
+      (m.destinatarioId || '').trim().toLowerCase() === cleanCurrent
+    ).length;
   }
 
   /**
@@ -528,7 +720,8 @@ class ChatService {
    * Obtiene la lista de usuarios para directos
    */
   public getDirectUsers(currentUserId: string): UsuarioSTF[] {
-    return USUARIOS_STF_MAESTROS.filter(u => u.id !== currentUserId);
+    const cleanCurrent = (currentUserId || '').trim().toLowerCase();
+    return USUARIOS_STF_MAESTROS.filter(u => u.id.toLowerCase() !== cleanCurrent);
   }
 }
 
