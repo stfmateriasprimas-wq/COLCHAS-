@@ -235,8 +235,12 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
       updateLocalOpPhoto(solicitud.id, compressed, true);
       updateLocalOpPhoto(solicitud.op, compressed, true);
 
-      // Sincronizar con Google Sheets & Drive
-      await pushOpPhotoToSheets(solicitud.op, compressed, true);
+      // Sincronizar con Google Sheets & Drive (con sobreescritura estricta)
+      const resPhoto = await pushOpPhotoToSheets(solicitud.op, compressed, true);
+      if (resPhoto && resPhoto.driveUrl) {
+        updateLocalOpPhoto(solicitud.id, resPhoto.driveUrl, true);
+        updateLocalOpPhoto(solicitud.op, resPhoto.driveUrl, true);
+      }
     } catch (err) {
       console.error('Error al cargar foto de calidad:', err);
       alert('Hubo un error al procesar la imagen. Por favor intenta de nuevo.');

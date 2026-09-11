@@ -1532,28 +1532,6 @@ export async function pushDictamenToSheets(
   let driveUrl = res.data?.driveUrl || (typeof (res as any).driveUrl === 'string' ? (res as any).driveUrl : undefined);
   let folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
 
-  if (fotoCalidad && (!driveUrl || fotoCalidad.startsWith('data:'))) {
-    try {
-      const photoRes = await sendAppsScriptPost('UPDATE_OP_PHOTO', {
-        op: formattedOp,
-        imageBase64: fotoCalidad.startsWith('data:') ? fotoCalidad : undefined,
-        fotoCalidadUrl: fotoCalidad,
-        fotoCalidad: fotoCalidad,
-        observacionColfactory: observacionColfactory || undefined,
-        observacionesLavanderia: observacionColfactory || undefined,
-        isCalidad: true
-      });
-      if (photoRes.data?.driveUrl || (photoRes as any).driveUrl) {
-        driveUrl = photoRes.data?.driveUrl || (photoRes as any).driveUrl;
-      }
-      if (photoRes.data?.folderUrl || (photoRes as any).folderUrl) {
-        folderUrl = photoRes.data?.folderUrl || (photoRes as any).folderUrl;
-      }
-    } catch (photoErr) {
-      console.warn('Redundant photo update caught:', photoErr);
-    }
-  }
-
   return {
     ...res,
     driveUrl,
@@ -1581,6 +1559,18 @@ export async function pushOpPhotoToSheets(
     message: res.message || 'Fotografía sincronizada correctamente con Google Sheets y archivada en Drive',
     driveUrl,
     folderUrl
+  };
+}
+
+/**
+ * Solicita a Google Apps Script depurar todas las fotos duplicadas en las carpetas de Drive
+ * garantizando que cada OP tenga estrictamente sus 2 fotos oficiales.
+ */
+export async function cleanDriveDuplicatesFromSheets(): Promise<{ success: boolean; cleanedDuplicates: number }> {
+  const res = await sendAppsScriptPost('CLEAN_DRIVE_DUPLICATES', {});
+  return {
+    success: res.success,
+    cleanedDuplicates: res.data?.cleanedDuplicates || 0
   };
 }
 

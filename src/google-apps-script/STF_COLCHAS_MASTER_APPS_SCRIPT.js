@@ -77,6 +77,7 @@ function onOpen() {
     .addItem('🔗 Unificar Links de Drive a Carpeta Única (Columna M)', 'unificarLinksDriveMenuAction')
     .addItem('✨ Depurar y Limpiar Columnas K, L, M y N', 'cleanColumnsKLMNMenuAction')
     .addItem('🧹 Dar Formato Profesional a Todas las Hojas', 'formatAllSheets')
+    .addItem('🖼️ Depurar Fotos Duplicadas en Drive (Dejar estrictamente 2 fotos por OP)', 'cleanDuplicatesDriveMenuAction')
     .addItem('📁 Crear / Verificar Estructura en Google Drive (Mes y OPs)', 'verifyAndBuildDriveStructureMenuAction')
     .addToUi();
 
@@ -567,7 +568,12 @@ function doPost(e) {
           }
         }
 
-        return createJsonResponse({ status: 'success', message: 'Dictamen registrado en BASE_DE_DATOS y notificado por correo' });
+        return createJsonResponse({ 
+          status: 'success', 
+          message: 'Dictamen registrado en BASE_DE_DATOS y notificado por correo',
+          driveUrl: (savedCalPhoto && savedCalPhoto.driveUrl) ? savedCalPhoto.driveUrl : '',
+          folderUrl: (savedCalPhoto && savedCalPhoto.folderUrl) ? savedCalPhoto.folderUrl : ''
+        });
       }
       return createJsonResponse({ status: 'error', message: 'OP no encontrada para dictamen' });
     }
@@ -711,6 +717,12 @@ function doPost(e) {
     if (action === 'CLEAN_COLUMNS_KLMN') {
       var cleanedCount = cleanColumnsKLMN(ss);
       return createJsonResponse({ status: 'success', cleanedCount: cleanedCount });
+    }
+
+    // 14. CLEAN_DRIVE_DUPLICATES (Depurar fotos duplicadas en Drive dejando exactamente 2 por OP)
+    if (action === 'CLEAN_DRIVE_DUPLICATES') {
+      var cleanedDups = cleanAllOpFolderDuplicatesInDrive();
+      return createJsonResponse({ status: 'success', cleanedDuplicates: cleanedDups });
     }
 
     return createJsonResponse({ status: 'error', message: 'Acción POST no reconocida: ' + action });
@@ -862,6 +874,41 @@ function saveImageToDriveHierarchical(base64Data, fileName, rawOp, dateInput) {
     var monthFolder = getMonthDriveFolder(root, dateInput);
     var opFolder = getOpDriveFolder(monthFolder, rawOp);
 
+    // =========================================================================
+    // REGLA ESTRICTA DE CONTROL DE CALIDAD: MÁXIMO 2 FOTOS POR OP EN DRIVE
+    // 1. OP-XXXXX_MUESTRA_INICIAL.jpg (Creación)
+    // 2. OP-XXXXX_POST_LAVADO_CALIDAD.jpg (Auditoría de Calidad)
+    // =========================================================================
+
+    // Si se sube una foto POST_LAVADO, eliminar a la papelera cualquier archivo existente que contenga POST_LAVADO
+    if (fileName.indexOf('POST_LAVADO') !== -1) {
+      var filesPost = opFolder.getFiles();
+      while (filesPost.hasNext()) {
+        var fPost = filesPost.next();
+        if (fPost.getName().indexOf('POST_LAVADO') !== -1) {
+          try { fPost.setTrashed(true); } catch (ePostTrash) {}
+        }
+      }
+    }
+
+    // Si se sube una foto MUESTRA_INICIAL, eliminar a la papelera cualquier archivo existente que contenga MUESTRA_INICIAL
+    if (fileName.indexOf('MUESTRA_INICIAL') !== -1) {
+      var filesInit = opFolder.getFiles();
+      while (filesInit.hasNext()) {
+        var fInit = filesInit.next();
+        if (fInit.getName().indexOf('MUESTRA_INICIAL') !== -1) {
+          try { fInit.setTrashed(true); } catch (eInitTrash) {}
+        }
+      }
+    }
+
+    // Por seguridad, eliminar cualquier archivo con el nombre exacto fileName
+    var exactFiles = opFolder.getFilesByName(fileName);
+    while (exactFiles.hasNext()) {
+      var exactFile = exactFiles.next();
+      try { exactFile.setTrashed(true); } catch (eExactTrash) {}
+    }
+
     var cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
     var decoded = Utilities.base64Decode(cleanBase64);
     var blob = Utilities.newBlob(decoded, 'image/jpeg', fileName);
@@ -877,6 +924,78 @@ function saveImageToDriveHierarchical(base64Data, fileName, rawOp, dateInput) {
     console.error('Error guardando imagen en Google Drive:', e);
     return { driveUrl: '', folderUrl: '' };
   }
+}
+
+/**
+ * Recorre todas las carpetas de OPs en Drive y depura archivos duplicados,
+ * garantizando que en cada carpeta de OP existan estrictamente como máximo 2 fotos:
+ * 1. OP-XXXXX_MUESTRA_INICIAL.jpg
+ * 2. OP-XXXXX_POST_LAVADO_CALIDAD.jpg
+ */
+function cleanAllOpFolderDuplicatesInDrive() {
+  try {
+    var root = getRootDriveFolder();
+    var monthFolders = root.getFolders();
+    var totalCleaned = 0;
+
+    while (monthFolders.hasNext()) {
+      var mFolder = monthFolders.next();
+      var opFolders = mFolder.getFolders();
+
+      while (opFolders.hasNext()) {
+        var opFolder = opFolders.next();
+        var files = opFolder.getFiles();
+        var postLavadoFiles = [];
+        var muestraInicialFiles = [];
+
+        while (files.hasNext()) {
+          var f = files.next();
+          var fName = f.getName().toUpperCase();
+          if (fName.indexOf('POST_LAVADO') !== -1) {
+            postLavadoFiles.push(f);
+          } else if (fName.indexOf('MUESTRA_INICIAL') !== -1) {
+            muestraInicialFiles.push(f);
+          }
+        }
+
+        // Si hay más de 1 post lavado, ordenar por fecha descendente y mandar los antiguos a la papelera
+        if (postLavadoFiles.length > 1) {
+          postLavadoFiles.sort(function(a, b) {
+            return b.getLastUpdated().getTime() - a.getLastUpdated().getTime();
+          });
+          for (var p = 1; p < postLavadoFiles.length; p++) {
+            try {
+              postLavadoFiles[p].setTrashed(true);
+              totalCleaned++;
+            } catch (eTrashP) {}
+          }
+        }
+
+        // Si hay más de 1 muestra inicial, mandar los antiguos a la papelera
+        if (muestraInicialFiles.length > 1) {
+          muestraInicialFiles.sort(function(a, b) {
+            return b.getLastUpdated().getTime() - a.getLastUpdated().getTime();
+          });
+          for (var m = 1; m < muestraInicialFiles.length; m++) {
+            try {
+              muestraInicialFiles[m].setTrashed(true);
+              totalCleaned++;
+            } catch (eTrashM) {}
+          }
+        }
+      }
+    }
+
+    return totalCleaned;
+  } catch (errClean) {
+    console.error('Error depurando duplicados de fotos en Drive:', errClean);
+    return 0;
+  }
+}
+
+function cleanDuplicatesDriveMenuAction() {
+  var count = cleanAllOpFolderDuplicatesInDrive();
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se depuraron ' + count + ' fotos duplicadas en Google Drive. Ahora cada OP tiene estrictamente sus 2 imágenes oficiales.', '🚀 STF GROUP', 6);
 }
 
 function saveImageToDrive(base64Data, fileName, rawOp, dateInput) {
