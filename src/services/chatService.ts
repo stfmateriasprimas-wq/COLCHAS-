@@ -2,7 +2,7 @@ import { ChatMessage } from '../types';
 import { USUARIOS_STF_MAESTROS, UsuarioSTF } from './authService';
 import { notificationService } from './notificationService';
 import { db } from './firebaseConfig';
-import { collection, onSnapshot, query, orderBy, limit, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, addDoc, doc, updateDoc } from 'firebase/firestore';
 
 export interface ChatChannel {
   id: string;
@@ -64,232 +64,20 @@ export const CHAT_CHANNELS_MAESTROS: ChatChannel[] = [
   }
 ];
 
-const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
-  // #general
-  {
-    id: 'gen-1',
-    canalId: 'general',
-    remitente: 'JUAN DAVID CORTEZ',
-    remitenteId: '1107047649',
-    area: 'CALIDAD ZF / ATELIER',
-    mensaje: 'Se generó colcha para OP-00095976 (Tencel Malvina). Muestra cortada y lista para despacho hacia Lavandería.',
-    opRelacionada: 'OP-00095976',
-    timestamp: '08:30 a. m.',
-    fecha: 'Hoy',
-    tipo: 'movimiento',
-    leido: true,
-    createdMillis: Date.now() - 3600000 * 3
-  },
-  {
-    id: 'gen-2',
-    canalId: 'general',
-    remitente: 'DIDIER MUÑOZ',
-    remitenteId: '1107529604',
-    area: 'LAVANDERÍA COLFACTORY',
-    mensaje: 'Recibida en planta OP-00095544. Iniciando proceso químico de desengomado y prueba de encogimiento.',
-    opRelacionada: 'OP-00095544',
-    timestamp: '09:15 a. m.',
-    fecha: 'Hoy',
-    tipo: 'texto',
-    leido: true,
-    createdMillis: Date.now() - 3600000 * 2.5
-  },
-  {
-    id: 'gen-3',
-    canalId: 'general',
-    remitente: 'JHON FREDDY GONZÁLEZ',
-    remitenteId: '1005829307',
-    area: 'CALIDAD STF LABORATORIO',
-    mensaje: 'Resultados de encogimiento para OP-00094060: Trama -4.0%, Urdimbre -6.0%. Dictamen: APROBADO 100%.',
-    opRelacionada: 'OP-00094060',
-    timestamp: '10:45 a. m.',
-    fecha: 'Hoy',
-    tipo: 'texto',
-    leido: true,
-    createdMillis: Date.now() - 3600000 * 2
-  },
-
-  // #laboratorio-calidad
-  {
-    id: 'lab-1',
-    canalId: 'laboratorio-calidad',
-    remitente: 'LIBIA LABORATORIO',
-    remitenteId: '4321',
-    area: 'CALIDAD',
-    mensaje: 'Por favor remitir muestras de prueba de encogimiento para lote denim 80004.',
-    opRelacionada: 'OP-00095976',
-    timestamp: '07:45 a. m.',
-    fecha: 'Hoy',
-    tipo: 'texto',
-    leido: true,
-    createdMillis: Date.now() - 3600000 * 3.5
-  },
-
-  // #alertas-ops
-  {
-    id: 'alert-1',
-    canalId: 'alertas-ops',
-    remitente: 'SISTEMA DE TRAZABILIDAD',
-    remitenteId: 'system',
-    area: 'CALIDAD ZF',
-    mensaje: 'ALERTA: OP-00095976 requiere validación urgente de tono en laboratorio.',
-    opRelacionada: 'OP-00095976',
-    timestamp: '09:30 a. m.',
-    fecha: 'Hoy',
-    tipo: 'alerta',
-    leido: false,
-    createdMillis: Date.now() - 3600000 * 1.8
-  },
-
-  // Direct conversation with LUISA MEDINA
-  {
-    id: 'dm-luisa-1',
-    remitente: 'LUISA MEDINA',
-    remitenteId: '6666',
-    destinatarioId: '1111', // to Calidad
-    area: 'COLECCIONES',
-    mensaje: 'Nota de voz (0:08 seg)',
-    audioUrl: 'synth://voice-note-sample',
-    audioDuracion: 8,
-    timestamp: '07:30 a. m.',
-    fecha: '14 de agosto',
-    tipo: 'audio',
-    leido: true,
-    createdMillis: Date.now() - 3600000 * 5
-  },
-
-  // Direct conversations between CALIDAD and EDWIN
-  {
-    id: 'dm-calidad-edwin-1',
-    remitente: 'EDWIN',
-    remitenteId: 'ediaz',
-    destinatarioId: '1111', // to Calidad
-    area: 'CALIDAD',
-    mensaje: 'Buenos dias don edwin',
-    timestamp: '09:50 a. m.',
-    fecha: '14 de agosto',
-    tipo: 'texto',
-    leido: true,
-    createdMillis: Date.now() - 3600000 * 4
-  },
-  {
-    id: 'dm-calidad-edwin-2',
-    remitente: 'CALIDAD',
-    remitenteId: '1111',
-    destinatarioId: 'ediaz', // to Edwin
-    area: 'CALIDAD',
-    mensaje: 'buenos dias don edwin',
-    timestamp: '10:08 a. m.',
-    fecha: '14 de agosto',
-    tipo: 'texto',
-    leido: true,
-    createdMillis: Date.now() - 3600000 * 3.8
-  },
-  {
-    id: 'dm-calidad-edwin-3',
-    remitente: 'CALIDAD',
-    remitenteId: '1111',
-    destinatarioId: 'ediaz', // to Edwin
-    area: 'CALIDAD',
-    mensaje: 'requiere algo de calidad?',
-    timestamp: '10:08 a. m.',
-    fecha: '14 de agosto',
-    tipo: 'texto',
-    leido: true,
-    createdMillis: Date.now() - 3600000 * 3.7
-  },
-  {
-    id: 'dm-calidad-edwin-4',
-    remitente: 'EDWIN',
-    remitenteId: 'ediaz',
-    destinatarioId: '1111', // to Calidad
-    area: 'CALIDAD',
-    mensaje: 'Buenos dias calidad, si',
-    timestamp: '10:09 a. m.',
-    fecha: '14 de agosto',
-    tipo: 'texto',
-    leido: true,
-    createdMillis: Date.now() - 3600000 * 3.6
-  },
-  {
-    id: 'dm-calidad-edwin-5',
-    remitente: 'EDWIN',
-    remitenteId: 'ediaz',
-    destinatarioId: '1111', // to Calidad
-    area: 'CALIDAD',
-    mensaje: 'por favor requiero información acerca de esta OP',
-    opRelacionada: 'OP-00092979',
-    timestamp: '10:09 a. m.',
-    fecha: '14 de agosto',
-    tipo: 'op',
-    leido: true,
-    createdMillis: Date.now() - 3600000 * 3.5
-  },
-
-  {
-    id: 'dm-calidad-camila-1',
-    remitente: 'CAMILA',
-    remitenteId: '4444',
-    destinatarioId: '1111', // to Calidad
-    area: 'COLECCIONES',
-    mensaje: 'buenos dias',
-    timestamp: '09:06 a. m.',
-    fecha: 'Hoy',
-    tipo: 'texto',
-    leido: false,
-    createdMillis: Date.now() - 3600000 * 2.8
-  },
-  {
-    id: 'dm-calidad-libia-1',
-    remitente: 'LIBIA LABORATORIO',
-    remitenteId: '4321',
-    destinatarioId: '1111', // to Calidad
-    area: 'CALIDAD',
-    mensaje: 'Por favor remitir muestras de prueba de encogimiento...',
-    timestamp: '07:45 a. m.',
-    fecha: 'Hoy',
-    tipo: 'texto',
-    leido: false,
-    createdMillis: Date.now() - 3600000 * 2.9
-  },
-
-  // Direct conversations when logged in as CAMILA
-  {
-    id: 'dm-camila-calidad-1',
-    remitente: 'CALIDAD',
-    remitenteId: '1111',
-    destinatarioId: '4444', // to Camila
-    area: 'CALIDAD',
-    mensaje: 'buenos dias',
-    timestamp: '09:06 a. m.',
-    fecha: 'Hoy',
-    tipo: 'texto',
-    leido: false,
-    createdMillis: Date.now() - 3600000 * 2.7
-  },
-  {
-    id: 'dm-camila-edwin-1',
-    remitente: 'EDWIN',
-    remitenteId: 'ediaz',
-    destinatarioId: '4444', // to Camila
-    area: 'CALIDAD',
-    mensaje: 'buenos dias calidad',
-    timestamp: '09:23 a. m.',
-    fecha: 'Hoy',
-    tipo: 'texto',
-    leido: false,
-    createdMillis: Date.now() - 3600000 * 2.6
-  }
-];
-
-const STORAGE_KEY = 'stf_colchas_chat_messages_v5';
+// Chats 100% limpios desde cero tal cual WhatsApp
+const INITIAL_CHAT_MESSAGES: ChatMessage[] = [];
+const STORAGE_KEY = 'stf_colchas_chat_messages_v7_clean';
+const READ_IDS_KEY = 'stf_colchas_read_ids_v7';
 
 class ChatService {
   private messages: ChatMessage[] = [];
+  private localReadIds: Set<string> = new Set<string>();
   private listeners: Array<() => void> = [];
   private broadcastChannel: BroadcastChannel | null = null;
   private isInitialized = false;
   private activeUserId: string = '1111';
+  // Marca de tiempo al iniciar la sesión: NUNCA notificar mensajes creados antes de este momento
+  private appStartTime = Date.now();
 
   constructor() {
     this.loadInitialMessages();
@@ -328,6 +116,10 @@ class ChatService {
 
   public setActiveUserId(userId: string): void {
     if (userId) {
+      if (this.activeUserId !== userId) {
+        // Al cambiar de perfil de usuario, actualizar marca de tiempo para evitar falsas alertas de mensajes pasados
+        this.appStartTime = Date.now();
+      }
       this.activeUserId = userId;
     }
   }
@@ -339,13 +131,17 @@ class ChatService {
 
       onSnapshot(q, (snapshot) => {
         if (snapshot.empty) {
-          this.seedInitialMessagesToFirestore();
+          this.messages = [];
+          this.isInitialized = true;
+          this.saveToStorage(false);
+          this.notifyListeners();
           return;
         }
 
         const remoteMessages: ChatMessage[] = [];
         snapshot.forEach((docSnap) => {
           const d = docSnap.data();
+          const isLocallyRead = this.localReadIds.has(docSnap.id);
           remoteMessages.push({
             id: docSnap.id,
             canalId: d.canalId || undefined,
@@ -363,43 +159,43 @@ class ChatService {
             tipo: d.tipo || 'texto',
             timestamp: d.timestamp || 'Ahora',
             fecha: d.fecha || 'Hoy',
-            leido: Boolean(d.leido),
+            leido: Boolean(d.leido) || isLocallyRead,
             createdMillis: d.createdMillis || Date.now()
           });
         });
 
-        if (remoteMessages.length > 0) {
-          // Notificar solo mensajes NUEVOS que llegaron mientras el usuario está activo
-          if (this.isInitialized) {
-            const currentIds = new Set(this.messages.map(m => m.id));
-            const newArrivals = remoteMessages.filter(m => !currentIds.has(m.id));
+        // Notificar ÚNICAMENTE mensajes NUEVOS recibidos en tiempo real después de entrar a la app (estilo WhatsApp)
+        if (this.isInitialized) {
+          const currentIds = new Set(this.messages.map(m => m.id));
+          const newArrivals = remoteMessages.filter(m => !currentIds.has(m.id));
 
-            newArrivals.forEach(msg => {
-              const currentClean = (this.activeUserId || '').trim().toLowerCase();
-              const senderClean = (msg.remitenteId || '').trim().toLowerCase();
-              const recipientClean = (msg.destinatarioId || '').trim().toLowerCase();
+          newArrivals.forEach(msg => {
+            const currentClean = (this.activeUserId || '').trim().toLowerCase();
+            const senderClean = (msg.remitenteId || '').trim().toLowerCase();
+            const recipientClean = (msg.destinatarioId || '').trim().toLowerCase();
 
-              // Solo alertar si el mensaje fue enviado por otra persona
-              if (senderClean && senderClean !== currentClean) {
-                // Si es para un canal o directo hacia mí
-                const isForMe = Boolean(msg.canalId) || (recipientClean === currentClean);
-                if (isForMe) {
-                  const roomLabel = msg.canalId ? `#${msg.canalId}` : `Mensaje privado de ${msg.remitente}`;
-                  notificationService.sendChatNotification(
-                    msg.remitente,
-                    msg.mensaje || (msg.tipo === 'audio' ? '🎤 Nota de voz' : '📎 Archivo adjunto'),
-                    roomLabel
-                  );
-                }
+            // Condición estricta: mensaje genuino en vivo (creado en la sesión activa, no del pasado)
+            const isLiveTime = (msg.createdMillis || 0) >= (this.appStartTime - 10000);
+
+            // Solo alertar si el mensaje fue enviado por otra persona hacia mi canal o a mi directo
+            if (senderClean && senderClean !== currentClean && isLiveTime) {
+              const isForMe = Boolean(msg.canalId) || (recipientClean === currentClean);
+              if (isForMe) {
+                const roomLabel = msg.canalId ? `#${msg.canalId}` : `Mensaje de ${msg.remitente}`;
+                notificationService.sendChatNotification(
+                  msg.remitente,
+                  msg.mensaje || (msg.tipo === 'audio' ? '🎤 Nota de voz' : '📎 Archivo adjunto'),
+                  roomLabel
+                );
               }
-            });
-          }
-
-          this.messages = remoteMessages;
-          this.isInitialized = true;
-          this.saveToStorage(false);
-          this.notifyListeners();
+            }
+          });
         }
+
+        this.messages = remoteMessages;
+        this.isInitialized = true;
+        this.saveToStorage(false);
+        this.notifyListeners();
       }, (err) => {
         console.warn("Firestore onSnapshot error:", err);
       });
@@ -408,48 +204,37 @@ class ChatService {
     }
   }
 
-  private async seedInitialMessagesToFirestore(): Promise<void> {
-    try {
-      const msgsRef = collection(db, 'stf_teams_messages');
-      const baseTime = Date.now() - 3600000 * 3;
-      for (let i = 0; i < INITIAL_CHAT_MESSAGES.length; i++) {
-        const m = INITIAL_CHAT_MESSAGES[i];
-        await addDoc(msgsRef, {
-          canalId: m.canalId || null,
-          destinatarioId: m.destinatarioId || null,
-          remitente: m.remitente,
-          remitenteId: m.remitenteId || '',
-          area: m.area || '',
-          mensaje: m.mensaje || '',
-          opRelacionada: m.opRelacionada || null,
-          archivoUrl: m.archivoUrl || null,
-          archivoNombre: m.archivoNombre || null,
-          archivoTipo: m.archivoTipo || null,
-          audioUrl: m.audioUrl || null,
-          audioDuracion: m.audioDuracion || null,
-          tipo: m.tipo || 'texto',
-          timestamp: m.timestamp,
-          fecha: m.fecha || 'Hoy',
-          leido: Boolean(m.leido),
-          createdMillis: baseTime + i * 60000
-        });
-      }
-    } catch (e) {
-      console.warn("Error seeding initial messages:", e);
-    }
-  }
-
   private loadInitialMessages() {
     if (typeof window === 'undefined') {
-      this.messages = INITIAL_CHAT_MESSAGES;
+      this.messages = [];
       return;
     }
+
+    try {
+      localStorage.removeItem('stf_colchas_chat_messages_v4');
+      localStorage.removeItem('stf_colchas_chat_messages_v5');
+      localStorage.removeItem('stf_colchas_chat_messages_v6');
+      localStorage.removeItem('stf_colchas_chat_messages_v6_clean');
+      localStorage.removeItem('stf_colchas_chat_messages');
+      localStorage.removeItem('stf_colchas_read_ids_v5');
+      localStorage.removeItem('stf_colchas_read_ids_v6');
+    } catch (e) {}
+
+    try {
+      const savedReadIds = localStorage.getItem(READ_IDS_KEY);
+      if (savedReadIds) {
+        const parsed = JSON.parse(savedReadIds);
+        if (Array.isArray(parsed)) {
+          this.localReadIds = new Set(parsed);
+        }
+      }
+    } catch (e) {}
 
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           this.messages = parsed;
           return;
         }
@@ -458,8 +243,15 @@ class ChatService {
       }
     }
 
-    this.messages = INITIAL_CHAT_MESSAGES;
+    this.messages = [];
     this.saveToStorage(false);
+  }
+
+  private saveReadIdsToStorage() {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(READ_IDS_KEY, JSON.stringify(Array.from(this.localReadIds)));
+    } catch (e) {}
   }
 
   private saveToStorage(broadcast: boolean = true) {
@@ -559,6 +351,10 @@ class ChatService {
       createdMillis
     };
 
+    // Registrar inmediatamente como leído por mí mismo
+    this.localReadIds.add(localId);
+    this.saveReadIdsToStorage();
+
     // Actualización optimista local inmediata (0ms de latencia para el usuario)
     this.messages.push(newMsg);
     this.saveToStorage(true);
@@ -599,18 +395,28 @@ class ChatService {
   public markAsRead(roomId: string, isDirect: boolean, currentUserId: string): void {
     const cleanCurrent = (currentUserId || '').trim().toLowerCase();
     let changed = false;
+    const directDocIdsToUpdate: string[] = [];
 
     this.messages = this.messages.map(m => {
-      if (!isDirect && m.canalId === roomId && !m.leido) {
-        changed = true;
+      if (!isDirect && m.canalId === roomId) {
+        if (!m.leido || !this.localReadIds.has(m.id)) {
+          changed = true;
+          this.localReadIds.add(m.id);
+        }
         return { ...m, leido: true };
       }
       if (isDirect && !m.canalId) {
         const sender = (m.remitenteId || '').trim().toLowerCase();
         const recipient = (m.destinatarioId || '').trim().toLowerCase();
         const contact = (roomId || '').trim().toLowerCase();
-        if (sender === contact && recipient === cleanCurrent && !m.leido) {
-          changed = true;
+        if (sender === contact && recipient === cleanCurrent) {
+          if (!m.leido || !this.localReadIds.has(m.id)) {
+            changed = true;
+            this.localReadIds.add(m.id);
+            if (!m.id.startsWith('msg-')) {
+              directDocIdsToUpdate.push(m.id);
+            }
+          }
           return { ...m, leido: true };
         }
       }
@@ -618,8 +424,20 @@ class ChatService {
     });
 
     if (changed) {
+      this.saveReadIdsToStorage();
       this.saveToStorage(true);
       this.notifyListeners();
+
+      // Sincronizar lectura en Firestore para mensajes directos
+      if (directDocIdsToUpdate.length > 0) {
+        directDocIdsToUpdate.forEach(docId => {
+          try {
+            updateDoc(doc(db, 'stf_teams_messages', docId), { leido: true }).catch(() => {});
+          } catch (e) {
+            // ignore
+          }
+        });
+      }
     }
   }
 

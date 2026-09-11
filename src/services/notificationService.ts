@@ -125,15 +125,44 @@ class NotificationService {
       gain.connect(this.audioContext.destination);
 
       if (type === 'MENSAJE') {
-        // Tono dual dulce y nítido tipo WhatsApp/Telegram (B5 -> E6 -> G#6)
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(987.77, now); // B5
-        osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
-        osc.frequency.setValueAtTime(1661.22, now + 0.16); // G#6
-        gain.gain.setValueAtTime(0.28, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-        osc.start(now);
-        osc.stop(now + 0.45);
+        // SONIDO INDUSTRIAL POSITIVO STF (Campana de precisión textil / Acorde mayor industrial brillante)
+        const ctx = this.audioContext;
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'triangle';
+
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+
+        // Secuencia armónica ascendente industrial (C6 -> E6 -> G6 -> C7)
+        osc1.frequency.setValueAtTime(1046.50, now);
+        osc1.frequency.setValueAtTime(1318.51, now + 0.06);
+        osc1.frequency.setValueAtTime(1567.98, now + 0.12);
+        osc1.frequency.setValueAtTime(2093.00, now + 0.18);
+
+        // Armónico metálico industrial (Resonancia de timbre de precisión)
+        osc2.frequency.setValueAtTime(2093.00, now);
+        osc2.frequency.setValueAtTime(2637.02, now + 0.06);
+        osc2.frequency.setValueAtTime(3135.96, now + 0.12);
+        osc2.frequency.setValueAtTime(4186.01, now + 0.18);
+
+        gain1.gain.setValueAtTime(0.32, now);
+        gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.52);
+
+        gain2.gain.setValueAtTime(0.14, now);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.52);
+        osc2.stop(now + 0.52);
+        return;
       } else if (type === 'CRITICO') {
         // Doble tono de advertencia (Alerta SLA Crítico)
         osc.type = 'triangle';

@@ -1202,7 +1202,11 @@ export const ChatTeamsModal: React.FC<ChatTeamsModalProps> = ({
                           }`}>
                             <span>{msg.timestamp}</span>
                             {isMe && (
-                              <CheckCheck className={`w-3 h-3 ${localDarkMode ? 'text-emerald-400' : 'text-emerald-200'}`} />
+                              msg.leido ? (
+                                <CheckCheck className={`w-3.5 h-3.5 ${localDarkMode ? 'text-cyan-400' : 'text-cyan-200'}`} title="Leído por destinatario" />
+                              ) : (
+                                <Check className={`w-3.5 h-3.5 ${localDarkMode ? 'text-emerald-400/70' : 'text-emerald-100/70'}`} title="Enviado a servidor" />
+                              )
                             )}
                           </div>
                         </div>
