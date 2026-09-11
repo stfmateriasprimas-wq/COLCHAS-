@@ -14,11 +14,11 @@ self.addEventListener('activate', (event) => {
 // Manejar notificaciones Push desde background / servidor
 self.addEventListener('push', (event) => {
   let data = {
-    title: '💬 Nuevo Mensaje en STF Teams',
-    body: 'Tienes un nuevo mensaje en el chat de trazabilidad.',
+    title: 'STF GROUP - Control de Calidad',
+    body: 'Notificación del sistema de colchas.',
     icon: '/logo-stf-white.png',
     badge: '/logo-stf-white.png',
-    tag: 'stf-chat-msg',
+    tag: 'stf-notification',
     data: { url: '/' }
   };
 
@@ -35,8 +35,8 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: data.icon || '/logo-stf-white.png',
     badge: data.badge || '/logo-stf-white.png',
-    vibrate: [200, 100, 200, 100, 200], // Patrón de vibración tipo WhatsApp en móvil
-    tag: data.tag || 'stf-chat-msg',
+    vibrate: [200, 100, 200],
+    tag: data.tag || 'stf-notification',
     renotify: true,
     requireInteraction: false,
     data: data.data || { url: '/' }
@@ -53,10 +53,8 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Si ya hay una ventana abierta, enfocarla
       for (const client of clientList) {
         if ('focus' in client) {
-          client.postMessage({ type: 'OPEN_CHAT_MODAL' });
           return client.focus();
         }
       }

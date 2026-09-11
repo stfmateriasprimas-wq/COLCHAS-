@@ -13,7 +13,6 @@ interface CleanLandingViewProps {
   currentUser?: UsuarioSTF | null;
   onNavigate: (tab: TabType) => void;
   onSelectArea: (areaKey: SectorType | 'TOTAL' | 'EN_PROCESO') => void;
-  onOpenChat?: () => void;
 }
 
 export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
@@ -21,8 +20,7 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
   solicitudes,
   currentUser,
   onNavigate,
-  onSelectArea,
-  onOpenChat
+  onSelectArea
 }) => {
   const isLavanderia = isLavanderiaUser(currentUser);
 

@@ -7,7 +7,6 @@ interface HeaderProps {
   currentUser: UsuarioSTF | null;
   isDarkMode: boolean;
   onToggleTheme: () => void;
-  onOpenChat?: () => void;
   onLogout: () => void;
   showBackButton?: boolean;
   onBackToDashboard?: () => void;
@@ -21,7 +20,6 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   isDarkMode,
   onToggleTheme,
-  onOpenChat,
   onLogout,
   showBackButton = false,
   onBackToDashboard,
