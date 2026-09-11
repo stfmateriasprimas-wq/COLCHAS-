@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  PlusCircle, ClipboardList, MessageSquare, BarChart3, Zap, 
+  PlusCircle, ClipboardList, BarChart3, Zap, 
   Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity 
 } from 'lucide-react';
 import { TabType } from '../Navigation';
@@ -13,7 +13,7 @@ interface CleanLandingViewProps {
   currentUser?: UsuarioSTF | null;
   onNavigate: (tab: TabType) => void;
   onSelectArea: (areaKey: SectorType | 'TOTAL' | 'EN_PROCESO') => void;
-  onOpenChat: () => void;
+  onOpenChat?: () => void;
 }
 
 export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
@@ -59,16 +59,6 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
           >
             <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-300 dark:text-zinc-700" />
             <span>BANDEJA DE SOLICITUDES</span>
-          </button>
-
-          {/* BUTTON 3: CHAT STF TEAMS */}
-          <button
-            type="button"
-            onClick={onOpenChat}
-            className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 border border-zinc-700 dark:border-zinc-300 py-3 sm:py-3.5 px-4 sm:px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-sm"
-          >
-            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400 dark:text-zinc-600" />
-            <span>CHAT STF TEAMS</span>
           </button>
 
         </div>

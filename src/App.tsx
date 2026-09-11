@@ -13,11 +13,8 @@ import { MasterTable } from './components/BaseDatos/MasterTable';
 import { SlaAlertsList } from './components/Alertas/SlaAlertsList';
 import { TimelineView } from './components/Timeline/TimelineView';
 import { EstadisticasView } from './components/Estadisticas/EstadisticasView';
-import { ChatTeamsModal } from './components/Chat/ChatTeamsModal';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { UserProfileModal } from './components/Auth/UserProfileModal';
-import { FloatingAiVoiceButton } from './components/Common/FloatingAiVoiceButton';
-import { StatSectionTabType } from './services/aiVoiceService';
 import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList } from './services/authService';
 import { SolicitudColcha, MonitoreoItem, KpiMetrics, SectorType, DictamenType } from './types';
 import { 
@@ -52,8 +49,7 @@ import {
   unmarkOpAsDeleted,
   getDeletedOpNumbers 
 } from './services/deletedOpsService';
-import { Trash2, CheckCircle2, X } from 'lucide-react';
-import { chatService } from './services/chatService';
+import { Trash2, CheckCircle2 } from 'lucide-react';
 
 export function App() {
   // Theme state persisted in localStorage
@@ -126,49 +122,8 @@ export function App() {
   const [selectedColchaPrinter, setSelectedColchaPrinter] = useState<SolicitudColcha | null>(null);
   const [selectedColchaTransfer, setSelectedColchaTransfer] = useState<SolicitudColcha | null>(null);
   const [selectedColchaDetail, setSelectedColchaDetail] = useState<SolicitudColcha | null>(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isProfileDirectoryOpen, setIsProfileDirectoryOpen] = useState(false);
-  const [inAppToast, setInAppToast] = useState<{ sender: string; message: string; room?: string } | null>(null);
-
-  // AI Voice Assistant navigation & filter states
-  const [aiStageFilter, setAiStageFilter] = useState<SectorType | 'EN_PROCESO' | 'ALL' | undefined>(undefined);
-  const [aiSearchQuery, setAiSearchQuery] = useState<string | undefined>(undefined);
-  const [aiStatSection, setAiStatSection] = useState<StatSectionTabType | undefined>(undefined);
-  const [isReporteComiteForAi, setIsReporteComiteForAi] = useState<boolean>(false);
-
-  // Sincronizar usuario activo con el servicio de chat en tiempo real
-  useEffect(() => {
-    if (currentUser?.id) {
-      chatService.setActiveUserId(currentUser.id);
-    }
-  }, [currentUser?.id]);
-
-  // Escuchar notificaciones flotantes de chat
-  useEffect(() => {
-    const unsub = notificationService.onInAppToast((toast) => {
-      setInAppToast(toast);
-      const timer = setTimeout(() => {
-        setInAppToast(prev => prev === toast ? null : prev);
-      }, 6500);
-      return () => clearTimeout(timer);
-    });
-    return unsub;
-  }, []);
-
-  // Escuchar eventos del Service Worker para abrir chat desde notificación del sistema o lockscreen
-  useEffect(() => {
-    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-      const handleSwMsg = (event: MessageEvent) => {
-        if (event.data && event.data.type === 'OPEN_CHAT_MODAL') {
-          setIsChatOpen(true);
-        }
-      };
-      navigator.serviceWorker.addEventListener('message', handleSwMsg);
-      return () => {
-        navigator.serviceWorker.removeEventListener('message', handleSwMsg);
-      };
-    }
-  }, []);
+  const [stageFilter, setStageFilter] = useState<SectorType | 'EN_PROCESO' | 'ALL' | undefined>(undefined);
 
   // Load from Sheets on mount, set up 15-second live polling & window focus auto-sync
   useEffect(() => {
@@ -366,12 +321,7 @@ export function App() {
       console.warn('Error clearing deleted op from local storage:', e);
     }
     
-    // 3. Notificación instantánea en pantalla
-    setInAppToast({
-      sender: 'ADMIN EDWIN',
-      message: `🗑️ OP-${targetCleanOp || solicitud.op} eliminada automáticamente del sistema.`,
-      room: 'ADMIN'
-    });
+
 
     // 4. Depuración en tiempo real de Google Sheets (ALERTAS y BASE_DE_DATOS)
     try {
@@ -506,7 +456,7 @@ export function App() {
       });
 
       // Navegación inmediata a Bandeja, activación del filtro de etapa y apertura de etiqueta térmica
-      setAiStageFilter(nueva.estado);
+      setStageFilter(nueva.estado);
       setSelectedColchaPrinter(nueva);
       setActiveTab('solicitudes');
 
@@ -514,7 +464,7 @@ export function App() {
       notificationService.playAlertSound('EXITO');
     } catch (e) {
       console.error('Error en handleAddNewSolicitud:', e);
-      setAiStageFilter(nueva.estado);
+      setStageFilter(nueva.estado);
       setSelectedColchaPrinter(nueva);
       setActiveTab('solicitudes');
     }
@@ -696,7 +646,6 @@ export function App() {
         currentUser={currentUser}
         isDarkMode={isDarkMode}
         onToggleTheme={() => setIsDarkMode(!isDarkMode)}
-        onOpenChat={() => setIsChatOpen(true)}
         onLogout={handleLogout}
         showBackButton={activeTab !== 'dashboard'}
         onBackToDashboard={() => setActiveTab('dashboard')}
@@ -717,7 +666,6 @@ export function App() {
             currentUser={currentUser}
             onNavigate={(tab) => setActiveTab(tab)}
             onSelectArea={(areaKey) => setSelectedAreaForModal(areaKey)}
-            onOpenChat={() => setIsChatOpen(true)}
           />
         )}
 
@@ -741,8 +689,7 @@ export function App() {
             solicitudes={solicitudes}
             metrics={metrics}
             currentUser={currentUser}
-            initialStageFilter={aiStageFilter}
-            initialSearchQuery={aiSearchQuery}
+            initialStageFilter={stageFilter}
             onTransfer={(item) => setSelectedColchaTransfer(item)}
             onDirectTransfer={handleConfirmTransfer}
             onViewDetail={(item) => setSelectedColchaDetail(item)}
@@ -800,12 +747,7 @@ export function App() {
             solicitudes={solicitudes}
             metrics={metrics}
             currentUser={currentUser}
-            initialSectionTab={aiStatSection}
-            initialReporteComiteOpen={isReporteComiteForAi}
-            onNavigateTab={(tab) => {
-              setActiveTab(tab);
-              setIsReporteComiteForAi(false);
-            }}
+            onNavigateTab={(tab) => setActiveTab(tab)}
             onViewDetail={(item) => setSelectedColchaDetail(item)}
             onSyncSheets={() => loadAllLiveData(false)}
             isSyncing={isSyncing}
@@ -850,17 +792,6 @@ export function App() {
         onUpdatePhoto={handleUpdateOpPhoto}
       />
 
-      {/* CHAT STF TEAMS MODAL */}
-      <ChatTeamsModal
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        currentUser={currentUser}
-        solicitudes={solicitudes}
-        onViewOpDetail={(colcha) => setSelectedColchaDetail(colcha)}
-        isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(prev => !prev)}
-      />
-
       {/* USER PROFILES DIRECTORY MODAL */}
       <UserProfileModal
         isOpen={isProfileDirectoryOpen}
@@ -868,47 +799,6 @@ export function App() {
         onClose={() => setIsProfileDirectoryOpen(false)}
         onSelectUser={handleLogin}
       />
-
-      {/* FLOATING IN-APP CHAT TOAST BANNER */}
-      {inAppToast && (
-        <div 
-          onClick={() => {
-            setIsChatOpen(true);
-            setInAppToast(null);
-          }}
-          className="fixed top-5 right-5 z-[9999] max-w-sm w-[92vw] sm:w-full bg-[#0c1017] dark:bg-white border-2 border-emerald-500 rounded-3xl p-4 shadow-2xl shadow-emerald-500/20 text-white dark:text-zinc-950 flex items-start gap-3.5 cursor-pointer animate-in slide-in-from-top-4 duration-300 hover:scale-105 transition-transform"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-black flex items-center justify-center font-black text-sm shrink-0 shadow-md">
-            💬
-          </div>
-          <div className="flex-1 min-w-0 space-y-0.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-emerald-400 dark:text-emerald-700 truncate">
-                {inAppToast.sender} {inAppToast.room ? `(${inAppToast.room})` : ''}
-              </span>
-              <span className="text-[10px] font-mono text-zinc-400 bg-zinc-800 dark:bg-zinc-200 px-1.5 py-0.2 rounded font-bold">
-                Ahora
-              </span>
-            </div>
-            <p className="text-xs text-zinc-300 dark:text-zinc-700 line-clamp-2">
-              {inAppToast.message}
-            </p>
-            <span className="text-[9.5px] font-bold text-amber-400 dark:text-amber-600 block pt-1">
-              👆 Toca para responder al instante
-            </span>
-          </div>
-          <button 
-            type="button" 
-            onClick={(e) => {
-              e.stopPropagation();
-              setInAppToast(null);
-            }}
-            className="text-zinc-400 hover:text-white dark:hover:text-zinc-950 p-1 text-xs"
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* DELETE OP CONFIRMATION MODAL (EDWIN ADMINISTRADOR) */}
       {confirmDeleteOp && (
@@ -1026,97 +916,6 @@ export function App() {
         </div>
       )}
 
-      {/* FLOATING DRAGGABLE AI VOICE ASSISTANT BUTTON */}
-      <FloatingAiVoiceButton
-        solicitudes={solicitudes}
-        monitoreoList={monitoreoList}
-        metrics={metrics}
-        currentUser={currentUser}
-        onNavigateTab={(tab) => {
-          setActiveTab(tab);
-          setIsReporteComiteForAi(false);
-        }}
-        onSelectStage={(stage) => {
-          setAiStageFilter(stage);
-          setIsReporteComiteForAi(false);
-          setActiveTab('solicitudes');
-        }}
-        onNavigateStatSection={(section) => {
-          setAiStatSection(section);
-          setIsReporteComiteForAi(false);
-          setActiveTab('estadisticas');
-        }}
-        onToggleTheme={(theme) => {
-          setIsDarkMode(theme === 'dark');
-        }}
-        onOpenOpDetail={(op) => setSelectedColchaDetail(op)}
-        onOpenOpPrinter={(op) => setSelectedColchaPrinter(op)}
-        onOpenChat={() => setIsChatOpen(true)}
-        onOpenUserDirectory={() => setIsProfileDirectoryOpen(true)}
-        onOpenReporteComite={() => {
-          setIsReporteComiteForAi(true);
-          setActiveTab('estadisticas');
-        }}
-        onOpenAdminParametros={() => {
-          setIsReporteComiteForAi(false);
-          setActiveTab('base-datos');
-        }}
-        onSearchOp={(query) => {
-          setAiSearchQuery(query);
-          setIsReporteComiteForAi(false);
-          setActiveTab('solicitudes');
-        }}
-      />
-
-      {/* FLOATING IN-APP CHAT NOTIFICATION TOAST (DESKTOP & MOBILE) */}
-      {inAppToast && (
-        <div className="fixed top-3 sm:top-5 right-3 sm:right-6 z-[130] max-w-sm sm:max-w-md w-[calc(100vw-24px)] bg-[#0a0f1d]/95 text-white border border-emerald-500/60 shadow-[0_10px_35px_rgba(0,0,0,0.8),0_0_25px_rgba(16,185,129,0.3)] rounded-2xl sm:rounded-3xl p-3 sm:p-4 backdrop-blur-xl animate-in slide-in-from-top-4 duration-300 ring-1 ring-emerald-500/30 font-sans select-none">
-          <div className="flex items-start gap-3">
-            <div className="relative shrink-0 mt-0.5">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 text-black font-black font-mono text-xs flex items-center justify-center shadow-md">
-                {inAppToast.sender.slice(0, 2).toUpperCase()}
-              </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black animate-pulse" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-xs font-black font-mono uppercase text-white truncate">
-                    {inAppToast.sender}
-                  </span>
-                  {inAppToast.room && (
-                    <span className="text-[9px] font-mono px-2 py-0.2 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 shrink-0 font-bold">
-                      {inAppToast.room}
-                    </span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setInAppToast(null)}
-                  className="text-zinc-400 hover:text-white p-1 rounded-lg transition cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <p className="text-xs text-zinc-300 font-mono mt-1 line-clamp-2">
-                {inAppToast.message}
-              </p>
-              <div className="mt-2.5 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsChatOpen(true);
-                    setInAppToast(null);
-                  }}
-                  className="px-3 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-[10.5px] uppercase tracking-wider transition cursor-pointer shadow-sm active:scale-95"
-                >
-                  Abrir Chat
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

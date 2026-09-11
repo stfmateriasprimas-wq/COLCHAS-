@@ -1,15 +1,13 @@
 import React from 'react';
-import { Sun, Moon, LogOut, MessageSquare, ArrowLeft, User, RefreshCw } from 'lucide-react';
+import { Sun, Moon, LogOut, ArrowLeft, User, RefreshCw } from 'lucide-react';
 import { UsuarioSTF } from '../services/authService';
 import { STFLogo } from './Common/STFLogo';
-
-import { chatService } from '../services/chatService';
 
 interface HeaderProps {
   currentUser: UsuarioSTF | null;
   isDarkMode: boolean;
   onToggleTheme: () => void;
-  onOpenChat: () => void;
+  onOpenChat?: () => void;
   onLogout: () => void;
   showBackButton?: boolean;
   onBackToDashboard?: () => void;
@@ -32,17 +30,6 @@ export const Header: React.FC<HeaderProps> = ({
   onManualSync,
   totalOpsCount
 }) => {
-  const [unreadCount, setUnreadCount] = React.useState<number>(() => {
-    return chatService.getUnreadCount(currentUser?.id || '1111');
-  });
-
-  React.useEffect(() => {
-    const unsub = chatService.subscribe(() => {
-      setUnreadCount(chatService.getUnreadCount(currentUser?.id || '1111'));
-    });
-    return () => unsub();
-  }, [currentUser]);
-
   // Area semantic dot color
   const getAreaDotColor = (area?: string) => {
     if (!area) return 'bg-zinc-400';
@@ -59,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto rounded-2xl sm:rounded-3xl border px-2.5 sm:px-6 py-2 sm:py-3 transition-colors duration-200 bg-[#0c1017] border-zinc-800 text-white shadow-xl shadow-black/20">
         
         {/* Responsive Header Structure: 
-            - Mobile (< sm): 2-tier layout with Row 1 (Chat, Logo, Actions) and Row 2 (Centered User Badge) so nothing overlaps or crowds.
+            - Mobile (< sm): 2-tier layout with Row 1 (Logo, Actions) and Row 2 (Centered User Badge) so nothing overlaps or crowds.
             - Desktop (>= sm): Preserves the official 3-column symmetrical grid defined in AGENTS.md Rule #7.
         */}
         <div className="flex flex-col gap-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center relative w-full">
@@ -67,8 +54,8 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Top Row on Mobile / Direct grid slots on Desktop */}
           <div className="flex items-center justify-between w-full sm:contents">
             
-            {/* LEFT: Back Button & Chat Teams Button */}
-            <div className="flex items-center justify-start gap-1 sm:gap-2 shrink-0">
+            {/* LEFT: Back Button */}
+            <div className="flex items-center justify-start gap-1 sm:gap-2 shrink-0 min-w-[32px] sm:min-w-[40px]">
               {showBackButton && (
                 <button
                   type="button"
@@ -79,27 +66,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               )}
-
-              <button
-                type="button"
-                onClick={onOpenChat}
-                className="px-2 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl border border-zinc-800 bg-zinc-900/90 hover:bg-zinc-800 text-white text-xs font-bold flex items-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-sm hover:border-emerald-500/50 hover:shadow-emerald-500/10 group shrink-0"
-                title="Abrir Chat STF Teams"
-              >
-                <div className="relative">
-                  <MessageSquare className="w-3.5 h-3.5 text-zinc-400 group-hover:text-emerald-400 transition" />
-                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
-                </div>
-                <span className="tracking-wide font-mono text-[11px] sm:text-xs">
-                  <span className="hidden sm:inline">CHAT TEAMS</span>
-                  <span className="sm:hidden">CHAT</span>
-                </span>
-                {unreadCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-black text-[9px] sm:text-[9.5px] font-mono font-black shadow-sm">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
             </div>
 
             {/* CENTER: Centered STF GROUP Logo (with user badge on desktop) */}
