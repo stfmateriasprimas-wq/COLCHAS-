@@ -62,7 +62,11 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
   - Subcarpetas por OP: `OP-XXXXX/` (ej. `OP-00096156/`).
   - Archivos: `OP-XXXXX_MUESTRA_INICIAL.jpg` (Pre-Solicitud) y `OP-XXXXX_POST_LAVADO_CALIDAD.jpg` (Auditoría Calidad).
   - Permisos: Lectura pública por enlace (`ANYONE_WITH_LINK, VIEW`) para acceso móvil instantáneo sin login.
-- **Columna M (13) en `BASE_DE_DATOS`**: Almacena los enlaces oficiales de Google Drive unificados mediante el separador ` | ` (`linkDriveFoto1 | linkDriveFoto2`).
+- **Columna M (13) en `BASE_DE_DATOS`**: Almacena el enlace oficial 100% clickeable de la carpeta de Google Drive de la OP (`https://drive.google.com/drive/folders/...`). Al hacer clic en la celda en Google Sheets, abre directamente la carpeta de la OP en Drive donde se visualizan ambas fotos (`_MUESTRA_INICIAL.jpg` y `_POST_LAVADO_CALIDAD.jpg`). En el frontend se resuelven automáticamente las fotos individuales en CDN de alta velocidad mediante la acción `GET_OP_PHOTOS`.
+- **Límite Estricto de 2 Fotos por OP en Google Drive**:
+  - `OP-XXXXX_MUESTRA_INICIAL.jpg`: Fotografía tomada en Atelier / Corte / Solicitud.
+  - `OP-XXXXX_POST_LAVADO_CALIDAD.jpg`: Fotografía tomada en Auditoría de Calidad Post-Lavado.
+  - Cualquier versión intermedia anterior es enviada a la papelera automáticamente para garantizar exactamente 2 fotos por OP.
 - **Reparación Automática (`repairBase64Jpeg`)**:
   - Si una foto en Base64 fue cortada por límites de celda en Google Sheets perdiendo su marcador `\xFF\xD9`, el frontend la repara de inmediato anexando el marcador de fin de archivo JPEG.
   - Esto previene el icono de imagen rota `[?]` en Safari de iOS (iPhone).
@@ -76,14 +80,35 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
 
 ---
 
-## 5. Arquitectura de Sincronización en Tiempo Real
+## 5. Automatización de Notificaciones por Correo (3 Flujos Oficiales)
+- **Fuente Maestra de la Verdad para Correos**:
+  - La **Columna E de la hoja `USUARIOS`** en Google Sheets es la única fuente oficial de correos.
+  - Cualquier adición, retiro o modificación manual en la Columna E de `USUARIOS` es leída dinámicamente en tiempo real para todos los envíos.
+- **Flujo A (Creación Inmediata de OP)**:
+  - Disparado al registrar una nueva OP en el sistema.
+  - Envía la Ficha Técnica oficial con enlace al aplicativo móvil (`?op=...&view=public`) y foto inicial.
+- **Flujo B (Alertas Diarias Matutinas a las 7:00 AM)**:
+  - Disparado por trigger de tiempo en Apps Script.
+  - Audita todas las OPs con SLA > 3 días hábiles y envía reporte ejecutivo consolidado a la lista oficial de correos.
+- **Flujo C (Dictamen Final y Liberación de OP)**:
+  - Disparado cuando el auditor de Calidad emite su veredicto (`APROBADO` o `RECHAZADO`).
+  - Envía notificación formal de liberación con el dictamen, observaciones técnicas finales y foto post-lavado.
+
+---
+
+## 6. Arquitectura de Sincronización en Tiempo Real
 - **Lectura Rápida (0 ms)**: `https://docs.google.com/spreadsheets/d/<ID>/gviz/tq?tqx=out:csv&sheet=BASE_DE_DATOS`
-- **Escritura y Notificaciones**: Google Apps Script Web App (POST con acciones `CREATE_OP`, `TRANSFER_OP`, `UPDATE_DICTAMEN`, `UPDATE_OP_PHOTO`, `SYNC_ALERTAS`, `SEND_OP_EMAIL`).
+- **Escritura y Notificaciones**: Google Apps Script Web App (POST con acciones `CREATE_OP`, `TRANSFER_OP`, `UPDATE_DICTAMEN`, `UPDATE_OP_PHOTO`, `SYNC_ALERTAS`, `CLEAN_COLUMNS_KLMN`, `CLEAN_DRIVE_DUPLICATES`, `GET_OP_PHOTOS`).
 - **Respaldo Local**: `localStorage` (`STF_LOCAL_CREATED_OPS`) para disponibilidad inmediata antes de sincronizar.
 - **Payload QR Compacto**: Parámetro `?d=...` en Base64 con datos esenciales para escaneo offline o con conexión lenta.
 
 ---
 
-## 6. Integridad del Código y Despliegue
+## 7. Diseño e Interfaz de Usuario
+- **Encabezado Navbar**: Estructurado con cuadrícula CSS simétrica de 3 columnas `grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]` garantizando que el isotipo STF GROUP y el identificador de usuario se mantengan siempre en el centro geométrico exacto de la pantalla.
+
+---
+
+## 8. Integridad del Código y Despliegue
 - Antes de subir cualquier cambio a `main`, DEBE ejecutarse `npm run build` (`tsc -b && vite build`) garantizando **0 errores**.
 - Despliegue continuo automático activo en Vercel vinculado a la rama `main` de GitHub.
