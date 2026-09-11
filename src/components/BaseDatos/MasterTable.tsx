@@ -9,6 +9,7 @@ import { FloatingScrollPill } from '../Common/FloatingScrollPill';
 import { TabType } from '../Navigation';
 import { getOpChronologicalTimestamp } from '../../services/slaCalculator';
 import { UsuarioSTF, isAdminUser, isLavanderiaUser, isEdiazUser } from '../../services/authService';
+import { getOpPhotosFromCache } from '../../services/googleSheetsService';
 import { DeletedOpsHistorySection } from './DeletedOpsHistorySection';
 
 interface MasterTableProps {
@@ -571,27 +572,37 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                     </td>
 
                     <td className="py-2 px-3 text-center">
-                      {item.fotoMuestraUrl ? (
-                        <div 
-                          onClick={() => onViewDetail(item)}
-                          className="w-8 h-8 rounded-lg overflow-hidden border border-zinc-700 dark:border-zinc-300 mx-auto cursor-pointer hover:scale-110 transition shadow-xs bg-zinc-900 dark:bg-zinc-100"
-                          title="Clic para ver fotografía de muestra ampliada"
-                        >
-                          <img src={item.fotoMuestraUrl} alt="Muestra" className="w-full h-full object-cover" />
-                        </div>
-                      ) : item.driveFolderUrl ? (
-                        <a
-                          href={item.driveFolderUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-8 h-8 rounded-lg flex items-center justify-center border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 dark:text-amber-700 mx-auto cursor-pointer hover:scale-110 transition shadow-xs text-xs font-bold"
-                          title="Abrir carpeta oficial de Drive con ambas fotos"
-                        >
-                          📁
-                        </a>
-                      ) : (
-                        <span className="text-zinc-500 text-xs">—</span>
-                      )}
+                      {(() => {
+                        const cached = getOpPhotosFromCache(item.op);
+                        const fotoUrl = item.fotoMuestraUrl || cached?.foto1;
+                        const folderUrl = item.driveFolderUrl || cached?.folderUrl;
+
+                        if (fotoUrl) {
+                          return (
+                            <div 
+                              onClick={() => onViewDetail && onViewDetail(item)}
+                              className="w-8 h-8 rounded-lg overflow-hidden border border-zinc-700 dark:border-zinc-300 mx-auto cursor-pointer hover:scale-110 transition shadow-xs bg-zinc-900 dark:bg-zinc-100"
+                              title="Clic para ver fotografía de muestra ampliada"
+                            >
+                              <img src={fotoUrl} alt="Muestra" className="w-full h-full object-cover" />
+                            </div>
+                          );
+                        }
+                        if (folderUrl) {
+                          return (
+                            <a
+                              href={folderUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 dark:text-amber-700 mx-auto cursor-pointer hover:scale-110 transition shadow-xs text-xs font-bold"
+                              title="Abrir carpeta oficial de Drive con ambas fotos"
+                            >
+                              📁
+                            </a>
+                          );
+                        }
+                        return <span className="text-zinc-500 text-xs">—</span>;
+                      })()}
                     </td>
 
                     <td className="py-3 px-3 text-zinc-300 dark:text-zinc-700 text-[11px] font-medium">

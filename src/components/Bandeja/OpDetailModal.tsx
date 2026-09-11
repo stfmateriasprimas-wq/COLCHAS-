@@ -9,7 +9,7 @@ import {
 import { SolicitudColcha } from '../../types';
 import { SafeQRCode } from '../Common/SafeQRCode';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto } from '../../services/googleSheetsService';
+import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, getOpPhotosFromCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 import { generatePublicTrackingUrl, generatePublicTrackingUrlAsync } from '../../services/qrTrackingService';
 
@@ -37,8 +37,29 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   const [asyncPublicUrl, setAsyncPublicUrl] = useState<string>('');
   const calidadFileInputRef = useRef<HTMLInputElement>(null);
 
-  const fotoMuestraUrl = solicitud?.fotoMuestraUrl;
-  const fotoCalidadUrl = fotoCalidadLocal || solicitud?.fotoCalidadUrl;
+  const [drivePhotos, setDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(() => {
+    return solicitud?.op ? getOpPhotosFromCache(solicitud.op) : null;
+  });
+
+  useEffect(() => {
+    if (!solicitud?.op) return;
+    const cached = getOpPhotosFromCache(solicitud.op);
+    if (cached) {
+      setDrivePhotos(prev => ({ ...cached, ...prev }));
+    }
+    if (!solicitud.fotoMuestraUrl || (!fotoCalidadLocal && !solicitud.fotoCalidadUrl)) {
+      let isMounted = true;
+      fetchOpPhotosFromDrive(solicitud.op).then((photos) => {
+        if (isMounted && (photos.foto1 || photos.foto2 || photos.folderUrl)) {
+          setDrivePhotos(prev => ({ ...prev, ...photos }));
+        }
+      });
+      return () => { isMounted = false; };
+    }
+  }, [solicitud?.op, solicitud?.fotoMuestraUrl, solicitud?.fotoCalidadUrl, fotoCalidadLocal]);
+
+  const fotoMuestraUrl = solicitud?.fotoMuestraUrl || drivePhotos?.foto1;
+  const fotoCalidadUrl = fotoCalidadLocal || solicitud?.fotoCalidadUrl || drivePhotos?.foto2;
 
   useEffect(() => {
     if (!solicitud) return;

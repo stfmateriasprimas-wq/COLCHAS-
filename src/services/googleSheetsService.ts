@@ -508,17 +508,71 @@ export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?
     if (res.ok) {
       const data = await res.json();
       if (data && (data.foto1 || data.foto2 || data.folderUrl)) {
-        return {
+        const resolved = {
           foto1: data.foto1 ? normalizeImageUrl(data.foto1) : undefined,
           foto2: data.foto2 ? normalizeImageUrl(data.foto2) : undefined,
           folderUrl: data.folderUrl || undefined
         };
+        saveOpPhotosToCache(cleanOp, resolved);
+        return resolved;
       }
     }
   } catch (err) {
     console.warn('No se pudieron resolver fotos remotas de la OP:', err);
   }
   return {};
+}
+
+// =========================================================================
+// CACHÉ PERSISTENTE DE FOTOGRAFÍAS DE OPS (0 MS Y SIN PÉRDIDA AL RECARGAR)
+// =========================================================================
+export const OP_PHOTOS_CACHE_KEY = 'STF_OP_PHOTOS_CACHE_V2';
+
+export interface OpPhotosCacheItem {
+  foto1?: string;
+  foto2?: string;
+  folderUrl?: string;
+  updatedAt: number;
+}
+
+export function getOpPhotosFromCache(opNumber?: string): OpPhotosCacheItem | undefined {
+  if (typeof window === 'undefined' || !opNumber) return undefined;
+  try {
+    const raw = localStorage.getItem(OP_PHOTOS_CACHE_KEY);
+    if (!raw) return undefined;
+    const cache: Record<string, OpPhotosCacheItem> = JSON.parse(raw);
+    const cleanDigits = opNumber.replace(/\D/g, '');
+    const cleanOp = formatOpCode(opNumber);
+    return cache[cleanOp] || (cleanDigits ? cache[cleanDigits] : undefined);
+  } catch (e) {
+    return undefined;
+  }
+}
+
+export function saveOpPhotosToCache(
+  opNumber: string, 
+  photos: { foto1?: string; foto2?: string; folderUrl?: string }
+): void {
+  if (typeof window === 'undefined' || !opNumber) return;
+  try {
+    const raw = localStorage.getItem(OP_PHOTOS_CACHE_KEY);
+    const cache: Record<string, OpPhotosCacheItem> = raw ? JSON.parse(raw) : {};
+    const cleanDigits = opNumber.replace(/\D/g, '');
+    const cleanOp = formatOpCode(opNumber);
+    const existing: OpPhotosCacheItem | undefined = cache[cleanOp] || (cleanDigits ? cache[cleanDigits] : undefined);
+    
+    const item: OpPhotosCacheItem = {
+      foto1: photos.foto1 || existing?.foto1,
+      foto2: photos.foto2 || existing?.foto2,
+      folderUrl: photos.folderUrl || existing?.folderUrl,
+      updatedAt: Date.now()
+    };
+    cache[cleanOp] = item;
+    if (cleanDigits) cache[cleanDigits] = item;
+    localStorage.setItem(OP_PHOTOS_CACHE_KEY, JSON.stringify(cache));
+  } catch (e) {
+    console.warn('Error saving op photos to cache:', e);
+  }
 }
 
 export function getLocalCreatedOps(): SolicitudColcha[] {
@@ -564,6 +618,15 @@ export function saveLocalCreatedOp(newOp: SolicitudColcha): void {
     const filtered = current.filter(o => o.id !== newOp.id && (o.op.replace(/\D/g, '') || o.op.trim().toUpperCase()) !== cleanTargetOp);
     localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify([newOp, ...filtered]));
     localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify([newOp, ...filtered]));
+
+    // Sincronizar inmediatamente con caché persistente de fotos
+    if (newOp.fotoMuestraUrl || newOp.fotoCalidadUrl || newOp.driveFolderUrl) {
+      saveOpPhotosToCache(newOp.op, {
+        foto1: newOp.fotoMuestraUrl,
+        foto2: newOp.fotoCalidadUrl,
+        folderUrl: newOp.driveFolderUrl
+      });
+    }
 
     // Sincronizar inmediatamente la caché local para evitar cualquier borrado por condición de carrera
     try {
@@ -629,6 +692,7 @@ export function updateLocalOpPhoto(
   isCalidad: boolean = false
 ): void {
   if (typeof window === 'undefined' || !opNumberOrId) return;
+  saveOpPhotosToCache(opNumberOrId, isCalidad ? { foto2: photoUrl } : { foto1: photoUrl });
   const cleanTarget = opNumberOrId.replace(/\D/g, '') || opNumberOrId.trim().toUpperCase();
   const current = getLocalCreatedOps();
   const updated = current.map(item => {
@@ -770,73 +834,60 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               }
 
               const { foto1, foto2, folderUrl } = parseDualPhotos(fotoUrlRaw);
+              const cachedPhotos = getOpPhotosFromCache(cleanOp);
+              const effectiveFoto1 = foto1 || cachedPhotos?.foto1;
+              const effectiveFoto2 = foto2 || cachedPhotos?.foto2;
+              const effectiveFolderUrl = folderUrl || cachedPhotos?.folderUrl;
 
-                let cleanObsOperario = (obsOperarioRaw || '').trim();
-                if (cleanObsOperario.includes(' | Colcha recibida') || cleanObsOperario.toLowerCase().includes('colcha recibida')) {
-                  cleanObsOperario = cleanObsOperario.split(' | ')[0].trim().replace(/colcha recibida.*/i, '').trim();
-                }
-                cleanObsOperario = cleanObsOperario.replace(/^\[[^\]]+\]:\s*/, '').trim();
+              if (foto1 || foto2 || folderUrl) {
+                saveOpPhotosToCache(cleanOp, { foto1, foto2, folderUrl });
+              }
 
-                let cleanObsColfactory = (obsColfactoryRaw || '').trim();
-                if (cleanObsColfactory.toLowerCase().includes('colcha recibida') || cleanObsColfactory.includes('[LAVANDERIA]')) {
-                  cleanObsColfactory = '';
-                }
+              let cleanObsOperario = (obsOperarioRaw || '').trim();
+              if (cleanObsOperario.includes(' | Colcha recibida') || cleanObsOperario.toLowerCase().includes('colcha recibida')) {
+                cleanObsOperario = cleanObsOperario.split(' | ')[0].trim().replace(/colcha recibida.*/i, '').trim();
+              }
+              cleanObsOperario = cleanObsOperario.replace(/^\[[^\]]+\]:\s*/, '').trim();
 
-                parsedList.push({
-                  id: `op-row-${idx + 1}-${cleanOp.replace(/\W/g, '')}`,
-                  op: cleanOp,
-                  referencia: refRaw || 'S/R',
-                  tela: telaRaw || 'TELA INDIGO',
-                  codigoMt: mtRaw || 'MT-GEN',
-                  color: colorRaw || 'AZUL',
-                  rollos: rollosRaw,
-                  lote: loteRaw,
-                  estado: estado,
-                  dictamen: dictamen,
-                  inspector: inspectorRaw,
-                  fechaCreacion: fechaStr,
-                  observacionesOperario: cleanObsOperario,
-                  observacionesLavanderia: cleanObsColfactory,
-                  observacionesCalidad: obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''),
-                  fotoMuestraUrl: foto1,
-                  fotoCalidadUrl: foto2,
-                  driveFolderUrl: folderUrl,
-                  areaActual: mapAreaName(estado),
-                  horasEnProceso: horasHabiles,
-                  diasHabiles: diasHabiles,
-                  limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
-                  tieneRetraso: tieneRetraso,
-                  esRetrasoCritico: esRetrasoCritico,
-                  emailUsuario: correoNotificadoRaw,
-                  mes: mesRaw
-                });
+              let cleanObsColfactory = (obsColfactoryRaw || '').trim();
+              if (cleanObsColfactory.toLowerCase().includes('colcha recibida') || cleanObsColfactory.includes('[LAVANDERIA]')) {
+                cleanObsColfactory = '';
+              }
+
+              parsedList.push({
+                id: `op-row-${idx + 1}-${cleanOp.replace(/\W/g, '')}`,
+                op: cleanOp,
+                referencia: refRaw || 'S/R',
+                tela: telaRaw || 'TELA INDIGO',
+                codigoMt: mtRaw || 'MT-GEN',
+                color: colorRaw || 'AZUL',
+                rollos: rollosRaw,
+                lote: loteRaw,
+                estado: estado,
+                dictamen: dictamen,
+                inspector: inspectorRaw,
+                fechaCreacion: fechaStr,
+                observacionesOperario: cleanObsOperario,
+                observacionesLavanderia: cleanObsColfactory,
+                observacionesCalidad: obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''),
+                fotoMuestraUrl: effectiveFoto1,
+                fotoCalidadUrl: effectiveFoto2,
+                driveFolderUrl: effectiveFolderUrl,
+                areaActual: mapAreaName(estado),
+                horasEnProceso: horasHabiles,
+                diasHabiles: diasHabiles,
+                limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
+                tieneRetraso: tieneRetraso,
+                esRetrasoCritico: esRetrasoCritico,
+                emailUsuario: correoNotificadoRaw,
+                mes: mesRaw
+              });
             });
 
             if (parsedList.length > 0) {
-              // Limpiar automáticamente de local created ops cualquier OP que ya exista en Google Sheets
-              const remoteOpsSet = new Set(parsedList.map(m => (m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()));
-              const rawLocal = getLocalCreatedOps();
-              const validLocalOps = rawLocal.filter(loc => {
-                if (isOpDeleted(loc.op)) return false;
-                const cleanLoc = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
-                // Si la OP ya fue guardada y confirmada en Google Sheets, retirarla de localOps
-                if (remoteOpsSet.has(cleanLoc)) {
-                  removeLocalCreatedOp(loc.op);
-                  return false;
-                }
-                // Si la OP local tiene más de 24 horas y nunca llegó a Google Sheets, depurarla como prueba huérfana
-                if (loc.fechaCreacion) {
-                  const createdTime = new Date(loc.fechaCreacion).getTime();
-                  if (!isNaN(createdTime) && (Date.now() - createdTime > 24 * 60 * 60 * 1000)) {
-                    removeLocalCreatedOp(loc.op);
-                    return false;
-                  }
-                }
-                return true;
-              });
-
+              const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
               const merged = [...parsedList];
-              validLocalOps.forEach(loc => {
+              localOps.forEach(loc => {
                 const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
                 const remoteIdx = merged.findIndex(m => {
                   const cleanRemoteOp = (m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase();
@@ -847,13 +898,17 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                   merged.unshift(loc);
                 } else {
                   const remote = merged[remoteIdx];
+                  const cached = getOpPhotosFromCache(cleanLocOp);
                   merged[remoteIdx] = {
                     ...remote,
                     id: (loc.id && loc.id.startsWith('colcha-')) ? loc.id : remote.id,
-                    fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
-                    fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
-                    driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl,
-                    observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad
+                    fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl || cached?.foto1,
+                    fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl || cached?.foto2,
+                    driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl || cached?.folderUrl,
+                    observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad,
+                    estado: loc.fechaActualizacion ? loc.estado : (loc.estado || remote.estado),
+                    areaActual: loc.fechaActualizacion ? loc.areaActual : (loc.areaActual || remote.areaActual),
+                    dictamen: loc.fechaActualizacion && loc.dictamen ? loc.dictamen : remote.dictamen
                   };
                 }
               });
@@ -929,6 +984,14 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
         const cleanOp = formatOpCode(opRaw);
         if (isOpDeleted(opRaw) || isOpDeleted(cleanOp)) continue;
         const { foto1, foto2, folderUrl } = parseDualPhotos(r[12] || '');
+        const cachedPhotos = getOpPhotosFromCache(cleanOp);
+        const effectiveFoto1 = foto1 || cachedPhotos?.foto1;
+        const effectiveFoto2 = foto2 || cachedPhotos?.foto2;
+        const effectiveFolderUrl = folderUrl || cachedPhotos?.folderUrl;
+
+        if (foto1 || foto2 || folderUrl) {
+          saveOpPhotosToCache(cleanOp, { foto1, foto2, folderUrl });
+        }
 
         let cleanCsvObsOperario = obsOperarioStr.trim();
         if (cleanCsvObsOperario.includes(' | Colcha recibida') || cleanCsvObsOperario.toLowerCase().includes('colcha recibida')) {
@@ -957,9 +1020,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           observacionesOperario: cleanCsvObsOperario,
           observacionesLavanderia: cleanCsvObsColfactory,
           observacionesCalidad: obsFinalStr || cleanCsvObsOperario,
-          fotoMuestraUrl: foto1,
-          fotoCalidadUrl: foto2,
-          driveFolderUrl: folderUrl,
+          fotoMuestraUrl: effectiveFoto1,
+          fotoCalidadUrl: effectiveFoto2,
+          driveFolderUrl: effectiveFolderUrl,
           areaActual: mapAreaName(estado),
           horasEnProceso: horasHabiles,
           diasHabiles: diasHabiles,
@@ -985,12 +1048,13 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
             merged.unshift(loc);
           } else {
             const remote = merged[remoteIdx];
+            const cached = getOpPhotosFromCache(cleanLocOp);
             merged[remoteIdx] = {
               ...remote,
               id: (loc.id && loc.id.startsWith('colcha-')) ? loc.id : remote.id,
-              fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
-              fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
-              driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl,
+              fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl || cached?.foto1,
+              fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl || cached?.foto2,
+              driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl || cached?.folderUrl,
               observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad,
               estado: loc.fechaActualizacion ? loc.estado : (loc.estado || remote.estado),
               areaActual: loc.fechaActualizacion ? loc.areaActual : (loc.areaActual || remote.areaActual),
@@ -1116,6 +1180,14 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
             }
 
             const { foto1, foto2, folderUrl } = parseDualPhotos(fotoUrlRaw);
+            const cachedPhotos = getOpPhotosFromCache(cleanOp);
+            const effectiveFoto1 = foto1 || cachedPhotos?.foto1;
+            const effectiveFoto2 = foto2 || cachedPhotos?.foto2;
+            const effectiveFolderUrl = folderUrl || cachedPhotos?.folderUrl;
+
+            if (foto1 || foto2 || folderUrl) {
+              saveOpPhotosToCache(cleanOp, { foto1, foto2, folderUrl });
+            }
 
             parsedList.push({
               id: `op-row-${idx + 1}-${cleanOp.replace(/\W/g, '')}`,
@@ -1133,9 +1205,9 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               observacionesOperario: obsOperarioRaw || '',
               observacionesLavanderia: obsColfactoryRaw || '',
               observacionesCalidad: obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''),
-              fotoMuestraUrl: foto1,
-              fotoCalidadUrl: foto2,
-              driveFolderUrl: folderUrl,
+              fotoMuestraUrl: effectiveFoto1,
+              fotoCalidadUrl: effectiveFoto2,
+              driveFolderUrl: effectiveFolderUrl,
               areaActual: mapAreaName(estado),
               horasEnProceso: horasHabiles,
               diasHabiles: diasHabiles,
@@ -1159,12 +1231,13 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                 merged.unshift(loc);
               } else {
                 const remote = merged[remoteIdx];
+                const cached = getOpPhotosFromCache(cleanLocOp);
                 merged[remoteIdx] = {
                   ...remote,
                   id: (loc.id && loc.id.startsWith('colcha-')) ? loc.id : remote.id,
-                  fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
-                  fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
-                  driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl,
+                  fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl || cached?.foto1,
+                  fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl || cached?.foto2,
+                  driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl || cached?.folderUrl,
                   observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad,
                   estado: loc.fechaActualizacion ? loc.estado : (loc.estado || remote.estado),
                   areaActual: loc.fechaActualizacion ? loc.areaActual : (loc.areaActual || remote.areaActual),
@@ -1479,6 +1552,13 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
 
   const driveUrl = res.data?.driveUrl || (typeof (res as any).driveUrl === 'string' ? (res as any).driveUrl : undefined);
   const folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
+
+  if (formattedOp) {
+    saveOpPhotosToCache(formattedOp, {
+      foto1: driveUrl || payload.fotoMuestraUrl,
+      folderUrl: folderUrl
+    });
+  }
 
   return {
     success: res.success,

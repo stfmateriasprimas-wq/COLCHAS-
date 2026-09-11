@@ -7,7 +7,7 @@ import {
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser, isEdiazUser } from '../../services/authService';
-import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, pushColfactoryObservationToSheets } from '../../services/googleSheetsService';
+import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, pushColfactoryObservationToSheets, getOpPhotosFromCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
 
 interface SolicitudCardProps {
   solicitud: SolicitudColcha;
@@ -164,6 +164,33 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
   const fotoCalidadUrlActual = fotoCalidadPreview || solicitud.fotoCalidadUrl;
 
+  // Auto-descubrimiento y persistencia de fotos (Caché local + Google Drive)
+  const [cachedOrDrivePhotos, setCachedOrDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(() => {
+    return getOpPhotosFromCache(solicitud.op) || null;
+  });
+
+  useEffect(() => {
+    const cached = getOpPhotosFromCache(solicitud.op);
+    if (cached && (cached.foto1 || cached.foto2 || cached.folderUrl)) {
+      setCachedOrDrivePhotos(cached);
+    }
+    // Si la OP no tiene foto de muestra en memoria y tampoco en caché local, consultarla a Google Drive
+    if (!solicitud.fotoMuestraUrl && !cached?.foto1) {
+      let isMounted = true;
+      fetchOpPhotosFromDrive(solicitud.op).then((res) => {
+        if (isMounted && (res.foto1 || res.foto2 || res.folderUrl)) {
+          setCachedOrDrivePhotos(res);
+        }
+      });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [solicitud.op, solicitud.fotoMuestraUrl]);
+
+  const effectiveFotoMuestra = solicitud.fotoMuestraUrl || cachedOrDrivePhotos?.foto1;
+  const effectiveFotoCalidad = fotoCalidadUrlActual || cachedOrDrivePhotos?.foto2;
+
   // Determine origin for returning (ZF / Atelier vs Planta / Calidad)
   const origenIsZF = Boolean(
     solicitud.observacionesOperario?.toUpperCase().includes('ATELIER') ||
@@ -271,7 +298,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
     }
   };
 
-  const hasBothPhotos = Boolean(solicitud.fotoMuestraUrl && (solicitud.fotoCalidadUrl || fotoCalidadPreview));
+  const hasBothPhotos = Boolean(effectiveFotoMuestra && effectiveFotoCalidad);
 
   return (
     <div id={cardId} className={`bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 ${stageConfig.border} border-l-[8px] rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 text-white dark:text-zinc-950 scroll-mt-24`}>
@@ -283,7 +310,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           <div className="flex items-center gap-2 flex-wrap">
             {/* Stage Pill */}
             <span className={`text-[11px] font-mono font-black px-3 py-1 rounded-xl border uppercase ${stageConfig.badge}`}>
-              {solicitud.estado.replace('_', ' ')}
+              {stageConfig.border.includes('rose') ? '🚨 ' : ''}{solicitud.estado.replace('_', ' ')}
             </span>
             
             {/* Muestra Activa Pill / Dictamen Pill */}
@@ -302,40 +329,55 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               </span>
             )}
 
-            {/* Delay alert if delayed */}
+            {/* SLA Delay Pill */}
             {solicitud.tieneRetraso && solicitud.estado !== 'FINALIZADO' && (
-              <span className="text-[11px] font-mono font-bold px-3 py-1 rounded-xl bg-rose-950/70 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border border-rose-700 dark:border-rose-300 flex items-center gap-1">
-                <span>⚠️ +{solicitud.diasHabiles} DÍAS RETRASO</span>
+              <span className={`text-[11px] font-mono font-black px-3 py-1 rounded-xl border flex items-center gap-1.5 animate-pulse ${
+                solicitud.esRetrasoCritico 
+                  ? 'bg-rose-950/90 text-rose-300 border-rose-500/80 dark:bg-rose-50 dark:text-rose-800 dark:border-rose-300' 
+                  : 'bg-amber-950/90 text-amber-300 border-amber-500/80 dark:bg-amber-50 dark:text-amber-800 dark:border-amber-300'
+              }`}>
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>RETRASO SLA ({solicitud.diasHabiles}D/{solicitud.limiteSlaDias}D)</span>
               </span>
             )}
           </div>
 
-          <div className="text-xs text-zinc-400 dark:text-zinc-600 font-mono flex items-center gap-2 flex-wrap">
+          {/* Creation Date & Time Elapsed */}
+          <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 dark:text-zinc-500">
             <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
-              Inicio: {formatColombianDisplayDate(solicitud.fechaCreacion)}
+              <Calendar className="w-3.5 h-3.5" />
+              <span>{formatColombianDisplayDate(solicitud.fechaCreacion)}</span>
             </span>
-            <span>|</span>
+            <span>•</span>
             <span className="flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
-              Cargada hace: {solicitud.horasEnProceso < 24 ? 'Hoy' : `${solicitud.diasHabiles}d`} ({solicitud.horasEnProceso}h hábiles)
+              <Clock className="w-3.5 h-3.5" />
+              <span>{solicitud.diasHabiles}d hábiles</span>
             </span>
           </div>
         </div>
 
-        {/* Middle Row: Title, Ref, Tela, Photo Box */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="space-y-2.5 flex-1">
+        {/* Main Info Grid */}
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+          
+          {/* Left Column: Identifiers, Fabric & Details */}
+          <div className="space-y-2.5 flex-1 min-w-0 w-full">
             
-            {/* Title & Ver Ficha */}
-            <div className="flex items-center justify-between gap-2 sm:gap-3">
-              <h3 className="text-base sm:text-xl md:text-2xl font-black text-white dark:text-zinc-950 font-mono tracking-tight truncate">
-                {solicitud.op} <span className="text-zinc-500 dark:text-zinc-400 font-sans">/</span> REF – {solicitud.referencia}
-              </h3>
+            {/* Prominent OP Header */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <h3 className="text-xl sm:text-2xl font-black font-mono tracking-tight text-white dark:text-zinc-950">
+                  {solicitud.op}
+                </h3>
+                <span className="text-sm sm:text-base font-bold text-zinc-400 dark:text-zinc-500 font-mono">
+                  / REF - {solicitud.referencia}
+                </span>
+              </div>
 
+              {/* View Technical Sheet Link */}
               <button
+                type="button"
                 onClick={() => onViewDetail(solicitud)}
-                className="text-[11px] sm:text-xs font-bold text-indigo-300 dark:text-indigo-700 bg-indigo-950/80 dark:bg-indigo-50 hover:bg-indigo-900 dark:hover:bg-indigo-100 border border-indigo-500/50 dark:border-indigo-200 px-3 sm:px-3.5 py-1.5 rounded-xl flex items-center gap-1 transition cursor-pointer shrink-0"
+                className="text-xs font-bold text-indigo-400 dark:text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>Ver Ficha</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -350,18 +392,18 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
               {/* Mobile Photo Mini-Preview Button (Touch-Friendly) */}
               <div className="flex sm:hidden items-center">
-                {(fotoCalidadUrlActual || solicitud.fotoMuestraUrl) ? (
+                {(effectiveFotoCalidad || effectiveFotoMuestra) ? (
                   <button
                     type="button"
                     onClick={() => {
-                      const targetPhoto = fotoCalidadUrlActual || solicitud.fotoMuestraUrl;
+                      const targetPhoto = effectiveFotoCalidad || effectiveFotoMuestra;
                       if (targetPhoto) setZoomedPhotoUrl(targetPhoto);
                     }}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900/90 dark:bg-zinc-100 border border-amber-500/60 text-amber-400 dark:text-amber-700 text-[10.5px] font-mono font-bold shadow-xs active:scale-95 transition"
                     title="Toca para ver la foto de la muestra en grande"
                   >
                     <img
-                      src={fotoCalidadUrlActual || solicitud.fotoMuestraUrl}
+                      src={effectiveFotoCalidad || effectiveFotoMuestra}
                       alt="Muestra"
                       referrerPolicy="no-referrer"
                       className="w-5 h-5 rounded-md object-cover border border-amber-500/40"
@@ -410,12 +452,12 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               <div className="flex items-center gap-2">
                 {/* Foto 1: Inicial */}
                 <div
-                  onClick={() => setZoomedPhotoUrl(solicitud.fotoMuestraUrl || null)}
+                  onClick={() => setZoomedPhotoUrl(effectiveFotoMuestra || null)}
                   className="w-20 h-28 rounded-2xl p-1.5 bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-700 dark:border-zinc-300 flex flex-col items-center justify-between cursor-pointer hover:border-amber-500 group overflow-hidden shadow-sm transition"
                   title="Clic para ver y ampliar Foto 1: Muestra Inicial (Corte)"
                 >
                   <img
-                    src={solicitud.fotoMuestraUrl}
+                    src={effectiveFotoMuestra}
                     alt="Inicial"
                     referrerPolicy="no-referrer"
                     className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
@@ -428,12 +470,12 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
                 {/* Foto 2: Calidad */}
                 <div
-                  onClick={() => setZoomedPhotoUrl(fotoCalidadUrlActual || null)}
+                  onClick={() => setZoomedPhotoUrl(effectiveFotoCalidad || null)}
                   className="w-20 h-28 rounded-2xl p-1.5 bg-purple-950/40 dark:bg-purple-50 border border-purple-500/50 dark:border-purple-300 flex flex-col items-center justify-between cursor-pointer hover:border-purple-400 group overflow-hidden shadow-sm transition"
                   title="Clic para ver y ampliar Foto 2: Calidad Post-Lavado"
                 >
                   <img
-                    src={fotoCalidadUrlActual || ''}
+                    src={effectiveFotoCalidad || ''}
                     alt="Calidad"
                     referrerPolicy="no-referrer"
                     className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
@@ -447,26 +489,26 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             ) : (
               <div
                 onClick={() => {
-                  const targetPhoto = fotoCalidadUrlActual || solicitud.fotoMuestraUrl;
+                  const targetPhoto = effectiveFotoCalidad || effectiveFotoMuestra;
                   if (targetPhoto) {
                     setZoomedPhotoUrl(targetPhoto);
                   }
                 }}
                 className={`w-28 h-28 rounded-2xl p-2 flex flex-col items-center justify-center transition overflow-hidden relative group ${
-                  (fotoCalidadUrlActual || solicitud.fotoMuestraUrl)
+                  (effectiveFotoCalidad || effectiveFotoMuestra)
                     ? 'bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-700 dark:border-zinc-300 cursor-pointer hover:border-amber-500 shadow-sm'
                     : 'bg-zinc-900/40 dark:bg-zinc-100/50 border border-zinc-800/80 dark:border-zinc-200 text-zinc-500 dark:text-zinc-400'
                 }`}
                 title={
-                  (fotoCalidadUrlActual || solicitud.fotoMuestraUrl)
+                  (effectiveFotoCalidad || effectiveFotoMuestra)
                     ? 'Clic para ver y ampliar la fotografía de la muestra' 
                     : 'Sin fotografía registrada en la solicitud'
                 }
               >
-                {(fotoCalidadUrlActual || solicitud.fotoMuestraUrl) ? (
+                {(effectiveFotoCalidad || effectiveFotoMuestra) ? (
                   <>
                     <img
-                      src={fotoCalidadUrlActual || solicitud.fotoMuestraUrl}
+                      src={effectiveFotoCalidad || effectiveFotoMuestra}
                       alt="Muestra de colcha"
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition duration-200"

@@ -4,6 +4,7 @@ import { Printer, X, Copy, ExternalLink, Check, ShieldCheck, User, Camera, Downl
 import { SolicitudColcha } from '../../types';
 import { generateColchaPdfTicket, printColchaDirectTicket, getCleanFinalQualityObservation, getCleanInitialObservation } from '../../services/exportService';
 import { generatePublicTrackingUrl, generatePublicTrackingUrlAsync } from '../../services/qrTrackingService';
+import { getOpPhotosFromCache } from '../../services/googleSheetsService';
 
 const STF_QR_LOGO_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23000000"/><rect x="4" y="4" width="92" height="92" rx="16" fill="%23000000" stroke="%23ffffff" stroke-width="4"/><text x="50" y="65" font-size="38" font-family="Arial, Helvetica, sans-serif" font-weight="900" fill="%23ffffff" text-anchor="middle" letter-spacing="-1">STF</text></svg>`;
 
@@ -16,10 +17,14 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
   const [copied, setCopied] = useState(false);
   const [asyncTrackingUrl, setAsyncTrackingUrl] = useState<string>('');
 
+  const cachedPhotos = getOpPhotosFromCache(colcha?.op);
+  const effectiveFotoMuestra = colcha?.fotoMuestraUrl || cachedPhotos?.foto1;
+  const colchaWithPhoto = colcha ? { ...colcha, fotoMuestraUrl: effectiveFotoMuestra } : null;
+
   useEffect(() => {
-    if (!colcha) return;
+    if (!colchaWithPhoto) return;
     let isMounted = true;
-    generatePublicTrackingUrlAsync(colcha).then((url) => {
+    generatePublicTrackingUrlAsync(colchaWithPhoto).then((url) => {
       if (isMounted && url) {
         setAsyncTrackingUrl(url);
       }
@@ -27,12 +32,12 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
     return () => {
       isMounted = false;
     };
-  }, [colcha]);
+  }, [colchaWithPhoto]);
 
   if (!colcha) return null;
 
   // Enlace oficial de trazabilidad pública con carga de datos completa codificada (resiliente para móviles)
-  const publicLink = asyncTrackingUrl || generatePublicTrackingUrl(colcha);
+  const publicLink = asyncTrackingUrl || generatePublicTrackingUrl(colchaWithPhoto || colcha);
 
   const isFinalizado = colcha.estado === 'FINALIZADO';
   const cleanFinalObs = getCleanFinalQualityObservation(colcha);
@@ -321,8 +326,8 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
               <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 flex items-center justify-between sm:col-span-3 text-zinc-950 dark:text-white shadow-sm">
                 <div className="flex items-center gap-2.5">
                   <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 overflow-hidden flex items-center justify-center shrink-0">
-                    {colcha.fotoMuestraUrl ? (
-                      <img src={colcha.fotoMuestraUrl} alt="Muestra" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                    {effectiveFotoMuestra ? (
+                      <img src={effectiveFotoMuestra} alt="Muestra" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                     ) : (
                       <Camera className="w-4 h-4 text-zinc-500" />
                     )}
@@ -330,14 +335,14 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                   <div>
                     <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 block uppercase">FOTOGRAFÍA ADJUNTA A LA OP</span>
                     <span className="text-xs font-bold text-zinc-950 dark:text-white">
-                      {colcha.fotoMuestraUrl ? 'Fotografía de Muestra Registrada ✓' : 'Sin fotografía inicial'}
+                      {effectiveFotoMuestra ? 'Fotografía de Muestra Registrada ✓' : 'Sin fotografía inicial'}
                     </span>
                   </div>
                 </div>
-                {colcha.fotoMuestraUrl && (
+                {effectiveFotoMuestra && (
                   <button
                     type="button"
-                    onClick={() => window.open(colcha.fotoMuestraUrl, '_blank')}
+                    onClick={() => window.open(effectiveFotoMuestra, '_blank')}
                     className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
                   >
                     Ver Foto

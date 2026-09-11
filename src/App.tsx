@@ -200,11 +200,6 @@ export function App() {
   const [confirmFinalizarOp, setConfirmFinalizarOp] = useState<SolicitudColcha | null>(null);
 
   const handleManualSync = async () => {
-    try {
-      localStorage.removeItem('STF_LOCAL_CREATED_OPS');
-      localStorage.removeItem('stf_colchas_local_created_ops');
-      localStorage.removeItem('STF_CACHED_BASE_DE_DATOS_V1');
-    } catch (e) {}
     await loadAllLiveData(false);
   };
 
@@ -222,32 +217,23 @@ export function App() {
         // Exclude OPs that have been deleted by Edwin into history
         const activeOnly = baseDatosData.filter(item => !isOpDeleted(item.op));
 
-        // Sincronizar y limpiar de local created ops cualquier OP que ya exista en Google Sheets
-        const remoteOpsSet = new Set(activeOnly.map(m => (m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()));
-        const rawLocal = getLocalCreatedOps();
-        const validLocalOps = rawLocal.filter(loc => {
-          if (isOpDeleted(loc.op)) return false;
-          const cleanLoc = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
-          if (remoteOpsSet.has(cleanLoc)) {
-            removeLocalCreatedOp(loc.op);
-            return false;
-          }
-          if (loc.fechaCreacion) {
-            const time = new Date(loc.fechaCreacion).getTime();
-            if (!isNaN(time) && (Date.now() - time > 24 * 60 * 60 * 1000)) {
-              removeLocalCreatedOp(loc.op);
-              return false;
-            }
-          }
-          return true;
-        });
-
+        // Blindaje contra condición de carrera: asegurar que cualquier OP creada localmente nunca se pierda
+        const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
         const mergedLive = [...activeOnly];
-        validLocalOps.forEach(loc => {
+        localOps.forEach(loc => {
           const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
-          const exists = mergedLive.some(m => ((m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()) === cleanLocOp);
-          if (!exists) {
+          const remoteIdx = mergedLive.findIndex(m => ((m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()) === cleanLocOp);
+          if (remoteIdx === -1) {
             mergedLive.unshift(loc);
+          } else {
+            const remote = mergedLive[remoteIdx];
+            mergedLive[remoteIdx] = {
+              ...remote,
+              fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
+              fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
+              driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl,
+              observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad
+            };
           }
         });
 

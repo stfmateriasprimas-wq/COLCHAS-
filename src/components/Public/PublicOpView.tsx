@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp, isMatchingOp, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
+import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp, isMatchingOp, fetchOpPhotosFromDrive, getOpPhotosFromCache } from '../../services/googleSheetsService';
 import { getCleanFinalQualityObservation, getCleanInitialObservation } from '../../services/exportService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 import { parsePublicTrackingPayload } from '../../services/qrTrackingService';
@@ -32,7 +32,9 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
   onToggleTheme
 }) => {
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
-  const [remoteDrivePhotos, setRemoteDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(null);
+  const [remoteDrivePhotos, setRemoteDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(() => {
+    return getOpPhotosFromCache(opNumber) || null;
+  });
 
   // Auto-cargar datos frescos al montar y cada 12 segundos para garantizar actualización en tiempo real en móviles
   useEffect(() => {
@@ -92,8 +94,9 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
       dictamenFinal = 'APROBADO';
     }
 
-    const bestFotoMuestra = liveFound?.fotoMuestraUrl || localFound?.fotoMuestraUrl || parsedQr?.fotoMuestraUrl;
-    const bestFotoCalidad = liveFound?.fotoCalidadUrl || localFound?.fotoCalidadUrl || parsedQr?.fotoCalidadUrl;
+    const cachedPhotos = getOpPhotosFromCache(targetOp);
+    const bestFotoMuestra = liveFound?.fotoMuestraUrl || localFound?.fotoMuestraUrl || parsedQr?.fotoMuestraUrl || cachedPhotos?.foto1;
+    const bestFotoCalidad = liveFound?.fotoCalidadUrl || localFound?.fotoCalidadUrl || parsedQr?.fotoCalidadUrl || cachedPhotos?.foto2;
 
     const obsCalidad = liveFound?.observacionesCalidad || localFound?.observacionesCalidad || (estadoFinal === 'FINALIZADO' ? parsedQr?.observacionesCalidad : '') || '';
     const obsOperario = liveFound?.observacionesOperario || localFound?.observacionesOperario || parsedQr?.observacionesOperario || '';
@@ -112,7 +115,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
       fechaCreacion: liveFound?.fechaCreacion || parsedQr?.fechaCreacion || base.fechaCreacion,
       fotoMuestraUrl: bestFotoMuestra,
       fotoCalidadUrl: bestFotoCalidad,
-      driveFolderUrl: liveFound?.driveFolderUrl || localFound?.driveFolderUrl || undefined,
+      driveFolderUrl: liveFound?.driveFolderUrl || localFound?.driveFolderUrl || cachedPhotos?.folderUrl || undefined,
       observacionesCalidad: obsCalidad,
       observacionesOperario: obsOperario,
       observacionesLavanderia: obsLavanderia,
@@ -131,6 +134,12 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     const targetOp = colcha?.op || opNumber;
     if (!targetOp) return;
 
+    // Verificar primero en caché local persistente para despliegue en 0 ms
+    const cached = getOpPhotosFromCache(targetOp);
+    if (cached && (cached.foto1 || cached.foto2 || cached.folderUrl)) {
+      setRemoteDrivePhotos((prev) => ({ ...cached, ...prev }));
+    }
+
     // Si ya tenemos ambas fotos con URLs remotas válidas, no es necesario consultar Drive
     if (
       colcha?.fotoMuestraUrl && 
@@ -144,7 +153,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     let isMounted = true;
     fetchOpPhotosFromDrive(targetOp).then((photos) => {
       if (isMounted && (photos.foto1 || photos.foto2 || photos.folderUrl)) {
-        setRemoteDrivePhotos(photos);
+        setRemoteDrivePhotos((prev) => ({ ...prev, ...photos }));
       }
     });
 
@@ -155,8 +164,9 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
 
   // Enlace directo oficial de la carpeta de Google Drive donde reposan las fotos de la OP
   const folderDriveUrl = useMemo(() => {
-    return colcha?.driveFolderUrl || remoteDrivePhotos?.folderUrl || undefined;
-  }, [colcha?.driveFolderUrl, remoteDrivePhotos?.folderUrl]);
+    const cached = getOpPhotosFromCache(colcha?.op || opNumber);
+    return colcha?.driveFolderUrl || remoteDrivePhotos?.folderUrl || cached?.folderUrl || undefined;
+  }, [colcha?.driveFolderUrl, remoteDrivePhotos?.folderUrl, colcha?.op, opNumber]);
 
   // Normalized display photo URLs (priorizando fotos en alta resolución de Google Drive o locales)
   const fotoInicialUrl = useMemo(() => {
