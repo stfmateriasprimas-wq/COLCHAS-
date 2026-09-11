@@ -16,7 +16,7 @@ export const STFLogo: React.FC<STFLogoProps> = ({
     : '/assets/stf-group-logo-black.png';
 
   return (
-    <div className={`relative group inline-flex items-center justify-center cursor-pointer select-none bg-transparent ${className}`}>
+    <div className={`relative group inline-flex items-center justify-center mx-auto text-center cursor-pointer select-none bg-transparent ${className}`}>
       
       {/* Dynamic Ambient Background Glow on Hover */}
       {enableHoverGlow && (
@@ -33,7 +33,7 @@ export const STFLogo: React.FC<STFLogoProps> = ({
       <img
         src={logoSrc}
         alt="STF GROUP S.A. - STUDIO F · ela · STUDIO F MAN"
-        className="relative z-10 w-full h-full object-contain transform transition-transform duration-300 ease-out group-hover:scale-105 active:scale-95"
+        className="relative z-10 w-full h-full object-contain object-center mx-auto transform transition-transform duration-300 ease-out group-hover:scale-105 active:scale-95"
         draggable={false}
       />
 
