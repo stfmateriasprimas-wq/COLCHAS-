@@ -110,35 +110,8 @@ export function App() {
     }
   };
 
-  // Authentication State with Magic Auto-Login Support
-  const [currentUser, setCurrentUser] = useState<UsuarioSTF | null>(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const userParam = urlParams.get('user');
-      if (userParam) {
-        const initialUsers = getUsuariosList();
-        const cleanUser = userParam.trim().toLowerCase();
-        const found = initialUsers.find(u => 
-          u.id.toLowerCase() === cleanUser || 
-          u.nombre.toLowerCase() === cleanUser ||
-          u.nombre.toLowerCase().includes(cleanUser)
-        );
-        if (found) {
-          localStorage.setItem('stf_colchas_user', JSON.stringify(found));
-          return found;
-        }
-      }
-    }
-    const saved = localStorage.getItem('stf_colchas_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  });
+  // Authentication State: Siempre inicia desde el apartado de Login al ingresar al sistema
+  const [currentUser, setCurrentUser] = useState<UsuarioSTF | null>(null);
 
   const hasProcessedUrlOpRef = React.useRef(false);
 
@@ -216,22 +189,12 @@ export function App() {
       setPublicOpNumber(opParam);
     }
 
-    // 1. Auto-login if user is specified in the URL on initial load
-    if (userParam) {
-      const currentUsers = getUsuariosList();
-      const cleanUser = userParam.trim().toLowerCase();
-      const found = currentUsers.find(u => 
-        u.id.toLowerCase() === cleanUser || 
-        u.nombre.toLowerCase() === cleanUser ||
-        u.nombre.toLowerCase().includes(cleanUser)
-      );
-      if (found) {
-        setCurrentUser(found);
-        localStorage.setItem('stf_colchas_user', JSON.stringify(found));
-      }
-      // Limpiar inmediatamente el parámetro de la URL para que no quede pegado ni interfiera con futuros cambios de usuario
-      cleanUserUrlParam();
-    }
+    // Limpiar residuos de sesión previa y parámetros para garantizar siempre inicio en Login
+    try {
+      localStorage.removeItem('stf_colchas_user');
+      sessionStorage.removeItem('stf_colchas_user');
+    } catch (e) {}
+    cleanUserUrlParam();
 
     // 2. Initial direct tab navigation
     if (tabParam && ['dashboard', 'solicitudes', 'alertas', 'basedatos', 'estadisticas'].includes(tabParam)) {
@@ -453,13 +416,15 @@ export function App() {
 
   const handleLogin = (user: UsuarioSTF) => {
     setCurrentUser(user);
-    localStorage.setItem('stf_colchas_user', JSON.stringify(user));
     cleanUserUrlParam();
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('stf_colchas_user');
+    try {
+      localStorage.removeItem('stf_colchas_user');
+      sessionStorage.removeItem('stf_colchas_user');
+    } catch (e) {}
     cleanUserUrlParam();
   };
 

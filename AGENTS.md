@@ -104,7 +104,9 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
 
 ---
 
-## 7. Diseño e Interfaz de Usuario
+## 7. Diseño, Experiencia de Usuario y Estándar Dual (Web & Móvil)
+- **Inicio Obligatorio en Pantalla de Login**: Al acceder al aplicativo (`https://colchas.vercel.app`), el sistema DEBE iniciar SIEMPRE en la pantalla de autenticación (`LoginScreen.tsx`). Bajo ninguna circunstancia se debe saltar el inicio de sesión de forma automática mediante sesiones guardadas en `localStorage` o `sessionStorage`. La única excepción técnica autorizada es el escaneo directo de código QR con los parámetros `?op=...&view=public`, el cual abre la vista móvil pública y de solo lectura (`PublicOpView.tsx`).
+- **Regla Inmutable Dual (Web & Móvil)**: De aquí en adelante, TODAS las actualizaciones, nuevas pantallas, modales, tablas, tarjetas, alertas y componentes DEBEN estar diseñados, optimizados y verificados al 100% tanto para la vista Web (PC / Desktop / monitores amplios) como para la vista Móvil (smartphones y pantallas táctiles de 360px a 430px de ancho). Ningún ajuste se considera completado si rompe o descuadra la experiencia en cualquiera de los dos entornos.
 - **Encabezado Navbar**: Estructurado con cuadrícula CSS simétrica de 3 columnas `grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]` garantizando que el isotipo STF GROUP y el identificador de usuario se mantengan siempre en el centro geométrico exacto de la pantalla.
 
 ---
@@ -112,3 +114,4 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
 ## 8. Integridad del Código y Despliegue
 - Antes de subir cualquier cambio a `main`, DEBE ejecutarse `npm run build` (`tsc -b && vite build`) garantizando **0 errores**.
 - Despliegue continuo automático activo en Vercel vinculado a la rama `main` de GitHub.
+

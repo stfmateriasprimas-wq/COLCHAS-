@@ -90,15 +90,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       <div className="absolute inset-0 z-0 bg-black/25 backdrop-blur-[1px]" />
 
       {/* Top Header Pure Vector Transparent STF Logo */}
-      <div className="relative z-10 mb-8 sm:mb-10 text-center animate-in fade-in duration-500 flex flex-col items-center">
+      <div className="relative z-10 mb-6 sm:mb-10 text-center animate-in fade-in duration-500 flex flex-col items-center">
         <STFLogo
           isWhite={true}
-          className="h-20 sm:h-24 md:h-28 w-72 sm:w-96 drop-shadow-[0_4px_25px_rgba(0,0,0,0.9)]"
+          className="h-16 sm:h-24 md:h-28 w-56 sm:w-96 drop-shadow-[0_4px_25px_rgba(0,0,0,0.9)]"
         />
       </div>
 
       {/* Center Ultra-Futuristic Cyber Glassmorphism Login Card */}
-      <div className="relative z-10 w-full max-w-[440px] bg-[#0a0e17]/90 backdrop-blur-3xl border border-white/15 hover:border-amber-500/40 rounded-[36px] p-7 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.9),0_0_40px_rgba(245,158,11,0.08)] animate-in zoom-in-95 duration-300 transition-all text-white overflow-hidden group">
+      <div className="relative z-10 w-full max-w-[440px] bg-[#0a0e17]/90 backdrop-blur-3xl border border-white/15 hover:border-amber-500/40 rounded-[28px] sm:rounded-[36px] p-5 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.9),0_0_40px_rgba(245,158,11,0.08)] animate-in zoom-in-95 duration-300 transition-all text-white overflow-hidden group">
         
         {/* Ambient Holographic Light Glows */}
         <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/15 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-500/25 transition duration-700" />
