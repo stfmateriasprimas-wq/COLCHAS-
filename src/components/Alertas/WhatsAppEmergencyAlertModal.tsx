@@ -247,7 +247,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     if (channel === 'app') {
       return `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
     }
-    return `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+    return `https://web.whatsapp.com/send/?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
   };
 
   // Single or Broadcast WhatsApp trigger
@@ -565,7 +565,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
         </div>
 
-        {/* FOOTER ACTION BUTTON */}
+        {/* FOOTER ACTION BUTTONS */}
         <div className="p-5 sm:p-6 border-t border-emerald-900/60 dark:border-zinc-200 bg-gradient-to-r from-emerald-950/80 via-[#0b1411] to-emerald-950/80 dark:from-emerald-50 dark:via-white dark:to-emerald-50 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-xs font-mono text-zinc-400 dark:text-zinc-600 flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
             {sentCount > 0 ? (
@@ -574,36 +574,41 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
               </span>
             ) : (
               <span className="text-[11px] text-zinc-400">
-                {canalEnvio === 'app' ? '📱 Modo App WhatsApp directo' : '🌐 Modo WhatsApp Web directo'}
+                Selecciona tu destino preferido para enviar:
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => handleSendWhatsApp(canalEnvio === 'app' ? 'web' : 'app')}
-              className="text-[10px] text-emerald-400 hover:text-emerald-300 underline font-mono cursor-pointer"
-            >
-              {canalEnvio === 'app' ? 'O alternar a WhatsApp Web' : 'O alternar a App WhatsApp'}
-            </button>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 sm:flex-none px-4 py-3 rounded-2xl border border-zinc-700 dark:border-zinc-300 text-xs font-bold text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+              className="px-4 py-3 rounded-2xl border border-zinc-700 dark:border-zinc-300 text-xs font-bold text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
             >
               Cerrar
             </button>
 
-            {/* BOTÓN OFICIAL DESTACADO ESTILO WHATSAPP (VERDE) */}
+            {/* BOTÓN 1: WHATSAPP WEB DIRECTO */}
             <button
               type="button"
-              onClick={() => handleSendWhatsApp()}
-              className="flex-1 sm:flex-none px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-black font-mono font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 duration-150"
+              onClick={() => handleSendWhatsApp('web')}
+              className="flex-1 sm:flex-none px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-black font-mono font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 duration-150"
+              title="Abre WhatsApp Web en tu navegador con el chat y mensaje ya listos"
             >
               <MessageSquare className="w-4 h-4 fill-black" />
-              <span>{canalEnvio === 'app' ? 'Enviar por App WhatsApp' : 'Enviar por WhatsApp Web'}</span>
+              <span>WhatsApp Web</span>
               <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+
+            {/* BOTÓN 2: APP WHATSAPP NATIVA (WINDOWS / MÓVIL) */}
+            <button
+              type="button"
+              onClick={() => handleSendWhatsApp('app')}
+              className="flex-1 sm:flex-none px-5 py-3 rounded-2xl bg-[#162e24] hover:bg-[#1c3a2e] dark:bg-emerald-100 dark:hover:bg-emerald-200 border border-emerald-500/60 dark:border-emerald-400 text-emerald-300 dark:text-emerald-900 font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-md hover:scale-105 active:scale-95 duration-150"
+              title="Abre la aplicación de WhatsApp instalada en Windows o celular"
+            >
+              <PhoneCall className="w-4 h-4 text-emerald-400 dark:text-emerald-800" />
+              <span>App WhatsApp</span>
             </button>
           </div>
         </div>
