@@ -76,21 +76,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     return solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO');
   }, [solicitudes]);
 
-  if (!isOpen) return null;
-
-  // Helper: Clean phone number to pure digits
-  const cleanPhoneNumber = (phone: string, digitsFallback?: string): string => {
-    if (digitsFallback && digitsFallback.trim()) {
-      return digitsFallback.replace(/\D/g, '');
-    }
-    const clean = phone.replace(/\D/g, '');
-    if (clean.length === 10 && clean.startsWith('3')) {
-      return `57${clean}`;
-    }
-    return clean;
-  };
-
-  // Helper: Extraer número de OP objetivo si se seleccionó o digitó
+  // Extraer número de OP objetivo si se seleccionó o digitó
   const activeTargetOp = useMemo(() => {
     let target = '';
     if (selectedOpMotivo && selectedOpMotivo !== 'GENERAL' && selectedOpMotivo !== 'SIN_OP') {
@@ -109,6 +95,21 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     if (!activeTargetOp) return null;
     return solicitudes.find(s => isMatchingOp(s.op, activeTargetOp)) || null;
   }, [solicitudes, activeTargetOp]);
+
+  // RENDER CONDICIONAL SI EL MODAL NO ESTÁ ABIERTO (TODOS LOS HOOKS YA FUERON EJECUTADOS)
+  if (!isOpen) return null;
+
+  // Helper: Clean phone number to pure digits
+  const cleanPhoneNumber = (phone: string, digitsFallback?: string): string => {
+    if (digitsFallback && digitsFallback.trim()) {
+      return digitsFallback.replace(/\D/g, '');
+    }
+    const clean = phone.replace(/\D/g, '');
+    if (clean.length === 10 && clean.startsWith('3')) {
+      return `57${clean}`;
+    }
+    return clean;
+  };
 
   // Helper: Format Motivo text
   const getMotivoLabel = (): string => {
