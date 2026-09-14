@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   QrCode, RefreshCw, CheckCircle2, AlertTriangle, Clock, 
   Layers, User, Calendar, Sparkles, Image as ImageIcon,
-  X, LogIn, Sun, Moon, Maximize2, Camera, FolderOpen, ExternalLink
+  X, LogIn, Sun, Moon, Maximize2, Camera, FolderOpen, ExternalLink, ArrowLeft
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
@@ -11,6 +11,7 @@ import { getCleanFinalQualityObservation, getCleanInitialObservation } from '../
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 import { parsePublicTrackingPayload } from '../../services/qrTrackingService';
 import { mapAreaName } from '../../services/googleSheetsService';
+import { STFLogo } from '../Common/STFLogo';
 
 interface PublicOpViewProps {
   opNumber: string;
@@ -20,6 +21,7 @@ interface PublicOpViewProps {
   onGoToLogin: () => void;
   isDarkMode: boolean;
   onToggleTheme: () => void;
+  onBackToAlerts?: () => void;
 }
 
 export const PublicOpView: React.FC<PublicOpViewProps> = ({
@@ -29,7 +31,8 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
   onRefreshData,
   onGoToLogin,
   isDarkMode,
-  onToggleTheme
+  onToggleTheme,
+  onBackToAlerts
 }) => {
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
   const [remoteDrivePhotos, setRemoteDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(() => {
@@ -211,23 +214,25 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-zinc-950 text-zinc-100' : 'bg-zinc-50 text-zinc-900'} font-sans select-none flex flex-col justify-between`}>
       
       {/* 1. TOP HEADER (BRAND & QUICK ACTIONS) */}
-      <header className="sticky top-0 z-40 bg-zinc-900/90 dark:bg-white/95 backdrop-blur-md border-b border-zinc-800 dark:border-zinc-200 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 flex items-center justify-center text-white dark:text-zinc-950 shadow-inner">
-            <QrCode className="w-5 h-5 text-emerald-400 dark:text-emerald-600 animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm sm:text-base font-black brand-title tracking-wider text-white dark:text-zinc-950">
-                COLCHAS STF GROUP
-              </h1>
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-emerald-500 text-black uppercase">
-                EN VIVO
-              </span>
-            </div>
-            <p className="text-[10px] sm:text-xs text-zinc-400 dark:text-zinc-600 font-mono">
-              Ficha Técnica y Trazabilidad Oficial de Planta
-            </p>
+      <header className="sticky top-0 z-40 bg-zinc-900/90 dark:bg-white/95 backdrop-blur-md border-b border-zinc-800 dark:border-zinc-200 px-3.5 sm:px-6 py-3 flex items-center justify-between shadow-sm gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {onBackToAlerts && (
+            <button
+              type="button"
+              onClick={onBackToAlerts}
+              className="px-2.5 py-1.5 rounded-xl bg-zinc-800 dark:bg-zinc-100 hover:bg-zinc-700 dark:hover:bg-zinc-200 text-rose-400 dark:text-rose-600 text-xs font-mono font-bold flex items-center gap-1 transition cursor-pointer border border-zinc-700 dark:border-zinc-300"
+              title="Volver a la Central de Alertas"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Alertas</span>
+            </button>
+          )}
+
+          <div className="flex items-center gap-2">
+            <STFLogo isWhite={isDarkMode} className="h-8 sm:h-10 w-36 sm:w-48" />
+            <span className="hidden md:inline px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-emerald-500 text-black uppercase">
+              EN VIVO
+            </span>
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import { AreaOpsModal } from './components/Dashboard/AreaOpsModal';
 import { SolicitudForm } from './components/NuevaSolicitud/SolicitudForm';
 import { ThermalPrinterModal } from './components/NuevaSolicitud/ThermalPrinterModal';
 import { PublicOpView } from './components/Public/PublicOpView';
+import { PublicAlertsView } from './components/Public/PublicAlertsView';
 import { BandejaView } from './components/Bandeja/BandejaView';
 import { TransferModal } from './components/Bandeja/TransferModal';
 import { OpDetailModal } from './components/Bandeja/OpDetailModal';
@@ -86,11 +87,26 @@ export function App() {
         return op;
       }
       // Si entra por QR y no tiene sesión iniciada
-      if (op && !params.get('user') && !localStorage.getItem('stf_colchas_user')) {
+      if (op && (view === 'public' || (!params.get('user') && !localStorage.getItem('stf_colchas_user')))) {
         return op;
       }
     }
     return null;
+  });
+
+  // Public Alerts View State (Acceso público al reporte de retrasos SLA sin contraseña)
+  const [isPublicAlertsView, setIsPublicAlertsView] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get('view');
+      const tab = params.get('tab');
+      const op = params.get('op');
+      if (view === 'alertas') return true;
+      if (tab === 'alertas' && !op && !localStorage.getItem('stf_colchas_user')) {
+        return true;
+      }
+    }
+    return false;
   });
 
   // Helper to remove 'user' from URL without page reload
@@ -165,6 +181,9 @@ export function App() {
     // 0. Detect Public View Mode
     if (opParam && (viewParam === 'public' || (!currentUser && !userParam && !localStorage.getItem('stf_colchas_user')))) {
       setPublicOpNumber(opParam);
+    }
+    if (viewParam === 'alertas' || (tabParam === 'alertas' && !opParam && !localStorage.getItem('stf_colchas_user'))) {
+      setIsPublicAlertsView(true);
     }
 
     // Limpiar residuos de sesión previa y parámetros para garantizar siempre inicio en Login
@@ -599,7 +618,52 @@ export function App() {
     }
   };
 
-  // SI ACCEDE POR CÓDIGO QR PÚBLICO -> MOSTRAR VISTA DE TRAZABILIDAD SIN LOGIN
+  // SI ACCEDE POR REPORTE PÚBLICO DE ALERTAS O CÓDIGO QR -> MOSTRAR SIN LOGIN
+  if (isPublicAlertsView) {
+    if (publicOpNumber) {
+      return (
+        <PublicOpView
+          opNumber={publicOpNumber}
+          solicitudes={solicitudes}
+          isSyncing={isSyncing}
+          onRefreshData={() => loadAllLiveData(false)}
+          onGoToLogin={() => {
+            setPublicOpNumber(null);
+            setIsPublicAlertsView(false);
+            const url = new URL(window.location.href);
+            url.searchParams.delete('view');
+            url.searchParams.delete('tab');
+            url.searchParams.delete('op');
+            window.history.replaceState({}, '', url.pathname);
+          }}
+          isDarkMode={isDarkMode}
+          onToggleTheme={() => setIsDarkMode(prev => !prev)}
+          onBackToAlerts={() => setPublicOpNumber(null)}
+        />
+      );
+    }
+
+    return (
+      <PublicAlertsView
+        solicitudes={solicitudes}
+        isSyncing={isSyncing}
+        onRefreshData={() => loadAllLiveData(false)}
+        onSelectOp={(op) => setPublicOpNumber(op)}
+        onGoToLogin={() => {
+          setIsPublicAlertsView(false);
+          setPublicOpNumber(null);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('view');
+          url.searchParams.delete('tab');
+          window.history.replaceState({}, '', url.pathname);
+        }}
+        isDarkMode={isDarkMode}
+        onToggleTheme={() => setIsDarkMode(prev => !prev)}
+      />
+    );
+  }
+
+  // SI ACCEDE POR CÓDIGO QR PÚBLICO A UNA OP ESPECÍFICA -> MOSTRAR VISTA DE TRAZABILIDAD SIN LOGIN
   if (publicOpNumber) {
     return (
       <PublicOpView
@@ -611,7 +675,8 @@ export function App() {
           setPublicOpNumber(null);
           const url = new URL(window.location.href);
           url.searchParams.delete('view');
-          window.history.replaceState({}, '', url.toString());
+          url.searchParams.delete('op');
+          window.history.replaceState({}, '', url.pathname);
         }}
         isDarkMode={isDarkMode}
         onToggleTheme={() => setIsDarkMode(prev => !prev)}

@@ -12,6 +12,8 @@ import {
   syncUsuariosFromSheets,
   formatWhatsAppNumber 
 } from '../../services/authService';
+import { isMatchingOp } from '../../services/googleSheetsService';
+import { STFLogo } from '../Common/STFLogo';
 
 export interface DestinatarioWhatsApp {
   id: string;
@@ -88,58 +90,53 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     return clean;
   };
 
+  // Helper: Extraer número de OP objetivo si se seleccionó o digitó
+  const activeTargetOp = useMemo(() => {
+    let target = '';
+    if (selectedOpMotivo && selectedOpMotivo !== 'GENERAL' && selectedOpMotivo !== 'SIN_OP') {
+      const match = selectedOpMotivo.match(/OP-?(\d+)/i) || selectedOpMotivo.match(/(\d{4,})/);
+      if (match && match[1]) target = match[1];
+    }
+    if (!target && customOpText.trim()) {
+      const match = customOpText.match(/OP-?(\d+)/i) || customOpText.match(/(\d{4,})/);
+      if (match && match[1]) target = match[1];
+    }
+    return target;
+  }, [selectedOpMotivo, customOpText]);
+
+  // Datos de la OP seleccionada
+  const activeOpData = useMemo(() => {
+    if (!activeTargetOp) return null;
+    return solicitudes.find(s => isMatchingOp(s.op, activeTargetOp)) || null;
+  }, [solicitudes, activeTargetOp]);
+
   // Helper: Format Motivo text
   const getMotivoLabel = (): string => {
+    if (activeOpData) {
+      return `OP-${activeOpData.op.replace(/^OP-?/i, '')} (${activeOpData.referencia} • ${activeOpData.tela})`;
+    }
     if (selectedOpMotivo === 'GENERAL') {
+      return `Reporte Consolidado de Alertas SLA (${opsEnAlerta.length} OPs)`;
+    }
+    if (selectedOpMotivo === 'SIN_OP') {
       return customOpText.trim() ? customOpText.trim() : 'Sin OP / Motivo General';
     }
     return selectedOpMotivo;
   };
 
-  // Helper: Build Direct Magic Auto-Login Link
-  const buildDirectMagicLink = (userId?: string): string => {
+  // Helper: Build Direct Link (100% Público y accesible sin contraseña)
+  const buildDirectMagicLink = (): string => {
     const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')
       ? window.location.origin 
       : 'https://colchas.vercel.app';
 
-    const params = new URLSearchParams();
-    if (userId && userId !== 'TODOS') {
-      params.set('user', userId);
+    if (activeTargetOp) {
+      return `${origin}/?op=${encodeURIComponent(activeTargetOp)}&view=public`;
     }
-    
-    // Extraer número de OP limpio si existe
-    let targetOp = '';
-    if (selectedOpMotivo && selectedOpMotivo !== 'GENERAL') {
-      const match = selectedOpMotivo.match(/OP-?(\d+)/i) || selectedOpMotivo.match(/(\d{4,})/);
-      if (match && match[1]) {
-        targetOp = match[1];
-      } else {
-        const digits = selectedOpMotivo.replace(/\D/g, '');
-        if (digits) targetOp = digits;
-      }
-    }
-    
-    if (!targetOp && customOpText.trim()) {
-      const customMatch = customOpText.match(/OP-?(\d+)/i) || customOpText.match(/(\d{4,})/);
-      if (customMatch && customMatch[1]) {
-        targetOp = customMatch[1];
-      } else {
-        const digits = customOpText.replace(/\D/g, '');
-        if (digits) targetOp = digits;
-      }
-    }
-
-    if (targetOp) {
-      params.set('op', targetOp);
-      params.set('tab', 'solicitudes');
-    } else {
-      params.set('tab', 'alertas');
-    }
-
-    return `${origin}/?${params.toString()}`;
+    return `${origin}/?view=alertas`;
   };
 
-  // Helper: Build WhatsApp formatted message (Con estilo de alerta roja vibrante y auto-login)
+  // Helper: Build WhatsApp formatted message (Con membrete oficial corporativo y enlace de acceso directo)
   const buildWhatsAppMessage = (recipientName: string, recipientId?: string): string => {
     const now = new Date();
     const formattedDate = now.toLocaleDateString('es-CO', {
@@ -153,15 +150,44 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
       hour12: true
     });
 
-    const motivoText = getMotivoLabel();
-    const magicLink = buildDirectMagicLink(recipientId);
+    const magicLink = buildDirectMagicLink();
     const issuerName = currentUser?.nombre ? `${currentUser.nombre} (${currentUser.rol || 'STF'})` : 'EDWIN DIAZ (ADMINISTRADOR)';
 
-    let msg = `🔴 *ALERTA COLCHAS - STF GROUP* 🔴\n`;
+    let msg = `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🏢 *STF GROUP S.A.*\n`;
+    msg += `*STUDIO F  •  ELA  •  STUDIO F MAN*\n`;
+    msg += `*Control de Calidad & Trazabilidad*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🔴 *ALERTA COLCHAS - STF GROUP* 🔴\n`;
     msg += `🚨 *NOTIFICACIÓN DE EMERGENCIA* 🚨\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `👤 *Destinatario:* ${recipientName}\n`;
-    msg += `📋 *OP / Motivo:* ${motivoText}\n`;
+
+    if (activeOpData) {
+      const cleanOp = activeOpData.op.replace(/^OP-?/i, '');
+      const diasRetraso = Math.max(0, activeOpData.diasHabiles - 3);
+      msg += `📋 *OP:* OP-${cleanOp}\n`;
+      msg += `📌 *Referencia:* ${activeOpData.referencia}\n`;
+      msg += `🧵 *Tela:* ${activeOpData.tela}${activeOpData.color ? ` (${activeOpData.color})` : ''}\n`;
+      msg += `📍 *Área Actual:* ${activeOpData.areaActual || activeOpData.estado}\n`;
+      msg += `⏱️ *Tiempo en Proceso:* ${activeOpData.diasHabiles} días hábiles (+${diasRetraso}d retraso)\n`;
+      if (activeOpData.inspector) {
+        msg += `👷 *Inspector:* ${activeOpData.inspector}\n`;
+      }
+    } else {
+      const countSol = opsEnAlerta.filter(s => s.estado === 'SOLICITADO').length;
+      const countLav = opsEnAlerta.filter(s => s.estado === 'LAVANDERIA').length;
+      const countPre = opsEnAlerta.filter(s => s.estado === 'PRE_SOLICITUD').length;
+      const countCal = opsEnAlerta.filter(s => s.estado === 'CALIDAD').length;
+
+      msg += `📋 *Reporte:* ${getMotivoLabel()}\n`;
+      msg += `⚠️ *Total OPs en Retraso SLA:* ${opsEnAlerta.length} órdenes\n`;
+      msg += `📊 *Distribución por Área:*\n`;
+      msg += `   • Tránsito / Solicitados: ${countSol}\n`;
+      msg += `   • Lavandería ZF: ${countLav}\n`;
+      msg += `   • Atelier / Pre-Solicitud: ${countPre}\n`;
+      msg += `   • Calidad Lab: ${countCal}\n`;
+    }
 
     if (detalleAdicional.trim()) {
       msg += `📝 *Detalle:* ${detalleAdicional.trim()}\n`;
@@ -170,9 +196,18 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     msg += `📢 *Emitido por:* ${issuerName}\n`;
     msg += `📅 *Fecha:* ${formattedDate}, ${formattedTime}\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `🔗 *ACCESO DIRECTO A LA OP:*\n`;
-    msg += `👉 ${magicLink}\n`;
-    msg += `_(Toca el enlace para abrir la orden técnica sin contraseña)_\n`;
+
+    if (activeOpData) {
+      const cleanOp = activeOpData.op.replace(/^OP-?/i, '');
+      msg += `🔗 *ACCESO DIRECTO A LA OP-${cleanOp}:*\n`;
+      msg += `👉 ${magicLink}\n`;
+      msg += `_(Toca el enlace para ver la orden técnica, pruebas y fotos sin contraseña)_\n`;
+    } else {
+      msg += `🔗 *ACCESO DIRECTO AL REPORTE DE LAS OPs:*\n`;
+      msg += `👉 ${magicLink}\n`;
+      msg += `_(Toca el enlace para ver las ${opsEnAlerta.length} OPs retrasadas y sus fotos sin contraseña)_\n`;
+    }
+
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `⚠️ _Por favor atender esta notificación con máxima prioridad en la línea de producción._`;
 
@@ -312,7 +347,10 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
               onChange={(e) => setSelectedOpMotivo(e.target.value)}
               className="w-full bg-[#12231c] dark:bg-zinc-50 border-2 border-emerald-500/50 dark:border-zinc-300 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono font-bold text-white dark:text-zinc-950 focus:outline-none focus:border-emerald-400 cursor-pointer shadow-inner"
             >
-              <option value="GENERAL" className="bg-[#0b1411] text-zinc-200">
+              <option value="GENERAL" className="bg-[#0b1411] text-emerald-300 font-bold">
+                📊 Reporte Consolidado de Alertas SLA ({opsEnAlerta.length} OPs Retrasadas)
+              </option>
+              <option value="SIN_OP" className="bg-[#0b1411] text-zinc-300">
                 Sin OP / Motivo General
               </option>
               
@@ -320,8 +358,8 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
               {opsEnAlerta.length > 0 && (
                 <optgroup label="── OPs con Retraso SLA Activo (>3 Días) ──" className="bg-[#0b1411] text-rose-300">
                   {opsEnAlerta.map((op) => (
-                    <option key={op.id} value={`OP-${op.op} - Retraso SLA en ${op.areaActual || 'Planta'} (${op.diasHabiles} Días)`} className="bg-[#0b1411] text-rose-300">
-                      🚨 OP-{op.op} • Ref: {op.referencia} • {op.tela} (+{op.diasHabiles - 3}d Retraso)
+                    <option key={op.id} value={`OP-${op.op}`} className="bg-[#0b1411] text-rose-300">
+                      🚨 OP-{op.op} • Ref: {op.referencia} • {op.tela} (+{Math.max(0, op.diasHabiles - 3)}d Retraso en {op.areaActual || op.estado})
                     </option>
                   ))}
                 </optgroup>
@@ -369,8 +407,8 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             />
           </div>
 
-          {/* 4. VISTA PREVIA DEL MENSAJE WHATSAPP (CON FORMATO ROJO Y ENLACE MÁGICO) */}
-          <div className="p-4 rounded-2xl bg-[#08130e] dark:bg-emerald-50/50 border border-emerald-500/40 dark:border-emerald-200 space-y-2">
+          {/* 4. VISTA PREVIA DEL MENSAJE OFICIAL CON ENCABEZADO DE LOGO OFICIAL */}
+          <div className="p-4 rounded-2xl bg-[#08130e] dark:bg-emerald-50/50 border border-emerald-500/40 dark:border-emerald-200 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono font-black text-emerald-400 dark:text-emerald-800 uppercase flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
@@ -386,8 +424,23 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
               </button>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-black/60 dark:bg-white text-xs font-mono text-emerald-100 dark:text-zinc-800 whitespace-pre-line border border-emerald-500/30 dark:border-zinc-200 leading-relaxed select-text shadow-inner">
-              {buildWhatsAppMessage(previewName, previewId)}
+            {/* Tarjeta de Mensaje con Encabezado de Logo Oficial */}
+            <div className="rounded-2xl bg-black/75 dark:bg-white border border-emerald-500/30 dark:border-zinc-200 overflow-hidden shadow-inner">
+              {/* Encabezado Oficial con Logo de la Compañía */}
+              <div className="p-3.5 border-b border-emerald-500/20 dark:border-zinc-100 bg-gradient-to-r from-emerald-950/50 via-black to-emerald-950/50 dark:from-zinc-50 dark:via-white dark:to-zinc-50 flex flex-col items-center justify-center text-center gap-1">
+                <STFLogo isWhite={true} className="h-9 sm:h-11 w-44 sm:w-56" />
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[9px] font-mono tracking-widest text-emerald-400 dark:text-emerald-700 font-black uppercase">
+                    CONTROL DE CALIDAD & TRAZABILIDAD TEXTIL
+                  </span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                </div>
+              </div>
+
+              {/* Texto del Mensaje */}
+              <div className="p-4 text-xs font-mono text-emerald-100 dark:text-zinc-800 whitespace-pre-line leading-relaxed select-text">
+                {buildWhatsAppMessage(previewName, previewId)}
+              </div>
             </div>
           </div>
 
