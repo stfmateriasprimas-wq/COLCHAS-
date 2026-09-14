@@ -7,7 +7,7 @@ import {
   Droplets, Eye, Sliders
 } from 'lucide-react';
 import { SolicitudColcha, KpiMetrics } from '../../types';
-import { USUARIOS_STF_MAESTROS, UsuarioSTF, isAdminUser } from '../../services/authService';
+import { USUARIOS_STF_MAESTROS, UsuarioSTF, isAdminUser, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets } from '../../services/authService';
 import { normalizeDateToYMD } from '../../services/googleSheetsService';
 import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { FloatingScrollPill } from '../Common/FloatingScrollPill';
@@ -81,6 +81,100 @@ const REJECTED_OPS_DATA = [
   { op: '7105', lote: 'L-515', mes: 'AGOSTO', mesKey: '08', ref: 'REF-SF-MAN-01', tela: 'TELA TWILL STRETCH', causa: 'Manchas de suavizante por dispersión deficiente.', metraje: 80, fecha: '20/08/2026' },
   { op: '8220', lote: 'L-602', mes: 'SEPTIEMBRE', mesKey: '09', ref: 'REF-SF-440', tela: 'TELA INDIGO EGEO', causa: 'Virado de trama superior al 4.5% admitido.', metraje: 75, fecha: '14/09/2026' }
 ];
+
+/**
+ * Empareja de forma tolerante y precisa un nombre de inspector procedente de Sheets/Formulario
+ * con un usuario oficial de la plantilla de STF Group.
+ * Si el usuario no existe en la plantilla, crea un perfil sintético dinámico para que NUNCA sea omitido.
+ */
+export function findWorkerForInspector(inspectorRaw: string, users: UsuarioSTF[]): UsuarioSTF {
+  const raw = (inspectorRaw || '').trim();
+  if (!raw) {
+    return {
+      id: 'sin_inspector',
+      nombre: 'INSPECTOR CALIDAD',
+      rol: 'OPERARIO',
+      area: 'CALIDAD',
+      email: '',
+      isZonaFranca: false
+    };
+  }
+
+  const inspClean = raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const inspAlpha = inspClean.replace(/[^a-z0-9]/g, '');
+
+  // 1. Coincidencia directa por id, nombre exacto o sin caracteres especiales
+  for (const u of users) {
+    const uNameClean = u.nombre.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const uIdClean = u.id.trim().toLowerCase();
+    const uAlpha = uNameClean.replace(/[^a-z0-9]/g, '');
+
+    if (inspClean === uIdClean || inspClean === uNameClean || (inspAlpha && inspAlpha === uAlpha)) {
+      return u;
+    }
+  }
+
+  // 2. Coincidencias dirigidas por palabras clave de operarios de STF Group
+  for (const u of users) {
+    const uNameClean = u.nombre.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const uIdClean = u.id.trim().toLowerCase();
+
+    if (inspClean.includes('wilmer') && uNameClean.includes('wilmer')) return u;
+    if (inspClean.includes('sebastian') && uNameClean.includes('sebastian')) return u;
+    if (inspClean.includes('herrera') && uNameClean.includes('herrera')) return u;
+    if (inspClean.includes('didier') && uNameClean.includes('didier')) return u;
+    if (inspClean.includes('tascon') && uNameClean.includes('tascon')) return u;
+    if (inspClean.includes('dilan') && uNameClean.includes('dilan')) return u;
+    if (inspClean.includes('stiven') && uNameClean.includes('stiven')) return u;
+    if (inspClean.includes('eyder') && uNameClean.includes('eyder')) return u;
+    if ((inspClean.includes('cortez') || inspClean.includes('cortes')) && (uNameClean.includes('cortez') || uNameClean.includes('cortes'))) return u;
+    if (inspClean.includes('gonzalez') && uNameClean.includes('gonzalez')) return u;
+    if (inspClean.includes('edwin') && (uNameClean.includes('edwin') || uIdClean === 'ediaz')) return u;
+    if (inspClean.includes('libia') && uNameClean.includes('libia')) return u;
+    if (inspClean.includes('colfactory') && uNameClean.includes('colfactory')) return u;
+    if (inspClean.includes('paola') && uNameClean.includes('paola')) return u;
+    if (inspClean.includes('vanegas') && uNameClean.includes('vanegas')) return u;
+    if (inspClean.includes('milena') && uNameClean.includes('milena')) return u;
+    if (inspClean.includes('pinzon') && uNameClean.includes('pinzon')) return u;
+    if (inspClean.includes('camila') && uNameClean.includes('camila')) return u;
+    if (inspClean.includes('jesus') && uNameClean.includes('jesus')) return u;
+    if (inspClean.includes('robert') && uNameClean.includes('robert')) return u;
+    if (inspClean.includes('luisa') && uNameClean.includes('luisa')) return u;
+    if (inspClean.includes('valentina') && uNameClean.includes('valentina')) return u;
+    if (inspClean.includes('soporte') && uNameClean.includes('soporte')) return u;
+    if ((inspClean === 'calidad zf' || inspClean === 'atelier') && (u.id === '2222' || u.area === 'CALIDAD ZF')) return u;
+    if (inspClean === 'calidad' && (u.id === '1111' || u.area === 'CALIDAD')) return u;
+  }
+
+  // 3. Coincidencia por subcadenas mayores a 3 caracteres
+  for (const u of users) {
+    const uNameClean = u.nombre.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (inspClean.length >= 4 && (uNameClean.includes(inspClean) || inspClean.includes(uNameClean))) {
+      return u;
+    }
+  }
+
+  // 4. Inferencia dinámica de área si no está en la plantilla oficial
+  let inferredArea: UsuarioSTF['area'] = 'CALIDAD';
+  let isZF = false;
+  if (inspClean.includes('zf') || inspClean.includes('atelier')) {
+    inferredArea = 'CALIDAD ZF';
+    isZF = true;
+  } else if (inspClean.includes('lavand') || inspClean.includes('colfactory')) {
+    inferredArea = 'LAVANDERÍA';
+  } else if (inspClean.includes('coleccion') || inspClean.includes('marca') || inspClean.includes('ela') || inspClean.includes('sf') || inspClean.includes('outlet')) {
+    inferredArea = 'COLECCIONES';
+  }
+
+  return {
+    id: inspAlpha || `op-${Date.now()}`,
+    nombre: raw.toUpperCase(),
+    rol: 'OPERARIO',
+    area: inferredArea,
+    email: '',
+    isZonaFranca: isZF
+  };
+}
 
 export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
   solicitudes,
@@ -171,7 +265,29 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
   const [workerFilterArea, setWorkerFilterArea] = useState<string>('TODAS');
   const [workerSearch, setWorkerSearch] = useState<string>('');
   const [selectedWorkerOpsModal, setSelectedWorkerOpsModal] = useState<{ worker: UsuarioSTF; ops: SolicitudColcha[]; count: number } | null>(null);
-  const [selectedAreaOpsModal, setSelectedAreaOpsModal] = useState<{ areaName: string; count: number; operarios: string[]; dateName: string } | null>(null);
+  const [selectedAreaOpsModal, setSelectedAreaOpsModal] = useState<{ 
+    areaName: string; 
+    count: number; 
+    operarios: string[]; 
+    dateName: string; 
+    ops?: SolicitudColcha[];
+  } | null>(null);
+
+  // Dynamic Real-Time Users list synchronized with Google Sheets and master profiles
+  const [usuariosList, setUsuariosList] = useState<UsuarioSTF[]>(() => getUsuariosList());
+
+  useEffect(() => {
+    setUsuariosList(getUsuariosList());
+    const unsub = subscribeUsuariosList((latest) => {
+      setUsuariosList(latest);
+    });
+    syncUsuariosFromSheets().then(synced => {
+      if (synced && synced.length > 0) setUsuariosList(synced);
+    });
+    return () => {
+      unsub();
+    };
+  }, []);
 
   // Sub-tab 3: Productividad state (defaults in real time to current month SEPTIEMBRE)
   const [prodSelectedMonth, setProdSelectedMonth] = useState<string>('SEPTIEMBRE');
@@ -212,10 +328,10 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
       totalMt: number;
       conformidad: string;
       areas: {
-        zf: { ops: number; rollos: number; mt: number; activeProfiles: number; operarios: string[] };
-        lavanderia: { ops: number; rollos: number; mt: number; activeProfiles: number; operarios: string[] };
-        calidad: { ops: number; rollos: number; mt: number; activeProfiles: number; operarios: string[] };
-        colecciones: { ops: number; rollos: number; mt: number; activeProfiles: number; operarios: string[] };
+        zf: { ops: number; rollos: number; mt: number; activeProfiles: number; operarios: string[]; opsList: SolicitudColcha[] };
+        lavanderia: { ops: number; rollos: number; mt: number; activeProfiles: number; operarios: string[]; opsList: SolicitudColcha[] };
+        calidad: { ops: number; rollos: number; mt: number; activeProfiles: number; operarios: string[]; opsList: SolicitudColcha[] };
+        colecciones: { ops: number; rollos: number; mt: number; activeProfiles: number; operarios: string[]; opsList: SolicitudColcha[] };
       };
       workerActivity: Record<string, { ops: number; rollos: number; mt: number; dictamenes: { ap: number; rec: number } }>;
     }> = {};
@@ -236,10 +352,10 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
         totalMt: 0,
         conformidad: '0 / 0 (100% Calidad Conforme)',
         areas: {
-          zf: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] },
-          lavanderia: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] },
-          calidad: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] },
-          colecciones: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] }
+          zf: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] },
+          lavanderia: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] },
+          calidad: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] },
+          colecciones: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] }
         },
         workerActivity: {}
       };
@@ -257,10 +373,10 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
           totalMt: 0,
           conformidad: '0 / 0 (100% Calidad Conforme)',
           areas: {
-            zf: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] },
-            lavanderia: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] },
-            calidad: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] },
-            colecciones: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] }
+            zf: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] },
+            lavanderia: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] },
+            calidad: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] },
+            colecciones: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] }
           },
           workerActivity: {}
         };
@@ -275,42 +391,35 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
       const mtNum = rollosNum * 85;
       reg.totalMt += mtNum;
 
-      // Area attribution
+      // Area attribution: se determina de forma precisa según el operario ejecutor y estado operativo
+      const inspectorName = (sol.inspector || '').trim() || 'INSPECTOR CALIDAD';
+      const worker = findWorkerForInspector(inspectorName, usuariosList);
       const areaUpper = (sol.areaActual || '').toUpperCase();
-      const inspectorName = (sol.inspector || 'INSPECTOR').trim();
 
-      if (areaUpper.includes('ZF') || areaUpper.includes('ATELIER')) {
-        reg.areas.zf.ops += 1;
-        reg.areas.zf.rollos += rollosNum;
-        reg.areas.zf.mt += mtNum;
-        if (!reg.areas.zf.operarios.some(o => o.startsWith(inspectorName))) {
-          reg.areas.zf.operarios.push(inspectorName);
-        }
-      } else if (areaUpper.includes('LAVANDERIA') || areaUpper.includes('LAVAD')) {
-        reg.areas.lavanderia.ops += 1;
-        reg.areas.lavanderia.rollos += rollosNum;
-        reg.areas.lavanderia.mt += mtNum;
-        if (!reg.areas.lavanderia.operarios.some(o => o.startsWith(inspectorName))) {
-          reg.areas.lavanderia.operarios.push(inspectorName);
-        }
-      } else if (areaUpper.includes('COLECCION') || areaUpper.includes('DESPACHO')) {
-        reg.areas.colecciones.ops += 1;
-        reg.areas.colecciones.rollos += rollosNum;
-        reg.areas.colecciones.mt += mtNum;
-        if (!reg.areas.colecciones.operarios.some(o => o.startsWith(inspectorName))) {
-          reg.areas.colecciones.operarios.push(inspectorName);
-        }
+      let targetArea: 'zf' | 'lavanderia' | 'calidad' | 'colecciones';
+
+      if (worker.area === 'CALIDAD ZF' || areaUpper.includes('ZF') || areaUpper.includes('ATELIER') || sol.estado === 'PRE_SOLICITUD') {
+        targetArea = 'zf';
+      } else if (worker.area === 'LAVANDERÍA' || areaUpper.includes('LAVANDERIA') || areaUpper.includes('LAVAD') || sol.estado === 'LAVANDERIA') {
+        targetArea = 'lavanderia';
+      } else if (worker.area === 'COLECCIONES' || areaUpper.includes('COLECCION') || areaUpper.includes('MARCA') || areaUpper.includes('SF') || areaUpper.includes('ELA') || areaUpper.includes('OUTLET')) {
+        targetArea = 'colecciones';
       } else {
-        reg.areas.calidad.ops += 1;
-        reg.areas.calidad.rollos += rollosNum;
-        reg.areas.calidad.mt += mtNum;
-        if (!reg.areas.calidad.operarios.some(o => o.startsWith(inspectorName))) {
-          reg.areas.calidad.operarios.push(inspectorName);
-        }
+        // Calidad Planta Principal / Solicitado / Tránsito / Laboratorio Textil STF
+        targetArea = 'calidad';
       }
 
+      const areaObj = reg.areas[targetArea];
+      areaObj.ops += 1;
+      areaObj.rollos += rollosNum;
+      areaObj.mt += mtNum;
+      if (!areaObj.operarios.includes(worker.nombre)) {
+        areaObj.operarios.push(worker.nombre);
+      }
+      areaObj.opsList.push(sol);
+
       // Worker Activity
-      const workerKey = inspectorName.toLowerCase();
+      const workerKey = worker.nombre;
       if (!reg.workerActivity[workerKey]) {
         reg.workerActivity[workerKey] = { ops: 0, rollos: 0, mt: 0, dictamenes: { ap: 0, rec: 0 } };
       }
@@ -347,7 +456,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
     });
 
     return registry;
-  }, [solicitudes]);
+  }, [solicitudes, usuariosList, systemTodayYMD]);
 
   // Active dates detected from Google Sheets sorted descending
   const activeDatesInSheets = useMemo(() => {
@@ -399,10 +508,10 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
     totalMt: 0,
     conformidad: '0 / 0',
     areas: {
-      zf: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] },
-      lavanderia: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] },
-      calidad: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] },
-      colecciones: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [] }
+      zf: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] },
+      lavanderia: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] },
+      calidad: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] },
+      colecciones: { ops: 0, rollos: 0, mt: 0, activeProfiles: 0, operarios: [], opsList: [] }
     },
     workerActivity: {}
   };
@@ -417,29 +526,28 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
 
   // Worker statistics calculated and sorted in real time for the selected date
   const workersWithDailyStats = useMemo(() => {
-    const list = USUARIOS_STF_MAESTROS.map(worker => {
-      const workerKey = worker.id.toLowerCase();
-      const firstNombre = worker.nombre.toLowerCase().split(' ')[0];
-      const fullName = worker.nombre.toLowerCase();
+    // 1. Reúne todos los operarios: nómina oficial/Sheets + operarios detectados en las OPs del día
+    const workerMap = new Map<string, UsuarioSTF>();
+    usuariosList.forEach(u => workerMap.set(u.id.toLowerCase(), u));
 
-      // Find all OPs registered by this worker on the selected date
+    // Detectar automáticamente cualquier inspector de las OPs del día para garantizar 100% de cobertura
+    selectedDateOps.forEach(s => {
+      if (s.inspector && s.inspector.trim()) {
+        const matched = findWorkerForInspector(s.inspector, usuariosList);
+        if (!workerMap.has(matched.id.toLowerCase())) {
+          workerMap.set(matched.id.toLowerCase(), matched);
+        }
+      }
+    });
+
+    const allWorkers = Array.from(workerMap.values());
+
+    const list = allWorkers.map(worker => {
+      // OPs procesadas por este trabajador en la fecha seleccionada
       const opsOfWorker = selectedDateOps.filter(s => {
         if (!s.inspector) return false;
-        const insp = s.inspector.toLowerCase();
-        return (
-          insp === workerKey ||
-          insp.includes(fullName) ||
-          fullName.includes(insp) ||
-          insp.includes(firstNombre) ||
-          (fullName.includes('wilmer') && insp.includes('wilmer')) ||
-          (fullName.includes('andres') && insp.includes('andres')) ||
-          (fullName.includes('didier') && insp.includes('didier')) ||
-          (fullName.includes('juan') && insp.includes('juan')) ||
-          (fullName.includes('milena') && insp.includes('milena')) ||
-          (fullName.includes('sandra') && insp.includes('sandra')) ||
-          (fullName.includes('edwin') && insp.includes('edwin')) ||
-          (worker.area === 'CALIDAD ZF' && (insp.includes('zf') || insp.includes('atelier')))
-        );
+        const matched = findWorkerForInspector(s.inspector, usuariosList);
+        return matched.id.toLowerCase() === worker.id.toLowerCase() || matched.nombre.toUpperCase() === worker.nombre.toUpperCase();
       });
 
       const opsCount = opsOfWorker.length;
@@ -459,22 +567,23 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
       };
     });
 
-    // Sort: Workers WITH ACTIVITY on this date appear AT THE TOP
+    // Ordenar: trabajadores con actividad ese día aparecen de primero
     list.sort((a, b) => b.opsCount - a.opsCount);
 
     return list.filter(item => {
-      // REQUIREMENT 3: Si está en 'TODAS', mostrar ÚNICAMENTE los usuarios que registraron OPs ese día
+      // REQUIREMENT: Si está en 'TODAS', mostrar ÚNICAMENTE los usuarios que registraron OPs ese día
       if (workerFilterArea === 'TODAS') {
         if (item.opsCount === 0) return false;
       } else {
         // Filtro por taller específico seleccionado
-        if (workerFilterArea === 'CALIDAD_ZF' && !item.worker.area.includes('ZF') && !item.worker.area.includes('Atelier')) return false;
-        if (workerFilterArea === 'LAVANDERIA' && !item.worker.area.includes('Lavandería')) return false;
-        if (workerFilterArea === 'CALIDAD' && (!item.worker.area.includes('Calidad') || item.worker.area.includes('ZF'))) return false;
-        if (workerFilterArea === 'COLECCIONES' && !item.worker.area.includes('Diseño') && !item.worker.area.includes('Colecciones') && !item.worker.rol.includes('Cliente')) return false;
+        const wArea = (item.worker.area || '').toUpperCase();
+        if (workerFilterArea === 'CALIDAD_ZF' && !wArea.includes('ZF') && !wArea.includes('ATELIER')) return false;
+        if (workerFilterArea === 'LAVANDERIA' && !wArea.includes('LAVAND')) return false;
+        if (workerFilterArea === 'CALIDAD' && (!wArea.includes('CALIDAD') || wArea.includes('ZF'))) return false;
+        if (workerFilterArea === 'COLECCIONES' && !wArea.includes('COLECCION') && !wArea.includes('DISEÑO') && !item.worker.rol.includes('CLIENTE')) return false;
       }
 
-      // Search filter
+      // Filtro de búsqueda
       const q = workerSearch.toLowerCase().trim();
       if (!q) return true;
       return (
@@ -484,7 +593,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
         item.worker.rol.toLowerCase().includes(q)
       );
     });
-  }, [selectedCalendarDate, selectedDateOps, workerFilterArea, workerSearch]);
+  }, [usuariosList, selectedCalendarDate, selectedDateOps, workerFilterArea, workerSearch]);
 
   // Real-time Year-to-Date (Enero to Septiembre 2026) calculated metrics
   const totalAprobadosYTD = activeMonthsData.reduce((acc, m) => acc + m.aprobados, 0);
@@ -1171,7 +1280,8 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                         areaName: 'Calidad ZF & Atelier (Zona Franca)',
                         count: zf.ops,
                         operarios: zf.operarios,
-                        dateName: currentDailyData.dayName
+                        dateName: currentDailyData.dayName,
+                        ops: zf.opsList
                       })}
                       className={`w-full py-2 rounded-xl text-xs font-black uppercase transition ${
                         isActive
@@ -1242,7 +1352,8 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                         areaName: 'Lavandería & Planta (Colfactory)',
                         count: lav.ops,
                         operarios: lav.operarios,
-                        dateName: currentDailyData.dayName
+                        dateName: currentDailyData.dayName,
+                        ops: lav.opsList
                       })}
                       className={`w-full py-2 rounded-xl text-xs font-black uppercase transition ${
                         isActive
@@ -1313,7 +1424,8 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                         areaName: 'Calidad & Laboratorio Textil STF',
                         count: cal.ops,
                         operarios: cal.operarios,
-                        dateName: currentDailyData.dayName
+                        dateName: currentDailyData.dayName,
+                        ops: cal.opsList
                       })}
                       className={`w-full py-2 rounded-xl text-xs font-black uppercase transition ${
                         isActive
@@ -1384,7 +1496,8 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                         areaName: 'Colecciones & Marcas (SF / ELA / OUTLET)',
                         count: col.ops,
                         operarios: col.operarios,
-                        dateName: currentDailyData.dayName
+                        dateName: currentDailyData.dayName,
+                        ops: col.opsList
                       })}
                       className={`w-full py-2 rounded-xl text-xs font-black uppercase transition ${
                         isActive
@@ -2796,39 +2909,44 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
             </div>
 
             <div className="overflow-y-auto flex-1 custom-scroll p-5 space-y-3">
-              {Array.from({ length: selectedWorkerOpsModal.count }).map((_, idx) => {
-                const sampleOp = selectedDateOps[idx % (selectedDateOps.length || 1)] || {
-                  id: `op-work-${idx}`,
-                  op: `000930${70 + idx}`,
-                  referencia: `REF-SF-${200 + idx * 10}`,
-                  tela: idx % 2 === 0 ? 'TELA INDIGO LARKANA' : 'TELA DENIM HEAVY',
-                  color: idx % 2 === 0 ? 'AZUL' : 'NEGRO',
-                  rollos: idx === 0 ? 8 : 7,
-                  estado: 'CALIDAD'
-                };
-
-                return (
-                  <div key={idx} className="bg-zinc-900 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 p-3.5 rounded-2xl flex items-center justify-between text-xs text-white dark:text-zinc-950">
+              {selectedWorkerOpsModal.ops && selectedWorkerOpsModal.ops.length > 0 ? (
+                selectedWorkerOpsModal.ops.map((opItem, idx) => (
+                  <div key={opItem.id || idx} className="bg-zinc-900 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 p-3.5 rounded-2xl flex items-center justify-between text-xs text-white dark:text-zinc-950">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-amber-400 dark:text-amber-600">OP #{sampleOp.op}</span>
-                        <span className="font-mono text-zinc-400 dark:text-zinc-500">Ref: {sampleOp.referencia}</span>
+                        <span className="font-mono font-black text-amber-400 dark:text-amber-600">OP #{opItem.op}</span>
+                        <span className="font-mono text-zinc-400 dark:text-zinc-500">Ref: {opItem.referencia}</span>
                       </div>
-                      <span className="text-white dark:text-zinc-950 font-bold block mt-0.5">{sampleOp.tela}</span>
-                      <span className="text-zinc-400 dark:text-zinc-500 text-[11px] block">Color: {sampleOp.color} • {sampleOp.rollos} Rollos</span>
+                      <span className="text-white dark:text-zinc-950 font-bold block mt-0.5">{opItem.tela}</span>
+                      <span className="text-zinc-400 dark:text-zinc-500 text-[11px] block">Color: {opItem.color} • {opItem.rollos} Rollos • Lote: {opItem.lote}</span>
+                      {opItem.observacionesOperario && (
+                        <span className="text-zinc-400 dark:text-zinc-600 text-[10px] block mt-1 line-clamp-1 italic">
+                          "{opItem.observacionesOperario}"
+                        </span>
+                      )}
                     </div>
 
                     <div className="text-right font-mono">
-                      <span className="bg-emerald-950 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-bold block">
-                        CALIDAD STF
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold block ${
+                        opItem.dictamen === 'APROBADO' || opItem.estado === 'FINALIZADO'
+                          ? 'bg-emerald-950 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/30'
+                          : opItem.dictamen === 'RECHAZADO'
+                          ? 'bg-rose-950 dark:bg-rose-100 text-rose-300 dark:text-rose-800 border border-rose-500/30'
+                          : 'bg-amber-950 dark:bg-amber-100 text-amber-300 dark:text-amber-800 border border-amber-500/30'
+                      }`}>
+                        {opItem.dictamen || opItem.estado}
                       </span>
                       <span className="text-zinc-500 text-[10px] block mt-1">
-                        08:{15 + idx * 10} a. m.
+                        {opItem.fechaCreacion ? opItem.fechaCreacion.split(' ')[1] || opItem.fechaCreacion : ''}
                       </span>
                     </div>
                   </div>
-                );
-              })}
+                ))
+              ) : (
+                <div className="text-center py-6 text-zinc-400 text-xs">
+                  Sin OPs registradas para este operario en esta fecha.
+                </div>
+              )}
             </div>
 
             <div className="p-4 border-t border-zinc-800 dark:border-zinc-200 bg-zinc-900 dark:bg-zinc-100 flex justify-end">
@@ -2882,44 +3000,30 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
             </div>
 
             <div className="overflow-y-auto flex-1 custom-scroll p-5 space-y-3">
-              {Array.from({ length: selectedAreaOpsModal.count }).map((_, idx) => {
-                const sampleOp = selectedDateOps[idx % (selectedDateOps.length || 1)] || {
-                  id: `op-area-${idx}`,
-                  op: `000930${60 + idx}`,
-                  referencia: `REF-SF-${100 + idx * 15}`,
-                  tela: idx % 2 === 0 ? 'TELA INDIGO LARKANA' : 'TELA COTTON DENIM',
-                  color: idx % 2 === 0 ? 'AZUL' : 'INDIGO DARK',
-                  rollos: 7,
-                  estado: 'CALIDAD'
-                };
-
-                const assignedWorker = selectedAreaOpsModal.operarios[idx % selectedAreaOpsModal.operarios.length];
-
-                return (
-                  <div key={idx} className="bg-zinc-900 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 p-3.5 rounded-2xl flex items-center justify-between text-xs text-white dark:text-zinc-950">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-amber-400 dark:text-amber-600">OP #{sampleOp.op}</span>
-                        <span className="font-mono text-zinc-400 dark:text-zinc-500">Ref: {sampleOp.referencia}</span>
-                        <span className="bg-zinc-800 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 px-2 py-0.2 rounded font-bold text-[10px]">
-                          👤 {assignedWorker.split(' ')[0]}
-                        </span>
-                      </div>
-                      <span className="text-white dark:text-zinc-950 font-bold block mt-0.5">{sampleOp.tela}</span>
-                      <span className="text-zinc-400 dark:text-zinc-500 text-[11px] block">Color: {sampleOp.color} • {sampleOp.rollos} Rollos</span>
-                    </div>
-
-                    <div className="text-right font-mono">
-                      <span className="bg-emerald-950 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-bold block">
-                        CALIDAD STF
-                      </span>
-                      <span className="text-zinc-500 text-[10px] block mt-1">
-                        08:{20 + idx * 8} a. m.
+              {(selectedAreaOpsModal.ops && selectedAreaOpsModal.ops.length > 0 ? selectedAreaOpsModal.ops : selectedDateOps.slice(0, selectedAreaOpsModal.count)).map((opItem, idx) => (
+                <div key={opItem.id || idx} className="bg-zinc-900 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 p-3.5 rounded-2xl flex items-center justify-between text-xs text-white dark:text-zinc-950">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-amber-400 dark:text-amber-600">OP #{opItem.op}</span>
+                      <span className="font-mono text-zinc-400 dark:text-zinc-500">Ref: {opItem.referencia}</span>
+                      <span className="bg-zinc-800 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 px-2 py-0.2 rounded font-bold text-[10px]">
+                        👤 {(opItem.inspector || 'INSPECTOR').split(' ')[0]}
                       </span>
                     </div>
+                    <span className="text-white dark:text-zinc-950 font-bold block mt-0.5">{opItem.tela}</span>
+                    <span className="text-zinc-400 dark:text-zinc-500 text-[11px] block">Color: {opItem.color} • {opItem.rollos} Rollos • Lote: {opItem.lote}</span>
                   </div>
-                );
-              })}
+
+                  <div className="text-right font-mono">
+                    <span className="bg-emerald-950 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-bold block">
+                      {opItem.estado}
+                    </span>
+                    <span className="text-zinc-500 text-[10px] block mt-1">
+                      {opItem.fechaCreacion ? opItem.fechaCreacion.split(' ')[1] || opItem.fechaCreacion : ''}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="p-4 border-t border-zinc-800 dark:border-zinc-200 bg-zinc-900 dark:bg-zinc-100 flex justify-end">

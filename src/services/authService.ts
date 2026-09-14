@@ -29,6 +29,7 @@ export const USUARIOS_STF_MAESTROS: UsuarioSTF[] = [
   { id: "1004670524", nombre: "DILAN SOTO", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 310 678 9013", whatsapp: "573106789013" },
   { id: "1010159672", nombre: "JHON EYDER", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 311 789 0124", whatsapp: "573117890124" },
   { id: "1118309204", nombre: "STIVEN MAYA", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 313 890 1235", whatsapp: "573138901235" },
+  { id: "1118309205", nombre: "WILMER MAYA", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 313 890 1236", whatsapp: "573138901236" },
   { id: "1107047649", nombre: "JUAN DAVID CORTEZ", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 318 901 2346", whatsapp: "573189012346" },
   { id: "1005829307", nombre: "JHON FREDDY GONZÁLEZ", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 317 012 3457", whatsapp: "573170123457" },
   { id: "1006099840", nombre: "SEBASTIAN HERRERA", rol: "OPERARIO", area: "CALIDAD ZF", email: "", isZonaFranca: true, telefono: "+57 315 123 4568", whatsapp: "573151234568" },
@@ -361,13 +362,19 @@ export async function syncUsuariosFromSheets(): Promise<UsuarioSTF[]> {
       }
 
       if (parsedUsers.length > 0) {
-        cachedUsuariosList = parsedUsers;
+        // Combinar perfiles maestros oficiales con los sincronizados de Google Sheets
+        const usersMap = new Map<string, UsuarioSTF>();
+        USUARIOS_STF_MAESTROS.forEach(u => usersMap.set(u.id.toLowerCase(), u));
+        parsedUsers.forEach(u => usersMap.set(u.id.toLowerCase(), u));
+        const mergedUsers = Array.from(usersMap.values());
+
+        cachedUsuariosList = mergedUsers;
         if (typeof window !== 'undefined') {
-          localStorage.setItem('stf_cached_usuarios', JSON.stringify(parsedUsers));
+          localStorage.setItem('stf_cached_usuarios', JSON.stringify(mergedUsers));
         }
         notifySubscribers();
-        console.log(`[authService] ✓ Sincronizados ${parsedUsers.length} usuarios en tiempo real desde Google Sheets (pestaña USUARIOS).`);
-        return parsedUsers;
+        console.log(`[authService] ✓ Sincronizados ${mergedUsers.length} usuarios en tiempo real desde Google Sheets (pestaña USUARIOS + maestros).`);
+        return mergedUsers;
       }
     }
   } catch (err) {
