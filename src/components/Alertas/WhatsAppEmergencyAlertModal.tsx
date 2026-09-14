@@ -251,20 +251,24 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
       destinatarios.forEach((dest, idx) => {
         setTimeout(() => {
           const { appUrl, apiUrl } = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits);
-          const target = isMobile ? apiUrl : appUrl;
-          const link = document.createElement('a');
-          link.href = target;
-          link.target = '_top';
-          document.body.appendChild(link);
-          link.click();
-          setTimeout(() => {
-            if (document.body.contains(link)) document.body.removeChild(link);
-          }, 1000);
-        }, idx * 700);
+          if (isMobile) {
+            window.open(apiUrl, '_blank');
+          } else {
+            // Invocar protocolo de app nativa por iframe invisible
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = appUrl;
+            document.body.appendChild(iframe);
+            setTimeout(() => {
+              if (document.body.contains(iframe)) document.body.removeChild(iframe);
+            }, 2000);
+            window.open(apiUrl, '_blank');
+          }
+        }, idx * 600);
       });
       setSentCount(destinatarios.length);
       setJustSent(true);
-      setTimeout(() => setJustSent(false), 10000);
+      setTimeout(() => setJustSent(false), 12000);
     } else {
       const dest = destinatarios.find(d => d.id === selectedRecipientId);
       if (dest) {
@@ -276,22 +280,32 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
           console.warn('Error al copiar al portapapeles:', err);
         }
 
-        const target = isMobile ? apiUrl : appUrl;
-        setLastSentUrl(target);
+        setLastSentUrl(apiUrl);
 
-        // Disparar app nativa o intent móvil (evitando que Chrome intente cargar web.whatsapp.com y quede en pantalla negra)
-        const link = document.createElement('a');
-        link.href = target;
-        link.target = '_top';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          if (document.body.contains(link)) document.body.removeChild(link);
-        }, 1000);
+        if (isMobile) {
+          // En móviles el navegador pasa directamente el control a la app WhatsApp
+          window.location.href = apiUrl;
+        } else {
+          // En escritorio: 1) Intentar lanzar App de Windows sin modificar la pestaña actual
+          try {
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = appUrl;
+            document.body.appendChild(iframe);
+            setTimeout(() => {
+              if (document.body.contains(iframe)) document.body.removeChild(iframe);
+            }, 2000);
+          } catch (e) {
+            console.warn('No se pudo invocar app nativa:', e);
+          }
+
+          // 2) Abrir en NUEVA PESTAÑA para jamás bloquear ni perder la pantalla actual del sistema
+          window.open(apiUrl, '_blank');
+        }
 
         setSentCount(prev => prev + 1);
         setJustSent(true);
-        setTimeout(() => setJustSent(false), 10000);
+        setTimeout(() => setJustSent(false), 12000);
       }
     }
   };
@@ -462,7 +476,35 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             />
           </div>
 
-          {/* 4. VISTA PREVIA DEL MENSAJE OFICIAL CON ENCABEZADO DE LOGO OFICIAL */}
+          {/* 4. TARJETA QR DE ENVÍO DIRECTO DESDE CELULAR (100% INMUNE A BLOQUEOS DE RED/FIREWALL) */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#081811] via-[#0d2219] to-[#081811] dark:bg-emerald-50/80 border-2 border-emerald-500/70 dark:border-emerald-400 flex flex-col sm:flex-row items-center gap-4 shadow-xl shadow-emerald-950/40">
+            <div className="p-2.5 bg-white rounded-2xl shadow-lg shrink-0 flex items-center justify-center border-2 border-emerald-400/40">
+              <SafeQRCode 
+                value={`https://api.whatsapp.com/send?phone=${previewPhone}&text=${encodeURIComponent(buildWhatsAppMessage(previewName, previewId))}`} 
+                size={120} 
+                level="L"
+              />
+            </div>
+            <div className="space-y-2 text-center sm:text-left flex-1">
+              <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs font-mono font-black text-emerald-400 dark:text-emerald-800 uppercase">
+                <QrCode className="w-4 h-4 text-emerald-400 dark:text-emerald-700 shrink-0" />
+                <span>Envío Inmediato con Celular (100% Inmune a Bloqueos)</span>
+              </div>
+              <p className="text-[11px] text-zinc-300 dark:text-zinc-700 font-mono leading-relaxed">
+                Si la red Wi-Fi de la planta bloquea WhatsApp Web en tu computador (pantalla negra), <strong>apunta la cámara de tu celular a este código QR</strong>. Abrirá al instante la conversación de WhatsApp en tu teléfono con la información y el enlace listos para enviar a <strong>{previewName}</strong> ({previewPhone}).
+              </p>
+              <div className="flex items-center justify-center sm:justify-start gap-2 pt-0.5">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 dark:text-emerald-800 text-[10px] font-mono font-bold">
+                  <Smartphone className="w-3 h-3" /> Sin contraseñas ni login
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 dark:text-emerald-800 text-[10px] font-mono font-bold">
+                  <ExternalLink className="w-3 h-3" /> Enlace directo a la OP
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. VISTA PREVIA DEL MENSAJE OFICIAL CON ENCABEZADO DE LOGO OFICIAL */}
           <div className="p-4 rounded-2xl bg-[#08130e] dark:bg-emerald-50/50 border border-emerald-500/40 dark:border-emerald-200 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono font-black text-emerald-400 dark:text-emerald-800 uppercase flex items-center gap-1.5">
@@ -480,7 +522,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             </div>
 
             {/* Tarjeta de Mensaje con Encabezado de Logo Oficial */}
-            <div className="rounded-2xl bg-black/75 dark:bg-white border border-emerald-500/30 dark:border-zinc-200 overflow-hidden shadow-inner">
+            <div className="rounded-2xl bg-black/75 dark:bg-white border border-emerald-500/30 dark:border-zinc-200 overflow-hidden shadow-inner max-h-60 overflow-y-auto custom-scroll">
               {/* Encabezado Oficial con Logo de la Compañía */}
               <div className="p-3.5 border-b border-emerald-500/20 dark:border-zinc-100 bg-gradient-to-r from-emerald-950/50 via-black to-emerald-950/50 dark:from-zinc-50 dark:via-white dark:to-zinc-50 flex flex-col items-center justify-center text-center gap-1">
                 <STFLogo isWhite={true} className="h-9 sm:h-11 w-44 sm:w-56" />
@@ -499,26 +541,6 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             </div>
           </div>
 
-          {/* 5. TARJETA QR DE ENVÍO DIRECTO DESDE CELULAR (100% INMUNE A BLOQUEOS DE RED/FIREWALL) */}
-          <div className="p-4 rounded-2xl bg-[#08130e] dark:bg-emerald-50/70 border-2 border-emerald-500/50 dark:border-emerald-300 flex flex-col sm:flex-row items-center gap-4 shadow-xl shadow-emerald-950/40">
-            <div className="p-2.5 bg-white rounded-2xl shadow-md shrink-0 flex items-center justify-center">
-              <SafeQRCode 
-                value={`https://api.whatsapp.com/send?phone=${previewPhone}&text=${encodeURIComponent(buildWhatsAppMessage(previewName, previewId))}`} 
-                size={110} 
-                level="L"
-              />
-            </div>
-            <div className="space-y-1.5 text-center sm:text-left flex-1">
-              <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs font-mono font-black text-emerald-400 dark:text-emerald-800 uppercase">
-                <QrCode className="w-4 h-4 text-emerald-400 dark:text-emerald-700" />
-                <span>Escanear con Celular (Envío Inmediato sin Bloqueos)</span>
-              </div>
-              <p className="text-[11px] text-zinc-300 dark:text-zinc-700 font-mono leading-relaxed">
-                Si la red de tu computador bloquea WhatsApp Web (pantalla negra), <strong>apunta la cámara de tu celular a este código QR</strong>. Abrirá al instante la conversación de WhatsApp en tu teléfono con la información y el enlace listos para enviar a <strong>{previewName}</strong>.
-              </p>
-            </div>
-          </div>
-
           {/* BROADCAST ALERT NOTICE IF 'TODOS' SELECTED */}
           {selectedRecipientId === 'TODOS' && (
             <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 dark:text-amber-800 text-xs font-mono flex items-start gap-2.5">
@@ -534,32 +556,31 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             <div className="p-4 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500/60 text-emerald-300 dark:text-emerald-950 text-xs font-mono space-y-2 animate-in fade-in duration-200">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                <div className="flex-1">
-                  <strong>¡Orden de envío generada para {previewName}!</strong> El mensaje y el enlace se copiaron automáticamente a tu portapapeles.
+                <div className="flex-1 font-bold">
+                  ¡Mensaje y enlace de acceso directo copiados al portapapeles!
                 </div>
               </div>
-              <div className="pl-7 text-[11px] text-zinc-300 dark:text-zinc-700 space-y-1">
+              <div className="pl-7 text-[11px] text-zinc-300 dark:text-zinc-700 space-y-1.5">
                 <p>
-                  Si tu computador tiene WhatsApp Web bloqueado por red, <strong>apunta la cámara de tu celular al código QR de arriba</strong> para enviarlo en 1 segundo.
+                  Si en tu computador la nueva pestaña se queda cargando o en pantalla negra (bloqueo por firewall corporativo), <strong>apunta la cámara de tu celular al código QR de arriba</strong> para enviarlo en 1 segundo a <strong>{previewName}</strong>.
                 </p>
-                {lastSentUrl && (
-                  <div className="flex flex-wrap gap-3 pt-1">
-                    <a 
-                      href={lastSentUrl} 
-                      className="text-emerald-400 dark:text-emerald-700 underline font-bold"
-                    >
-                      Reintentar abrir App WhatsApp ↗
-                    </a>
-                    <a 
-                      href={`https://web.whatsapp.com/send?phone=${previewPhone}&text=${encodeURIComponent(buildWhatsAppMessage(previewName, previewId))}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="text-zinc-400 hover:text-white dark:hover:text-black underline"
-                    >
-                      O probar por WhatsApp Web ↗
-                    </a>
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-3 pt-1">
+                  <button 
+                    type="button"
+                    onClick={handleCopyMessage}
+                    className="text-emerald-400 dark:text-emerald-700 underline font-bold cursor-pointer"
+                  >
+                    📋 Copiar reporte de nuevo
+                  </button>
+                  <a 
+                    href={`https://api.whatsapp.com/send?phone=${previewPhone}&text=${encodeURIComponent(buildWhatsAppMessage(previewName, previewId))}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-zinc-400 hover:text-white dark:hover:text-black underline"
+                  >
+                    🌐 Reintentar en nueva pestaña ↗
+                  </a>
+                </div>
               </div>
             </div>
           )}
