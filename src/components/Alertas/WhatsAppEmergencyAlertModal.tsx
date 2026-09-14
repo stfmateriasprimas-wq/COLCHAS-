@@ -45,10 +45,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
   const [copiedPreview, setCopiedPreview] = useState<boolean>(false);
   const [sentCount, setSentCount] = useState<number>(0);
   const [justSent, setJustSent] = useState<boolean>(false);
-  const [canalEnvio, setCanalEnvio] = useState<'app' | 'web'>(() => {
-    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    return isMobile ? 'app' : 'app'; // Por defecto App WhatsApp para evitar timeouts de red de navegadores
-  });
+  const [lastSentUrl, setLastSentUrl] = useState<string>('');
 
   // Subscribe to real-time user updates & sync from Google Sheets
   useEffect(() => {
@@ -220,40 +217,24 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     return msg;
   };
 
-  // Helper: Ejecutar protocolo de app (whatsapp://) de forma segura sin salir de la página
-  const triggerAppProtocol = (url: string) => {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.style.display = 'none';
-    document.body.appendChild(anchor);
-    anchor.click();
-    setTimeout(() => {
-      if (document.body.contains(anchor)) {
-        document.body.removeChild(anchor);
-      }
-    }, 1200);
-  };
-
-  // Helper: Build Direct WhatsApp URL (Sin wa.me para evitar bloqueos y timeouts de conexión)
+  // Helper: Build Direct WhatsApp URL
   const buildWhatsAppUrl = (
     phone: string, 
     recipientName: string, 
     recipientId?: string, 
-    digitsFallback?: string,
-    channel: 'app' | 'web' = canalEnvio
+    digitsFallback?: string
   ): string => {
     const cleanPhone = cleanPhoneNumber(phone, digitsFallback);
     const message = buildWhatsAppMessage(recipientName, recipientId);
-    if (channel === 'app') {
-      return `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+      return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
     }
-    return `https://web.whatsapp.com/send/?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+    return `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
   };
 
   // Single or Broadcast WhatsApp trigger
-  const handleSendWhatsApp = (channelOverride?: 'app' | 'web') => {
-    const targetChannel = channelOverride || canalEnvio;
-
+  const handleSendWhatsApp = () => {
     if (selectedRecipientId === 'TODOS') {
       // Modo difusión masiva: cada destinatario recibe su mensaje
       const generalMsg = buildWhatsAppMessage('Equipo de Planta STF');
@@ -265,17 +246,21 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
       destinatarios.forEach((dest, idx) => {
         setTimeout(() => {
-          const url = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits, targetChannel);
-          if (targetChannel === 'app') {
-            triggerAppProtocol(url);
-          } else {
-            window.open(url, '_blank', 'noopener,noreferrer');
-          }
+          const url = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits);
+          const link = document.createElement('a');
+          link.href = url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            if (document.body.contains(link)) document.body.removeChild(link);
+          }, 1000);
         }, idx * 700);
       });
       setSentCount(destinatarios.length);
       setJustSent(true);
-      setTimeout(() => setJustSent(false), 5000);
+      setTimeout(() => setJustSent(false), 8000);
     } else {
       const dest = destinatarios.find(d => d.id === selectedRecipientId);
       if (dest) {
@@ -286,15 +271,22 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
           console.warn('Error al copiar al portapapeles:', err);
         }
 
-        const url = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits, targetChannel);
-        if (targetChannel === 'app') {
-          triggerAppProtocol(url);
-        } else {
-          window.open(url, '_blank', 'noopener,noreferrer');
-        }
+        const url = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits);
+        setLastSentUrl(url);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (document.body.contains(link)) document.body.removeChild(link);
+        }, 1000);
+
         setSentCount(prev => prev + 1);
         setJustSent(true);
-        setTimeout(() => setJustSent(false), 5000);
+        setTimeout(() => setJustSent(false), 8000);
       }
     }
   };
@@ -464,49 +456,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             />
           </div>
 
-          {/* 4. SELECTOR DE CANAL DE ENVÍO DIRECTO (SIN WA.ME) */}
-          <div className="p-3.5 rounded-2xl bg-[#0f1f18] dark:bg-zinc-100 border border-emerald-500/40 dark:border-zinc-300 space-y-2">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <label className="text-xs font-mono font-bold text-emerald-400 dark:text-emerald-800 flex items-center gap-1.5">
-                <PhoneCall className="w-3.5 h-3.5" />
-                DESTINO DE APERTURA WHATSAPP:
-              </label>
-              <div className="inline-flex rounded-xl bg-black/60 dark:bg-white p-1 border border-emerald-500/30 dark:border-zinc-300 gap-1">
-                <button
-                  type="button"
-                  onClick={() => setCanalEnvio('app')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    canalEnvio === 'app'
-                      ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/30 font-black'
-                      : 'text-zinc-400 hover:text-white dark:text-zinc-600 dark:hover:text-black'
-                  }`}
-                >
-                  <span>📱 App WhatsApp</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-black/20 text-black font-black">Directo</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCanalEnvio('web')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    canalEnvio === 'web'
-                      ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/30 font-black'
-                      : 'text-zinc-400 hover:text-white dark:text-zinc-600 dark:hover:text-black'
-                  }`}
-                >
-                  <span>🌐 WhatsApp Web</span>
-                </button>
-              </div>
-            </div>
-            <p className="text-[11px] font-mono text-zinc-400 dark:text-zinc-600">
-              {canalEnvio === 'app' ? (
-                <>✨ <strong>Protocolo nativo directo (whatsapp://):</strong> Abre de inmediato la aplicación de WhatsApp en tu computador o celular sin intermediarios ni errores de tiempo de espera (wa.me).</>
-              ) : (
-                <>🌐 <strong>WhatsApp Web directo (web.whatsapp.com):</strong> Abre una pestaña en tu navegador con la conversación y el mensaje ya redactado.</>
-              )}
-            </p>
-          </div>
-
-          {/* 5. VISTA PREVIA DEL MENSAJE OFICIAL CON ENCABEZADO DE LOGO OFICIAL */}
+          {/* 4. VISTA PREVIA DEL MENSAJE OFICIAL CON ENCABEZADO DE LOGO OFICIAL */}
           <div className="p-4 rounded-2xl bg-[#08130e] dark:bg-emerald-50/50 border border-emerald-500/40 dark:border-emerald-200 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono font-black text-emerald-400 dark:text-emerald-800 uppercase flex items-center gap-1.5">
@@ -555,60 +505,64 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
           {/* BANNER INFORMATIVO AL ENVIAR */}
           {justSent && (
-            <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/60 text-emerald-300 dark:text-emerald-950 text-xs font-mono flex items-center gap-2.5 animate-in fade-in duration-200">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-              <div className="flex-1">
-                <strong>¡Abriendo WhatsApp para {previewName}!</strong> El mensaje fue copiado automáticamente a tu portapapeles. Si lo necesitas, puedes pegarlo directamente con <kbd className="px-1.5 py-0.5 rounded bg-black/40 text-emerald-300 font-bold">Ctrl + V</kbd>.
+            <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/60 text-emerald-300 dark:text-emerald-950 text-xs font-mono space-y-1.5 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                <div className="flex-1">
+                  <strong>¡Redireccionando a WhatsApp para {previewName}!</strong> El mensaje con los datos y el enlace fue copiado automáticamente a tu portapapeles.
+                </div>
               </div>
+              {lastSentUrl && (
+                <div className="pl-7 text-[11px] text-zinc-300 dark:text-zinc-700">
+                  ¿Tu navegador no abrió la ventana?{' '}
+                  <a 
+                    href={lastSentUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-emerald-400 dark:text-emerald-700 underline font-bold"
+                  >
+                    Toca aquí para abrir el chat de WhatsApp directamente ↗
+                  </a>
+                </div>
+              )}
             </div>
           )}
 
         </div>
 
-        {/* FOOTER ACTION BUTTONS */}
+        {/* FOOTER ACTION BUTTON */}
         <div className="p-5 sm:p-6 border-t border-emerald-900/60 dark:border-zinc-200 bg-gradient-to-r from-emerald-950/80 via-[#0b1411] to-emerald-950/80 dark:from-emerald-50 dark:via-white dark:to-emerald-50 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-xs font-mono text-zinc-400 dark:text-zinc-600 flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
+          <div className="text-xs font-mono text-zinc-400 dark:text-zinc-600 flex items-center gap-2">
             {sentCount > 0 ? (
               <span className="text-emerald-400 font-bold flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" /> {sentCount} alerta(s) enviada(s)
               </span>
             ) : (
               <span className="text-[11px] text-zinc-400">
-                Selecciona tu destino preferido para enviar:
+                Al enviar se abrirá la conversación oficial de WhatsApp
               </span>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-3 rounded-2xl border border-zinc-700 dark:border-zinc-300 text-xs font-bold text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+              className="flex-1 sm:flex-none px-4 py-3 rounded-2xl border border-zinc-700 dark:border-zinc-300 text-xs font-bold text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
             >
               Cerrar
             </button>
 
-            {/* BOTÓN 1: WHATSAPP WEB DIRECTO */}
+            {/* BOTÓN OFICIAL ÚNICO Y CENTRADO: ENVIAR ALERTA POR WHATSAPP */}
             <button
               type="button"
-              onClick={() => handleSendWhatsApp('web')}
-              className="flex-1 sm:flex-none px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-black font-mono font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 duration-150"
-              title="Abre WhatsApp Web en tu navegador con el chat y mensaje ya listos"
+              onClick={handleSendWhatsApp}
+              className="flex-1 sm:flex-none px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-black font-mono font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 duration-150"
+              title="Redireccionar a WhatsApp para enviar el reporte con toda la información y enlace de la OP"
             >
               <MessageSquare className="w-4 h-4 fill-black" />
-              <span>WhatsApp Web</span>
+              <span>Enviar Alerta por WhatsApp</span>
               <ExternalLink className="w-3.5 h-3.5" />
-            </button>
-
-            {/* BOTÓN 2: APP WHATSAPP NATIVA (WINDOWS / MÓVIL) */}
-            <button
-              type="button"
-              onClick={() => handleSendWhatsApp('app')}
-              className="flex-1 sm:flex-none px-5 py-3 rounded-2xl bg-[#162e24] hover:bg-[#1c3a2e] dark:bg-emerald-100 dark:hover:bg-emerald-200 border border-emerald-500/60 dark:border-emerald-400 text-emerald-300 dark:text-emerald-900 font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-md hover:scale-105 active:scale-95 duration-150"
-              title="Abre la aplicación de WhatsApp instalada en Windows o celular"
-            >
-              <PhoneCall className="w-4 h-4 text-emerald-400 dark:text-emerald-800" />
-              <span>App WhatsApp</span>
             </button>
           </div>
         </div>
