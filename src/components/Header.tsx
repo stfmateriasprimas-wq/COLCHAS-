@@ -56,8 +56,8 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Top Row on Mobile / Direct grid slots on Desktop */}
           <div className="flex items-center justify-between w-full sm:contents">
             
-            {/* LEFT: Back Button */}
-            <div className="flex items-center justify-start gap-1 sm:gap-2 shrink-0 min-w-[32px] sm:min-w-[40px]">
+            {/* LEFT: Back Button & CHAT Button (Ubicación oficial solicitada) */}
+            <div className="flex items-center justify-start gap-1.5 sm:gap-2.5 shrink-0 min-w-[32px] sm:min-w-[40px]">
               {showBackButton && (
                 <button
                   type="button"
@@ -66,6 +66,25 @@ export const Header: React.FC<HeaderProps> = ({
                   title="Volver al menú principal"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </button>
+              )}
+
+              {/* BOTÓN OFICIAL DE CHAT EN LA POSICIÓN SEÑALADA EN LA IMAGEN */}
+              {onOpenChat && (
+                <button
+                  type="button"
+                  onClick={onOpenChat}
+                  className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-[#00a884] hover:bg-[#02906f] text-white text-[11px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all duration-150 cursor-pointer shadow-lg shadow-emerald-950/60 border border-emerald-400/50 hover:scale-105 active:scale-95 shrink-0 ring-1 ring-white/20"
+                  title="Abrir Chat Corporativo STF (Tiempo Real)"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current text-white" />
+                  <span className="font-mono tracking-tight font-extrabold text-[11px] sm:text-xs">CHAT</span>
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0"></span>
+                  {chatUnreadCount !== undefined && chatUnreadCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-white text-emerald-950 text-[9px] font-mono font-black shadow-sm">
+                      {chatUnreadCount}
+                    </span>
+                  )}
                 </button>
               )}
             </div>
@@ -115,27 +134,6 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 )}
               </button>
-
-              {/* Quick Chat STF Button */}
-              {onOpenChat && (
-                <button
-                  type="button"
-                  onClick={onOpenChat}
-                  className="px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-lg shadow-emerald-900/40 border border-emerald-400/50 relative group shrink-0 active:scale-95"
-                  title="Abrir Chat Corporativo STF"
-                >
-                  <MessageSquare className="w-3.5 h-3.5 fill-current text-white group-hover:scale-110 transition-transform" />
-                  <span className="font-mono text-[11px] text-white">
-                    CHAT
-                  </span>
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0"></span>
-                  {chatUnreadCount !== undefined && chatUnreadCount > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-white text-emerald-950 text-[9px] font-mono font-black">
-                      {chatUnreadCount}
-                    </span>
-                  )}
-                </button>
-              )}
 
               {/* Theme Toggle */}
               <button
