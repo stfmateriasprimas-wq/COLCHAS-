@@ -69,19 +69,36 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {/* BOTÓN OFICIAL DE CHAT EN LA POSICIÓN SEÑALADA EN LA IMAGEN */}
+              {/* BOTÓN OFICIAL DE CHAT EN LA POSICIÓN SEÑALADA EN LA IMAGEN (DISEÑO ULTRA-FUTURISTA STF) */}
               {onOpenChat && (
                 <button
                   type="button"
                   onClick={onOpenChat}
-                  className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-[#00a884] hover:bg-[#02906f] text-white text-[11px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all duration-150 cursor-pointer shadow-lg shadow-emerald-950/60 border border-emerald-400/50 hover:scale-105 active:scale-95 shrink-0 ring-1 ring-white/20"
-                  title="Abrir Chat Corporativo STF (Tiempo Real)"
+                  className="relative group overflow-hidden px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#002f23] via-[#014d38] to-[#00281e] border border-emerald-400/70 hover:border-emerald-300 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2.5 transition-all duration-300 cursor-pointer shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:shadow-[0_0_26px_rgba(16,185,129,0.65)] hover:scale-[1.04] active:scale-95 shrink-0 ring-1 ring-emerald-500/40"
+                  title="Abrir Chat Corporativo STF en Tiempo Real"
                 >
-                  <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current text-white" />
-                  <span className="font-mono tracking-tight font-extrabold text-[11px] sm:text-xs">CHAT</span>
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0"></span>
+                  {/* Reflejo Shimmer Holográfico Cybernetic */}
+                  <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none"></span>
+
+                  {/* Icono con resplandor neón */}
+                  <div className="relative flex items-center justify-center shrink-0">
+                    <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-300 group-hover:text-white transition-colors drop-shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+                  </div>
+
+                  {/* Texto Futurista de Alta Tecnología */}
+                  <span className="font-mono tracking-widest font-black text-[11px] sm:text-xs text-white drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]">
+                    CHAT
+                  </span>
+
+                  {/* Radar Status Beacon en Tiempo Real */}
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+                  </span>
+
+                  {/* Insignia Roja Futurista de Mensajes No Leídos */}
                   {chatUnreadCount !== undefined && chatUnreadCount > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-white text-emerald-950 text-[9px] font-mono font-black shadow-sm">
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-black border border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.9)] animate-pulse flex items-center justify-center">
                       {chatUnreadCount}
                     </span>
                   )}

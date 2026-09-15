@@ -80,7 +80,13 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
             </h3>
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-emerald-400 font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>{canalId === 'GENERAL' ? 'Equipo Calidad, Lavandería & ZF' : 'En línea • STF Red Interna'}</span>
+              <span>
+                {canalId === 'GENERAL'
+                  ? 'Equipo General STF • Red Corporativa'
+                  : canalId.startsWith('GROUP_')
+                  ? 'Grupo Oficial de Trabajo • En línea'
+                  : '🔒 Chat Privado y Confidencial 1 a 1'}
+              </span>
             </div>
           </div>
         </div>
@@ -119,7 +125,13 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
         <div className="flex justify-center my-3">
           <div className="bg-[#182229]/90 border border-zinc-800 rounded-xl px-3 py-1.5 text-center text-[10.5px] text-zinc-400 flex items-center gap-1.5 shadow-sm max-w-md">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>Los mensajes y OPs compartidas se sincronizan en tiempo real con todo el equipo.</span>
+            <span>
+              {canalId.startsWith('DIRECT_')
+                ? '🔒 Chat 1 a 1 estrictamente privado. Solo ustedes dos pueden ver y enviar mensajes aquí.'
+                : canalId.startsWith('GROUP_')
+                ? '👥 Grupo Corporativo: Mensajes compartidos en tiempo real con este grupo de trabajo.'
+                : '🌐 Sala General STF: Mensajes visibles en tiempo real para todo el equipo.'}
+            </span>
           </div>
         </div>
 

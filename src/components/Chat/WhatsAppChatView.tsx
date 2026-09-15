@@ -44,7 +44,14 @@ export const WhatsAppChatView: React.FC<WhatsAppChatViewProps> = ({
     const currentUserId = currentUser?.id || 'anon';
     const unsubscribe = chatService.subscribeToMessages(activeCanalId, currentUserId, (updatedMsgs) => {
       setMessages(updatedMsgs);
+      if (currentUser) {
+        chatService.markChannelAsRead(currentUser.id, activeCanalId);
+      }
     });
+
+    if (currentUser) {
+      chatService.markChannelAsRead(currentUser.id, activeCanalId);
+    }
 
     return () => {
       unsubscribe();
@@ -73,6 +80,9 @@ export const WhatsAppChatView: React.FC<WhatsAppChatViewProps> = ({
     setActiveCanalId(canalId);
     setActiveCanalTitle(title);
     setMobileScreen('CONVERSATION');
+    if (currentUser) {
+      chatService.markChannelAsRead(currentUser.id, canalId);
+    }
   };
 
   // Enviar texto

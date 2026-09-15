@@ -51,6 +51,7 @@ import {
   unmarkOpAsDeleted,
   getDeletedOpNumbers 
 } from './services/deletedOpsService';
+import { chatService } from './services/chatService';
 import { Trash2, CheckCircle2, MessageSquare } from 'lucide-react';
 
 export function App() {
@@ -141,6 +142,7 @@ export function App() {
   const [selectedColchaDetail, setSelectedColchaDetail] = useState<SolicitudColcha | null>(null);
   const [isProfileDirectoryOpen, setIsProfileDirectoryOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState<SectorType | 'EN_PROCESO' | 'ALL' | undefined>(undefined);
+  const [chatUnreadCount, setChatUnreadCount] = useState<number>(0);
 
   // Load from Sheets on mount, set up 15-second live polling & window focus auto-sync
   useEffect(() => {
@@ -169,6 +171,23 @@ export function App() {
   useEffect(() => {
     loadAllLiveData(true);
   }, [activeTab]);
+
+  // Monitoreo en tiempo real de mensajes de chat no leídos (Insignia roja en Header)
+  useEffect(() => {
+    if (!currentUser) {
+      setChatUnreadCount(0);
+      return;
+    }
+
+    const unsub = chatService.subscribeToMessages('ALL_CHANNELS', currentUser.id, (all) => {
+      const total = chatService.getTotalUnreadCount(currentUser.id, all);
+      setChatUnreadCount(total);
+    });
+
+    return () => {
+      unsub();
+    };
+  }, [currentUser, activeTab]);
 
   // Parse and handle incoming URL query parameters for Magic Auto-Login and Direct OP viewing
   useEffect(() => {
@@ -703,6 +722,7 @@ export function App() {
         onBackToDashboard={() => setActiveTab('dashboard')}
         onOpenProfileDirectory={() => setIsProfileDirectoryOpen(true)}
         onOpenChat={() => setActiveTab('chat')}
+        chatUnreadCount={chatUnreadCount}
         isSyncing={isSyncing}
         onManualSync={handleManualSync}
         totalOpsCount={solicitudes.length}

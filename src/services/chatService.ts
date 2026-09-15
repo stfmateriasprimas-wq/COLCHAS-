@@ -1,7 +1,8 @@
 /**
  * STF GROUP - SERVICIO DE CHAT CORPORATIVO EN TIEMPO REAL
  * Soporte Firestore onSnapshot, sincronización inter-pestañas (BroadcastChannel),
- * Web Audio API (sonidos cómodos exclusivos), grabación de notas de voz y notificaciones.
+ * Web Audio API (sonidos cómodos exclusivos), privacidad estricta de chats 1 a 1,
+ * grupos de trabajo oficiales y conteo en tiempo real de mensajes no leídos.
  */
 
 import { 
@@ -19,8 +20,68 @@ import { UsuarioSTF } from './authService';
 import { notificationService } from './notificationService';
 
 const COLLECTION_NAME = 'stf_chat_messages';
-const LOCAL_STORAGE_KEY = 'stf_chat_cached_messages_v2';
+const LOCAL_STORAGE_KEY = 'stf_chat_cached_messages_v3';
 const SOUND_ENABLED_KEY = 'stf_chat_sound_enabled';
+
+export interface ChatWorkgroup {
+  id: string;
+  nombre: string;
+  area: 'TODAS' | 'CALIDAD' | 'CALIDAD ZF' | 'LAVANDERÍA' | 'COLECCIONES' | 'DESPACHO';
+  icono: string;
+  descripcion: string;
+  badgeClass: string;
+}
+
+export const WORKGROUPS_STF: ChatWorkgroup[] = [
+  {
+    id: 'GENERAL',
+    nombre: 'GENERAL STF',
+    area: 'TODAS',
+    icono: '🌐',
+    descripcion: 'Sala corporativa abierta de todo el equipo en tiempo real',
+    badgeClass: 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
+  },
+  {
+    id: 'GROUP_CALIDAD_ZF',
+    nombre: 'CALIDAD ZF',
+    area: 'CALIDAD ZF',
+    icono: '✂️',
+    descripcion: 'Atelier Zona Franca, corte de muestras y pre-solicitud',
+    badgeClass: 'bg-indigo-950/80 text-indigo-300 border-indigo-700'
+  },
+  {
+    id: 'GROUP_LAVANDERIA',
+    nombre: 'LAVANDERIA',
+    area: 'LAVANDERÍA',
+    icono: '💧',
+    descripcion: 'Planta de Lavandería Colfactory ZF y procesos de lavado',
+    badgeClass: 'bg-sky-950/80 text-sky-300 border-sky-700'
+  },
+  {
+    id: 'GROUP_CALIDAD',
+    nombre: 'CALIDAD',
+    area: 'CALIDAD',
+    icono: '🔬',
+    descripcion: 'Laboratorio de Calidad STF, auditoría técnica y dictámenes',
+    badgeClass: 'bg-purple-950/80 text-purple-300 border-purple-700'
+  },
+  {
+    id: 'GROUP_COLECCIONES',
+    nombre: 'COLECCIONES & MARCAS',
+    area: 'COLECCIONES',
+    icono: '👗',
+    descripcion: 'Diseño y colecciones Studio F, ELA, Studio F Man y Outlet',
+    badgeClass: 'bg-amber-950/80 text-amber-300 border-amber-700'
+  },
+  {
+    id: 'GROUP_DESPACHO',
+    nombre: 'DESPACHO',
+    area: 'DESPACHO',
+    icono: '📦',
+    descripcion: 'Tránsito, despacho de muestras físicas y seguimiento',
+    badgeClass: 'bg-teal-950/80 text-teal-300 border-teal-700'
+  }
+];
 
 class ChatService {
   private broadcastChannel: BroadcastChannel | null = null;
@@ -35,11 +96,16 @@ class ChatService {
       try {
         this.broadcastChannel = new BroadcastChannel('stf_colchas_chat_channel');
       } catch (e) {
-        console.warn('[chatService] BroadcastChannel no soportado en este entorno');
+        console.warn('[chatService] BroadcastChannel no disponible');
       }
 
       const savedSound = localStorage.getItem(SOUND_ENABLED_KEY);
       this.soundEnabled = savedSound !== null ? savedSound === 'true' : true;
+
+      // Limpiar residuos de mensajes semilla anteriores si existieran
+      try {
+        localStorage.removeItem('stf_chat_cached_messages_v2');
+      } catch (e) {}
     }
   }
 
@@ -96,9 +162,7 @@ class ChatService {
 
       osc.start(now);
       osc.stop(now + 0.06);
-    } catch (e) {
-      // Ignorar errores de audio
-    }
+    } catch (e) {}
   }
 
   /**
@@ -133,9 +197,7 @@ class ChatService {
         osc.start(start);
         osc.stop(start + 0.38);
       });
-    } catch (e) {
-      // Ignorar errores de audio
-    }
+    } catch (e) {}
   }
 
   /**
@@ -147,25 +209,29 @@ class ChatService {
   }
 
   /**
-   * Obtener mensajes cacheados localmente
+   * Obtener mensajes legítimos de usuarios (100% reales, sin mensajes automáticos ni fantasmas)
    */
   public getCachedMessages(): ChatMessage[] {
     if (typeof localStorage === 'undefined') return [];
     try {
       const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!raw) return this.getInitialSeedMessages();
+      if (!raw) return [];
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : this.getInitialSeedMessages();
+      if (!Array.isArray(parsed)) return [];
+
+      // Filtrar mensajes que no sean genuinamente de usuarios
+      return parsed.filter((m) => m && m.id && !m.id.startsWith('seed_') && m.remitenteId !== 'bot');
     } catch (e) {
-      return this.getInitialSeedMessages();
+      return [];
     }
   }
 
   private saveCachedMessages(messages: ChatMessage[]): void {
     if (typeof localStorage === 'undefined') return;
     try {
-      // Limitar a los últimos 300 mensajes para mantener el localStorage ligero
-      const trimmed = messages.slice(-300);
+      // Limitar a los últimos 300 mensajes legítimos
+      const clean = messages.filter((m) => m && m.id && !m.id.startsWith('seed_') && m.remitenteId !== 'bot');
+      const trimmed = clean.slice(-300);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(trimmed));
     } catch (e) {
       console.warn('[chatService] Error guardando mensajes en localStorage:', e);
@@ -173,8 +239,7 @@ class ChatService {
   }
 
   /**
-   * Suscribirse en tiempo real a mensajes de un canal específico (o todos los mensajes)
-   * Utiliza Firestore onSnapshot con fallback a BroadcastChannel y localStorage.
+   * Suscribirse en tiempo real a mensajes de un canal específico (o todos los mensajes autorizados)
    */
   public subscribeToMessages(
     canalId: string,
@@ -188,10 +253,10 @@ class ChatService {
     const filteredInitial = this.filterMessagesByChannel(localMessages, canalId, currentUserId);
     onMessagesUpdate(filteredInitial);
 
-    // 2. Suscribirse a Firestore si está disponible
+    // 2. Suscribirse a Firestore en tiempo real
     try {
       const chatCol = collection(db, COLLECTION_NAME);
-      const q = query(chatCol, orderBy('createdMillis', 'asc'), limit(250));
+      const q = query(chatCol, orderBy('createdMillis', 'asc'), limit(300));
 
       firestoreUnsub = onSnapshot(
         q,
@@ -200,6 +265,9 @@ class ChatService {
             const fsMessages: ChatMessage[] = [];
             snapshot.forEach((docSnap) => {
               const data = docSnap.data();
+              // Evitar bots o semillas
+              if (docSnap.id.startsWith('seed_') || data.remitenteId === 'bot') return;
+
               fsMessages.push({
                 id: docSnap.id,
                 remitente: data.remitente || 'Usuario',
@@ -226,7 +294,7 @@ class ChatService {
               });
             });
 
-            // Combinar con locales asegurando sin duplicados
+            // Combinar asegurando sin duplicados
             const combinedMap = new Map<string, ChatMessage>();
             localMessages.forEach((m) => combinedMap.set(m.id, m));
             fsMessages.forEach((m) => combinedMap.set(m.id, m));
@@ -244,7 +312,7 @@ class ChatService {
         }
       );
     } catch (err) {
-      console.warn('[chatService] Firestore no inicializado, usando sincronización local:', err);
+      console.warn('[chatService] Firestore no disponible, usando sincronización local:', err);
     }
 
     // 3. Listener de BroadcastChannel para sincronización inter-pestañas instantánea
@@ -258,14 +326,18 @@ class ChatService {
           const filtered = this.filterMessagesByChannel(localMessages, canalId, currentUserId);
           onMessagesUpdate(filtered);
 
-          // Si el mensaje es de otro usuario y es relevante para este canal
+          // Si el mensaje es de otro usuario y está destinado a este canal o usuario
           if (newMsg.remitenteId !== currentUserId) {
-            this.playReceivedSound();
-            notificationService.sendChatNotification(
-              newMsg.remitente,
-              newMsg.tipo === 'op' && newMsg.opRelacionada ? `📌 OP Compartida: ${newMsg.opRelacionada}` : (newMsg.mensaje || 'Nuevo mensaje'),
-              canalId === 'GENERAL' ? 'Canal General' : newMsg.remitente
-            );
+            // Verificar si el usuario actual tiene acceso a este canal
+            const userHasAccess = this.canUserAccessChannel(newMsg.canalId || 'GENERAL', currentUserId);
+            if (userHasAccess) {
+              this.playReceivedSound();
+              notificationService.sendChatNotification(
+                newMsg.remitente,
+                newMsg.tipo === 'op' && newMsg.opRelacionada ? `📌 OP Compartida: ${newMsg.opRelacionada}` : (newMsg.mensaje || 'Nuevo mensaje'),
+                canalId === 'GENERAL' ? 'Canal General' : newMsg.remitente
+              );
+            }
           }
         }
       }
@@ -284,24 +356,140 @@ class ChatService {
     };
   }
 
-  private filterMessagesByChannel(messages: ChatMessage[], canalId: string, currentUserId: string): ChatMessage[] {
-    if (canalId === 'GENERAL') {
-      return messages.filter((m) => !m.canalId || m.canalId === 'GENERAL');
-    }
-    // Chat directo entre dos personas
+  /**
+   * Determina si un usuario tiene acceso a un canal específico
+   */
+  public canUserAccessChannel(canalId: string, currentUserId: string): boolean {
+    if (!canalId || canalId === 'GENERAL') return true;
+    if (canalId.startsWith('GROUP_')) return true; // Los grupos corporativos de trabajo
     if (canalId.startsWith('DIRECT_')) {
-      return messages.filter((m) => m.canalId === canalId);
+      const parts = canalId.replace('DIRECT_', '').split('_');
+      const uid = String(currentUserId).trim().toLowerCase();
+      // Solo las 2 personas del chat privado tienen acceso
+      return parts[0] === uid || parts[1] === uid;
     }
-    // Chat enfocado en una OP
-    if (canalId.startsWith('OP_')) {
-      const opCode = canalId.replace('OP_', '');
-      return messages.filter((m) => m.canalId === canalId || m.opRelacionada === opCode);
-    }
-    return messages.filter((m) => m.canalId === canalId);
+    return true;
   }
 
   /**
-   * Enviar mensaje al chat
+   * Filtrado estricto por canal y privacidad
+   */
+  public filterMessagesByChannel(messages: ChatMessage[], canalId: string, currentUserId: string): ChatMessage[] {
+    const clean = messages.filter((m) => m && m.id && !m.id.startsWith('seed_') && m.remitenteId !== 'bot');
+    const uid = String(currentUserId).trim().toLowerCase();
+
+    // Vista de todos los canales accesibles para conteo y previews de barra lateral
+    if (canalId === 'ALL_CHANNELS') {
+      return clean.filter((m) => {
+        const cId = m.canalId || 'GENERAL';
+        if (cId === 'GENERAL') return true;
+        if (cId.startsWith('GROUP_')) return true;
+        if (cId.startsWith('DIRECT_')) {
+          const parts = cId.replace('DIRECT_', '').split('_');
+          return parts[0] === uid || parts[1] === uid;
+        }
+        return false;
+      });
+    }
+
+    if (canalId === 'GENERAL') {
+      return clean.filter((m) => !m.canalId || m.canalId === 'GENERAL');
+    }
+
+    // Grupos de trabajo oficiales por área
+    if (canalId.startsWith('GROUP_')) {
+      return clean.filter((m) => m.canalId === canalId);
+    }
+
+    // Chat privado 1 a 1 entre dos perfiles
+    if (canalId.startsWith('DIRECT_')) {
+      const parts = canalId.replace('DIRECT_', '').split('_');
+      // PRIVACIDAD ESTRICTA: Si el usuario logueado NO es ninguno de los dos, no ve NINGÚN mensaje
+      if (parts[0] !== uid && parts[1] !== uid) {
+        return [];
+      }
+      return clean.filter((m) => m.canalId === canalId);
+    }
+
+    // Chat enfocado en una OP
+    if (canalId.startsWith('OP_')) {
+      const opCode = canalId.replace('OP_', '');
+      return clean.filter((m) => m.canalId === canalId || m.opRelacionada === opCode);
+    }
+
+    return clean.filter((m) => m.canalId === canalId);
+  }
+
+  /**
+   * Gestión en tiempo real de mensajes no leídos (Badges Rojos)
+   */
+  public getChannelLastRead(userId: string, canalId: string): number {
+    if (typeof localStorage === 'undefined' || !userId) return 0;
+    try {
+      const key = `stf_read_${userId.toLowerCase()}_${canalId}`;
+      const val = localStorage.getItem(key);
+      return val ? parseInt(val, 10) : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  public markChannelAsRead(userId: string, canalId: string): void {
+    if (typeof localStorage === 'undefined' || !userId) return;
+    try {
+      const key = `stf_read_${userId.toLowerCase()}_${canalId}`;
+      localStorage.setItem(key, String(Date.now()));
+    } catch (e) {}
+  }
+
+  public getUnreadCount(userId: string, canalId: string, allMessages: ChatMessage[]): number {
+    if (!userId) return 0;
+    const uid = userId.toLowerCase();
+    const lastRead = this.getChannelLastRead(uid, canalId);
+    
+    const channelMsgs = this.filterMessagesByChannel(allMessages, canalId, uid);
+    return channelMsgs.filter((m) => {
+      // Solo contar mensajes enviados por OTRA persona
+      if ((m.remitenteId || '').toLowerCase() === uid) return false;
+      return (m.createdMillis || 0) > lastRead;
+    }).length;
+  }
+
+  public getTotalUnreadCount(userId: string, allMessages: ChatMessage[]): number {
+    if (!userId) return 0;
+    const uid = userId.toLowerCase();
+    let total = 0;
+
+    // 1. General
+    total += this.getUnreadCount(uid, 'GENERAL', allMessages);
+
+    // 2. Grupos de trabajo
+    WORKGROUPS_STF.forEach((wg) => {
+      if (wg.id !== 'GENERAL') {
+        total += this.getUnreadCount(uid, wg.id, allMessages);
+      }
+    });
+
+    // 3. Chats directos donde participa el usuario
+    const directChannels = new Set<string>();
+    allMessages.forEach((m) => {
+      if (m.canalId && m.canalId.startsWith('DIRECT_')) {
+        const parts = m.canalId.replace('DIRECT_', '').split('_');
+        if (parts[0] === uid || parts[1] === uid) {
+          directChannels.add(m.canalId);
+        }
+      }
+    });
+
+    directChannels.forEach((cId) => {
+      total += this.getUnreadCount(uid, cId, allMessages);
+    });
+
+    return total;
+  }
+
+  /**
+   * Enviar mensaje genuino al chat
    */
   public async sendMessage(
     messageData: {
@@ -328,12 +516,20 @@ class ChatService {
 
     const newId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
+    const cId = messageData.canalId || 'GENERAL';
+    let destId = messageData.destinatarioId || '';
+    if (!destId && cId.startsWith('DIRECT_')) {
+      const parts = cId.replace('DIRECT_', '').split('_');
+      const senderUid = messageData.remitenteId.toLowerCase();
+      destId = parts[0] === senderUid ? parts[1] : parts[0];
+    }
+
     const fullMessage: ChatMessage = {
       id: newId,
       remitente: messageData.remitente,
       remitenteId: messageData.remitenteId,
-      destinatarioId: messageData.destinatarioId || '',
-      canalId: messageData.canalId || 'GENERAL',
+      destinatarioId: destId,
+      canalId: cId,
       area: messageData.area,
       mensaje: messageData.mensaje,
       opRelacionada: messageData.opRelacionada,
@@ -360,14 +556,17 @@ class ChatService {
     const updated = [...local, fullMessage];
     this.saveCachedMessages(updated);
 
-    // 3. Emitir a otras pestañas mediante BroadcastChannel
+    // 3. Marcar como leído para el remitente
+    this.markChannelAsRead(messageData.remitenteId, fullMessage.canalId || 'GENERAL');
+
+    // 4. Emitir a otras pestañas mediante BroadcastChannel
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.postMessage({ type: 'NEW_MESSAGE', message: fullMessage });
       } catch (e) {}
     }
 
-    // 4. Guardar en Firestore asíncronamente
+    // 5. Guardar en Firestore asíncronamente
     try {
       const chatCol = collection(db, COLLECTION_NAME);
       await addDoc(chatCol, {
@@ -375,7 +574,7 @@ class ChatService {
         createdAt: Timestamp.now()
       });
     } catch (err) {
-      console.warn('[chatService] No se pudo escribir en Firestore (guardado en caché local):', err);
+      console.warn('[chatService] Error guardando en Firestore:', err);
     }
 
     return fullMessage;
@@ -466,11 +665,9 @@ class ChatService {
           this.mediaRecorder.stream.getTracks().forEach((track) => track.stop());
         }
 
-        // Convertir a Base64 Data URL
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = reader.result as string;
-          // Simular onda de audio estética con variación armónica
           const waveform = Array.from({ length: 24 }, () => Math.round((0.2 + Math.random() * 0.8) * 100) / 100);
           resolve({
             blob: audioBlob,
@@ -497,42 +694,6 @@ class ChatService {
       } catch (e) {}
     }
     this.audioChunks = [];
-  }
-
-  /**
-   * Semilla inicial con mensajes corporativos y bienvenida
-   */
-  private getInitialSeedMessages(): ChatMessage[] {
-    return [
-      {
-        id: 'seed_msg_1',
-        remitente: 'STF TEAMS BOT',
-        remitenteId: 'bot',
-        canalId: 'GENERAL',
-        area: 'CALIDAD',
-        mensaje: '👋 ¡Bienvenidos a la Sala de Chat en Tiempo Real de STF Colchas! Aquí pueden coordinar recepciones de lavandería, auditorías técnicas y compartir OPs en retraso.',
-        timestamp: '08:00 AM',
-        fecha: new Date().toISOString().split('T')[0],
-        tipo: 'alerta',
-        leido: true,
-        entregado: true,
-        createdMillis: Date.now() - 3600000 * 4
-      },
-      {
-        id: 'seed_msg_2',
-        remitente: 'EDWIN DÍAZ',
-        remitenteId: 'ediaz',
-        canalId: 'GENERAL',
-        area: 'CALIDAD',
-        mensaje: 'Buen día equipo, recuerden priorizar las OPs que tienen más de 3 días hábiles en proceso para evitar cuellos de botella en despacho.',
-        timestamp: '08:15 AM',
-        fecha: new Date().toISOString().split('T')[0],
-        tipo: 'texto',
-        leido: true,
-        entregado: true,
-        createdMillis: Date.now() - 3600000 * 3
-      }
-    ];
   }
 }
 
