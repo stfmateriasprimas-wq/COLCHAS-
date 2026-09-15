@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  MessageSquare, Send, AlertTriangle, Users, CheckCircle2, 
-  ExternalLink, X, Clock, Layers, Sparkles, PhoneCall, Copy, Check,
-  Flame, ShieldAlert, Link as LinkIcon, QrCode, Smartphone
+  MessageSquare, AlertTriangle, Users, CheckCircle2, 
+  ExternalLink, X, Layers, Sparkles, Copy, Check
 } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
 import { 
@@ -14,7 +13,6 @@ import {
 } from '../../services/authService';
 import { isMatchingOp } from '../../services/googleSheetsService';
 import { STFLogo } from '../Common/STFLogo';
-import { SafeQRCode } from '../Common/SafeQRCode';
 
 export interface DestinatarioWhatsApp {
   id: string;
@@ -240,7 +238,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     if (selectedRecipientId === 'TODOS') {
-      // Modo difusión masiva: cada destinatario recibe su mensaje
+      // Modo difusión masiva: cada destinatario recibe su mensaje una sola vez
       const generalMsg = buildWhatsAppMessage('Equipo de Planta STF');
       try {
         navigator.clipboard.writeText(generalMsg);
@@ -250,20 +248,8 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
       destinatarios.forEach((dest, idx) => {
         setTimeout(() => {
-          const { appUrl, apiUrl } = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits);
-          if (isMobile) {
-            window.open(apiUrl, '_blank');
-          } else {
-            // Invocar protocolo de app nativa por iframe invisible
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = appUrl;
-            document.body.appendChild(iframe);
-            setTimeout(() => {
-              if (document.body.contains(iframe)) document.body.removeChild(iframe);
-            }, 2000);
-            window.open(apiUrl, '_blank');
-          }
+          const { apiUrl } = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits);
+          window.open(apiUrl, '_blank');
         }, idx * 600);
       });
       setSentCount(destinatarios.length);
@@ -272,7 +258,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
     } else {
       const dest = destinatarios.find(d => d.id === selectedRecipientId);
       if (dest) {
-        const { appUrl, apiUrl } = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits);
+        const { apiUrl } = buildWhatsAppUrl(dest.telefono, dest.nombre, dest.id, dest.whatsappDigits);
         const msg = buildWhatsAppMessage(dest.nombre, dest.id);
         try {
           navigator.clipboard.writeText(msg);
@@ -283,23 +269,10 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
         setLastSentUrl(apiUrl);
 
         if (isMobile) {
-          // En móviles el navegador pasa directamente el control a la app WhatsApp
+          // En móviles redirige directamente a la app WhatsApp
           window.location.href = apiUrl;
         } else {
-          // En escritorio: 1) Intentar lanzar App de Windows sin modificar la pestaña actual
-          try {
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = appUrl;
-            document.body.appendChild(iframe);
-            setTimeout(() => {
-              if (document.body.contains(iframe)) document.body.removeChild(iframe);
-            }, 2000);
-          } catch (e) {
-            console.warn('No se pudo invocar app nativa:', e);
-          }
-
-          // 2) Abrir en NUEVA PESTAÑA para jamás bloquear ni perder la pantalla actual del sistema
+          // En escritorio: abrir una sola vez en nueva pestaña para no duplicar el mensaje en WhatsApp Desktop o Web
           window.open(apiUrl, '_blank');
         }
 
@@ -476,35 +449,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             />
           </div>
 
-          {/* 4. TARJETA QR DE ENVÍO DIRECTO DESDE CELULAR (100% INMUNE A BLOQUEOS DE RED/FIREWALL) */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#081811] via-[#0d2219] to-[#081811] dark:bg-emerald-50/80 border-2 border-emerald-500/70 dark:border-emerald-400 flex flex-col sm:flex-row items-center gap-4 shadow-xl shadow-emerald-950/40">
-            <div className="p-2.5 bg-white rounded-2xl shadow-lg shrink-0 flex items-center justify-center border-2 border-emerald-400/40">
-              <SafeQRCode 
-                value={`https://api.whatsapp.com/send?phone=${previewPhone}&text=${encodeURIComponent(buildWhatsAppMessage(previewName, previewId))}`} 
-                size={120} 
-                level="L"
-              />
-            </div>
-            <div className="space-y-2 text-center sm:text-left flex-1">
-              <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs font-mono font-black text-emerald-400 dark:text-emerald-800 uppercase">
-                <QrCode className="w-4 h-4 text-emerald-400 dark:text-emerald-700 shrink-0" />
-                <span>Envío Inmediato con Celular (100% Inmune a Bloqueos)</span>
-              </div>
-              <p className="text-[11px] text-zinc-300 dark:text-zinc-700 font-mono leading-relaxed">
-                Si la red Wi-Fi de la planta bloquea WhatsApp Web en tu computador (pantalla negra), <strong>apunta la cámara de tu celular a este código QR</strong>. Abrirá al instante la conversación de WhatsApp en tu teléfono con la información y el enlace listos para enviar a <strong>{previewName}</strong> ({previewPhone}).
-              </p>
-              <div className="flex items-center justify-center sm:justify-start gap-2 pt-0.5">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 dark:text-emerald-800 text-[10px] font-mono font-bold">
-                  <Smartphone className="w-3 h-3" /> Sin contraseñas ni login
-                </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 dark:text-emerald-800 text-[10px] font-mono font-bold">
-                  <ExternalLink className="w-3 h-3" /> Enlace directo a la OP
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 5. VISTA PREVIA DEL MENSAJE OFICIAL CON ENCABEZADO DE LOGO OFICIAL */}
+          {/* 4. VISTA PREVIA DEL MENSAJE OFICIAL CON ENCABEZADO DE LOGO OFICIAL */}
           <div className="p-4 rounded-2xl bg-[#08130e] dark:bg-emerald-50/50 border border-emerald-500/40 dark:border-emerald-200 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono font-black text-emerald-400 dark:text-emerald-800 uppercase flex items-center gap-1.5">
@@ -557,12 +502,12 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                 <div className="flex-1 font-bold">
-                  ¡Mensaje y enlace de acceso directo copiados al portapapeles!
+                  ¡Alerta cargada en WhatsApp con el mensaje listo para enviar!
                 </div>
               </div>
               <div className="pl-7 text-[11px] text-zinc-300 dark:text-zinc-700 space-y-1.5">
                 <p>
-                  Si en tu computador la nueva pestaña se queda cargando o en pantalla negra (bloqueo por firewall corporativo), <strong>apunta la cámara de tu celular al código QR de arriba</strong> para enviarlo en 1 segundo a <strong>{previewName}</strong>.
+                  El mensaje oficial ya está redactado en la ventana de chat con <strong>{previewName}</strong> listo para pulsar enviar. Si necesitas volver a abrirlo o copiar el texto:
                 </p>
                 <div className="flex flex-wrap gap-3 pt-1">
                   <button 
@@ -570,7 +515,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
                     onClick={handleCopyMessage}
                     className="text-emerald-400 dark:text-emerald-700 underline font-bold cursor-pointer"
                   >
-                    📋 Copiar reporte de nuevo
+                    📋 Copiar reporte al portapapeles
                   </button>
                   <a 
                     href={`https://api.whatsapp.com/send?phone=${previewPhone}&text=${encodeURIComponent(buildWhatsAppMessage(previewName, previewId))}`} 
@@ -578,7 +523,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
                     rel="noopener noreferrer" 
                     className="text-zinc-400 hover:text-white dark:hover:text-black underline"
                   >
-                    🌐 Reintentar en nueva pestaña ↗
+                    🌐 Reabrir en nueva pestaña ↗
                   </a>
                 </div>
               </div>
