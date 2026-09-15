@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, UserCheck, AlertCircle, Users, X, ArrowRight, KeyRound, ChevronRight, Sparkles, RefreshCw } from 'lucide-react';
+import { ShieldCheck, UserCheck, AlertCircle, Users, X, ArrowRight, KeyRound, ChevronRight, Sparkles, RefreshCw, MessageSquare } from 'lucide-react';
 import { UsuarioSTF, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets, isAdminUser, userRequiresPassword } from '../../services/authService';
 import { STFLogo } from '../Common/STFLogo';
 import { AdminPasswordModal } from './AdminPasswordModal';
@@ -189,13 +189,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
         </form>
 
+        {/* New Feature Alert: Chat Corporativo WhatsApp */}
+        <div className="mt-4 p-3 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between gap-2.5 text-xs text-emerald-300 shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+              <MessageSquare className="w-4 h-4 fill-current" />
+            </div>
+            <div>
+              <span className="font-bold block text-white text-[11.5px]">Nuevo: Chat Estilo WhatsApp</span>
+              <span className="text-[10px] text-zinc-400 block">Sincronización en tiempo real con OPs en retraso</span>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-black font-black text-[9px] font-mono shrink-0">
+            EN VIVO
+          </span>
+        </div>
+
         {/* Bottom Security Info */}
-        <div className="mt-6 pt-4 border-t border-zinc-900 flex items-center justify-between text-[10px] font-mono text-zinc-500">
+        <div className="mt-4 pt-3 border-t border-zinc-900 flex items-center justify-between text-[10px] font-mono text-zinc-500">
           <span className="flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>CONEXIÓN SEGURA ENCRIPTADA (TLS)</span>
           </span>
-          <span className="text-zinc-400 font-bold">STF v2.6</span>
+          <span className="text-zinc-400 font-bold">STF v2.7</span>
         </div>
 
       </div>

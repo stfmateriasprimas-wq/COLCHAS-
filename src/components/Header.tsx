@@ -121,15 +121,16 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   type="button"
                   onClick={onOpenChat}
-                  className="px-2 sm:px-3 py-1.5 rounded-xl sm:rounded-2xl border border-emerald-500/40 bg-zinc-900/90 hover:bg-emerald-950/40 text-white text-[11px] font-bold flex items-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-sm relative group shrink-0"
+                  className="px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-lg shadow-emerald-900/40 border border-emerald-400/50 relative group shrink-0 active:scale-95"
                   title="Abrir Chat Corporativo STF"
                 >
-                  <MessageSquare className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-                  <span className="hidden sm:inline font-mono text-[10.5px] text-emerald-300">
+                  <MessageSquare className="w-3.5 h-3.5 fill-current text-white group-hover:scale-110 transition-transform" />
+                  <span className="font-mono text-[11px] text-white">
                     CHAT
                   </span>
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0"></span>
                   {chatUnreadCount !== undefined && chatUnreadCount > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-black text-[9px] font-mono font-black">
+                    <span className="px-1.5 py-0.2 rounded-full bg-white text-emerald-950 text-[9px] font-mono font-black">
                       {chatUnreadCount}
                     </span>
                   )}
