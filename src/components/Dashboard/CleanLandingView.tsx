@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   PlusCircle, ClipboardList, BarChart3, Zap, 
-  Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity 
+  Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity, MessageSquare 
 } from 'lucide-react';
 import { TabType } from '../Navigation';
 import { KpiMetrics, SectorType, SolicitudColcha } from '../../types';
@@ -57,6 +57,19 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
           >
             <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-300 dark:text-zinc-700" />
             <span>BANDEJA DE SOLICITUDES</span>
+          </button>
+
+          {/* BUTTON 3: CHAT CORPORATIVO STF (TIEMPO REAL ESTILO WHATSAPP) */}
+          <button
+            type="button"
+            onClick={() => onNavigate('chat')}
+            className="w-full bg-gradient-to-r from-emerald-950/80 to-[#111b21] hover:from-emerald-900/90 hover:to-zinc-900 text-white border border-emerald-500/50 py-3 sm:py-3.5 px-4 sm:px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-md group"
+          >
+            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <span className="text-emerald-300">CHAT CORPORATIVO STF</span>
+            <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded-full bg-emerald-500 text-black">
+              EN VIVO
+            </span>
           </button>
 
         </div>

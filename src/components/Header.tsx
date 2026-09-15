@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, LogOut, ArrowLeft, User, RefreshCw } from 'lucide-react';
+import { Sun, Moon, LogOut, ArrowLeft, User, RefreshCw, MessageSquare } from 'lucide-react';
 import { UsuarioSTF } from '../services/authService';
 import { STFLogo } from './Common/STFLogo';
 
@@ -11,6 +11,8 @@ interface HeaderProps {
   showBackButton?: boolean;
   onBackToDashboard?: () => void;
   onOpenProfileDirectory?: () => void;
+  onOpenChat?: () => void;
+  chatUnreadCount?: number;
   isSyncing?: boolean;
   onManualSync?: () => void;
   totalOpsCount?: number;
@@ -24,6 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   showBackButton = false,
   onBackToDashboard,
   onOpenProfileDirectory,
+  onOpenChat,
+  chatUnreadCount = 0,
   isSyncing = false,
   onManualSync,
   totalOpsCount
@@ -111,6 +115,26 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 )}
               </button>
+
+              {/* Quick Chat STF Button */}
+              {onOpenChat && (
+                <button
+                  type="button"
+                  onClick={onOpenChat}
+                  className="px-2 sm:px-3 py-1.5 rounded-xl sm:rounded-2xl border border-emerald-500/40 bg-zinc-900/90 hover:bg-emerald-950/40 text-white text-[11px] font-bold flex items-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-sm relative group shrink-0"
+                  title="Abrir Chat Corporativo STF"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <span className="hidden sm:inline font-mono text-[10.5px] text-emerald-300">
+                    CHAT
+                  </span>
+                  {chatUnreadCount !== undefined && chatUnreadCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-black text-[9px] font-mono font-black">
+                      {chatUnreadCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
               {/* Theme Toggle */}
               <button

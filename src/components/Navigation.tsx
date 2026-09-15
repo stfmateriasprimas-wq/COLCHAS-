@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, PlusCircle, Inbox, Database, AlertTriangle, Clock, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Inbox, Database, AlertTriangle, Clock, BarChart3, MessageSquare } from 'lucide-react';
 
 import { UsuarioSTF, isLavanderiaUser } from '../services/authService';
 
@@ -10,13 +10,15 @@ export type TabType =
   | 'base-datos'
   | 'alertas'
   | 'timeline'
-  | 'estadisticas';
+  | 'estadisticas'
+  | 'chat';
 
 interface NavigationProps {
   activeTab: TabType;
   onSelectTab: (tab: TabType) => void;
   pendingCount?: number;
   alertCount?: number;
+  chatUnreadCount?: number;
   currentUser?: UsuarioSTF | null;
 }
 
@@ -25,7 +27,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   onSelectTab,
   pendingCount = 0,
   alertCount = 0,
-  currentUser
+  currentUser,
+  chatUnreadCount = 0
 }) => {
   const isLavanderia = isLavanderiaUser(currentUser);
 
@@ -34,6 +37,13 @@ export const Navigation: React.FC<NavigationProps> = ({
       id: 'dashboard' as TabType,
       label: 'Panel de Control',
       icon: LayoutDashboard
+    },
+    {
+      id: 'chat' as TabType,
+      label: 'Chat STF',
+      icon: MessageSquare,
+      badge: chatUnreadCount > 0 ? chatUnreadCount : undefined,
+      badgeColor: 'bg-emerald-500/20 text-emerald-400 dark:text-emerald-700 border-emerald-500/40'
     },
     ...(!isLavanderia ? [{
       id: 'nueva-solicitud' as TabType,

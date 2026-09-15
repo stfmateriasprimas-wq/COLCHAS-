@@ -14,6 +14,7 @@ import { MasterTable } from './components/BaseDatos/MasterTable';
 import { SlaAlertsList } from './components/Alertas/SlaAlertsList';
 import { TimelineView } from './components/Timeline/TimelineView';
 import { EstadisticasView } from './components/Estadisticas/EstadisticasView';
+import { WhatsAppChatView } from './components/Chat/WhatsAppChatView';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { UserProfileModal } from './components/Auth/UserProfileModal';
 import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList } from './services/authService';
@@ -194,7 +195,7 @@ export function App() {
     cleanUserUrlParam();
 
     // 2. Initial direct tab navigation
-    if (tabParam && ['dashboard', 'solicitudes', 'alertas', 'basedatos', 'estadisticas'].includes(tabParam)) {
+    if (tabParam && ['dashboard', 'solicitudes', 'alertas', 'basedatos', 'estadisticas', 'chat'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, []);
@@ -701,6 +702,7 @@ export function App() {
         showBackButton={activeTab !== 'dashboard'}
         onBackToDashboard={() => setActiveTab('dashboard')}
         onOpenProfileDirectory={() => setIsProfileDirectoryOpen(true)}
+        onOpenChat={() => setActiveTab('chat')}
         isSyncing={isSyncing}
         onManualSync={handleManualSync}
         totalOpsCount={solicitudes.length}
@@ -803,6 +805,24 @@ export function App() {
             onSyncSheets={() => loadAllLiveData(false)}
             isSyncing={isSyncing}
           />
+        )}
+
+        {/* VIEW 8: CHAT CORPORATIVO EN TIEMPO REAL (ESTILO WHATSAPP) */}
+        {activeTab === 'chat' && (
+          <div className="animate-in fade-in duration-200">
+            <WhatsAppChatView
+              currentUser={currentUser}
+              solicitudes={solicitudes}
+              onViewOpDetail={(opCode) => {
+                const match = solicitudes.find(s => isMatchingOp(s.op, opCode));
+                if (match) setSelectedColchaDetail(match);
+              }}
+              onPrintOp={(opCode) => {
+                const match = solicitudes.find(s => isMatchingOp(s.op, opCode));
+                if (match) setSelectedColchaPrinter(match);
+              }}
+            />
+          </div>
         )}
 
       </main>

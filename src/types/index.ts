@@ -58,6 +58,21 @@ export interface SolicitudColcha {
   esRetrasoCritico: boolean;
 }
 
+export interface ChatOpCardData {
+  op: string;
+  tela: string;
+  color?: string;
+  referencia?: string;
+  estado: SectorType;
+  dictamen?: DictamenType;
+  diasHabiles: number;
+  tieneRetraso: boolean;
+  esRetrasoCritico?: boolean;
+  fotoMuestraUrl?: string;
+  fotoCalidadUrl?: string;
+  observacion?: string;
+}
+
 export interface ChatMessage {
   id: string;
   remitente: string;
@@ -67,14 +82,18 @@ export interface ChatMessage {
   area: string;
   mensaje: string;
   opRelacionada?: string;
+  opData?: ChatOpCardData;
   timestamp: string;
   fecha?: string;
   audioUrl?: string;
   audioDuracion?: number;
+  audioWaveform?: number[];
   archivoUrl?: string;
   archivoNombre?: string;
   archivoTipo?: 'imagen' | 'documento';
   leido?: boolean;
+  entregado?: boolean;
+  reacciones?: Record<string, string[]>;
   tipo: 'texto' | 'alerta' | 'movimiento' | 'audio' | 'archivo' | 'op';
   createdMillis?: number;
 }
