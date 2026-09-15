@@ -305,6 +305,8 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                       <span className={`font-mono font-bold ${
                         solicitud.dictamen === 'APROBADO'
                           ? 'text-emerald-600 dark:text-emerald-400'
+                          : solicitud.dictamen === 'APROBADO EN GAMA'
+                          ? 'text-teal-600 dark:text-teal-400'
                           : solicitud.dictamen === 'RECHAZADO'
                           ? 'text-rose-600 dark:text-rose-400'
                           : 'text-amber-600 dark:text-amber-400'

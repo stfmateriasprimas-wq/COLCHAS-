@@ -5,7 +5,7 @@ export type SectorType =
   | 'CALIDAD'
   | 'FINALIZADO';
 
-export type DictamenType = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
+export type DictamenType = 'PENDIENTE' | 'APROBADO' | 'APROBADO EN GAMA' | 'RECHAZADO';
 
 export interface MonitoreoItem {
   tela: string;

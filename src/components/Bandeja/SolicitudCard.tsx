@@ -155,7 +155,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   };
 
   // Estado local para Control de Calidad (STF)
-  const [veredictoLocal, setVeredictoLocal] = useState<'APROBADO' | 'RECHAZADO' | ''>('');
+  const [veredictoLocal, setVeredictoLocal] = useState<'APROBADO' | 'APROBADO EN GAMA' | 'RECHAZADO' | ''>('');
   const [obsCalidadLocal, setObsCalidadLocal] = useState('');
   const [fotoCalidadPreview, setFotoCalidadPreview] = useState<string | null>(solicitud.fotoCalidadUrl || null);
   const [isUploadingCalidadPhoto, setIsUploadingCalidadPhoto] = useState(false);
@@ -279,7 +279,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   // Emisión de Dictamen Final en Calidad
   const handleEmitirDictamen = () => {
     if (!veredictoLocal) {
-      alert('⚠️ Por favor seleccione el VEREDICTO (APROBADO o RECHAZADO) para emitir el dictamen final.');
+      alert('⚠️ Por favor seleccione el VEREDICTO (APROBADO, APROBADO EN GAMA o RECHAZADO) para emitir el dictamen final.');
       return;
     }
     if (!obsCalidadLocal.trim()) {
@@ -318,9 +318,11 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               <span className={`text-[11px] font-mono font-black px-3 py-1 rounded-xl border flex items-center gap-1.5 ${
                 solicitud.dictamen === 'RECHAZADO'
                   ? 'bg-rose-950/80 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border-rose-600 dark:border-rose-300'
+                  : solicitud.dictamen === 'APROBADO EN GAMA'
+                  ? 'bg-teal-950/80 dark:bg-teal-50 text-teal-300 dark:text-teal-700 border-teal-600 dark:border-teal-300'
                   : 'bg-emerald-950/80 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border-emerald-600 dark:border-emerald-300'
               }`}>
-                <span>{solicitud.dictamen === 'RECHAZADO' ? '❌ RECHAZADO' : '✅ APROBADO'}</span>
+                <span>{solicitud.dictamen === 'RECHAZADO' ? '❌ RECHAZADO' : (solicitud.dictamen === 'APROBADO EN GAMA' ? '🎨 APROBADO EN GAMA' : '✅ APROBADO')}</span>
               </span>
             ) : (
               <span className="text-[11px] font-mono font-bold px-3 py-1 rounded-xl bg-emerald-950/60 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border border-dashed border-emerald-500/80 dark:border-emerald-400 flex items-center gap-1.5">
@@ -790,11 +792,12 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   </label>
                   <select
                     value={veredictoLocal}
-                    onChange={(e) => setVeredictoLocal(e.target.value as 'APROBADO' | 'RECHAZADO' | '')}
+                    onChange={(e) => setVeredictoLocal(e.target.value as 'APROBADO' | 'APROBADO EN GAMA' | 'RECHAZADO' | '')}
                     className="w-full bg-zinc-950 dark:bg-white border-2 border-zinc-700 dark:border-zinc-300 rounded-2xl p-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-indigo-500 font-bold transition shadow-sm cursor-pointer"
                   >
                     <option value="">-- Veredicto --</option>
                     <option value="APROBADO">✅ APROBADO</option>
+                    <option value="APROBADO EN GAMA">🎨 APROBADO EN GAMA</option>
                     <option value="RECHAZADO">❌ RECHAZADO</option>
                   </select>
                 </div>
@@ -932,9 +935,11 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             <span className={`text-xs font-bold px-3.5 py-2 rounded-xl sm:rounded-2xl border font-mono flex items-center justify-center gap-1.5 shadow-xs w-full sm:w-auto ${
               solicitud.dictamen === 'RECHAZADO'
                 ? 'bg-rose-950/80 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border-rose-500/40 dark:border-rose-300'
+                : solicitud.dictamen === 'APROBADO EN GAMA'
+                ? 'bg-teal-950/80 dark:bg-teal-50 text-teal-300 dark:text-teal-700 border-teal-500/40 dark:border-teal-300'
                 : 'bg-emerald-950/60 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border-emerald-500/40 dark:border-emerald-300'
             }`}>
-              <span>{solicitud.dictamen === 'RECHAZADO' ? '❌ RECHAZADO' : '✅ LIBERADO / APROBADO'}</span>
+              <span>{solicitud.dictamen === 'RECHAZADO' ? '❌ RECHAZADO' : (solicitud.dictamen === 'APROBADO EN GAMA' ? '🎨 LIBERADO / APROBADO EN GAMA' : '✅ LIBERADO / APROBADO')}</span>
             </span>
           ) : null}
         </div>

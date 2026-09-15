@@ -826,11 +826,19 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               let dictamen: DictamenType = 'PENDIENTE';
               if (dictamenFinalRaw.toUpperCase().includes('RECHAZ')) {
                 dictamen = 'RECHAZADO';
+              } else if (dictamenFinalRaw.toUpperCase().includes('GAMA')) {
+                dictamen = 'APROBADO EN GAMA';
               } else if (dictamenFinalRaw.toUpperCase().includes('APROB')) {
                 dictamen = 'APROBADO';
               } else if (estado === 'FINALIZADO') {
                 const fullObs = (obsOperarioRaw + ' ' + (obsCalidadRaw || '')).toUpperCase();
-                dictamen = fullObs.includes('RECHAZADO') || fullObs.includes('NO CUMPLE') ? 'RECHAZADO' : 'APROBADO';
+                if (fullObs.includes('RECHAZADO') || fullObs.includes('NO CUMPLE')) {
+                  dictamen = 'RECHAZADO';
+                } else if (fullObs.includes('GAMA')) {
+                  dictamen = 'APROBADO EN GAMA';
+                } else {
+                  dictamen = 'APROBADO';
+                }
               }
 
               const { foto1, foto2, folderUrl } = parseDualPhotos(fotoUrlRaw);
@@ -974,11 +982,19 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
         let dictamen: DictamenType = 'PENDIENTE';
         if (dictamenFinalCsv.toUpperCase().includes('RECHAZ')) {
           dictamen = 'RECHAZADO';
+        } else if (dictamenFinalCsv.toUpperCase().includes('GAMA')) {
+          dictamen = 'APROBADO EN GAMA';
         } else if (dictamenFinalCsv.toUpperCase().includes('APROB')) {
           dictamen = 'APROBADO';
         } else if (estado === 'FINALIZADO') {
           const obs = (obsOperarioStr + ' ' + obsFinalStr).toUpperCase();
-          dictamen = obs.includes('RECHAZADO') || obs.includes('NO CUMPLE') ? 'RECHAZADO' : 'APROBADO';
+          if (obs.includes('RECHAZADO') || obs.includes('NO CUMPLE')) {
+            dictamen = 'RECHAZADO';
+          } else if (obs.includes('GAMA')) {
+            dictamen = 'APROBADO EN GAMA';
+          } else {
+            dictamen = 'APROBADO';
+          }
         }
 
         const cleanOp = formatOpCode(opRaw);
@@ -1172,11 +1188,19 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
             let dictamen: DictamenType = 'PENDIENTE';
             if (dictamenFinalRaw.toUpperCase().includes('RECHAZ')) {
               dictamen = 'RECHAZADO';
+            } else if (dictamenFinalRaw.toUpperCase().includes('GAMA')) {
+              dictamen = 'APROBADO EN GAMA';
             } else if (dictamenFinalRaw.toUpperCase().includes('APROB')) {
               dictamen = 'APROBADO';
             } else if (estado === 'FINALIZADO') {
               const fullObs = (obsOperarioRaw + ' ' + obsCalidadRaw).toUpperCase();
-              dictamen = fullObs.includes('RECHAZADO') || fullObs.includes('NO CUMPLE') ? 'RECHAZADO' : 'APROBADO';
+              if (fullObs.includes('RECHAZADO') || fullObs.includes('NO CUMPLE')) {
+                dictamen = 'RECHAZADO';
+              } else if (fullObs.includes('GAMA')) {
+                dictamen = 'APROBADO EN GAMA';
+              } else {
+                dictamen = 'APROBADO';
+              }
             }
 
             const { foto1, foto2, folderUrl } = parseDualPhotos(fotoUrlRaw);
@@ -1684,7 +1708,7 @@ export async function pushDictamenToSheets(
   const formattedOp = formatOpCode(op);
   let cleanObs = observacionesTecnicas || '';
   if (cleanObs.includes('[DICTAMEN:')) {
-    cleanObs = cleanObs.replace(/^\[DICTAMEN:\s*(APROBADO|RECHAZADO|PENDIENTE)\]\s*/i, '').trim();
+    cleanObs = cleanObs.replace(/^\[DICTAMEN:\s*(APROBADO|APROBADO EN GAMA|RECHAZADO|PENDIENTE)\]\s*/i, '').trim();
   }
 
   const res = await sendAppsScriptPost('UPDATE_DICTAMEN', { 

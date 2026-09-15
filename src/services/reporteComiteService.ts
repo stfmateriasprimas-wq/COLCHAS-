@@ -9,7 +9,7 @@ export interface ComiteReportFilterOptions {
   startDate?: string;
   endDate?: string;
   stageFilter: 'ALL' | SectorType;
-  dictamenFilter: 'ALL' | 'APROBADO' | 'RECHAZADO' | 'EN_PROCESO';
+  dictamenFilter: 'ALL' | 'APROBADO' | 'APROBADO_EN_GAMA' | 'RECHAZADO' | 'EN_PROCESO';
 }
 
 export interface ComiteMetrics {
@@ -86,7 +86,9 @@ export function filterSolicitudesForComite(
 
     // 3. Dictamen filter
     if (options.dictamenFilter === 'APROBADO') {
-      if (item.dictamen !== 'APROBADO' && item.estado !== 'FINALIZADO') return false;
+      if (item.dictamen !== 'APROBADO' && item.dictamen !== 'APROBADO EN GAMA' && item.estado !== 'FINALIZADO') return false;
+    } else if (options.dictamenFilter === 'APROBADO_EN_GAMA') {
+      if (item.dictamen !== 'APROBADO EN GAMA') return false;
     } else if (options.dictamenFilter === 'RECHAZADO') {
       if (item.dictamen !== 'RECHAZADO') return false;
     } else if (options.dictamenFilter === 'EN_PROCESO') {
@@ -125,7 +127,7 @@ export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMe
     totalRollos += rollos;
     totalMetros += metros;
 
-    if (item.dictamen === 'APROBADO' || (item.estado === 'FINALIZADO' && item.dictamen !== 'RECHAZADO')) {
+    if (item.dictamen === 'APROBADO' || item.dictamen === 'APROBADO EN GAMA' || (item.estado === 'FINALIZADO' && item.dictamen !== 'RECHAZADO')) {
       aprobados++;
     } else if (item.dictamen === 'RECHAZADO') {
       rechazados++;
@@ -412,7 +414,7 @@ export function generateComitePdf(
 
   const detailRows = solicitudes.map(item => {
     const metrosStr = item.codigoMt ? `${item.codigoMt}m` : `${(Number(item.rollos) || 1) * 85}m`;
-    const resultado = item.dictamen === 'APROBADO' ? 'APROBADO' : (item.dictamen === 'RECHAZADO' ? 'RECHAZADO' : 'EN PROCESO');
+    const resultado = item.dictamen === 'APROBADO' ? 'APROBADO' : (item.dictamen === 'APROBADO EN GAMA' ? 'APROBADO EN GAMA' : (item.dictamen === 'RECHAZADO' ? 'RECHAZADO' : 'EN PROCESO'));
     
     return [
       item.op || 'S/N',

@@ -426,7 +426,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
       reg.workerActivity[workerKey].ops += 1;
       reg.workerActivity[workerKey].rollos += rollosNum;
       reg.workerActivity[workerKey].mt += mtNum;
-      if (sol.dictamen === 'APROBADO' || sol.estado === 'FINALIZADO') {
+      if (sol.dictamen === 'APROBADO' || sol.dictamen === 'APROBADO EN GAMA' || sol.estado === 'FINALIZADO') {
         reg.workerActivity[workerKey].dictamenes.ap += 1;
       } else if (sol.dictamen === 'RECHAZADO') {
         reg.workerActivity[workerKey].dictamenes.rec += 1;
@@ -553,7 +553,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
       const opsCount = opsOfWorker.length;
       const rollosCount = opsOfWorker.reduce((sum, o) => sum + (Number(o.rollos) || 1), 0);
       const metraje = opsOfWorker.reduce((sum, o) => sum + ((Number(o.rollos) || 1) * 85), 0);
-      const aprobados = opsOfWorker.filter(o => o.dictamen === 'APROBADO' || o.estado === 'FINALIZADO').length;
+      const aprobados = opsOfWorker.filter(o => o.dictamen === 'APROBADO' || o.dictamen === 'APROBADO EN GAMA' || o.estado === 'FINALIZADO').length;
       const rechazados = opsOfWorker.filter(o => o.dictamen === 'RECHAZADO').length;
 
       return {
@@ -630,7 +630,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
 
     let list: SolicitudColcha[] = [];
     if (showLotesModal === 'APROBADOS') {
-      list = solicitudes.filter(s => s.dictamen === 'APROBADO' || s.estado === 'FINALIZADO');
+      list = solicitudes.filter(s => s.dictamen === 'APROBADO' || s.dictamen === 'APROBADO EN GAMA' || s.estado === 'FINALIZADO');
       if (list.length === 0) {
         list = solicitudes.slice(0, activeMonthData.aprobados);
       }
@@ -2930,6 +2930,8 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold block ${
                         opItem.dictamen === 'APROBADO' || opItem.estado === 'FINALIZADO'
                           ? 'bg-emerald-950 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/30'
+                          : opItem.dictamen === 'APROBADO EN GAMA'
+                          ? 'bg-teal-950 dark:bg-teal-100 text-teal-300 dark:text-teal-800 border border-teal-500/30'
                           : opItem.dictamen === 'RECHAZADO'
                           ? 'bg-rose-950 dark:bg-rose-100 text-rose-300 dark:text-rose-800 border border-rose-500/30'
                           : 'bg-amber-950 dark:bg-amber-100 text-amber-300 dark:text-amber-800 border border-amber-500/30'
@@ -3143,7 +3145,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                 </div>
               ) : (
                 modalOpsList.map((opItem, idx) => {
-                  const isApproved = opItem.dictamen === 'APROBADO' || opItem.estado === 'FINALIZADO';
+                  const isApproved = opItem.dictamen === 'APROBADO' || opItem.dictamen === 'APROBADO EN GAMA' || opItem.estado === 'FINALIZADO';
                   const isRejected = opItem.dictamen === 'RECHAZADO';
 
                   return (

@@ -344,6 +344,8 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                   <div className={`px-3 py-1 rounded-xl text-xs font-black uppercase border ${
                     colcha.dictamen === 'APROBADO'
                       ? 'bg-emerald-950/80 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border-emerald-500/40 dark:border-emerald-300'
+                      : colcha.dictamen === 'APROBADO EN GAMA'
+                      ? 'bg-teal-950/80 dark:bg-teal-100 text-teal-300 dark:text-teal-800 border-teal-500/40 dark:border-teal-300'
                       : colcha.dictamen === 'RECHAZADO'
                       ? 'bg-rose-950/80 dark:bg-rose-100 text-rose-300 dark:text-rose-800 border-rose-500/40 dark:border-rose-300'
                       : 'bg-amber-950/80 dark:bg-amber-100 text-amber-300 dark:text-amber-800 border-amber-500/40 dark:border-amber-300'

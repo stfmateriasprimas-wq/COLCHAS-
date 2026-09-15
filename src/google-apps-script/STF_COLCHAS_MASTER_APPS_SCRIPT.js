@@ -558,7 +558,7 @@ function doPost(e) {
         }
 
         var pureObs = payload.obsOperarioFinal || payload.observacionesTecnicas || payload.observaciones || '';
-        pureObs = pureObs.replace(/^\[DICTAMEN:\s*(APROBADO|RECHAZADO|PENDIENTE)\]\s*/i, '').trim();
+        pureObs = pureObs.replace(/^\[DICTAMEN:\s*(APROBADO|APROBADO EN GAMA|RECHAZADO|PENDIENTE)\]\s*/i, '').trim();
         sheetBdDict.getRange(foundRowDict, 15).setValue(pureObs);
 
         var dictVal = payload.dictamenFinal || payload.dictamen || payload.veredicto || 'APROBADO';
@@ -595,8 +595,9 @@ function doPost(e) {
             var refDict = rowVals[6] || 'S/R';
             var auditorName = payload.auditorCalidad || payload.inspector || 'LABORATORIO DE CALIDAD';
             var appUrlDict = 'https://colchas.vercel.app/?op=' + encodeURIComponent(opFormattedDict) + '&view=public';
+            var isEnGama = String(dictVal).toUpperCase().indexOf('GAMA') !== -1;
             var isAprobado = String(dictVal).toUpperCase().indexOf('APROB') !== -1;
-            var subjectDict = (isAprobado ? '✅ [COLCHA APROBADA] ' : '❌ [COLCHA RECHAZADA] ') + opFormattedDict + ' • REF: ' + refDict + ' (' + telaDict + ')';
+            var subjectDict = (isEnGama ? '🎨 [COLCHA APROBADA EN GAMA] ' : (isAprobado ? '✅ [COLCHA APROBADA] ' : '❌ [COLCHA RECHAZADA] ')) + opFormattedDict + ' • REF: ' + refDict + ' (' + telaDict + ')';
             var driveFotoCalUrl = (savedCalPhoto && savedCalPhoto.driveUrl) ? savedCalPhoto.driveUrl : '';
             var htmlDict = buildDictamenEmailHtml(opFormattedDict, refDict, telaDict, dictVal, pureObs, auditorName, appUrlDict, driveFotoCalUrl);
 
@@ -1458,35 +1459,44 @@ function buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl) {
  * Plantilla Flujo C: Dictamen Oficial de Calidad (Diseño Super Actualizado - Aprobado / Rechazado)
  */
 function buildDictamenEmailHtml(opVal, refVal, telaVal, dictVal, obsFinal, auditorName, appUrl, driveFotoCalUrl) {
+  var isEnGama = String(dictVal).toUpperCase().indexOf('GAMA') !== -1;
   var isAprob = String(dictVal).toUpperCase().indexOf('APROB') !== -1;
 
   // Paleta temática dinámica
-  var topStripeColor = isAprob ? '#10B981' : '#EF4444';
-  var headerBg = isAprob
-    ? 'linear-gradient(135deg, #064E3B 0%, #022C22 100%)'
-    : 'linear-gradient(135deg, #7F1D1D 0%, #450A0A 100%)';
-  var subheaderColor = isAprob ? '#6EE7B7' : '#FCA5A5';
-  var heroBg = isAprob
-    ? 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)'
-    : 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)';
-  var heroBorderBottom = isAprob ? '2px solid #10B981' : '2px solid #EF4444';
-  var heroBorderTop = isAprob ? '1px solid #A7F3D0' : '1px solid #FECACA';
-  var badgeBg = isAprob ? '#059669' : '#DC2626';
-  var badgeShadow = isAprob ? 'rgba(5,150,105,0.3)' : 'rgba(220,38,38,0.3)';
-  var statusText = isAprob ? 'DICTAMEN: APROBADO PARA CORTE / PRODUCCIÓN' : 'DICTAMEN: RECHAZADO / NO CONFORME';
-  var icon = isAprob ? '✅' : '❌';
+  var topStripeColor = isEnGama ? '#0D9488' : (isAprob ? '#10B981' : '#EF4444');
+  var headerBg = isEnGama
+    ? 'linear-gradient(135deg, #134E4A 0%, #042F2E 100%)'
+    : (isAprob
+      ? 'linear-gradient(135deg, #064E3B 0%, #022C22 100%)'
+      : 'linear-gradient(135deg, #7F1D1D 0%, #450A0A 100%)');
+  var subheaderColor = isEnGama ? '#5EEAD4' : (isAprob ? '#6EE7B7' : '#FCA5A5');
+  var heroBg = isEnGama
+    ? 'linear-gradient(135deg, #F0FDFA 0%, #CCFBF1 100%)'
+    : (isAprob
+      ? 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)'
+      : 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)');
+  var heroBorderBottom = isEnGama ? '2px solid #0D9488' : (isAprob ? '2px solid #10B981' : '2px solid #EF4444');
+  var heroBorderTop = isEnGama ? '1px solid #99F6E4' : (isAprob ? '1px solid #A7F3D0' : '1px solid #FECACA');
+  var badgeBg = isEnGama ? '#0D9488' : (isAprob ? '#059669' : '#DC2626');
+  var badgeShadow = isEnGama ? 'rgba(13,148,136,0.3)' : (isAprob ? 'rgba(5,150,105,0.3)' : 'rgba(220,38,38,0.3)');
+  var statusText = isEnGama
+    ? 'DICTAMEN: APROBADO EN GAMA PARA CORTE / PRODUCCIÓN'
+    : (isAprob ? 'DICTAMEN: APROBADO PARA CORTE / PRODUCCIÓN' : 'DICTAMEN: RECHAZADO / NO CONFORME');
+  var icon = isEnGama ? '🎨' : (isAprob ? '✅' : '❌');
 
-  var obsBoxBg = isAprob ? '#F0FDF4' : '#FEF2F2';
-  var obsBoxBorder = isAprob ? '#BBF7D0' : '#FECACA';
-  var obsBoxLeft = isAprob ? '#059669' : '#DC2626';
-  var obsTitleColor = isAprob ? '#166534' : '#991B1B';
-  var obsTextColor = isAprob ? '#14532D' : '#7F1D1D';
-  var obsTitle = isAprob ? '🔬 Dictamen y Concepto Final de Calidad:' : '⚠️ Motivo Técnico de Rechazo:';
+  var obsBoxBg = isEnGama ? '#F0FDFA' : (isAprob ? '#F0FDF4' : '#FEF2F2');
+  var obsBoxBorder = isEnGama ? '#99F6E4' : (isAprob ? '#BBF7D0' : '#FECACA');
+  var obsBoxLeft = isEnGama ? '#0D9488' : (isAprob ? '#059669' : '#DC2626');
+  var obsTitleColor = isEnGama ? '#115E59' : (isAprob ? '#166534' : '#991B1B');
+  var obsTextColor = isEnGama ? '#134E4A' : (isAprob ? '#14532D' : '#7F1D1D');
+  var obsTitle = (isAprob || isEnGama) ? '🔬 Dictamen y Concepto Final de Calidad:' : '⚠️ Motivo Técnico de Rechazo:';
 
-  var ctaBg = isAprob
-    ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
-    : 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)';
-  var ctaShadow = isAprob ? 'rgba(5,150,105,0.35)' : 'rgba(220,38,38,0.35)';
+  var ctaBg = isEnGama
+    ? 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)'
+    : (isAprob
+      ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+      : 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)');
+  var ctaShadow = isEnGama ? 'rgba(13,148,136,0.35)' : (isAprob ? 'rgba(5,150,105,0.35)' : 'rgba(220,38,38,0.35)');
 
   var imgBlock = driveFotoCalUrl
     ? '<div style="margin: 18px 0 6px; text-align: center;">' +

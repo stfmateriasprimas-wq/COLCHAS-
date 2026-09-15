@@ -172,9 +172,13 @@ export const AreaOpsModal: React.FC<AreaOpsModalProps> = ({
                       </span>
                     )}
 
-                    {item.dictamen === 'APROBADO' && (
-                      <span className="bg-emerald-950/80 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-emerald-800 dark:border-emerald-300 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> APROBADO
+                    {item.dictamen && (item.dictamen === 'APROBADO' || item.dictamen === 'APROBADO EN GAMA') && (
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${
+                        item.dictamen === 'APROBADO EN GAMA'
+                          ? 'bg-teal-950/80 dark:bg-teal-100 text-teal-300 dark:text-teal-800 border-teal-800 dark:border-teal-300'
+                          : 'bg-emerald-950/80 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border-emerald-800 dark:border-emerald-300'
+                      }`}>
+                        <CheckCircle2 className="w-3 h-3" /> {item.dictamen}
                       </span>
                     )}
                   </div>

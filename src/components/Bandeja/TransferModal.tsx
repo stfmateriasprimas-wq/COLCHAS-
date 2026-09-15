@@ -124,7 +124,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <label className="block text-[11px] font-bold text-zinc-300 dark:text-zinc-700 uppercase mb-1 font-mono">
                 Dictamen Final de Calidad
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setDictamen('APROBADO')}
@@ -136,6 +136,17 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>APROBADO</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDictamen('APROBADO EN GAMA')}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 font-mono ${
+                    dictamen === 'APROBADO EN GAMA'
+                      ? 'bg-teal-500 text-black border-teal-500 font-black shadow-md'
+                      : 'bg-zinc-900 dark:bg-zinc-100 text-zinc-400 dark:text-zinc-600 border-zinc-800 dark:border-zinc-200'
+                  }`}
+                >
+                  <span>🎨 EN GAMA</span>
                 </button>
                 <button
                   type="button"

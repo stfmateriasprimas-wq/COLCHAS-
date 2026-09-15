@@ -162,6 +162,8 @@ export function getCleanFinalQualityObservation(colcha: SolicitudColcha): string
   // 3. Fallback oficial según dictamen
   if (colcha.dictamen === 'APROBADO') {
     return 'ESTA OP DE MUESTRA NO PRESENTA NINGUNA NOVEDAD.';
+  } else if (colcha.dictamen === 'APROBADO EN GAMA') {
+    return 'APROBADO EN GAMA - TONO Y ESPECIFICACIONES DENTRO DEL RANGO DE TOLERANCIA.';
   } else if (colcha.dictamen === 'RECHAZADO') {
     return 'RECHAZADO POR CALIDAD - NO CUMPLE ESPECIFICACIONES TÉCNICAS.';
   }

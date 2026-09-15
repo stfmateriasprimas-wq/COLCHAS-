@@ -32,7 +32,7 @@ export const ReporteComiteModal: React.FC<ReporteComiteModalProps> = ({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [stageFilter, setStageFilter] = useState<'ALL' | SectorType>('ALL');
-  const [dictamenFilter, setDictamenFilter] = useState<'ALL' | 'APROBADO' | 'RECHAZADO' | 'EN_PROCESO'>('ALL');
+  const [dictamenFilter, setDictamenFilter] = useState<'ALL' | 'APROBADO' | 'APROBADO_EN_GAMA' | 'RECHAZADO' | 'EN_PROCESO'>('ALL');
 
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
@@ -274,6 +274,7 @@ export const ReporteComiteModal: React.FC<ReporteComiteModalProps> = ({
                 >
                   <option value="ALL">Todos los dictámenes</option>
                   <option value="APROBADO">Solo Lotes Liberados / Aprobados</option>
+                  <option value="APROBADO_EN_GAMA">Solo Lotes Aprobados en Gama</option>
                   <option value="RECHAZADO">Solo Lotes Rechazados / Observados</option>
                   <option value="EN_PROCESO">Solo Muestras En Proceso</option>
                 </select>

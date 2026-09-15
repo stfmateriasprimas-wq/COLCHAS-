@@ -53,7 +53,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
   const lavCount = solicitudes.filter(s => s.estado === 'LAVANDERIA').length;
   const calCount = solicitudes.filter(s => s.estado === 'CALIDAD').length;
   const finCount = solicitudes.filter(s => s.estado === 'FINALIZADO').length;
-  const aprobadosCount = solicitudes.filter(s => s.dictamen === 'APROBADO' || s.estado === 'FINALIZADO').length;
+  const aprobadosCount = solicitudes.filter(s => s.dictamen === 'APROBADO' || s.dictamen === 'APROBADO EN GAMA' || s.estado === 'FINALIZADO').length;
   const rechazadosCount = solicitudes.filter(s => s.dictamen === 'RECHAZADO').length;
   const alertCount = solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length;
 
@@ -84,7 +84,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
     if (filterEstado === 'LAVANDERIA' && item.estado !== 'LAVANDERIA') return false;
     if (filterEstado === 'CALIDAD' && item.estado !== 'CALIDAD') return false;
     if (filterEstado === 'FINALIZADOS' && item.estado !== 'FINALIZADO') return false;
-    if (filterEstado === 'APROBADOS' && item.dictamen !== 'APROBADO' && item.estado !== 'FINALIZADO') return false;
+    if (filterEstado === 'APROBADOS' && item.dictamen !== 'APROBADO' && item.dictamen !== 'APROBADO EN GAMA' && item.estado !== 'FINALIZADO') return false;
     if (filterEstado === 'RECHAZADOS' && item.dictamen !== 'RECHAZADO') return false;
 
     // Search query
@@ -561,6 +561,8 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                       <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
                         item.dictamen === 'RECHAZADO'
                           ? 'bg-rose-950 text-rose-300 dark:bg-rose-50 dark:text-rose-700 border-rose-800 dark:border-rose-300'
+                          : item.dictamen === 'APROBADO EN GAMA'
+                          ? 'bg-teal-950 text-teal-300 dark:bg-teal-50 dark:text-teal-700 border-teal-800 dark:border-teal-300'
                           : 'bg-emerald-950 text-emerald-300 dark:bg-emerald-50 dark:text-emerald-700 border-emerald-800 dark:border-emerald-300'
                       }`}>
                         {item.dictamen || (item.estado === 'FINALIZADO' ? 'APROBADO' : 'EN PROCESO')}
