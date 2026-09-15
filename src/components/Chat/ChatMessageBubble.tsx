@@ -145,8 +145,9 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
               {(opData.fotoMuestraUrl || opData.fotoCalidadUrl) ? (
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border border-zinc-700 bg-black shrink-0 relative group">
                   <SmartPhotoDisplay
-                    driveFolderUrl={opData.fotoCalidadUrl || opData.fotoMuestraUrl}
+                    rawUrl={opData.fotoCalidadUrl || opData.fotoMuestraUrl}
                     alt={opData.op}
+                    title={opData.op}
                     className="w-full h-full object-cover"
                   />
                 </div>

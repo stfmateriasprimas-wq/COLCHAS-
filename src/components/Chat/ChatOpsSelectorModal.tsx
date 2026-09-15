@@ -214,8 +214,9 @@ export const ChatOpsSelectorModal: React.FC<ChatOpsSelectorModalProps> = ({
                     {/* Foto o Icono */}
                     <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-black border border-zinc-700 shrink-0">
                       <SmartPhotoDisplay
-                        driveFolderUrl={colcha.fotoCalidadUrl || colcha.fotoMuestraUrl}
+                        rawUrl={colcha.fotoCalidadUrl || colcha.fotoMuestraUrl}
                         alt={colcha.op}
+                        title={colcha.op}
                         className="w-full h-full object-cover"
                       />
                     </div>
