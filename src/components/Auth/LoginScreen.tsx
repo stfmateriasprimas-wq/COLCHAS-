@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, UserCheck, AlertCircle, Users, X, ArrowRight, KeyRound, ChevronRight, Sparkles, RefreshCw } from 'lucide-react';
-import { UsuarioSTF, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets, isAdminUser } from '../../services/authService';
+import { UsuarioSTF, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets, isAdminUser, userRequiresPassword } from '../../services/authService';
 import { STFLogo } from '../Common/STFLogo';
 import { AdminPasswordModal } from './AdminPasswordModal';
 
@@ -40,7 +40,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
     if (foundUser) {
       setErrorMsg('');
-      if (isAdminUser(foundUser)) {
+      if (userRequiresPassword(foundUser)) {
         setPendingAdminUser(foundUser);
       } else {
         onLoginSuccess(foundUser);
@@ -54,7 +54,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     setUserIdInput(user.id);
     setErrorMsg('');
     setShowDirectoryModal(false);
-    if (isAdminUser(user)) {
+    if (userRequiresPassword(user)) {
       setPendingAdminUser(user);
     } else {
       onLoginSuccess(user);

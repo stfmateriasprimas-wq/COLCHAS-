@@ -3,7 +3,7 @@ import {
   Users, X, Search, CheckCircle2, FlaskConical, Droplets, Layers, 
   Lock, Mail, ArrowRight, Check, MapPin, MessageSquare, Phone
 } from 'lucide-react';
-import { UsuarioSTF, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets, isAdminUser } from '../../services/authService';
+import { UsuarioSTF, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets, isAdminUser, userRequiresPassword } from '../../services/authService';
 import { AdminPasswordModal } from './AdminPasswordModal';
 
 interface UserProfileModalProps {
@@ -263,7 +263,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     key={user.id}
                     onClick={() => {
                       if (user.id === currentUser?.id) return;
-                      if (isAdminUser(user)) {
+                      if (userRequiresPassword(user)) {
                         setPendingAdminUser(user);
                       } else {
                         onSelectUser(user);
@@ -312,7 +312,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                           {user.area}
                         </span>
 
-                        {user.rol === 'ADMINISTRADOR' && (
+                        {userRequiresPassword(user) && (
                           <span className="inline-flex items-center gap-1 text-[9.5px] font-bold font-mono bg-amber-950/80 dark:bg-amber-100 text-amber-300 dark:text-amber-800 border border-amber-500/40 dark:border-amber-300 px-2 py-0.5 rounded-full">
                             <Lock className="w-2.5 h-2.5" />
                             <span>CONCLAVE</span>

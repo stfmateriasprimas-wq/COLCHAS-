@@ -64,6 +64,16 @@ export function isAdminUser(user?: UsuarioSTF | null): boolean {
 }
 
 /**
+ * Determina si un usuario específico requiere autenticación por contraseña de administrador.
+ * Únicamente aplica para el perfil maestro de EDWIN DÍAZ (ediaz / ediaz2026).
+ * Perfiles como LIBIA LABORATORIO (4321) y demás colaboradores ingresan directamente sin contraseña.
+ */
+export function userRequiresPassword(user?: UsuarioSTF | null): boolean {
+  if (!user) return false;
+  return isEdiazUser(user);
+}
+
+/**
  * Valida la contraseña asignada al perfil de Administrador (ediaz2026)
  */
 export function verifyAdminPassword(password: string): boolean {
