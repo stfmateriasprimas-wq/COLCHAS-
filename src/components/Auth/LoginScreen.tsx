@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, UserCheck, AlertCircle, Users, X, ArrowRight, KeyRound, ChevronRight, Sparkles, RefreshCw, MessageSquare } from 'lucide-react';
+import { ShieldCheck, UserCheck, AlertCircle, Users, X, ArrowRight, KeyRound, ChevronRight, Sparkles, RefreshCw } from 'lucide-react';
 import { UsuarioSTF, getUsuariosList, subscribeUsuariosList, syncUsuariosFromSheets, isAdminUser, userRequiresPassword } from '../../services/authService';
 import { STFLogo } from '../Common/STFLogo';
 import { AdminPasswordModal } from './AdminPasswordModal';
@@ -97,35 +97,45 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         />
       </div>
 
-      {/* Center Ultra-Futuristic Cyber Glassmorphism Login Card */}
-      <div className="relative z-10 w-full max-w-[440px] bg-[#0a0e17]/90 backdrop-blur-3xl border border-white/15 hover:border-amber-500/40 rounded-[28px] sm:rounded-[36px] p-5 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.9),0_0_40px_rgba(245,158,11,0.08)] animate-in zoom-in-95 duration-300 transition-all text-white overflow-hidden group">
+      {/* Center Ultra-Futuristic Cyber Glassmorphism Login Card (Inspirada en el estilo transparente) */}
+      <div className="relative z-10 w-full max-w-[430px] bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border border-white/20 hover:border-white/30 rounded-[32px] sm:rounded-[38px] p-6 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] animate-in zoom-in-95 duration-300 transition-all text-white overflow-hidden group">
         
-        {/* Ambient Holographic Light Glows */}
-        <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/15 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-500/25 transition duration-700" />
-        <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none group-hover:bg-cyan-500/25 transition duration-700" />
+        {/* Inner Hairline Tech Border */}
+        <div className="absolute inset-2 sm:inset-2.5 rounded-[26px] sm:rounded-[32px] border border-white/10 pointer-events-none" />
 
-        {/* Top Tech Laser Accent Line */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-80" />
+        {/* Futuristic Glass Corner Bracket - Top-Left */}
+        <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-4 w-11 h-11 sm:w-13 sm:h-13 rounded-tl-[20px] rounded-br-[16px] rounded-tr-sm rounded-bl-sm border border-white/25 bg-white/[0.05] backdrop-blur-md shadow-[inset_0_1px_2px_rgba(255,255,255,0.25)] pointer-events-none overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent" />
+        </div>
+
+        {/* Futuristic Glass Corner Bracket - Bottom-Right */}
+        <div className="absolute bottom-3.5 right-3.5 sm:bottom-4 sm:right-4 w-11 h-11 sm:w-13 sm:h-13 rounded-br-[20px] rounded-tl-[16px] rounded-tr-sm rounded-bl-sm border border-white/25 bg-white/[0.05] backdrop-blur-md shadow-[inset_0_1px_2px_rgba(255,255,255,0.25)] pointer-events-none overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-tl from-white/20 via-transparent to-transparent" />
+        </div>
+
+        {/* Ambient Holographic Light Glows */}
+        <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-500/20 transition duration-700" />
+        <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-cyan-500/20 transition duration-700" />
 
         {/* Card Header */}
-        <div className="text-center space-y-2 mb-7 relative">
+        <div className="text-center space-y-2 mb-7 relative z-10">
           
           {/* Cyber Status Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.06] border border-white/15 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
             <span>TERMINAL DE ACCESO SEGURO</span>
           </div>
 
-          <h2 className="text-2xl sm:text-3xl stf-studio-f-font py-1 select-none">
+          <h2 className="text-2xl sm:text-3xl stf-studio-f-font py-1 select-none tracking-wide text-white drop-shadow-sm">
             BIENVENIDO
           </h2>
-          <p className="text-xs text-zinc-400 font-medium">
+          <p className="text-xs text-zinc-300/80 font-medium">
             Inicie sesión con su documento o perfil corporativo
           </p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleLoginSubmit} className="space-y-5 relative">
+        <form onSubmit={handleLoginSubmit} className="space-y-5 relative z-10">
           
           <div className="space-y-2">
             <div className="flex items-center justify-between text-[10.5px] font-mono font-bold uppercase tracking-wider text-zinc-300">
@@ -133,13 +143,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 <KeyRound className="w-3.5 h-3.5 text-amber-400" />
                 <span>ID O DOCUMENTO DE USUARIO</span>
               </label>
-              <span className="text-[9px] text-amber-400/90 font-mono bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full">
+              <span className="text-[9px] text-amber-400/90 font-mono bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded-full backdrop-blur-sm">
                 AUTORIZADO STF
               </span>
             </div>
 
-            <div className="relative flex items-center bg-zinc-950/90 border border-zinc-700/80 focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/25 rounded-2xl transition duration-200 shadow-inner group/input">
-              <UserCheck className="w-4 h-4 text-zinc-500 group-focus-within/input:text-amber-400 transition ml-4 shrink-0" />
+            <div className="relative flex items-center bg-white/[0.04] hover:bg-white/[0.06] border border-white/15 focus-within:border-white/40 focus-within:bg-white/[0.08] focus-within:ring-2 focus-within:ring-white/10 rounded-2xl transition duration-200 shadow-[inset_0_2px_4px_rgba(0,0,0,0.25)] group/input backdrop-blur-md">
+              <UserCheck className="w-4 h-4 text-zinc-400 group-focus-within/input:text-amber-400 transition ml-4 shrink-0" />
               <input
                 type="text"
                 value={userIdInput}
@@ -158,7 +168,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     setUserIdInput('');
                     setErrorMsg('');
                   }}
-                  className="mr-3 p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition cursor-pointer"
+                  className="mr-3 p-1.5 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
                   title="Limpiar campo"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -169,7 +179,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
           {/* Error Message */}
           {errorMsg && (
-            <div className="flex items-start gap-2 bg-rose-950/80 border border-rose-500 text-rose-200 text-xs p-3.5 rounded-2xl animate-in fade-in font-medium shadow-md">
+            <div className="flex items-start gap-2 bg-rose-950/80 border border-rose-500 text-rose-200 text-xs p-3.5 rounded-2xl animate-in fade-in font-medium shadow-md backdrop-blur-md">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <span>{errorMsg}</span>
             </div>
@@ -178,7 +188,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           {/* Submit Button - Crisp White with Elevation Hover Animation */}
           <button
             type="submit"
-            className="relative overflow-hidden group/btn w-full bg-white hover:bg-zinc-100 text-zinc-950 py-4 px-6 rounded-2xl font-black uppercase text-xs tracking-wider transition-all duration-300 ease-out flex items-center justify-center gap-2 cursor-pointer shadow-[0_10px_25px_rgba(255,255,255,0.18)] hover:shadow-[0_18px_40px_rgba(255,255,255,0.35)] hover:-translate-y-1.5 active:translate-y-0 active:scale-[0.98] font-mono select-none"
+            className="relative overflow-hidden group/btn w-full bg-white hover:bg-zinc-100 text-zinc-950 py-4 px-6 rounded-2xl font-black uppercase text-xs tracking-wider transition-all duration-300 ease-out flex items-center justify-center gap-2 cursor-pointer shadow-[0_10px_25px_rgba(255,255,255,0.18)] hover:shadow-[0_18px_40px_rgba(255,255,255,0.35)] hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] font-mono select-none"
           >
             {/* Shimmer light pass */}
             <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-black/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 pointer-events-none" />
@@ -189,29 +199,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
         </form>
 
-        {/* New Feature Alert: Chat Corporativo WhatsApp */}
-        <div className="mt-4 p-3 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between gap-2.5 text-xs text-emerald-300 shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4 h-4 fill-current" />
-            </div>
-            <div>
-              <span className="font-bold block text-white text-[11.5px]">Nuevo: Chat Estilo WhatsApp</span>
-              <span className="text-[10px] text-zinc-400 block">Sincronización en tiempo real con OPs en retraso</span>
-            </div>
-          </div>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-black font-black text-[9px] font-mono shrink-0">
-            EN VIVO
-          </span>
-        </div>
-
         {/* Bottom Security Info */}
-        <div className="mt-4 pt-3 border-t border-zinc-900 flex items-center justify-between text-[10px] font-mono text-zinc-500">
+        <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-zinc-400 relative z-10">
           <span className="flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>CONEXIÓN SEGURA ENCRIPTADA (TLS)</span>
           </span>
-          <span className="text-zinc-400 font-bold">STF v2.7</span>
+          <span className="text-zinc-300 font-bold">STF v2.7</span>
         </div>
 
       </div>
