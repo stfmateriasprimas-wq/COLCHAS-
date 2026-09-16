@@ -18,7 +18,7 @@ import { WhatsAppChatView } from './components/Chat/WhatsAppChatView';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { UserProfileModal } from './components/Auth/UserProfileModal';
 import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList } from './services/authService';
-import { SolicitudColcha, MonitoreoItem, KpiMetrics, SectorType, DictamenType } from './types';
+import { SolicitudColcha, MonitoreoItem, KpiMetrics, SectorType, DictamenType, ChatMessage } from './types';
 import { 
   fetchMonitoreoSheet, 
   fetchBaseDeDatosSheet, 
@@ -179,13 +179,27 @@ export function App() {
       return;
     }
 
-    const unsub = chatService.subscribeToMessages('ALL_CHANNELS', currentUser.id, (all) => {
-      const total = chatService.getTotalUnreadCount(currentUser.id, all);
+    let currentAllMessages: ChatMessage[] = chatService.getCachedMessages();
+
+    const refreshCount = (msgs?: ChatMessage[]) => {
+      if (msgs) currentAllMessages = msgs;
+      const total = chatService.getTotalUnreadCount(currentUser.id, currentAllMessages);
       setChatUnreadCount(total);
+    };
+
+    const unsub = chatService.subscribeToMessages('ALL_CHANNELS', currentUser.id, (all) => {
+      refreshCount(all);
     });
+
+    const handleReadUpdated = () => {
+      refreshCount();
+    };
+
+    window.addEventListener('stf_chat_read_updated', handleReadUpdated);
 
     return () => {
       unsub();
+      window.removeEventListener('stf_chat_read_updated', handleReadUpdated);
     };
   }, [currentUser, activeTab]);
 

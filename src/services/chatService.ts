@@ -439,6 +439,9 @@ class ChatService {
     try {
       const key = `stf_read_${userId.toLowerCase()}_${canalId}`;
       localStorage.setItem(key, String(Date.now()));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('stf_chat_read_updated', { detail: { userId, canalId } }));
+      }
     } catch (e) {}
   }
 

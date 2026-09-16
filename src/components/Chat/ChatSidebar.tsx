@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, Users, MessageSquare, AlertTriangle, Zap, 
   Volume2, VolumeX, Bell, BellOff, CheckCheck, Clock, User,
-  Microscope, Droplets, Scissors, Shirt, Package, Globe
+  Microscope, Droplets, Scissors, Shirt, Package, Globe, Pin
 } from 'lucide-react';
 import { UsuarioSTF } from '../../services/authService';
 import { ChatMessage, SolicitudColcha } from '../../types';
@@ -36,9 +36,42 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onOpenOpsModal
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterPill, setFilterPill] = useState<'TODOS' | 'GRUPOS' | 'RETRASOS'>('TODOS');
+  const [filterPill, setFilterPill] = useState<'TODOS' | 'NO_LEIDOS' | 'GRUPOS' | 'RETRASOS'>('TODOS');
+  const [readTick, setReadTick] = useState(0);
 
   const currentUserId = currentUser?.id || '';
+
+  // Escuchar evento de actualización de lectura para refrescar en caliente badges y filtros
+  useEffect(() => {
+    const handleRead = () => {
+      setReadTick(prev => prev + 1);
+    };
+    window.addEventListener('stf_chat_read_updated', handleRead);
+    return () => {
+      window.removeEventListener('stf_chat_read_updated', handleRead);
+    };
+  }, []);
+
+  // Helper para obtener marca de tiempo en milisegundos de un mensaje
+  const getMessageMillis = (msg?: ChatMessage | null): number => {
+    if (!msg) return 0;
+    if (msg.createdMillis && msg.createdMillis > 0) return msg.createdMillis;
+    if (msg.fecha) {
+      const dateStr = `${msg.fecha} ${msg.timestamp || '00:00'}`;
+      const parsed = new Date(dateStr).getTime();
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 0;
+  };
+
+  // Manejador centralizado al seleccionar cualquier canal o chat (marca como leído inmediatamente)
+  const handleSelectChannel = (canalId: string, title: string) => {
+    if (currentUser) {
+      chatService.markChannelAsRead(currentUser.id, canalId);
+    }
+    setReadTick(prev => prev + 1);
+    onSelectCanal(canalId, title);
+  };
 
   // Conteo de OPs con retraso SLA
   const delayedOpsCount = useMemo(() => {
@@ -48,7 +81,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   // Mensajes no leídos en canal General
   const generalUnread = useMemo(() => {
     return chatService.getUnreadCount(currentUserId, 'GENERAL', allMessages);
-  }, [currentUserId, allMessages]);
+  }, [currentUserId, allMessages, readTick]);
 
   // Conteo de no leídos en Grupos
   const groupsTotalUnread = useMemo(() => {
@@ -57,12 +90,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       sum += chatService.getUnreadCount(currentUserId, wg.id, allMessages);
     });
     return sum;
-  }, [currentUserId, allMessages]);
+  }, [currentUserId, allMessages, readTick]);
 
   // Total global de mensajes no leídos
   const totalGlobalUnread = useMemo(() => {
     return chatService.getTotalUnreadCount(currentUserId, allMessages);
-  }, [currentUserId, allMessages]);
+  }, [currentUserId, allMessages, readTick]);
 
   // Obtener último mensaje de cualquier canal
   const getLastMessageOfChannel = (channelId: string) => {
@@ -79,9 +112,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     return { lastMsg, unread, directCanalId };
   };
 
-  // Filtrar usuarios
-  const filteredUsers = useMemo(() => {
-    return activeUsers.filter(u => {
+  // 1. RECUADRO 1: Orden cronológico automático de usuarios (más recientes en la parte superior)
+  const sortedUsers = useMemo(() => {
+    const baseList = activeUsers.filter(u => {
       if (currentUser && u.id.toLowerCase() === currentUser.id.toLowerCase()) return false;
       if (!searchTerm.trim()) return true;
       const q = searchTerm.toLowerCase().trim();
@@ -92,18 +125,109 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         u.id.toLowerCase().includes(q)
       );
     });
-  }, [activeUsers, currentUser, searchTerm]);
 
-  // Filtrar grupos de trabajo
+    if (!currentUser) return baseList;
+
+    return [...baseList].sort((a, b) => {
+      const infoA = getDirectChatInfo(a.id);
+      const infoB = getDirectChatInfo(b.id);
+
+      const timeA = getMessageMillis(infoA.lastMsg);
+      const timeB = getMessageMillis(infoB.lastMsg);
+
+      // Si ambos tienen mensajes, el más reciente va primero (descendente)
+      if (timeA > 0 && timeB > 0) {
+        return timeB - timeA;
+      }
+      // Si solo A tiene mensajes, A va arriba
+      if (timeA > 0 && timeB === 0) return -1;
+      // Si solo B tiene mensajes, B va arriba
+      if (timeB > 0 && timeA === 0) return 1;
+
+      // Si ninguno tiene mensajes, ordenar alfabéticamente por nombre
+      return a.nombre.localeCompare(b.nombre);
+    });
+  }, [activeUsers, currentUser, searchTerm, allMessages, readTick]);
+
+  // 2. RECUADRO 2: Lista consolidada de chats con mensajes no leídos
+  const unreadChats = useMemo(() => {
+    if (!currentUser) return { general: false, directUsers: [], groups: [] };
+
+    // A. General
+    const isGeneralUnread = generalUnread > 0;
+
+    // B. Chats Directos No Leídos
+    const directUsers = activeUsers
+      .filter(u => {
+        if (currentUser && u.id.toLowerCase() === currentUser.id.toLowerCase()) return false;
+        const info = getDirectChatInfo(u.id);
+        if (info.unread <= 0) return false;
+        if (!searchTerm.trim()) return true;
+        const q = searchTerm.toLowerCase().trim();
+        return (
+          u.nombre.toLowerCase().includes(q) ||
+          u.area.toLowerCase().includes(q) ||
+          u.rol.toLowerCase().includes(q) ||
+          u.id.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const infoA = getDirectChatInfo(a.id);
+        const infoB = getDirectChatInfo(b.id);
+        return getMessageMillis(infoB.lastMsg) - getMessageMillis(infoA.lastMsg);
+      });
+
+    // C. Grupos de Trabajo No Leídos
+    const groups = WORKGROUPS_STF
+      .filter(wg => {
+        if (wg.id === 'GENERAL') return false;
+        const unread = chatService.getUnreadCount(currentUserId, wg.id, allMessages);
+        if (unread <= 0) return false;
+        if (!searchTerm.trim()) return true;
+        const q = searchTerm.toLowerCase().trim();
+        return (
+          wg.nombre.toLowerCase().includes(q) ||
+          wg.area.toLowerCase().includes(q) ||
+          wg.descripcion.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const lastMsgA = getLastMessageOfChannel(a.id);
+        const lastMsgB = getLastMessageOfChannel(b.id);
+        return getMessageMillis(lastMsgB) - getMessageMillis(lastMsgA);
+      });
+
+    return {
+      general: isGeneralUnread,
+      directUsers,
+      groups
+    };
+  }, [currentUser, activeUsers, generalUnread, allMessages, searchTerm, readTick]);
+
+  // Filtrar grupos de trabajo y ordenar por actividad reciente
   const filteredWorkgroups = useMemo(() => {
-    if (!searchTerm.trim()) return WORKGROUPS_STF;
-    const q = searchTerm.toLowerCase().trim();
-    return WORKGROUPS_STF.filter(wg => 
-      wg.nombre.toLowerCase().includes(q) ||
-      wg.area.toLowerCase().includes(q) ||
-      wg.descripcion.toLowerCase().includes(q)
-    );
-  }, [searchTerm]);
+    const base = !searchTerm.trim()
+      ? WORKGROUPS_STF
+      : WORKGROUPS_STF.filter(wg => {
+          const q = searchTerm.toLowerCase().trim();
+          return (
+            wg.nombre.toLowerCase().includes(q) ||
+            wg.area.toLowerCase().includes(q) ||
+            wg.descripcion.toLowerCase().includes(q)
+          );
+        });
+
+    return [...base].sort((a, b) => {
+      const lastMsgA = getLastMessageOfChannel(a.id);
+      const lastMsgB = getLastMessageOfChannel(b.id);
+      const timeA = getMessageMillis(lastMsgA);
+      const timeB = getMessageMillis(lastMsgB);
+      if (timeA > 0 && timeB > 0) return timeB - timeA;
+      if (timeA > 0 && timeB === 0) return -1;
+      if (timeB > 0 && timeA === 0) return 1;
+      return 0;
+    });
+  }, [searchTerm, allMessages, readTick]);
 
   // Obtener miembros del grupo de trabajo
   const getGroupMembers = (area: string) => {
@@ -292,6 +416,25 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           <span>OPs Retraso ({delayedOpsCount})</span>
         </button>
 
+        {/* Pestaña: No Leídos (Recuadro 2 - Filtro exacto de mensajes pendientes) */}
+        <button
+          type="button"
+          onClick={() => setFilterPill('NO_LEIDOS')}
+          className={`px-3 py-1 rounded-full text-[11px] font-bold transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
+            filterPill === 'NO_LEIDOS'
+              ? 'bg-[#00a884] text-white shadow-sm'
+              : 'bg-[#202c33] text-zinc-400 hover:text-white'
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          <span>No leídos</span>
+          {totalGlobalUnread > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-mono font-black animate-pulse shadow-sm">
+              {totalGlobalUnread}
+            </span>
+          )}
+        </button>
+
       </div>
 
       {/* 4. Lista de Conversaciones y Grupos de Trabajo */}
@@ -317,7 +460,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               return (
                 <div
                   key={wg.id}
-                  onClick={() => onSelectCanal(wg.id, wg.nombre)}
+                  onClick={() => handleSelectChannel(wg.id, wg.nombre)}
                   className={`flex items-center gap-3 px-3 sm:px-4 py-3 cursor-pointer transition-colors ${
                     isSelected ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]/60'
                   }`}
@@ -377,13 +520,182 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         )}
 
         {/* =========================================================================
+            MODO: PESTAÑA NO LEÍDOS (Recuadro 2 - Vista aislada de chats pendientes)
+           ========================================================================= */}
+        {filterPill === 'NO_LEIDOS' && (
+          <div className="space-y-0.5">
+            <div className="px-3 py-1.5 bg-[#182229]/60 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400/90 flex items-center justify-between">
+              <span>Mensajes Pendientes por Leer</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-mono font-black">
+                {totalGlobalUnread} pendientes
+              </span>
+            </div>
+
+            {/* 1. General STF si tiene mensajes no leídos */}
+            {unreadChats.general && (
+              <div
+                onClick={() => handleSelectChannel('GENERAL', 'General STF • Control de Calidad')}
+                className={`flex items-center gap-3 px-3 sm:px-4 py-3 cursor-pointer transition-colors ${
+                  activeCanalId === 'GENERAL' ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]/60'
+                }`}
+              >
+                <div className="w-11 h-11 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow">
+                  <Users className="w-5 h-5" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs sm:text-[13px] font-bold text-white truncate">
+                        General STF
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded text-[8.5px] font-mono font-bold bg-emerald-950/90 text-emerald-400 border border-emerald-700/60 shrink-0">
+                        Sala General
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-zinc-400">
+                      {getLastMessageOfChannel('GENERAL')?.timestamp || ''}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11.5px] text-zinc-400 truncate mt-0.5">
+                    <span className="truncate">
+                      {getLastMessageOfChannel('GENERAL') ? (
+                        <>
+                          <strong className="text-zinc-300 font-medium">~ {getLastMessageOfChannel('GENERAL')?.remitente}: </strong>
+                          {getLastMessageOfChannel('GENERAL')?.tipo === 'op' ? `📌 OP ${getLastMessageOfChannel('GENERAL')?.opRelacionada}` : (getLastMessageOfChannel('GENERAL')?.mensaje || 'Nota de voz')}
+                        </>
+                      ) : (
+                        'Sala corporativa de equipo'
+                      )}
+                    </span>
+
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-mono font-black shrink-0 animate-pulse shadow-md shadow-rose-900/60">
+                      {generalUnread}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 2. Grupos con mensajes no leídos */}
+            {unreadChats.groups.length > 0 && (
+              <>
+                <div className="px-3 py-1 bg-[#182229]/40 text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-500">
+                  Grupos de Trabajo ({unreadChats.groups.length})
+                </div>
+                {unreadChats.groups.map(wg => {
+                  const isSelected = activeCanalId === wg.id;
+                  const lastMsg = getLastMessageOfChannel(wg.id);
+                  const unread = chatService.getUnreadCount(currentUserId, wg.id, allMessages);
+                  return (
+                    <div
+                      key={wg.id}
+                      onClick={() => handleSelectChannel(wg.id, wg.nombre)}
+                      className={`flex items-center gap-3 px-3 sm:px-4 py-3 cursor-pointer transition-colors ${
+                        isSelected ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]/60'
+                      }`}
+                    >
+                      <div className="w-11 h-11 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0 shadow text-lg">
+                        {renderWorkgroupIcon(wg.area)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-[13px] font-bold text-white truncate">{wg.nombre}</span>
+                          <span className="text-[10px] font-mono text-zinc-400 shrink-0 ml-1">{lastMsg?.timestamp || ''}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-0.5">
+                          <span className="truncate">
+                            {lastMsg ? (
+                              <>
+                                <strong className="text-zinc-300 font-medium">~ {lastMsg.remitente}: </strong>
+                                {lastMsg.tipo === 'op' ? `📌 OP ${lastMsg.opRelacionada}` : (lastMsg.mensaje || 'Nota de voz')}
+                              </>
+                            ) : wg.descripcion}
+                          </span>
+                          <span className="ml-2 px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-mono font-black shrink-0 animate-pulse shadow-md shadow-rose-900/60">
+                            {unread}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
+            {/* 3. Mensajes Directos Privados 1 a 1 no leídos (Recuadro 1 & 2) */}
+            {unreadChats.directUsers.length > 0 && (
+              <>
+                <div className="px-3 py-1 bg-[#182229]/40 text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-500">
+                  Chats Privados ({unreadChats.directUsers.length})
+                </div>
+                {unreadChats.directUsers.map(user => {
+                  const { lastMsg, unread, directCanalId } = getDirectChatInfo(user.id);
+                  const isSelected = activeCanalId === directCanalId;
+                  return (
+                    <div
+                      key={user.id}
+                      onClick={() => handleSelectChannel(directCanalId, user.nombre)}
+                      className={`flex items-center gap-3 px-3 sm:px-4 py-3 cursor-pointer transition-colors ${
+                        isSelected ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]/60'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <div className="w-11 h-11 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center font-bold text-xs shadow">
+                          {user.nombre.slice(0, 2).toUpperCase()}
+                        </div>
+                        <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#111b21] ${getAreaDotColor(user.area)}`}></span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-[13px] font-bold text-white truncate">{user.nombre}</span>
+                          <span className="text-[10px] font-mono text-zinc-400">{lastMsg?.timestamp || ''}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-0.5">
+                          <span className="truncate text-zinc-200 font-medium">
+                            {lastMsg ? (
+                              lastMsg.mensaje || (lastMsg.tipo === 'op' ? `📌 OP ${lastMsg.opRelacionada}` : 'Nota de voz')
+                            ) : (
+                              `${user.area} • ${user.rol}`
+                            )}
+                          </span>
+                          <span className="ml-2 px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-mono font-black shrink-0 animate-pulse shadow-md shadow-rose-900/60">
+                            {unread}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Estado vacío cuando no hay mensajes pendientes */}
+            {!unreadChats.general && unreadChats.directUsers.length === 0 && unreadChats.groups.length === 0 && (
+              <div className="py-16 px-4 text-center flex flex-col items-center justify-center text-zinc-400 animate-in fade-in duration-200">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-3 shadow-lg shadow-emerald-950/40">
+                  <CheckCheck className="w-7 h-7" />
+                </div>
+                <h3 className="text-sm font-bold text-white mb-1">¡Estás al día!</h3>
+                <p className="text-xs text-zinc-400 max-w-[240px]">
+                  {searchTerm.trim() 
+                    ? 'No hay mensajes no leídos que coincidan con la búsqueda.' 
+                    : 'No tienes mensajes pendientes por leer en ningún chat privado ni grupo.'}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =========================================================================
             MODO: PESTAÑA TODOS (General STF + Chats Privados 1 a 1 por usuario)
            ========================================================================= */}
         {filterPill === 'TODOS' && (
           <>
             {/* SALA GENERAL STF */}
             <div
-              onClick={() => onSelectCanal('GENERAL', 'General STF • Control de Calidad')}
+              onClick={() => handleSelectChannel('GENERAL', 'General STF • Control de Calidad')}
               className={`flex items-center gap-3 px-3 sm:px-4 py-3 cursor-pointer transition-colors ${
                 activeCanalId === 'GENERAL' ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]/60'
               }`}
@@ -394,9 +706,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-[13px] font-bold text-white truncate">
-                    General STF
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs sm:text-[13px] font-bold text-white truncate">
+                      General STF
+                    </span>
+                    <span className="flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[8.5px] font-mono font-bold bg-zinc-800 text-emerald-400 border border-emerald-800/40 shrink-0">
+                      <Pin className="w-2.5 h-2.5" /> Fijado
+                    </span>
+                  </div>
                   <span className="text-[10px] font-mono text-zinc-400">
                     {getLastMessageOfChannel('GENERAL')?.timestamp || ''}
                   </span>
@@ -427,18 +744,18 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             {/* SEPARADOR DE CONTACTOS PRIVADOS */}
             <div className="px-3 py-1.5 bg-[#182229]/40 text-[9.5px] font-mono font-bold uppercase tracking-wider text-zinc-500 flex items-center justify-between">
               <span>Mensajes Directos (1 a 1 Privados)</span>
-              <span>{filteredUsers.length} Contactos</span>
+              <span>{sortedUsers.length} Contactos</span>
             </div>
 
-            {/* CHATS DIRECTOS 1 A 1 CON CADA USUARIO ACTIVO */}
-            {filteredUsers.map((user) => {
+            {/* CHATS DIRECTOS 1 A 1 CON CADA USUARIO ACTIVO (RECUADRO 1: AUTOMATIZADO CON RECIENTES ARRIBA) */}
+            {sortedUsers.map((user) => {
               const { lastMsg, unread, directCanalId } = getDirectChatInfo(user.id);
               const isSelected = activeCanalId === directCanalId;
 
               return (
                 <div
                   key={user.id}
-                  onClick={() => onSelectCanal(directCanalId, user.nombre)}
+                  onClick={() => handleSelectChannel(directCanalId, user.nombre)}
                   className={`flex items-center gap-3 px-3 sm:px-4 py-3 cursor-pointer transition-colors ${
                     isSelected ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]/60'
                   }`}
@@ -493,7 +810,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </>
         )}
 
-        {filteredUsers.length === 0 && filterPill === 'TODOS' && (
+        {sortedUsers.length === 0 && filterPill === 'TODOS' && (
           <div className="py-8 text-center text-zinc-500 text-xs">
             No se encontraron usuarios con ese criterio.
           </div>
