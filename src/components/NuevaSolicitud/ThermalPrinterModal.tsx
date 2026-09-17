@@ -181,37 +181,36 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                   </div>
 
                   {/* Recuadro de Tela */}
-                  <div className="border-[1.5px] border-black px-2 py-1 text-center text-[10px] sm:text-[11px] uppercase bg-white my-1" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
+                  <div className="border-[1.5px] border-black px-2 py-1 text-center text-[11px] sm:text-[12.5px] uppercase bg-white my-1" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
                     <span className="font-black tracking-wider text-black mr-1.5">TELA:</span>
-                    <span className="font-light tracking-[0.08em] text-black">{colcha.tela.toUpperCase()}</span>
+                    <span className="font-extrabold tracking-[0.08em] text-black">{colcha.tela.toUpperCase()}</span>
                   </div>
 
                   {/* Middle Data & QR */}
                   <div className="grid grid-cols-12 gap-2 items-center flex-1 my-1">
                     
                     {/* Left: Metadata list */}
-                    {/* Recuadro Verde: Rótulos en negrilla (estilo 'ela') */}
-                    {/* Recuadro Rojo: Valores en tipografía delgada no en negrilla (estilo 'STUDIO F') */}
-                    <div className="col-span-7 space-y-1 text-[10px] sm:text-[11px]">
+                    {/* Bloquecito de información: tamaño aumentado y tipografía en negrilla */}
+                    <div className="col-span-7 space-y-1 text-[11.5px] sm:text-[13px]">
                       <div className="flex justify-between border-b border-zinc-200 pb-0.5">
                         <span className="text-black font-black tracking-wider">COLOR:</span>
-                        <span className="text-black font-light tracking-[0.06em]">{colcha.color.toUpperCase()}</span>
+                        <span className="text-black font-extrabold tracking-[0.06em]">{colcha.color.toUpperCase()}</span>
                       </div>
                       <div className="flex justify-between border-b border-zinc-200 pb-0.5">
                         <span className="text-black font-black tracking-wider">ROLLOS:</span>
-                        <span className="text-black font-light tracking-[0.06em]">{colcha.rollos} rls</span>
+                        <span className="text-black font-extrabold tracking-[0.06em]">{colcha.rollos} rls</span>
                       </div>
                       <div className="flex justify-between border-b border-zinc-200 pb-0.5">
                         <span className="text-black font-black tracking-wider">METRAJE:</span>
-                        <span className="text-black font-light tracking-[0.06em]">{mtDisplay}</span>
+                        <span className="text-black font-extrabold tracking-[0.06em]">{mtDisplay}</span>
                       </div>
                       <div className="flex justify-between border-b border-zinc-200 pb-0.5">
                         <span className="text-black font-black tracking-wider">LOTES:</span>
-                        <span className="text-black font-light tracking-[0.06em]">{loteDisplay}</span>
+                        <span className="text-black font-extrabold tracking-[0.06em]">{loteDisplay}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-black font-black tracking-wider">DICTAMEN:</span>
-                        <span className="text-black font-light tracking-[0.06em]">{colcha.dictamen.toUpperCase()}</span>
+                        <span className="text-black font-extrabold tracking-[0.06em]">{colcha.dictamen.toUpperCase()}</span>
                       </div>
                     </div>
 
@@ -232,8 +231,8 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                           }}
                         />
                       </div>
-                      {/* Recuadro Rojo 2: Texto QR delgado no en negrilla (estilo 'STUDIO F') */}
-                      <span className="text-[7.5px] font-light text-black tracking-[0.1em] mt-1 uppercase leading-tight" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
+                      {/* Texto QR en negrilla para legibilidad */}
+                      <span className="text-[8.5px] sm:text-[9px] font-extrabold text-black tracking-[0.08em] mt-1 uppercase leading-tight" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
                         ESCANEAR QR<br/>TRAZABILIDAD
                       </span>
                     </div>
@@ -241,16 +240,16 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                   </div>
 
                   {/* Footer Observations */}
-                  <div className="border-t-[1.5px] border-dashed border-black pt-1 text-[9px] space-y-0.5">
-                    {/* Recuadro Verde 2: Título observación en negrilla (estilo 'ela') */}
-                    <span className="font-black text-black block text-[9.5px] uppercase tracking-wider" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
+                  <div className="border-t-[1.5px] border-dashed border-black pt-1 text-[9.5px] space-y-0.5">
+                    {/* Título observación en negrilla */}
+                    <span className="font-black text-black block text-[10px] uppercase tracking-wider" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
                       {obsTitle}
                     </span>
-                    {/* Recuadro Rojo 3: Contenido observación delgado no en negrilla (estilo 'STUDIO F') */}
-                    <p className="text-black font-light text-[9px] leading-snug line-clamp-2 uppercase tracking-[0.04em]" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
+                    {/* Contenido observación en negrilla para alta visibilidad */}
+                    <p className="text-black font-bold text-[9.5px] leading-snug line-clamp-2 uppercase tracking-[0.03em]" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
                       {obsToShow}
                     </p>
-                    <div className="text-[7.5px] text-zinc-600 pt-0.5 border-t border-zinc-300 text-center tracking-wider font-light" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
+                    <div className="text-[8px] text-black pt-0.5 border-t border-zinc-300 text-center tracking-wider font-bold" style={{ fontFamily: "'Montserrat', 'Outfit', sans-serif" }}>
                       ID: STF-OP-{cleanOpDigits} • Impreso: {printDateStr}
                     </div>
                   </div>

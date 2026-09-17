@@ -230,16 +230,17 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   // Recuadro de Tela
   doc.setLineWidth(0.35);
   doc.rect(6.5, 20.5, 87, 6.5);
-  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
   doc.text(`TELA: ${colcha.tela.toUpperCase()}`, 50, 24.8, { align: 'center' });
 
-  // 3. Tabla de especificaciones técnicas (Columna Izquierda)
-  doc.setFontSize(7.5);
+  // 3. Tabla de especificaciones técnicas (Columna Izquierda) - Tamaño aumentado y negrilla
+  doc.setFontSize(8.5);
   
   // COLOR
   doc.setFont('helvetica', 'bold');
   doc.text('COLOR:', 7.5, 33);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold');
   doc.text(`${colcha.color.toUpperCase()}`, 58, 33, { align: 'right' });
   doc.setDrawColor(220, 220, 225);
   doc.setLineWidth(0.2);
@@ -248,7 +249,7 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   // ROLLOS
   doc.setFont('helvetica', 'bold');
   doc.text('ROLLOS:', 7.5, 39);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold');
   doc.text(`${colcha.rollos} rls`, 58, 39, { align: 'right' });
   doc.line(7.5, 40.5, 58, 40.5);
 
@@ -256,7 +257,7 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   doc.setFont('helvetica', 'bold');
   doc.text('METRAJE:', 7.5, 45);
   const mtDisplay = colcha.codigoMt ? (colcha.codigoMt.toUpperCase().endsWith('MT') ? colcha.codigoMt : `${colcha.codigoMt} Mt`) : 'MT-AUTO';
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold');
   doc.text(mtDisplay, 58, 45, { align: 'right' });
   doc.line(7.5, 46.5, 58, 46.5);
 
@@ -264,14 +265,14 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   doc.setFont('helvetica', 'bold');
   doc.text('LOTES:', 7.5, 51);
   const loteDisplay = colcha.lote ? (colcha.lote.toUpperCase().startsWith('LOTE') ? colcha.lote : `LOTE-${colcha.lote}`) : 'LOTE-1';
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold');
   doc.text(loteDisplay, 58, 51, { align: 'right' });
   doc.line(7.5, 52.5, 58, 52.5);
 
   // DICTAMEN
   doc.setFont('helvetica', 'bold');
   doc.text('DICTAMEN:', 7.5, 57);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold');
   doc.text(`${colcha.dictamen.toUpperCase()}`, 58, 57, { align: 'right' });
 
   // 4. Recuadro QR Simulado en PDF con STF en el centro
@@ -282,9 +283,10 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   doc.setFont('helvetica', 'bold');
   doc.text('STF', 77, 41, { align: 'center' });
   doc.setFontSize(6);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold');
   doc.text(`${colcha.op}`, 77, 46, { align: 'center' });
-  doc.setFontSize(5.5);
+  doc.setFontSize(6);
+  doc.setFont('helvetica', 'bold');
   doc.text('ESCANEAR QR', 77, 57.5, { align: 'center' });
   doc.text('TRAZABILIDAD', 77, 60, { align: 'center' });
 
@@ -299,8 +301,8 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.text(obsTitle, 7.5, 68);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.8);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
   doc.text(obsToShow, 7.5, 73, { maxWidth: 84 });
 
   // 7. Pie de página de trazabilidad
@@ -310,9 +312,9 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   doc.setLineWidth(0.2);
   doc.line(6.5, 87.5, 93.5, 87.5);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.setTextColor(80, 80, 80);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.2);
+  doc.setTextColor(0, 0, 0);
   doc.text(`ID: STF-OP-${cleanOp} • Impreso: ${printDateStr}`, 50, 91.5, { align: 'center' });
 
   doc.save(`Etiqueta_STF_100x100_${colcha.op}.pdf`);
@@ -450,7 +452,7 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
             border: 1.5px solid #000000;
             background: #ffffff !important;
             text-align: center;
-            font-size: 8.5pt;
+            font-size: 9.5pt;
             padding: 1mm 2mm;
             margin: 1.2mm 0;
             text-transform: uppercase;
@@ -462,7 +464,7 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
             margin-right: 1.5mm;
           }
           .tela-badge-val {
-            font-weight: 300;
+            font-weight: 800;
             letter-spacing: 0.8px;
           }
           .ticket-grid {
@@ -472,32 +474,35 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
             margin: 0.5mm 0;
             flex: 1;
           }
+          /* Bloquecito de información: tamaño aumentado (9.5pt) y tipografía en negrilla (800/900) */
           .spec-table {
             width: 58%;
-            font-size: 7.5pt;
+            font-size: 9.5pt;
             font-family: 'Montserrat', 'Outfit', sans-serif;
           }
           .spec-row {
             display: flex;
             justify-content: space-between;
             border-bottom: 0.5px solid #e4e4e7;
-            padding: 0.8mm 0;
+            padding: 0.75mm 0;
           }
           .spec-row:last-child {
             border-bottom: none;
           }
-          /* Recuadro Verde 1: Negrilla, estilo 'ela' */
+          /* Rótulos en negrilla y tamaño aumentado */
           .spec-label {
             color: #000000;
+            font-size: 9.5pt;
             font-weight: 900;
             letter-spacing: 0.5px;
             font-family: 'Montserrat', 'Outfit', sans-serif;
           }
-          /* Recuadro Rojo 1: Tipografía delgada no en negrilla, estilo 'STUDIO F' */
+          /* Valores en negrilla y tamaño aumentado para fácil lectura */
           .spec-value {
             color: #000000;
-            font-weight: 300;
-            letter-spacing: 0.7px;
+            font-size: 9.5pt;
+            font-weight: 800;
+            letter-spacing: 0.6px;
             text-align: right;
             font-family: 'Montserrat', 'Outfit', sans-serif;
           }
@@ -517,15 +522,15 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
             background: #ffffff;
             display: block;
           }
-          /* Recuadro Rojo 2: Texto QR delgado no en negrilla, estilo 'STUDIO F' */
+          /* Texto QR en negrilla para legibilidad */
           .qr-label {
-            font-size: 5.5pt;
-            font-weight: 300;
+            font-size: 6.2pt;
+            font-weight: 800;
             margin-top: 0.8mm;
             line-height: 1.15;
             text-transform: uppercase;
             color: #000000;
-            letter-spacing: 0.8px;
+            letter-spacing: 0.6px;
             font-family: 'Montserrat', 'Outfit', sans-serif;
           }
           .ticket-footer {
@@ -533,9 +538,9 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
             padding-top: 1.2mm;
             font-size: 7.5pt;
           }
-          /* Recuadro Verde 2: Título observación en negrilla, estilo 'ela' */
+          /* Título observación en negrilla */
           .ticket-footer strong {
-            font-size: 7.5pt;
+            font-size: 7.8pt;
             font-weight: 900;
             display: block;
             text-transform: uppercase;
@@ -543,27 +548,27 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
             letter-spacing: 0.5px;
             font-family: 'Montserrat', 'Outfit', sans-serif;
           }
-          /* Recuadro Rojo 3: Contenido observación delgado no en negrilla, estilo 'STUDIO F' */
+          /* Contenido observación en negrilla para alta visibilidad */
           .ticket-footer p {
-            font-size: 7.2pt;
+            font-size: 7.8pt;
             color: #000000;
-            font-weight: 300;
+            font-weight: 700;
             line-height: 1.25;
             margin-top: 0.6mm;
             word-break: break-word;
             text-transform: uppercase;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
             font-family: 'Montserrat', 'Outfit', sans-serif;
           }
           .ticket-sub {
             text-align: center;
-            font-size: 5.8pt;
-            color: #4b5563;
+            font-size: 6.2pt;
+            color: #000000;
             font-family: 'Montserrat', 'Outfit', sans-serif;
-            font-weight: 300;
-            letter-spacing: 0.6px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
             margin-top: 1mm;
-            border-top: 0.5px solid #d1d5db;
+            border-top: 0.5px solid #000000;
             padding-top: 0.5mm;
           }
         </style>
