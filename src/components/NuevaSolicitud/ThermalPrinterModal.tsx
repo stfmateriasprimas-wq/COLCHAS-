@@ -71,7 +71,8 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
   const cleanOpDigits = colcha.op.replace(/^OP-?/i, '').trim();
   const refClean = colcha.referencia ? colcha.referencia.toUpperCase() : 'S/R';
   const refDisplay = refClean.startsWith('REF') ? refClean : `REF-${refClean}`;
-  const mtDisplay = colcha.codigoMt ? (colcha.codigoMt.toUpperCase().endsWith('MT') ? colcha.codigoMt : `${colcha.codigoMt} Mt`) : 'MT-AUTO';
+  const mtRaw = (colcha.codigoMt || '').trim();
+  const mtDisplay = mtRaw.replace(/\s+mt$/i, '').trim().toUpperCase() || 'MT-AUTO';
   const loteDisplay = colcha.lote ? (colcha.lote.toUpperCase().startsWith('LOTE') ? colcha.lote : `LOTE-${colcha.lote}`) : 'LOTE-1';
   const printDateStr = new Date().toLocaleString('es-CO');
 
@@ -201,7 +202,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                         <span className="text-black font-extrabold tracking-[0.06em]">{colcha.rollos} rls</span>
                       </div>
                       <div className="flex justify-between border-b border-zinc-200 pb-0.5">
-                        <span className="text-black font-black tracking-wider">METRAJE:</span>
+                        <span className="text-black font-black tracking-wider">MT:</span>
                         <span className="text-black font-extrabold tracking-[0.06em]">{mtDisplay}</span>
                       </div>
                       <div className="flex justify-between border-b border-zinc-200 pb-0.5">
@@ -328,8 +329,8 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
               </div>
 
               <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-zinc-950 dark:text-white shadow-sm">
-                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">METRAJE / MT</span>
-                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{colcha.codigoMt} Mt</span>
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">MT</span>
+                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{mtDisplay}</span>
               </div>
 
               <div className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-zinc-950 dark:text-white shadow-sm">

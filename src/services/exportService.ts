@@ -253,10 +253,11 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
   doc.text(`${colcha.rollos} rls`, 58, 39, { align: 'right' });
   doc.line(7.5, 40.5, 58, 40.5);
 
-  // METRAJE
+  // MT
   doc.setFont('helvetica', 'bold');
-  doc.text('METRAJE:', 7.5, 45);
-  const mtDisplay = colcha.codigoMt ? (colcha.codigoMt.toUpperCase().endsWith('MT') ? colcha.codigoMt : `${colcha.codigoMt} Mt`) : 'MT-AUTO';
+  doc.text('MT:', 7.5, 45);
+  const mtRaw = (colcha.codigoMt || '').trim();
+  const mtDisplay = mtRaw.replace(/\s+mt$/i, '').trim().toUpperCase() || 'MT-AUTO';
   doc.setFont('helvetica', 'bold');
   doc.text(mtDisplay, 58, 45, { align: 'right' });
   doc.line(7.5, 46.5, 58, 46.5);
@@ -342,7 +343,8 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
 
   const refClean = colcha.referencia ? colcha.referencia.toUpperCase() : 'S/R';
   const refDisplay = refClean.startsWith('REF') ? refClean : `REF-${refClean}`;
-  const mtDisplay = colcha.codigoMt ? (colcha.codigoMt.toUpperCase().endsWith('MT') ? colcha.codigoMt : `${colcha.codigoMt} Mt`) : 'MT-AUTO';
+  const mtRaw = (colcha.codigoMt || '').trim();
+  const mtDisplay = mtRaw.replace(/\s+mt$/i, '').trim().toUpperCase() || 'MT-AUTO';
   const loteDisplay = colcha.lote ? (colcha.lote.toUpperCase().startsWith('LOTE') ? colcha.lote : `LOTE-${colcha.lote}`) : 'LOTE-1';
 
   const html = `
@@ -600,7 +602,7 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
                   <span class="spec-value">${colcha.rollos} rls</span>
                 </div>
                 <div class="spec-row">
-                  <span class="spec-label">METRAJE:</span>
+                  <span class="spec-label">MT:</span>
                   <span class="spec-value">${mtDisplay}</span>
                 </div>
                 <div class="spec-row">

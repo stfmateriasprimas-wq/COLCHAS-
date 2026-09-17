@@ -58,7 +58,7 @@ export const TicketModal: React.FC<TicketModalProps> = ({ colcha, onClose }) => 
               <span className="font-bold text-zinc-900">{colcha.tela}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-zinc-500">CÓDIGO MT:</span>
+              <span className="text-zinc-500">MT:</span>
               <span className="font-bold">{colcha.codigoMt}</span>
             </div>
             <div className="flex justify-between">
