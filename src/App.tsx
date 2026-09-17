@@ -40,6 +40,7 @@ import {
   isMatchingOp,
   getCachedSolicitudes,
   saveCachedSolicitudes,
+  getOpPhotosFromCache,
   INITIAL_MONITOREO_DATA, 
   INITIAL_SOLICITUDES_DATA 
 } from './services/googleSheetsService';
@@ -203,6 +204,32 @@ export function App() {
     };
   }, [currentUser, activeTab]);
 
+  // Escuchar eventos globales de fotos resueltas desde Drive para actualizar el estado central
+  useEffect(() => {
+    const handlePhotosUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail;
+      if (!detail || !detail.op) return;
+      const cleanEventOp = (detail.op || '').replace(/\D/g, '') || String(detail.op).trim().toUpperCase();
+      setSolicitudes(prev => prev.map(s => {
+        const cleanSOp = s.op.replace(/\D/g, '') || s.op.trim().toUpperCase();
+        if (cleanSOp === cleanEventOp || s.op === detail.op) {
+          return {
+            ...s,
+            fotoMuestraUrl: detail.foto1 || s.fotoMuestraUrl,
+            fotoCalidadUrl: detail.foto2 || s.fotoCalidadUrl,
+            driveFolderUrl: detail.folderUrl || s.driveFolderUrl
+          };
+        }
+        return s;
+      }));
+    };
+    window.addEventListener('stf_op_photos_updated', handlePhotosUpdated);
+    return () => {
+      window.removeEventListener('stf_op_photos_updated', handlePhotosUpdated);
+    };
+  }, []);
+
   // Parse and handle incoming URL query parameters for Magic Auto-Login and Direct OP viewing
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -276,15 +303,21 @@ export function App() {
         localOps.forEach(loc => {
           const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
           const remoteIdx = mergedLive.findIndex(m => ((m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()) === cleanLocOp);
+          const cached = getOpPhotosFromCache(cleanLocOp) || getOpPhotosFromCache(loc.op);
           if (remoteIdx === -1) {
-            mergedLive.unshift(loc);
+            mergedLive.unshift({
+              ...loc,
+              fotoMuestraUrl: loc.fotoMuestraUrl || cached?.foto1,
+              fotoCalidadUrl: loc.fotoCalidadUrl || cached?.foto2,
+              driveFolderUrl: loc.driveFolderUrl || cached?.folderUrl
+            });
           } else {
             const remote = mergedLive[remoteIdx];
             mergedLive[remoteIdx] = {
               ...remote,
-              fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl,
-              fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl,
-              driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl,
+              fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl || cached?.foto1,
+              fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl || cached?.foto2,
+              driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl || cached?.folderUrl,
               observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad
             };
           }

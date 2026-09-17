@@ -485,42 +485,67 @@ export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: 
     parts = [str];
   }
 
+  // Filtrar exclusivamente candidatos a imágenes (excluyendo carpetas de Google Drive)
+  const imageCandidates = parts
+    .map(p => normalizeImageUrl(p))
+    .filter((p): p is string => Boolean(p));
+
   return {
-    foto1: parts[0] ? normalizeImageUrl(parts[0]) : undefined,
-    foto2: parts[1] ? normalizeImageUrl(parts[1]) : undefined,
+    foto1: imageCandidates[0] || undefined,
+    foto2: imageCandidates[1] || undefined,
     folderUrl
   };
 }
+
+// Mapa para deduplicar peticiones simultáneas hacia Google Apps Script
+const inFlightPhotoRequests = new Map<string, Promise<{ foto1?: string; foto2?: string; folderUrl?: string }>>();
 
 /**
  * Consulta en tiempo real a Google Apps Script las fotografías oficiales
  * registradas en la carpeta de Google Drive para una OP determinada.
  */
 export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?: string; foto2?: string; folderUrl?: string }> {
-  try {
-    const cleanOp = formatOpCode(opNumber);
-    const scriptUrl = getAppsScriptUrl();
-    const targetUrl = `${scriptUrl}?action=GET_OP_PHOTOS&op=${encodeURIComponent(cleanOp)}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(targetUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && (data.foto1 || data.foto2 || data.folderUrl)) {
-        const resolved = {
-          foto1: data.foto1 ? normalizeImageUrl(data.foto1) : undefined,
-          foto2: data.foto2 ? normalizeImageUrl(data.foto2) : undefined,
-          folderUrl: data.folderUrl || undefined
-        };
-        saveOpPhotosToCache(cleanOp, resolved);
-        return resolved;
-      }
-    }
-  } catch (err) {
-    console.warn('No se pudieron resolver fotos remotas de la OP:', err);
+  if (!opNumber) return {};
+  const cleanOp = formatOpCode(opNumber);
+
+  if (inFlightPhotoRequests.has(cleanOp)) {
+    return inFlightPhotoRequests.get(cleanOp)!;
   }
-  return {};
+
+  const promise = (async () => {
+    try {
+      const scriptUrl = getAppsScriptUrl();
+      const targetUrl = `${scriptUrl}?action=GET_OP_PHOTOS&op=${encodeURIComponent(cleanOp)}`;
+      const controller = new AbortController();
+      // Timeout ampliado a 30s para soportar arranque en frío de Google Apps Script
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const res = await fetch(targetUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data.foto1 || data.foto2 || data.folderUrl)) {
+          const resolved = {
+            foto1: data.foto1 ? normalizeImageUrl(data.foto1) : undefined,
+            foto2: data.foto2 ? normalizeImageUrl(data.foto2) : undefined,
+            folderUrl: data.folderUrl || undefined
+          };
+          saveOpPhotosToCache(cleanOp, resolved);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('stf_op_photos_updated', { detail: { op: cleanOp, ...resolved } }));
+          }
+          return resolved;
+        }
+      }
+    } catch (err) {
+      console.warn('No se pudieron resolver fotos remotas de la OP:', err);
+    } finally {
+      inFlightPhotoRequests.delete(cleanOp);
+    }
+    return {};
+  })();
+
+  inFlightPhotoRequests.set(cleanOp, promise);
+  return promise;
 }
 
 // =========================================================================
@@ -535,15 +560,29 @@ export interface OpPhotosCacheItem {
   updatedAt: number;
 }
 
+// Respaldo en memoria volátil de fotos para inmunidad contra límites de cuota de localStorage
+const memoryPhotosCache: Record<string, OpPhotosCacheItem> = {};
+
 export function getOpPhotosFromCache(opNumber?: string): OpPhotosCacheItem | undefined {
   if (typeof window === 'undefined' || !opNumber) return undefined;
+  const cleanDigits = opNumber.replace(/\D/g, '');
+  const cleanOp = formatOpCode(opNumber);
+
+  // 1. Revisar caché en memoria
+  if (memoryPhotosCache[cleanOp]) return memoryPhotosCache[cleanOp];
+  if (cleanDigits && memoryPhotosCache[cleanDigits]) return memoryPhotosCache[cleanDigits];
+
+  // 2. Revisar almacenamiento local
   try {
     const raw = localStorage.getItem(OP_PHOTOS_CACHE_KEY);
     if (!raw) return undefined;
     const cache: Record<string, OpPhotosCacheItem> = JSON.parse(raw);
-    const cleanDigits = opNumber.replace(/\D/g, '');
-    const cleanOp = formatOpCode(opNumber);
-    return cache[cleanOp] || (cleanDigits ? cache[cleanDigits] : undefined);
+    const item = cache[cleanOp] || (cleanDigits ? cache[cleanDigits] : undefined);
+    if (item) {
+      memoryPhotosCache[cleanOp] = item;
+      if (cleanDigits) memoryPhotosCache[cleanDigits] = item;
+    }
+    return item;
   } catch (e) {
     return undefined;
   }
@@ -555,11 +594,9 @@ export function saveOpPhotosToCache(
 ): void {
   if (typeof window === 'undefined' || !opNumber) return;
   try {
-    const raw = localStorage.getItem(OP_PHOTOS_CACHE_KEY);
-    const cache: Record<string, OpPhotosCacheItem> = raw ? JSON.parse(raw) : {};
     const cleanDigits = opNumber.replace(/\D/g, '');
     const cleanOp = formatOpCode(opNumber);
-    const existing: OpPhotosCacheItem | undefined = cache[cleanOp] || (cleanDigits ? cache[cleanDigits] : undefined);
+    const existing = getOpPhotosFromCache(opNumber);
     
     const item: OpPhotosCacheItem = {
       foto1: photos.foto1 || existing?.foto1,
@@ -567,6 +604,14 @@ export function saveOpPhotosToCache(
       folderUrl: photos.folderUrl || existing?.folderUrl,
       updatedAt: Date.now()
     };
+
+    // Actualizar siempre memoria viva
+    memoryPhotosCache[cleanOp] = item;
+    if (cleanDigits) memoryPhotosCache[cleanDigits] = item;
+
+    // Persistir en localStorage
+    const raw = localStorage.getItem(OP_PHOTOS_CACHE_KEY);
+    const cache: Record<string, OpPhotosCacheItem> = raw ? JSON.parse(raw) : {};
     cache[cleanOp] = item;
     if (cleanDigits) cache[cleanDigits] = item;
     localStorage.setItem(OP_PHOTOS_CACHE_KEY, JSON.stringify(cache));
@@ -847,8 +892,8 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               const effectiveFoto2 = foto2 || cachedPhotos?.foto2;
               const effectiveFolderUrl = folderUrl || cachedPhotos?.folderUrl;
 
-              if (foto1 || foto2 || folderUrl) {
-                saveOpPhotosToCache(cleanOp, { foto1, foto2, folderUrl });
+              if (effectiveFoto1 || effectiveFoto2 || effectiveFolderUrl) {
+                saveOpPhotosToCache(cleanOp, { foto1: effectiveFoto1, foto2: effectiveFoto2, folderUrl: effectiveFolderUrl });
               }
 
               let cleanObsOperario = (obsOperarioRaw || '').trim();
@@ -1005,8 +1050,8 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
         const effectiveFoto2 = foto2 || cachedPhotos?.foto2;
         const effectiveFolderUrl = folderUrl || cachedPhotos?.folderUrl;
 
-        if (foto1 || foto2 || folderUrl) {
-          saveOpPhotosToCache(cleanOp, { foto1, foto2, folderUrl });
+        if (effectiveFoto1 || effectiveFoto2 || effectiveFolderUrl) {
+          saveOpPhotosToCache(cleanOp, { foto1: effectiveFoto1, foto2: effectiveFoto2, folderUrl: effectiveFolderUrl });
         }
 
         let cleanCsvObsOperario = obsOperarioStr.trim();
@@ -1209,8 +1254,8 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
             const effectiveFoto2 = foto2 || cachedPhotos?.foto2;
             const effectiveFolderUrl = folderUrl || cachedPhotos?.folderUrl;
 
-            if (foto1 || foto2 || folderUrl) {
-              saveOpPhotosToCache(cleanOp, { foto1, foto2, folderUrl });
+            if (effectiveFoto1 || effectiveFoto2 || effectiveFolderUrl) {
+              saveOpPhotosToCache(cleanOp, { foto1: effectiveFoto1, foto2: effectiveFoto2, folderUrl: effectiveFolderUrl });
             }
 
             parsedList.push({

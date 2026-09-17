@@ -132,6 +132,25 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     };
   }, [solicitudes, opNumber]);
 
+  // Escuchar eventos globales de resolución de fotos de OP en tiempo real
+  useEffect(() => {
+    const handlePhotosUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail;
+      const targetOp = colcha?.op || opNumber;
+      if (!targetOp || !detail) return;
+      const cleanTarget = targetOp.replace(/\D/g, '') || targetOp.trim().toUpperCase();
+      const cleanEvent = (detail?.op || '').replace(/\D/g, '') || String(detail?.op || '').trim().toUpperCase();
+      if (cleanTarget === cleanEvent || targetOp === detail.op) {
+        setRemoteDrivePhotos((prev) => ({ ...prev, ...detail }));
+      }
+    };
+    window.addEventListener('stf_op_photos_updated', handlePhotosUpdated);
+    return () => {
+      window.removeEventListener('stf_op_photos_updated', handlePhotosUpdated);
+    };
+  }, [colcha?.op, opNumber]);
+
   // Auto-descubrimiento en tiempo real de fotos en Google Drive si no vienen en la base de datos o el QR
   useEffect(() => {
     const targetOp = colcha?.op || opNumber;

@@ -169,13 +169,31 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
     return getOpPhotosFromCache(solicitud.op) || null;
   });
 
+  // Escuchar eventos globales de resolución de fotos de OP en tiempo real
+  useEffect(() => {
+    const handlePhotosUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail;
+      const cleanSolOp = solicitud.op.replace(/\D/g, '') || solicitud.op.trim().toUpperCase();
+      const cleanEventOp = (detail?.op || '').replace(/\D/g, '') || String(detail?.op || '').trim().toUpperCase();
+      if (detail && (cleanSolOp === cleanEventOp || solicitud.op === detail.op)) {
+        setCachedOrDrivePhotos(prev => ({ ...prev, ...detail }));
+      }
+    };
+    window.addEventListener('stf_op_photos_updated', handlePhotosUpdated);
+    return () => {
+      window.removeEventListener('stf_op_photos_updated', handlePhotosUpdated);
+    };
+  }, [solicitud.op]);
+
   useEffect(() => {
     const cached = getOpPhotosFromCache(solicitud.op);
     if (cached && (cached.foto1 || cached.foto2 || cached.folderUrl)) {
       setCachedOrDrivePhotos(cached);
     }
-    // Si la OP no tiene foto de muestra en memoria y tampoco en caché local, consultarla a Google Drive
-    if (!solicitud.fotoMuestraUrl && !cached?.foto1) {
+    const needsFoto1 = !solicitud.fotoMuestraUrl && !cached?.foto1;
+    const needsFoto2 = solicitud.estado === 'FINALIZADO' && !fotoCalidadUrlActual && !cached?.foto2;
+    if (needsFoto1 || needsFoto2) {
       let isMounted = true;
       fetchOpPhotosFromDrive(solicitud.op).then((res) => {
         if (isMounted && (res.foto1 || res.foto2 || res.folderUrl)) {
@@ -186,10 +204,11 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
         isMounted = false;
       };
     }
-  }, [solicitud.op, solicitud.fotoMuestraUrl]);
+  }, [solicitud.op, solicitud.fotoMuestraUrl, solicitud.estado, fotoCalidadUrlActual]);
 
-  const effectiveFotoMuestra = solicitud.fotoMuestraUrl || cachedOrDrivePhotos?.foto1;
-  const effectiveFotoCalidad = fotoCalidadUrlActual || cachedOrDrivePhotos?.foto2;
+  const cachedNow = getOpPhotosFromCache(solicitud.op);
+  const effectiveFotoMuestra = solicitud.fotoMuestraUrl || cachedOrDrivePhotos?.foto1 || cachedNow?.foto1;
+  const effectiveFotoCalidad = fotoCalidadUrlActual || cachedOrDrivePhotos?.foto2 || cachedNow?.foto2;
 
   // Determine origin for returning (ZF / Atelier vs Planta / Calidad)
   const origenIsZF = Boolean(

@@ -45,11 +45,28 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   const [encogimientoTrama, setEncogimientoTrama] = useState<number | ''>('');
   const [encogimientoUrdimbre, setEncogimientoUrdimbre] = useState<number | ''>('');
 
+  const [isManualOp, setIsManualOp] = useState(false);
+
   // Extract unique fabric names
   const uniqueTelas = Array.from(new Set(monitoreoList.map(m => m.tela).filter(Boolean)));
 
-  // Available OPs for the currently selected fabric
-  const availableOpsForTela = monitoreoList.filter(m => m.tela === tela && m.op);
+  // OPs únicas disponibles para la tela seleccionada actualmente (deduplicadas y ordenadas)
+  const availableOpsForTela = React.useMemo(() => {
+    if (!tela) return [];
+    const map = new Map<string, MonitoreoItem>();
+    for (const m of monitoreoList) {
+      if (m.tela === tela && m.op && m.op.trim()) {
+        const formatted = formatOpCode(m.op.trim());
+        if (!map.has(formatted)) {
+          map.set(formatted, {
+            ...m,
+            op: formatted
+          });
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.op.localeCompare(b.op));
+  }, [monitoreoList, tela]);
 
   const handleSelectOpFromSearch = (item: MonitoreoItem) => {
     setTela(item.tela);
@@ -57,31 +74,53 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     setColor(item.color);
     setOp(formatOpCode(item.op));
     setReferencia(item.referencia);
+    setIsManualOp(false);
   };
 
   const handleTelaSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedTela = e.target.value;
     setTela(selectedTela);
+    setIsManualOp(false);
     
-    // Auto-select first matching OP if available
-    const firstMatch = monitoreoList.find(m => m.tela === selectedTela);
-    if (firstMatch) {
-      setMt(firstMatch.mt);
-      setColor(firstMatch.color);
+    // Auto-seleccionar primera OP coincidente si existe
+    const matches = monitoreoList.filter(m => m.tela === selectedTela && m.op && m.op.trim());
+    if (matches.length > 0) {
+      const firstMatch = matches[0];
+      setMt(firstMatch.mt || 'MT-AUTO');
+      setColor(firstMatch.color || 'AZUL');
       setOp(formatOpCode(firstMatch.op));
-      setReferencia(firstMatch.referencia);
+      setReferencia(firstMatch.referencia || '');
+    } else {
+      setMt('');
+      setColor('');
+      setOp('');
+      setReferencia('');
     }
   };
 
   const handleOpSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedOpValue = e.target.value;
-    setOp(formatOpCode(selectedOpValue));
+    if (selectedOpValue === '__MANUAL__') {
+      setIsManualOp(true);
+      return;
+    }
 
-    const match = monitoreoList.find(m => m.tela === tela && (m.op === selectedOpValue || formatOpCode(m.op) === formatOpCode(selectedOpValue)));
+    if (!selectedOpValue) {
+      setOp('');
+      setReferencia('');
+      return;
+    }
+
+    const formatted = formatOpCode(selectedOpValue);
+    setOp(formatted);
+
+    const match = monitoreoList.find(
+      m => m.tela === tela && (m.op === selectedOpValue || formatOpCode(m.op) === formatted)
+    );
     if (match) {
-      setMt(match.mt);
-      setColor(match.color);
-      setReferencia(match.referencia);
+      if (match.mt) setMt(match.mt);
+      if (match.color) setColor(match.color);
+      setReferencia(match.referencia || '');
     }
   };
 
@@ -306,38 +345,59 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
             {/* OP & Referencia */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold tracking-wider text-zinc-300 dark:text-zinc-700 uppercase mb-1">
-                  Orden de Producción (OP) <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={op}
-                    onChange={(e) => setOp(e.target.value)}
-                    onBlur={(e) => {
-                      if (e.target.value.trim()) {
-                        setOp(formatOpCode(e.target.value));
-                      }
-                    }}
-                    placeholder="Ej: OP-95976 o 95976"
-                    className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 font-mono font-bold transition"
-                    required
-                  />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold tracking-wider text-zinc-300 dark:text-zinc-700 uppercase">
+                    Orden de Producción (OP) <span className="text-rose-500">*</span>
+                  </label>
+                  {availableOpsForTela.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsManualOp(!isManualOp);
+                        if (!isManualOp) setOp('');
+                      }}
+                      className="text-[10px] font-mono font-bold text-amber-500 hover:text-amber-400 hover:underline flex items-center gap-1 transition cursor-pointer"
+                    >
+                      {isManualOp ? `📋 Ver menú de OPs (${availableOpsForTela.length})` : '✏️ Ingreso manual'}
+                    </button>
+                  )}
                 </div>
 
-                {availableOpsForTela.length > 1 && (
-                  <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">OPs encontradas:</span>
-                    {availableOpsForTela.map((item, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleSelectOpFromSearch(item)}
-                        className="text-[10px] bg-zinc-900 dark:bg-zinc-200 hover:bg-zinc-800 dark:hover:bg-zinc-300 text-zinc-300 dark:text-zinc-800 border border-zinc-700 dark:border-zinc-300 px-2 py-0.5 rounded-lg font-mono transition cursor-pointer"
-                      >
-                        {item.op}
-                      </button>
-                    ))}
+                {availableOpsForTela.length > 0 && !isManualOp ? (
+                  <div className="relative">
+                    <select
+                      value={op}
+                      onChange={handleOpSelectChange}
+                      className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 font-mono font-bold transition cursor-pointer"
+                      required
+                    >
+                      <option value="">-- SELECCIONE OP ({availableOpsForTela.length} DISPONIBLES) --</option>
+                      {availableOpsForTela.map((item) => (
+                        <option key={item.op} value={item.op}>
+                          {item.op} {item.referencia ? `— Ref: ${item.referencia}` : ''}
+                        </option>
+                      ))}
+                      {op && !availableOpsForTela.some(i => i.op === op) && (
+                        <option value={op}>{op}</option>
+                      )}
+                      <option value="__MANUAL__">✏️ Ingresar otra OP manualmente...</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={op}
+                      onChange={(e) => setOp(e.target.value)}
+                      onBlur={(e) => {
+                        if (e.target.value.trim()) {
+                          setOp(formatOpCode(e.target.value));
+                        }
+                      }}
+                      placeholder="Ej: OP-95976 o 95976"
+                      className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 font-mono font-bold transition"
+                      required
+                    />
                   </div>
                 )}
               </div>

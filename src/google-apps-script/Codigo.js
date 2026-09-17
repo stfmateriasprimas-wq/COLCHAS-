@@ -220,9 +220,13 @@ function doGet(e) {
           if (shBdGet && shBdGet.getLastRow() > 1) {
             var bdVals = shBdGet.getRange(2, 6, shBdGet.getLastRow() - 1, 1).getValues();
             var targetPure = cleanTargetOp.replace(/^OP-?/, '');
+            var targetDigits = cleanTargetOp.replace(/\D/g, '');
             for (var b = 0; b < bdVals.length; b++) {
-              if (String(bdVals[b][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetPure) {
-                var newColM = photosFound.folderUrl || photosFound.foto1 || photosFound.foto2 || '';
+              var rowOpStr = String(bdVals[b][0] || '').trim().toUpperCase();
+              var rowOpPure = rowOpStr.replace(/^OP-?/, '');
+              var rowOpDigits = rowOpStr.replace(/\D/g, '');
+              if (rowOpStr === cleanTargetOp || rowOpPure === targetPure || (targetDigits && rowOpDigits === targetDigits)) {
+                var newColM = [photosFound.foto1, photosFound.foto2, photosFound.folderUrl].filter(Boolean).join(' | ');
                 if (newColM) {
                   shBdGet.getRange(b + 2, 13).setValue(newColM);
                 }
@@ -372,8 +376,10 @@ function doPost(e) {
         obsColVal = rawObsCol.indexOf(' | ') !== -1 ? rawObsCol.split(' | ')[0].trim() : rawObsCol;
       }
 
-      // Columna M (13 - EVIDENCIA): Guardar enlace directo clickeable de la carpeta de Drive de la OP
-      var evidenciaVal = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : ((savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (driveUrl || ''));
+      // Columna M (13 - EVIDENCIA): Guardar enlace directo de Foto 1 y enlace oficial clickeable de la carpeta de Drive de la OP (foto1 | folderUrl)
+      var folderVal = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : '';
+      var photo1Val = (savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (driveUrl || '');
+      var evidenciaVal = [photo1Val, folderVal].filter(Boolean).join(' | ');
       
       // La Columna E de la hoja USUARIOS es la FUENTE MAESTRA DE LA VERDAD
       var userSheetRef = getUsuariosSheet(ss);
@@ -534,15 +540,14 @@ function doPost(e) {
           calPhotoUrl = dictPhotoBase64;
         }
 
-        // Columna 13 (M) - Guardar enlace oficial clickeable de la carpeta de Google Drive de la OP
-        var folderCol13 = (savedCalPhoto && savedCalPhoto.folderUrl) ? savedCalPhoto.folderUrl : '';
-        if (!folderCol13) {
-          var discoveredDict = getOpPhotosFromDrive(opFormattedDict);
-          if (discoveredDict && discoveredDict.folderUrl) folderCol13 = discoveredDict.folderUrl;
-          else if (discoveredDict && (discoveredDict.foto2 || discoveredDict.foto1)) folderCol13 = discoveredDict.foto2 || discoveredDict.foto1;
-        }
-        if (folderCol13) {
-          sheetBdDict.getRange(foundRowDict, 13).setValue(folderCol13);
+        // Columna 13 (M) - Guardar enlace oficial clickeable de la carpeta de Google Drive de la OP y enlaces directos de fotos (foto1 | foto2 | folderUrl)
+        var discoveredDict = getOpPhotosFromDrive(opFormattedDict);
+        var folderCol13 = (savedCalPhoto && savedCalPhoto.folderUrl) ? savedCalPhoto.folderUrl : (discoveredDict.folderUrl || '');
+        var finalFoto1_13 = discoveredDict.foto1 || '';
+        var finalFoto2_13 = (savedCalPhoto && savedCalPhoto.driveUrl) ? savedCalPhoto.driveUrl : (calPhotoUrl || discoveredDict.foto2 || '');
+        var combinedCol13 = [finalFoto1_13, finalFoto2_13, folderCol13].filter(Boolean).join(' | ');
+        if (combinedCol13) {
+          sheetBdDict.getRange(foundRowDict, 13).setValue(combinedCol13);
         }
 
         // OBSERVACIÓN COLFACTORY (Columna L / 12)
@@ -677,15 +682,14 @@ function doPost(e) {
           if (savedPhotoRes && savedPhotoRes.driveUrl) photoUrl = savedPhotoRes.driveUrl;
         }
 
-        // Columna 13 (M) - Guardar enlace oficial clickeable de la carpeta de Google Drive de la OP
-        var folderColPhoto = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : '';
-        if (!folderColPhoto) {
-          var disc = getOpPhotosFromDrive(opFormattedPhoto);
-          if (disc && disc.folderUrl) folderColPhoto = disc.folderUrl;
-          else if (disc && (disc.foto2 || disc.foto1)) folderColPhoto = disc.foto2 || disc.foto1;
-        }
-        if (folderColPhoto) {
-          sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(folderColPhoto);
+        // Columna 13 (M) - Guardar enlace oficial clickeable de la carpeta de Google Drive de la OP y enlaces directos de fotos (foto1 | foto2 | folderUrl)
+        var disc = getOpPhotosFromDrive(opFormattedPhoto);
+        var folderColPhoto = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : (disc.folderUrl || '');
+        var finalFoto1_p = !isCalidad ? ((savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (photoUrl || disc.foto1)) : disc.foto1;
+        var finalFoto2_p = isCalidad ? ((savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (photoUrl || disc.foto2)) : disc.foto2;
+        var combinedColPhoto = [finalFoto1_p, finalFoto2_p, folderColPhoto].filter(Boolean).join(' | ');
+        if (combinedColPhoto) {
+          sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(combinedColPhoto);
         }
 
         if (payload.observacionColfactory || payload.observacionesLavanderia) {
@@ -774,7 +778,7 @@ function doPost(e) {
     // 14. CLEAN_DRIVE_DUPLICATES (Depurar fotos duplicadas en Drive dejando exactamente 2 por OP)
     // 15. GET_OP_PHOTOS (Resolución en tiempo real de fotos de la OP desde Drive)
     if (action === 'GET_OP_PHOTOS') {
-      var targetOpPost = payload.op || payload.opNumber || '';
+      var targetOpPost = payload.op || payload.opNumber || data.op || data.opNumber || '';
       if (!targetOpPost) return createJsonResponse({ status: 'error', message: 'Falta parámetro op' });
       var cleanOpP = String(targetOpPost).trim().toUpperCase();
       if (cleanOpP.indexOf('OP-') !== 0) cleanOpP = 'OP-' + cleanOpP.replace(/^OP-?/i, '').trim();
@@ -786,9 +790,13 @@ function doPost(e) {
           if (shBdP && shBdP.getLastRow() > 1) {
             var bdOpsP = shBdP.getRange(2, 6, shBdP.getLastRow() - 1, 1).getValues();
             var targetPureP = cleanOpP.replace(/^OP-?/, '');
+            var targetDigitsP = cleanOpP.replace(/\D/g, '');
             for (var bp = 0; bp < bdOpsP.length; bp++) {
-              if (String(bdOpsP[bp][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetPureP) {
-                var newColMP = photosRes.folderUrl || photosRes.foto1 || photosRes.foto2 || '';
+              var rowOpStrP = String(bdOpsP[bp][0] || '').trim().toUpperCase();
+              var rowOpPureP = rowOpStrP.replace(/^OP-?/, '');
+              var rowOpDigitsP = rowOpStrP.replace(/\D/g, '');
+              if (rowOpStrP === cleanOpP || rowOpPureP === targetPureP || (targetDigitsP && rowOpDigitsP === targetDigitsP)) {
+                var newColMP = [photosRes.foto1, photosRes.foto2, photosRes.folderUrl].filter(Boolean).join(' | ');
                 if (newColMP) {
                   shBdP.getRange(bp + 2, 13).setValue(newColMP);
                 }
@@ -1098,43 +1106,85 @@ function getOpPhotosFromDrive(rawOp) {
     var pureDigits = cleanOp.replace(/^OP-?/, '').trim();
     var root = getRootDriveFolder();
     if (!root) return res;
-    var monthFolders = root.getFolders();
 
-    while (monthFolders.hasNext()) {
-      var mFolder = monthFolders.next();
-      var opFolders = mFolder.getFolders();
-      while (opFolders.hasNext()) {
-        var opFolder = opFolders.next();
-        var fName = opFolder.getName().trim().toUpperCase();
-        if (fName === cleanOp || fName.replace(/^OP-?/, '').trim() === pureDigits) {
-          res.folderUrl = opFolder.getUrl();
-          var files = opFolder.getFiles();
-          var fileList = [];
-          while (files.hasNext()) {
-            fileList.push(files.next());
-          }
-          fileList.sort(function(a, b) {
-            return a.getDateCreated().getTime() - b.getDateCreated().getTime();
-          });
+    var candidateNames = [cleanOp];
+    if (pureDigits && pureDigits !== cleanOp) {
+      if (candidateNames.indexOf('OP-' + pureDigits) === -1) candidateNames.push('OP-' + pureDigits);
+      if (candidateNames.indexOf(pureDigits) === -1) candidateNames.push(pureDigits);
+    }
 
-          for (var fi = 0; fi < fileList.length; fi++) {
-            var file = fileList[fi];
-            var n = file.getName().toUpperCase();
-            var fUrl = 'https://drive.google.com/uc?id=' + file.getId();
-            if (n.indexOf('MUESTRA_INICIAL') !== -1 || n.indexOf('INICIAL') !== -1 || n.indexOf('FOTO1') !== -1) {
-              res.foto1 = fUrl;
-            } else if (n.indexOf('POST_LAVADO') !== -1 || n.indexOf('CALIDAD') !== -1 || n.indexOf('FOTO2') !== -1) {
-              res.foto2 = fUrl;
-            } else if (!res.foto1) {
-              res.foto1 = fUrl;
-            } else if (!res.foto2) {
-              res.foto2 = fUrl;
-            }
+    var targetFolder = null;
+
+    // 1. ESTRATEGIA ULTRA-RÁPIDA: Buscar en el mes actual primero (0.2s)
+    try {
+      var currentMonth = getMonthDriveFolder(root, new Date());
+      if (currentMonth) {
+        for (var ci = 0; ci < candidateNames.length; ci++) {
+          var subs = currentMonth.getFoldersByName(candidateNames[ci]);
+          if (subs.hasNext()) {
+            targetFolder = subs.next();
+            break;
           }
-          return res;
         }
       }
+    } catch (eCurr) {}
+
+    // 2. ESTRATEGIA RÁPIDA: Búsqueda indexada getFoldersByName en carpetas mensuales
+    if (!targetFolder) {
+      var monthFolders = root.getFolders();
+      while (monthFolders.hasNext()) {
+        var mFolder = monthFolders.next();
+        for (var mi = 0; mi < candidateNames.length; mi++) {
+          var matched = mFolder.getFoldersByName(candidateNames[mi]);
+          if (matched.hasNext()) {
+            targetFolder = matched.next();
+            break;
+          }
+        }
+        if (targetFolder) break;
+      }
     }
+
+    // 3. ESTRATEGIA 3: Búsqueda directa en DriveApp por title
+    if (!targetFolder) {
+      for (var gi = 0; gi < candidateNames.length; gi++) {
+        try {
+          var globalSearch = DriveApp.searchFolders("title = '" + candidateNames[gi] + "' and trashed = false");
+          if (globalSearch.hasNext()) {
+            targetFolder = globalSearch.next();
+            break;
+          }
+        } catch (eSearch) {}
+      }
+    }
+
+    if (!targetFolder) return res;
+
+    res.folderUrl = targetFolder.getUrl();
+    var files = targetFolder.getFiles();
+    var fileList = [];
+    while (files.hasNext()) {
+      fileList.push(files.next());
+    }
+    fileList.sort(function(a, b) {
+      return a.getDateCreated().getTime() - b.getDateCreated().getTime();
+    });
+
+    for (var fi = 0; fi < fileList.length; fi++) {
+      var file = fileList[fi];
+      var n = file.getName().toUpperCase();
+      var fUrl = 'https://drive.google.com/uc?id=' + file.getId();
+      if (n.indexOf('MUESTRA_INICIAL') !== -1 || n.indexOf('INICIAL') !== -1 || n.indexOf('FOTO1') !== -1) {
+        res.foto1 = fUrl;
+      } else if (n.indexOf('POST_LAVADO') !== -1 || n.indexOf('CALIDAD') !== -1 || n.indexOf('FOTO2') !== -1) {
+        res.foto2 = fUrl;
+      } else if (!res.foto1) {
+        res.foto1 = fUrl;
+      } else if (!res.foto2) {
+        res.foto2 = fUrl;
+      }
+    }
+    return res;
   } catch (e) {
     console.error('Error in getOpPhotosFromDrive:', e);
   }

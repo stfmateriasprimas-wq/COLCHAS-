@@ -42,6 +42,13 @@ export const MasterTable: React.FC<MasterTableProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterArea, setFilterArea] = useState<string>('TODAS');
   const [filterEstado, setFilterEstado] = useState<string>('TODOS');
+  const [, setPhotoUpdateTick] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleUpdate = () => setPhotoUpdateTick(t => t + 1);
+    window.addEventListener('stf_op_photos_updated', handleUpdate);
+    return () => window.removeEventListener('stf_op_photos_updated', handleUpdate);
+  }, []);
 
   const GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/1jTM8OG2u3bO9Cyrlyn3DJSnGcyLOzA8EWwxwOyWgXdc/edit?usp=sharing";
 

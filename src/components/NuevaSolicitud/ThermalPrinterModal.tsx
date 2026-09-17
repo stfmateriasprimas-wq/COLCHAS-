@@ -4,7 +4,7 @@ import { Printer, X, Copy, ExternalLink, Check, ShieldCheck, User, Camera, Downl
 import { SolicitudColcha } from '../../types';
 import { generateColchaPdfTicket, printColchaDirectTicket, getCleanFinalQualityObservation, getCleanInitialObservation } from '../../services/exportService';
 import { generatePublicTrackingUrl, generatePublicTrackingUrlAsync } from '../../services/qrTrackingService';
-import { getOpPhotosFromCache } from '../../services/googleSheetsService';
+import { getOpPhotosFromCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
 
 const STF_QR_LOGO_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23000000"/><rect x="4" y="4" width="92" height="92" rx="16" fill="%23000000" stroke="%23ffffff" stroke-width="4"/><text x="50" y="65" font-size="38" font-family="Arial, Helvetica, sans-serif" font-weight="900" fill="%23ffffff" text-anchor="middle" letter-spacing="-1">STF</text></svg>`;
 
@@ -16,10 +16,33 @@ interface ThermalPrinterModalProps {
 export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha, onClose }) => {
   const [copied, setCopied] = useState(false);
   const [asyncTrackingUrl, setAsyncTrackingUrl] = useState<string>('');
+  const [dynamicPhoto, setDynamicPhoto] = useState<string | undefined>(colcha?.fotoMuestraUrl);
 
   const cachedPhotos = getOpPhotosFromCache(colcha?.op);
-  const effectiveFotoMuestra = colcha?.fotoMuestraUrl || cachedPhotos?.foto1;
+  const effectiveFotoMuestra = colcha?.fotoMuestraUrl || dynamicPhoto || cachedPhotos?.foto1;
   const colchaWithPhoto = colcha ? { ...colcha, fotoMuestraUrl: effectiveFotoMuestra } : null;
+
+  useEffect(() => {
+    const handlePhotosUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail;
+      if (colcha?.op && detail && (detail.op === colcha.op || detail.op?.replace(/\D/g, '') === colcha.op.replace(/\D/g, ''))) {
+        if (detail.foto1) setDynamicPhoto(detail.foto1);
+      }
+    };
+    window.addEventListener('stf_op_photos_updated', handlePhotosUpdated);
+    return () => {
+      window.removeEventListener('stf_op_photos_updated', handlePhotosUpdated);
+    };
+  }, [colcha?.op]);
+
+  useEffect(() => {
+    if (!effectiveFotoMuestra && colcha?.op) {
+      fetchOpPhotosFromDrive(colcha.op).then((res) => {
+        if (res.foto1) setDynamicPhoto(res.foto1);
+      });
+    }
+  }, [colcha?.op, effectiveFotoMuestra]);
 
   useEffect(() => {
     if (!colchaWithPhoto) return;
@@ -32,7 +55,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
     return () => {
       isMounted = false;
     };
-  }, [colchaWithPhoto]);
+  }, [colchaWithPhoto, effectiveFotoMuestra]);
 
   if (!colcha) return null;
 

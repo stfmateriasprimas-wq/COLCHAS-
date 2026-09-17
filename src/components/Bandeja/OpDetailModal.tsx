@@ -42,6 +42,23 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   });
 
   useEffect(() => {
+    const handlePhotosUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail;
+      if (!solicitud?.op || !detail) return;
+      const cleanSol = solicitud.op.replace(/\D/g, '') || solicitud.op.trim().toUpperCase();
+      const cleanEvent = (detail?.op || '').replace(/\D/g, '') || String(detail?.op || '').trim().toUpperCase();
+      if (cleanSol === cleanEvent || solicitud.op === detail.op) {
+        setDrivePhotos(prev => ({ ...prev, ...detail }));
+      }
+    };
+    window.addEventListener('stf_op_photos_updated', handlePhotosUpdated);
+    return () => {
+      window.removeEventListener('stf_op_photos_updated', handlePhotosUpdated);
+    };
+  }, [solicitud?.op]);
+
+  useEffect(() => {
     if (!solicitud?.op) return;
     const cached = getOpPhotosFromCache(solicitud.op);
     if (cached) {

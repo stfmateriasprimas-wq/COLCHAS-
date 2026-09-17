@@ -185,6 +185,8 @@ function doPost(e) {
         driveUrl = payload.fotoMuestraUrl || payload.evidenciaLinkDrive || "";
       }
 
+      var evidenciaVal = [driveUrl, folderUrl].filter(Boolean).join(" | ");
+
       var row = [
         fechaStr,
         payload.inspector || "OPERARIO STF",
@@ -198,7 +200,7 @@ function doPost(e) {
         payload.estado || "SOLICITADO",
         payload.observacionesOperario || payload.observacionOperario || "",
         payload.observacionesLavanderia || payload.observacionColfactory || "",
-        driveUrl,
+        evidenciaVal,
         payload.correoNotificado || Utilities.formatDate(now, "America/Bogota", "d/M/yyyy HH:mm"),
         payload.obsOperarioFinal || payload.observacionesCalidad || "",
         mes
@@ -328,16 +330,22 @@ function doPost(e) {
             var curOp = String(opVals[i][0] || "").trim().toUpperCase().replace("OP-", "");
             if (curOp === targetOp) {
               var currentCol13 = String(sh.getRange(i + 2, 13).getValue() || "");
-              var newCol13 = photoUrl;
-              if (payload.isCalidad) {
-                var p1 = currentCol13.indexOf("|") !== -1 ? currentCol13.split("|")[0].trim() : currentCol13.trim();
-                if (p1.indexOf("data:") === 0 && p1.length > 500) p1 = "";
-                newCol13 = (p1 ? p1 + " | " : "") + photoUrl;
-              } else {
-                var p2 = currentCol13.indexOf("|") !== -1 ? currentCol13.split("|")[1].trim() : "";
-                if (p2.indexOf("data:") === 0 && p2.length > 500) p2 = "";
-                newCol13 = photoUrl + (p2 ? " | " + p2 : "");
+              var parts = currentCol13.split("|").map(function(s) { return s.trim(); }).filter(Boolean);
+              var existingFolder = "";
+              var existingFoto1 = "";
+              var existingFoto2 = "";
+              for (var pi = 0; pi < parts.length; pi++) {
+                if (parts[pi].indexOf("/folders/") !== -1) existingFolder = parts[pi];
+                else if (!existingFoto1) existingFoto1 = parts[pi];
+                else if (!existingFoto2) existingFoto2 = parts[pi];
               }
+              if (payload.isCalidad) {
+                existingFoto2 = photoUrl;
+              } else {
+                existingFoto1 = photoUrl;
+              }
+              if (folderUrl) existingFolder = folderUrl;
+              var newCol13 = [existingFoto1, existingFoto2, existingFolder].filter(Boolean).join(" | ");
               sh.getRange(i + 2, 13).setValue(newCol13);
               break;
             }
