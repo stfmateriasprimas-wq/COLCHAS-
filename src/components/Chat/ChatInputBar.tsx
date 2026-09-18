@@ -118,11 +118,19 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   };
 
   return (
-    <div className="relative bg-zinc-50/95 dark:bg-zinc-950/95 border-t border-zinc-200 dark:border-white/15 p-2 sm:p-3 select-none text-zinc-900 dark:text-white transition-colors duration-200 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+    <div className={`relative border-t p-2 sm:p-3 select-none transition-colors duration-200 ${
+      isDarkMode 
+        ? 'bg-zinc-950/95 border-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' 
+        : 'bg-white border-zinc-200 text-zinc-900 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]'
+    }`}>
       
       {/* 1. Selector Rápido de Emojis */}
       {showEmojiPicker && (
-        <div className="absolute bottom-full left-2 sm:left-4 mb-2 bg-white dark:bg-black border border-zinc-200 dark:border-white/20 rounded-2xl p-2.5 shadow-2xl shadow-black/25 dark:shadow-[0_0_35px_rgba(255,255,255,0.1),inset_0_1px_0_rgba(255,255,255,0.2)] z-30 flex items-center gap-1.5 flex-wrap max-w-xs sm:max-w-sm animate-in fade-in duration-150">
+        <div className={`absolute bottom-full left-2 sm:left-4 mb-2 border rounded-2xl p-2.5 z-30 flex items-center gap-1.5 flex-wrap max-w-xs sm:max-w-sm animate-in fade-in duration-150 ${
+          isDarkMode 
+            ? 'bg-black border-white/20 shadow-[0_0_35px_rgba(255,255,255,0.1),inset_0_1px_0_rgba(255,255,255,0.2)]' 
+            : 'bg-white border-zinc-200 shadow-2xl shadow-black/30'
+        }`}>
           {QUICK_EMOJIS.map((emoji) => (
             <button
               key={emoji}
@@ -132,7 +140,9 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 setShowEmojiPicker(false);
                 if (textInputRef.current) textInputRef.current.focus();
               }}
-              className="w-8 h-8 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-lg transition cursor-pointer"
+              className={`w-8 h-8 flex items-center justify-center rounded-xl text-lg transition cursor-pointer ${
+                isDarkMode ? 'hover:bg-zinc-800 text-white' : 'hover:bg-zinc-100 text-zinc-900'
+              }`}
             >
               {emoji}
             </button>
@@ -142,21 +152,35 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
 
       {/* 2. Menú de Adjuntar (+) */}
       {showAttachMenu && (
-        <div className="absolute bottom-full left-10 sm:left-14 mb-2 bg-white dark:bg-black border border-zinc-200 dark:border-white/20 rounded-2xl p-2 shadow-2xl shadow-black/25 dark:shadow-[0_0_35px_rgba(255,255,255,0.1),inset_0_1px_0_rgba(255,255,255,0.2)] z-30 space-y-1 min-w-[220px] animate-in fade-in duration-150">
+        <div className={`absolute bottom-full left-10 sm:left-14 mb-2 border rounded-2xl p-2 z-30 space-y-1 min-w-[220px] animate-in fade-in duration-150 ${
+          isDarkMode 
+            ? 'bg-black border-white/20 shadow-[0_0_35px_rgba(255,255,255,0.1),inset_0_1px_0_rgba(255,255,255,0.2)]' 
+            : 'bg-white border-zinc-200 shadow-2xl shadow-black/30'
+        }`}>
           <button
             type="button"
             onClick={() => {
               setShowAttachMenu(false);
               onOpenOpSelector();
             }}
-            className="w-full px-3 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-900 dark:text-white text-xs font-bold flex items-center gap-2.5 transition text-left cursor-pointer group"
+            className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition text-left cursor-pointer group ${
+              isDarkMode 
+                ? 'hover:bg-zinc-900 text-white' 
+                : 'hover:bg-zinc-100 text-zinc-900'
+            }`}
           >
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:bg-emerald-600 dark:group-hover:bg-emerald-500 group-hover:text-white transition">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${
+              isDarkMode 
+                ? 'bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-black' 
+                : 'bg-emerald-100 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white'
+            }`}>
               <Zap className="w-4 h-4" />
             </div>
             <div>
               <span className="block font-bold">Vincular OP al Chat</span>
-              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-normal">Retrasos SLA y OPs en proceso</span>
+              <span className={`text-[10px] block font-normal ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Retrasos SLA y OPs en proceso
+              </span>
             </div>
           </button>
 
@@ -166,14 +190,24 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               setShowAttachMenu(false);
               fileInputRef.current?.click();
             }}
-            className="w-full px-3 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-900 dark:text-white text-xs font-bold flex items-center gap-2.5 transition text-left cursor-pointer group"
+            className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition text-left cursor-pointer group ${
+              isDarkMode 
+                ? 'hover:bg-zinc-900 text-white' 
+                : 'hover:bg-zinc-100 text-zinc-900'
+            }`}
           >
-            <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center group-hover:bg-sky-600 dark:group-hover:bg-sky-500 group-hover:text-white transition">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${
+              isDarkMode 
+                ? 'bg-sky-500/20 text-sky-400 group-hover:bg-sky-500 group-hover:text-black' 
+                : 'bg-sky-100 text-sky-700 group-hover:bg-sky-600 group-hover:text-white'
+            }`}>
               <ImageIcon className="w-4 h-4" />
             </div>
             <div>
               <span className="block font-bold">Fotos y Evidencias</span>
-              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-normal">Subir foto de muestra o defecto</span>
+              <span className={`text-[10px] block font-normal ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Subir foto de muestra o defecto
+              </span>
             </div>
           </button>
         </div>
@@ -189,10 +223,14 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
 
       {/* 3. Modo Grabación de Audio Activo */}
       {isRecording ? (
-        <div className="flex items-center justify-between gap-3 bg-rose-50 dark:bg-zinc-900/90 rounded-2xl px-4 py-2 border border-rose-300 dark:border-rose-500/60 animate-pulse">
+        <div className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-2 border animate-pulse ${
+          isDarkMode 
+            ? 'bg-zinc-900/90 border-rose-500/60' 
+            : 'bg-rose-50 border-rose-300'
+        }`}>
           <div className="flex items-center gap-2.5">
             <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping"></span>
-            <span className="text-xs font-mono font-bold text-rose-600 dark:text-rose-400">
+            <span className={`text-xs font-mono font-bold ${isDarkMode ? 'text-rose-400' : 'text-rose-600'}`}>
               Grabando nota de voz: {formatSeconds(recordingSeconds)}
             </span>
           </div>
@@ -201,7 +239,11 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             <button
               type="button"
               onClick={handleCancelRecording}
-              className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition cursor-pointer"
+              className={`p-2 rounded-full transition cursor-pointer ${
+                isDarkMode 
+                  ? 'hover:bg-zinc-800 text-zinc-400 hover:text-rose-400' 
+                  : 'hover:bg-zinc-200 text-zinc-500 hover:text-rose-600'
+              }`}
               title="Cancelar grabación"
             >
               <Trash2 className="w-4 h-4" />
@@ -227,7 +269,11 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               setShowEmojiPicker(!showEmojiPicker);
               setShowAttachMenu(false);
             }}
-            className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-full hover:bg-zinc-200/70 dark:hover:bg-white/10 transition cursor-pointer shrink-0"
+            className={`p-2 rounded-full transition cursor-pointer shrink-0 ${
+              isDarkMode 
+                ? 'text-zinc-400 hover:text-white hover:bg-white/10' 
+                : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+            }`}
             title="Emojis rápidos"
           >
             <Smile className="w-5 h-5" />
@@ -240,14 +286,22 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               setShowAttachMenu(!showAttachMenu);
               setShowEmojiPicker(false);
             }}
-            className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-full hover:bg-zinc-200/70 dark:hover:bg-white/10 transition cursor-pointer shrink-0"
+            className={`p-2 rounded-full transition cursor-pointer shrink-0 ${
+              isDarkMode 
+                ? 'text-zinc-400 hover:text-white hover:bg-white/10' 
+                : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+            }`}
             title="Adjuntar OP o Imagen"
           >
             <Plus className={`w-5 h-5 transition-transform ${showAttachMenu ? 'rotate-45' : ''}`} />
           </button>
 
           {/* Input de Texto */}
-          <div className="flex-1 bg-white dark:bg-zinc-900/90 rounded-2xl px-3 sm:px-4 py-2 border border-zinc-200 dark:border-white/20 focus-within:border-emerald-500 dark:focus-within:border-white/40 focus-within:ring-2 focus-within:ring-emerald-500/20 dark:focus-within:ring-emerald-400/30 transition flex items-center min-h-[40px] shadow-inner dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)]">
+          <div className={`flex-1 rounded-2xl px-3 sm:px-4 py-2 border transition flex items-center min-h-[40px] shadow-inner ${
+            isDarkMode 
+              ? 'bg-zinc-900/90 border-white/20 focus-within:border-white/40 focus-within:ring-2 focus-within:ring-emerald-400/30 shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)]' 
+              : 'bg-zinc-100/90 border-zinc-300 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20'
+          }`}>
             <textarea
               ref={textInputRef}
               rows={1}
@@ -260,7 +314,11 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               onKeyDown={handleKeyDown}
               placeholder="Escribe un mensaje..."
               disabled={disabled}
-              className="w-full bg-transparent text-zinc-900 dark:text-[#e9edef] text-xs sm:text-sm placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none resize-none max-h-24 custom-scroll"
+              className={`w-full bg-transparent text-xs sm:text-sm focus:outline-none resize-none max-h-24 custom-scroll ${
+                isDarkMode 
+                  ? 'text-[#e9edef] placeholder-zinc-500' 
+                  : 'text-zinc-900 placeholder-zinc-400'
+              }`}
             />
           </div>
 

@@ -269,10 +269,18 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
 
   return (
-    <div className="w-full md:w-80 lg:w-96 flex flex-col h-full bg-white dark:bg-black border-r border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-[#e9edef] select-none shrink-0 transition-colors duration-200">
+    <div className={`w-full md:w-80 lg:w-96 flex flex-col h-full border-r select-none shrink-0 transition-colors duration-200 ${
+      isDarkMode 
+        ? 'bg-black border-white/15 text-[#e9edef]' 
+        : 'bg-white border-zinc-200 text-zinc-900 shadow-sm'
+    }`}>
       
       {/* 1. Header de la Barra Lateral WhatsApp */}
-      <div className="h-14 sm:h-16 px-3 sm:px-4 bg-zinc-50/90 dark:bg-zinc-950/90 flex items-center justify-between border-b border-zinc-200 dark:border-white/15 backdrop-blur-md dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
+      <div className={`h-14 sm:h-16 px-3 sm:px-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-200 ${
+        isDarkMode 
+          ? 'bg-zinc-950/90 border-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]' 
+          : 'bg-zinc-50/90 border-zinc-200 text-zinc-900 shadow-sm'
+      }`}>
         
         {/* Perfil del Usuario Actual */}
         <div className="flex items-center gap-2.5">
@@ -280,7 +288,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             {currentUser?.nombre ? currentUser.nombre.slice(0, 2).toUpperCase() : 'STF'}
           </div>
           <div className="min-w-0">
-            <h2 className="text-xs font-bold text-zinc-900 dark:text-white truncate max-w-[120px] sm:max-w-[140px]">
+            <h2 className={`text-xs font-bold truncate max-w-[120px] sm:max-w-[140px] ${
+              isDarkMode ? 'text-white' : 'text-zinc-900'
+            }`}>
               {currentUser?.nombre || 'Mi Usuario'}
             </h2>
             <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
