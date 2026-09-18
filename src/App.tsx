@@ -53,7 +53,8 @@ import {
   getDeletedOpNumbers 
 } from './services/deletedOpsService';
 import { chatService } from './services/chatService';
-import { Trash2, CheckCircle2, MessageSquare } from 'lucide-react';
+import { Trash2, CheckCircle2 } from 'lucide-react';
+import { FuturisticFloatingChatButton } from './components/Chat/FuturisticFloatingChatButton';
 
 export function App() {
   // Theme state persisted in localStorage
@@ -1053,20 +1054,12 @@ export function App() {
           </div>
         </div>
       )}
-      {/* 8. FLOATING WHATSAPP CHAT BUTTON (VISIBLE EN TODO MOMENTO) */}
+      {/* 8. BOTÓN FLOTANTE FUTURISTA Y ARRASTRABLE (DRAGGABLE CON MARGEN DE 5MM, OCULTO EN MÓVIL) */}
       {currentUser && activeTab !== 'chat' && (
-        <button
-          type="button"
+        <FuturisticFloatingChatButton
           onClick={() => setActiveTab('chat')}
-          className="fixed bottom-5 right-5 z-50 bg-[#25D366] hover:bg-[#20ba5a] text-white px-4 py-3 rounded-full shadow-[0_4px_25px_rgba(37,211,102,0.5)] flex items-center gap-2.5 font-black text-xs uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 border-2 border-white/30 group animate-in fade-in"
           title="Abrir Chat Corporativo STF"
-        >
-          <div className="relative">
-            <MessageSquare className="w-5 h-5 fill-current" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
-          </div>
-          <span className="font-mono tracking-tight font-extrabold text-[11px]">CHAT STF</span>
-        </button>
+        />
       )}
 
     </div>
