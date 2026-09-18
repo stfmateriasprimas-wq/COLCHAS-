@@ -164,7 +164,7 @@ export const FuturisticFloatingChatButton: React.FC<FuturisticFloatingChatButton
         touchAction: 'none'
       }}
       className={`
-        hidden md:flex
+        flex
         fixed z-50 select-none flex-col items-center gap-2
         px-2.5 py-3 rounded-full
         bg-[#090d14]/90 dark:bg-[#090d14]/95
