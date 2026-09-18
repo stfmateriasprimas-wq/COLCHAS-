@@ -881,6 +881,7 @@ export function App() {
             <WhatsAppChatView
               currentUser={currentUser}
               solicitudes={solicitudes}
+              isDarkMode={isDarkMode}
               onViewOpDetail={(opCode) => {
                 const match = solicitudes.find(s => isMatchingOp(s.op, opCode));
                 if (match) setSelectedColchaDetail(match);

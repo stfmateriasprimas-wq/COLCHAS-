@@ -22,6 +22,7 @@ interface ChatConversationProps {
   onViewOpDetail?: (opCode: string) => void;
   onPrintOp?: (opCode: string) => void;
   delayedOpsCount?: number;
+  isDarkMode?: boolean;
 }
 
 export const ChatConversation: React.FC<ChatConversationProps> = ({
@@ -37,7 +38,8 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
   onOpenOpSelector,
   onViewOpDetail,
   onPrintOp,
-  delayedOpsCount = 0
+  delayedOpsCount = 0,
+  isDarkMode = true
 }) => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -47,10 +49,10 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
   }, [messages.length]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0b141a] relative overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-zinc-100/70 dark:bg-[#030712] relative overflow-hidden select-none transition-colors duration-200">
       
       {/* 1. Header de la Conversación Activa */}
-      <div className="h-14 sm:h-16 px-3 sm:px-4 bg-[#202c33] flex items-center justify-between border-b border-zinc-700/60 z-10 shrink-0">
+      <div className="h-14 sm:h-16 px-3 sm:px-4 bg-zinc-50/90 dark:bg-zinc-950/90 flex items-center justify-between border-b border-zinc-200 dark:border-white/15 z-10 shrink-0 backdrop-blur-md dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
         
         {/* Izquierda: Botón Atrás (móvil) + Avatar + Nombre */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -59,7 +61,7 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
             <button
               type="button"
               onClick={onBackToSidebar}
-              className="md:hidden p-1.5 rounded-full hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
+              className="md:hidden p-1.5 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white transition cursor-pointer"
               title="Volver a la lista de chats"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -75,11 +77,11 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
           </div>
 
           <div className="min-w-0">
-            <h3 className="text-xs sm:text-sm font-bold text-white truncate max-w-[160px] sm:max-w-xs md:max-w-md">
+            <h3 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white truncate max-w-[160px] sm:max-w-xs md:max-w-md">
               {canalTitle}
             </h3>
-            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-emerald-400 font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>
                 {canalId === 'GENERAL'
                   ? 'Equipo General STF • Red Corporativa'
@@ -97,13 +99,13 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
           <button
             type="button"
             onClick={onOpenOpSelector}
-            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-md active:scale-95"
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-black text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-emerald-950/20 dark:shadow-[0_0_15px_rgba(16,185,129,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)] active:scale-95"
             title="Abrir panel de OPs para vincularlas directamente a la conversación"
           >
             <Zap className="w-3.5 h-3.5" />
             <span className="hidden xs:inline">Vincular OP</span>
             {delayedOpsCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-mono font-bold">
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-mono font-bold shadow">
                 {delayedOpsCount}
               </span>
             )}
@@ -113,18 +115,20 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
 
       </div>
 
-      {/* 2. Área Central de Mensajes con Fondo WhatsApp */}
+      {/* 2. Área Central de Mensajes con Fondo WhatsApp Adaptativo */}
       <div 
         className="flex-1 overflow-y-auto px-2 sm:px-6 py-3 space-y-1 custom-scroll"
         style={{
-          backgroundImage: `radial-gradient(#1f2c34 1px, transparent 1px)`,
+          backgroundImage: isDarkMode
+            ? `radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px)`
+            : `radial-gradient(#94a3b8 1.1px, transparent 1.1px)`,
           backgroundSize: '20px 20px'
         }}
       >
         {/* Banner Informativo de Cifrado y Privacidad Corporativa */}
         <div className="flex justify-center my-3">
-          <div className="bg-[#182229]/90 border border-zinc-800 rounded-xl px-3 py-1.5 text-center text-[10.5px] text-zinc-400 flex items-center gap-1.5 shadow-sm max-w-md">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <div className="bg-white/95 dark:bg-zinc-900/90 border border-zinc-200 dark:border-white/15 rounded-xl px-3 py-1.5 text-center text-[10.5px] text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 shadow-sm dark:shadow-[0_0_20px_rgba(255,255,255,0.05),inset_0_1px_0_rgba(255,255,255,0.15)] max-w-md">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>
               {canalId.startsWith('DIRECT_')
                 ? '🔒 Chat 1 a 1 estrictamente privado. Solo ustedes dos pueden ver y enviar mensajes aquí.'
@@ -137,7 +141,7 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
 
         {/* Separador de Fecha */}
         <div className="flex justify-center my-2">
-          <span className="bg-[#182229] text-zinc-400 text-[10px] font-mono font-bold px-3 py-1 rounded-lg border border-zinc-800 uppercase tracking-wide">
+          <span className="bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 text-[10px] font-mono font-bold px-3 py-1 rounded-lg border border-zinc-200 dark:border-white/15 shadow-sm uppercase tracking-wide">
             HOY
           </span>
         </div>
@@ -155,6 +159,7 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
               onViewOpDetail={onViewOpDetail}
               onPrintOp={onPrintOp}
               allSolicitudes={solicitudes}
+              isDarkMode={isDarkMode}
             />
           );
         })}
@@ -168,6 +173,7 @@ export const ChatConversation: React.FC<ChatConversationProps> = ({
         onSendVoiceNote={onSendVoiceNote}
         onSendImage={onSendImage}
         onOpenOpSelector={onOpenOpSelector}
+        isDarkMode={isDarkMode}
       />
 
     </div>

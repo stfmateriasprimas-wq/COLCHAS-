@@ -12,13 +12,15 @@ interface WhatsAppChatViewProps {
   solicitudes: SolicitudColcha[];
   onViewOpDetail?: (opCode: string) => void;
   onPrintOp?: (opCode: string) => void;
+  isDarkMode?: boolean;
 }
 
 export const WhatsAppChatView: React.FC<WhatsAppChatViewProps> = ({
   currentUser,
   solicitudes,
   onViewOpDetail,
-  onPrintOp
+  onPrintOp,
+  isDarkMode
 }) => {
   const [activeCanalId, setActiveCanalId] = useState<string>('GENERAL');
   const [activeCanalTitle, setActiveCanalTitle] = useState<string>('General STF • Control de Calidad');
@@ -155,8 +157,11 @@ export const WhatsAppChatView: React.FC<WhatsAppChatViewProps> = ({
   };
 
   return (
-    <div className="w-full h-[calc(100vh-140px)] min-h-[550px] max-h-[850px] rounded-2xl sm:rounded-3xl border border-zinc-800 bg-[#111b21] shadow-2xl overflow-hidden flex flex-col relative select-none animate-in fade-in duration-300">
+    <div className="w-full h-[calc(100vh-140px)] min-h-[550px] max-h-[850px] rounded-2xl sm:rounded-3xl border border-zinc-200/90 dark:border-white/20 bg-white dark:bg-black shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3),0_10px_25px_rgba(0,0,0,0.15)] dark:shadow-[0_0_50px_rgba(255,255,255,0.06),0_25px_60px_rgba(0,0,0,0.95),inset_0_1px_1px_rgba(255,255,255,0.35)] overflow-hidden flex flex-col relative select-none animate-in fade-in duration-300 transition-colors">
       
+      {/* Reflejo especular superior continuo de alta gama */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-zinc-400/25 dark:via-white/50 to-transparent pointer-events-none z-30" />
+
       {/* Contenedor Dual Responsivo (Mobile & Desktop) */}
       <div className="flex-1 flex overflow-hidden w-full relative">
         
@@ -176,6 +181,7 @@ export const WhatsAppChatView: React.FC<WhatsAppChatViewProps> = ({
             hasNotificationPermission={hasNotificationPermission}
             onRequestNotifications={handleRequestNotifications}
             onOpenOpsModal={() => setIsOpsModalOpen(true)}
+            isDarkMode={isDarkMode}
           />
         </div>
 
@@ -197,6 +203,7 @@ export const WhatsAppChatView: React.FC<WhatsAppChatViewProps> = ({
             onViewOpDetail={onViewOpDetail}
             onPrintOp={onPrintOp}
             delayedOpsCount={delayedOpsCount}
+            isDarkMode={isDarkMode}
           />
         </div>
 
@@ -208,6 +215,7 @@ export const WhatsAppChatView: React.FC<WhatsAppChatViewProps> = ({
         onClose={() => setIsOpsModalOpen(false)}
         solicitudes={solicitudes}
         onSelectOpToShare={handleSelectOpToShare}
+        isDarkMode={isDarkMode}
       />
 
     </div>
