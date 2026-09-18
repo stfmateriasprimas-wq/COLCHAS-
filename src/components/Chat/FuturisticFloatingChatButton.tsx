@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, GripVertical } from 'lucide-react';
+import { MessageSquare, GripHorizontal } from 'lucide-react';
 
 interface FuturisticFloatingChatButtonProps {
   onClick: () => void;
@@ -42,8 +42,8 @@ export const FuturisticFloatingChatButton: React.FC<FuturisticFloatingChatButton
     if (!buttonRef.current) return;
 
     const rect = buttonRef.current.getBoundingClientRect();
-    const btnWidth = rect.width || 180;
-    const btnHeight = rect.height || 48;
+    const btnWidth = rect.width || 48;
+    const btnHeight = rect.height || 96;
 
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -165,8 +165,8 @@ export const FuturisticFloatingChatButton: React.FC<FuturisticFloatingChatButton
       }}
       className={`
         hidden md:flex
-        fixed z-50 select-none items-center gap-2.5
-        px-3.5 py-2.5 rounded-full
+        fixed z-50 select-none flex-col items-center gap-2
+        px-2.5 py-3 rounded-full
         bg-[#090d14]/90 dark:bg-[#090d14]/95
         backdrop-blur-xl
         border border-emerald-500/50 hover:border-emerald-400
@@ -176,21 +176,21 @@ export const FuturisticFloatingChatButton: React.FC<FuturisticFloatingChatButton
         group
         ${isDragging 
           ? 'cursor-grabbing scale-105 shadow-[0_0_30px_rgba(16,185,129,0.65),0_0_50px_rgba(6,182,212,0.4)] ring-2 ring-emerald-400/80' 
-          : 'cursor-grab hover:scale-[1.03] hover:shadow-[0_0_25px_rgba(16,185,129,0.5),0_0_45px_rgba(6,182,212,0.3)] active:scale-95'
+          : 'cursor-grab hover:scale-[1.05] hover:shadow-[0_0_25px_rgba(16,185,129,0.5),0_0_45px_rgba(6,182,212,0.3)] active:scale-95'
         }
       `}
     >
-      {/* Resplandor holográfico animado */}
+      {/* Resplandor holográfico animado vertical */}
       <div className="absolute inset-0 rounded-full overflow-hidden pointer-events-none">
-        <div className="absolute -inset-full bg-gradient-to-r from-transparent via-emerald-400/15 to-transparent skew-x-12 group-hover:translate-x-full transition-transform duration-1000 ease-out" />
+        <div className="absolute -inset-full bg-gradient-to-b from-transparent via-emerald-400/20 to-transparent skew-y-12 group-hover:translate-y-full transition-transform duration-1000 ease-out" />
       </div>
 
-      {/* Agarre táctil futurista */}
+      {/* Agarre táctil futurista horizontal */}
       <div 
-        className="text-emerald-500/60 group-hover:text-emerald-400 transition-colors flex items-center justify-center -ml-0.5" 
+        className="text-emerald-500/60 group-hover:text-emerald-400 transition-colors flex items-center justify-center -mt-0.5" 
         title="Arrastra para mover por la pantalla"
       >
-        <GripVertical className="w-3.5 h-3.5" />
+        <GripHorizontal className="w-3.5 h-3.5" />
       </div>
 
       {/* Ícono de mensaje con aura de neón y baliza de pulso activo */}
@@ -200,22 +200,17 @@ export const FuturisticFloatingChatButton: React.FC<FuturisticFloatingChatButton
         </div>
         
         {/* Baliza de pulso en vivo */}
-        <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+        <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-300 shadow-[0_0_6px_#34d399]"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-300 shadow-[0_0_6px_#34d399]"></span>
         </span>
       </div>
 
-      {/* Tipografía Futurista */}
-      <div className="flex flex-col text-left pr-1">
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono font-black text-[11px] tracking-wider text-white group-hover:text-emerald-300 transition-colors">
-            CHAT STF
-          </span>
-          <span className="inline-flex items-center px-1.5 py-0.2 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-mono text-[8px] font-bold tracking-widest uppercase">
-            LIVE
-          </span>
-        </div>
+      {/* Tipografía Futurista: Solo CHAT */}
+      <div className="flex flex-col items-center justify-center pb-0.5">
+        <span className="font-mono font-black text-[10px] tracking-widest text-white group-hover:text-emerald-300 transition-colors uppercase select-none text-center">
+          CHAT
+        </span>
       </div>
     </div>
   );
