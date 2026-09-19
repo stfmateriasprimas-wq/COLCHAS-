@@ -534,26 +534,26 @@ function jsonOutput(obj) {
   };
 
   return (
-    <div className="fixed inset-0 z-[150] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in select-none">
-      <div className="bg-[#0b0809] dark:bg-white border-2 border-emerald-500/80 rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl space-y-5 text-white dark:text-zinc-950 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto font-sans">
+    <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in select-none">
+      <div className="bg-white dark:bg-[#0c1017] border-2 border-emerald-500/80 rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl space-y-5 text-zinc-950 dark:text-white animate-in zoom-in-95 max-h-[92vh] overflow-y-auto font-sans">
         
         {/* HEADER */}
-        <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-200 pb-4">
+        <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0 shadow-lg shadow-emerald-950/50">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 shadow-lg shadow-emerald-500/10 dark:shadow-emerald-950/50">
               <FileSpreadsheet className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-black uppercase font-mono text-emerald-400 dark:text-emerald-700">
+                <h3 className="text-base sm:text-lg font-black uppercase font-mono text-emerald-600 dark:text-emerald-400">
                   AUTOMATIZAR ENLACE GOOGLE SHEETS
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-emerald-500 text-black uppercase">
                   TIEMPO REAL
                 </span>
               </div>
-              <p className="text-xs text-zinc-300 dark:text-zinc-600 font-mono">
-                Hoja: <strong className="text-white dark:text-zinc-900">ALERTAS (14 Columnas)</strong> • Google Spreadsheet STF Group
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">
+                Hoja: <strong className="text-zinc-900 dark:text-white">ALERTAS (14 Columnas)</strong> • Google Spreadsheet STF Group
               </p>
             </div>
           </div>
@@ -561,24 +561,24 @@ function jsonOutput(obj) {
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-zinc-400 hover:text-white dark:hover:text-black flex items-center justify-center transition cursor-pointer"
+            className="w-8 h-8 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white flex items-center justify-center transition cursor-pointer"
           >
             ✕
           </button>
         </div>
 
         {/* PASOS DE CONFIGURACIÓN RÁPIDA (30 SEGUNDOS) */}
-        <div className="p-4 rounded-2xl bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 space-y-3 text-xs text-zinc-300 dark:text-zinc-700 font-mono">
-          <div className="flex items-center justify-between pb-2 border-b border-zinc-800 dark:border-zinc-200">
-            <span className="font-bold text-white dark:text-zinc-900 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-amber-400" />
+        <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-3 text-xs text-zinc-700 dark:text-zinc-300 font-mono">
+          <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+            <span className="font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-amber-500" />
               Guía de Activación en 3 Pasos (Solo se hace una vez):
             </span>
             <a
               href={googleSheetsUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-emerald-400 hover:text-emerald-300 underline flex items-center gap-1 text-[11px]"
+              className="text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300 underline flex items-center gap-1 text-[11px]"
             >
               <span>Abrir Hoja de Sheets</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -611,10 +611,10 @@ function jsonOutput(obj) {
 
         {/* INPUT PARA PEGAR LA URL DE LA WEB APP */}
         <div className="space-y-2 font-mono">
-          <label className="text-xs font-bold uppercase text-zinc-300 dark:text-zinc-700 flex items-center justify-between">
+          <label className="text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
             <span>URL de la Aplicación Web (Apps Script Webhook):</span>
             {urlInput && (
-              <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-normal">
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-normal">
                 <ShieldCheck className="w-3.5 h-3.5" /> Configurado
               </span>
             )}
@@ -625,7 +625,7 @@ function jsonOutput(obj) {
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="https://script.google.com/macros/s/AKfycb.../exec"
-              className="w-full bg-zinc-950 dark:bg-zinc-50 border-2 border-zinc-800 dark:border-zinc-300 focus:border-emerald-500 rounded-2xl px-4 py-3 text-xs text-white dark:text-zinc-950 placeholder-zinc-600 font-mono outline-none transition"
+              className="w-full bg-white dark:bg-zinc-900 border-2 border-zinc-300 dark:border-zinc-700 focus:border-emerald-500 dark:focus:border-emerald-500 rounded-2xl px-4 py-3 text-xs text-zinc-950 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 font-mono outline-none transition"
             />
             <Link2 className="w-4 h-4 text-zinc-500 absolute right-3.5 top-3.5" />
           </div>
@@ -635,24 +635,24 @@ function jsonOutput(obj) {
         {testResult && (
           <div className={`p-3.5 rounded-2xl border text-xs font-mono font-bold flex items-start gap-2.5 ${
             testResult.success 
-              ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300 dark:text-emerald-800'
-              : 'bg-rose-500/15 border-rose-500 text-rose-300 dark:text-rose-800'
+              ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300'
+              : 'bg-rose-500/15 border-rose-500 text-rose-700 dark:text-rose-300'
           }`}>
             {testResult.success ? (
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
             ) : (
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
             )}
             <span>{testResult.message}</span>
           </div>
         )}
 
         {/* FOOTER ACTIONS */}
-        <div className="flex items-center justify-between border-t border-zinc-800 dark:border-zinc-200 pt-4">
+        <div className="flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-2xl border border-zinc-700 dark:border-zinc-300 text-xs font-bold text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer font-mono"
+            className="px-4 py-2.5 rounded-2xl border border-zinc-300 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer font-mono"
           >
             Cerrar
           </button>

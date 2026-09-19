@@ -211,24 +211,24 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200 select-none">
-      <div className="bg-[#0b0f17] dark:bg-white border-2 border-emerald-500/80 rounded-[32px] max-w-2xl w-full max-h-[92vh] flex flex-col shadow-[0_25px_80px_rgba(16,185,129,0.35)] overflow-hidden text-white dark:text-zinc-950 font-sans">
+      <div className="bg-white dark:bg-[#0c1017] border-2 border-emerald-500/80 rounded-[32px] max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-zinc-950 dark:text-white font-sans">
         
         {/* MODAL HEADER */}
-        <div className="p-5 sm:p-6 border-b border-zinc-800 dark:border-zinc-200 bg-gradient-to-r from-emerald-950/90 via-[#0d1612] to-[#0c0f17] dark:from-emerald-50 dark:via-zinc-50 dark:to-white flex items-center justify-between gap-4">
+        <div className="p-5 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 shrink-0">
               <Mail className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base sm:text-lg font-black tracking-tight text-white dark:text-zinc-950">
+                <h3 className="text-base sm:text-lg font-black tracking-tight text-zinc-950 dark:text-white">
                   {isBulk || solicitudes.length > 1 ? 'Enviar Alerta Masiva de Retraso SLA' : `Enviar Alerta de Retraso — ${solicitudes[0].op}`}
                 </h3>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-600 text-white shadow-xs">
                   {solicitudes.length} {solicitudes.length === 1 ? 'OP' : 'OPs'}
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
                 Automatización de correo en tiempo real vinculada a la pestaña USUARIOS de la base de datos
               </p>
             </div>
@@ -237,7 +237,7 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-zinc-400 hover:text-white dark:text-zinc-500 dark:hover:text-zinc-950 p-2 rounded-2xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+            className="text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white p-2 rounded-2xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer"
             title="Cerrar ventana"
           >
             <X className="w-5 h-5" />
@@ -249,19 +249,19 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
           
           {/* Success Banner */}
           {sentSuccess && (
-            <div className="p-3.5 rounded-2xl bg-emerald-950/90 border border-emerald-500 text-emerald-300 text-xs flex items-center gap-2.5 animate-in zoom-in-95 font-medium">
-              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/90 border border-emerald-300 dark:border-emerald-500 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2.5 animate-in zoom-in-95 font-medium">
+              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>¡Alerta despachada exitosamente! Abriendo tu gestor de correo...</span>
             </div>
           )}
 
           {/* RECIPIENTS MANAGEMENT ACCORDION */}
-          <div className="bg-zinc-900/80 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4 space-y-3">
+          <div className="bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs font-mono font-bold text-white dark:text-zinc-950">
+                <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-xs font-mono font-bold text-zinc-950 dark:text-white">
                   DESTINATARIOS SELECCIONADOS ({selectedUserIds.length} de {USUARIOS_STF_MAESTROS.length})
                 </span>
               </div>
@@ -269,7 +269,7 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsRecipientSelectorOpen(!isRecipientSelectorOpen)}
-                className="text-xs font-mono text-emerald-400 hover:text-emerald-300 dark:text-emerald-700 dark:hover:text-emerald-800 font-bold flex items-center gap-1 cursor-pointer transition"
+                className="text-xs font-mono text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer transition"
               >
                 <span>{isRecipientSelectorOpen ? 'Ocultar Directorio' : 'Elegir Usuarios'}</span>
                 {isRecipientSelectorOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -279,21 +279,21 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
             {/* Quick Pills of currently selected recipients */}
             <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto custom-scroll">
               {selectedUsers.length === 0 ? (
-                <span className="text-xs text-rose-400 font-mono">
+                <span className="text-xs text-rose-600 dark:text-rose-400 font-mono">
                   ⚠️ No has seleccionado ningún destinatario. Selecciona al menos uno.
                 </span>
               ) : (
                 selectedUsers.map((u) => (
                   <span
                     key={u.id}
-                    className="px-2.5 py-1 rounded-xl bg-zinc-950 dark:bg-white text-zinc-200 dark:text-zinc-800 border border-zinc-800 dark:border-zinc-300 text-[10.5px] font-mono font-bold flex items-center gap-1.5"
+                    className="px-2.5 py-1 rounded-xl bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 text-[10.5px] font-mono font-bold flex items-center gap-1.5"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     <span>{u.nombre}</span>
                     <button
                       type="button"
                       onClick={() => handleToggleUser(u.id)}
-                      className="text-zinc-500 hover:text-rose-400 ml-0.5 cursor-pointer"
+                      className="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 ml-0.5 cursor-pointer"
                       title="Quitar destinatario"
                     >
                       ×
@@ -305,7 +305,7 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
 
             {/* EXPANDED RECIPIENT DIRECTORY SELECTOR */}
             {isRecipientSelectorOpen && (
-              <div className="pt-3 border-t border-zinc-800 dark:border-zinc-200 space-y-2.5 animate-in slide-in-from-top-2 duration-150">
+              <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-2.5 animate-in slide-in-from-top-2 duration-150">
                 
                 {/* Search & Quick Action Buttons */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
@@ -315,30 +315,30 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
                       value={recipientSearch}
                       onChange={(e) => setRecipientSearch(e.target.value)}
                       placeholder="Buscar por nombre, cargo, área o correo..."
-                      className="w-full bg-zinc-950 dark:bg-white border border-zinc-800 dark:border-zinc-300 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white dark:text-zinc-900 placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-emerald-500"
                     />
-                    <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2" />
+                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-2" />
                   </div>
 
                   <div className="flex items-center gap-1 text-[10.5px] font-mono shrink-0">
                     <button
                       type="button"
                       onClick={handleSelectAllUsers}
-                      className="px-2 py-1 bg-zinc-800 dark:bg-zinc-200 hover:bg-zinc-700 text-zinc-300 dark:text-zinc-800 rounded-lg font-bold transition cursor-pointer"
+                      className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg font-bold transition cursor-pointer"
                     >
                       Todos ({USUARIOS_STF_MAESTROS.length})
                     </button>
                     <button
                       type="button"
                       onClick={handleSelectSupervisors}
-                      className="px-2 py-1 bg-emerald-950 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/40 rounded-lg font-bold transition cursor-pointer"
+                      className="px-2 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/40 rounded-lg font-bold transition cursor-pointer"
                     >
                       Supervisores
                     </button>
                     <button
                       type="button"
                       onClick={handleDeselectAllUsers}
-                      className="px-2 py-1 bg-zinc-800 dark:bg-zinc-200 hover:bg-zinc-700 text-zinc-400 dark:text-zinc-600 rounded-lg font-bold transition cursor-pointer"
+                      className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 rounded-lg font-bold transition cursor-pointer"
                     >
                       Limpiar
                     </button>
@@ -346,7 +346,7 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
                 </div>
 
                 {/* Users List with Checkboxes */}
-                <div className="max-h-48 overflow-y-auto custom-scroll divide-y divide-zinc-800/60 dark:divide-zinc-200/60 rounded-xl border border-zinc-800 dark:border-zinc-200 bg-zinc-950/70 dark:bg-white p-1">
+                <div className="max-h-48 overflow-y-auto custom-scroll divide-y divide-zinc-200 dark:divide-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-1">
                   {filteredDirectory.map((u) => {
                     const isChecked = selectedUserIds.includes(u.id);
                     return (
@@ -354,7 +354,7 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
                         key={u.id}
                         onClick={() => handleToggleUser(u.id)}
                         className={`p-2 rounded-lg flex items-center justify-between text-xs cursor-pointer transition ${
-                          isChecked ? 'bg-emerald-950/40 dark:bg-emerald-50/70' : 'hover:bg-zinc-900 dark:hover:bg-zinc-100'
+                          isChecked ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -366,14 +366,14 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
                           />
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-white dark:text-zinc-950 text-xs truncate">
+                              <span className="font-bold text-zinc-950 dark:text-white text-xs truncate">
                                 {u.nombre}
                               </span>
-                              <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-zinc-900 dark:bg-zinc-200 text-zinc-400 dark:text-zinc-700 font-mono">
+                              <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono">
                                 {u.area}
                               </span>
                               {u.rol === 'ADMINISTRADOR' && (
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-500/40 font-mono font-bold">
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 font-mono font-bold">
                                   ADMIN
                                 </span>
                               )}
@@ -385,7 +385,7 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
                         </div>
 
                         <span className={`text-[10px] font-mono font-bold ${
-                          isChecked ? 'text-emerald-400 dark:text-emerald-600' : 'text-zinc-600'
+                          isChecked ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'
                         }`}>
                           {isChecked ? 'SELECCIONADO' : 'AGREGAR'}
                         </span>
@@ -401,10 +401,10 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
 
           {/* SUBJECT FIELD */}
           <div>
-            <label className="block text-[11px] font-mono uppercase font-bold text-zinc-400 dark:text-zinc-600 mb-1 tracking-wider">
+            <label className="block text-[11px] font-mono uppercase font-bold text-zinc-600 dark:text-zinc-400 mb-1 tracking-wider">
               ASUNTO DEL MENSAJE
             </label>
-            <div className="bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-200 rounded-2xl px-4 py-3 text-xs font-mono font-bold text-emerald-400 dark:text-emerald-700 select-all">
+            <div className="bg-zinc-100 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 py-3 text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 select-all">
               {subject}
             </div>
           </div>
@@ -412,15 +412,15 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
           {/* MESSAGE PREVIEW */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-mono uppercase font-bold text-zinc-400 dark:text-zinc-600 tracking-wider">
+              <label className="text-[11px] font-mono uppercase font-bold text-zinc-600 dark:text-zinc-400 tracking-wider">
                 CONTENIDO PREFORMATIADO DE LA ALERTA
               </label>
               <button
                 type="button"
                 onClick={handleCopyBody}
-                className="text-[11px] text-amber-400 hover:text-amber-300 dark:text-amber-600 dark:hover:text-amber-700 font-bold flex items-center gap-1 cursor-pointer transition font-mono"
+                className="text-[11px] text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer transition font-mono"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? 'Copiado al Portapapeles' : 'Copiar Texto'}</span>
               </button>
             </div>
@@ -429,19 +429,19 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
               readOnly
               value={bodyText}
               rows={7}
-              className="w-full bg-zinc-950 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl p-4 text-xs font-mono text-zinc-300 dark:text-zinc-800 focus:outline-none custom-scroll resize-none leading-relaxed"
+              className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 text-xs font-mono text-zinc-800 dark:text-zinc-300 focus:outline-none custom-scroll resize-none leading-relaxed"
             />
           </div>
 
         </div>
 
         {/* MODAL FOOTER WITH DISPATCH BUTTONS */}
-        <div className="p-4 sm:p-5 border-t border-zinc-800 dark:border-zinc-200 bg-zinc-900/90 dark:bg-zinc-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-3 rounded-2xl border border-zinc-700 dark:border-zinc-300 bg-zinc-800 dark:bg-zinc-200 hover:bg-zinc-700 dark:hover:bg-zinc-300 text-zinc-300 dark:text-zinc-800 text-xs font-bold uppercase tracking-wider transition cursor-pointer text-center"
+            className="px-5 py-3 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold uppercase tracking-wider transition cursor-pointer text-center"
           >
             CANCELAR
           </button>
@@ -450,10 +450,10 @@ export const EmailAlertModal: React.FC<EmailAlertModalProps> = ({
             <button
               type="button"
               onClick={handleOpenDefaultMail}
-              className="flex-1 sm:flex-initial px-4 py-3 rounded-2xl border border-zinc-700 dark:border-zinc-300 bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-zinc-200 dark:text-zinc-900 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
+              className="flex-1 sm:flex-initial px-4 py-3 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-sm"
               title="Abrir con Outlook u otra app de correo corporativo"
             >
-              <ExternalLink className="w-4 h-4 text-zinc-400" />
+              <ExternalLink className="w-4 h-4 text-zinc-500" />
               <span>Cliente Outlook/App</span>
             </button>
 

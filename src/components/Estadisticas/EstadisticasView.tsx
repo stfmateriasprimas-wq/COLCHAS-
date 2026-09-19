@@ -714,19 +714,19 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
       />
 
       {/* 2. TOP BANNER: MÉTRICAS E INDICADORES STF */}
-      <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 shadow-2xl space-y-6 text-white dark:text-zinc-950">
+      <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-6 text-zinc-950 dark:text-white">
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white dark:text-zinc-950 brand-title">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-zinc-950 dark:text-white brand-title">
                 MÉTRICAS E INDICADORES STF
               </h2>
-              <span className="bg-emerald-950/80 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/40 dark:border-emerald-300">
+              <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-500/40">
                 ● EN VIVO
               </span>
             </div>
-            <p className="text-xs text-zinc-400 dark:text-zinc-600">
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
               Módulos analíticos interactivos de flujo, control de calidad, volumen y efectividad operativa.
             </p>
           </div>
@@ -851,24 +851,24 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
         <div className="space-y-6 animate-in fade-in duration-200">
           
           {/* 1. BLOQUE 1: TOP CALENDAR & GOOGLE SHEETS ACTIVITY BANNER CON SELECTOR DESPLEGABLE */}
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 shadow-2xl space-y-6 text-white dark:text-zinc-950 relative">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-6 text-zinc-950 dark:text-white relative">
             
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="bg-emerald-950/80 dark:bg-emerald-100 text-emerald-300 dark:text-emerald-800 border border-emerald-500/40 dark:border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
+                  <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/40 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
                     ● ANCLADO A GOOGLE SHEETS EN TIEMPO REAL
                   </span>
-                  <span className="bg-indigo-950/80 dark:bg-indigo-100 text-indigo-300 dark:text-indigo-800 border border-indigo-500/40 dark:border-indigo-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                  <span className="bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-500/40 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
                     Hoja: 01_BASE_DE_DATOS ({totalHistorico} registros)
                   </span>
                 </div>
 
-                <h3 className="text-lg sm:text-xl font-black text-white dark:text-zinc-950 flex items-center gap-2 brand-title">
+                <h3 className="text-lg sm:text-xl font-black text-zinc-950 dark:text-white flex items-center gap-2 brand-title">
                   <Activity className="w-5 h-5 text-amber-500" />
                   <span>Medición de Procesamiento Diario por Trabajador y Área</span>
                 </h3>
-                <p className="text-xs text-zinc-400 dark:text-zinc-600 max-w-3xl">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-3xl">
                   Lectura directa en tiempo real de fechas y operarios registrados en Google Sheets para cuantificar con precisión OPs, metraje y rollos procesados en cada jornada.
                 </p>
               </div>
@@ -877,7 +877,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
               <div className="flex items-center gap-2.5 self-start lg:self-center flex-wrap relative">
                 {/* Futuristic Dropdown Date Capsule */}
                 <div className="relative">
-                  <div className="flex items-center bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-700/80 dark:border-zinc-300 rounded-2xl p-1 text-xs shadow-inner">
+                  <div className="flex items-center bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-300 dark:border-zinc-700/80 rounded-2xl p-1 text-xs shadow-inner">
                     <button
                       type="button"
                       title="Día anterior"
@@ -886,7 +886,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                         d.setDate(d.getDate() - 1);
                         setSelectedCalendarDate(d.toISOString().slice(0, 10));
                       }}
-                      className="p-1.5 hover:bg-zinc-800 dark:hover:bg-zinc-200 rounded-xl text-zinc-400 hover:text-white transition cursor-pointer"
+                      className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition cursor-pointer"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
@@ -898,10 +898,10 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                       className={`px-3 py-1.5 rounded-xl font-bold font-mono text-xs flex items-center gap-2 transition cursor-pointer ${
                         selectedCalendarDate === systemTodayYMD
                           ? 'bg-amber-500 text-black font-black shadow-sm'
-                          : 'bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-950 hover:bg-zinc-700'
+                          : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-300 dark:hover:bg-zinc-700'
                       }`}
                     >
-                      <Calendar className={`w-3.5 h-3.5 ${selectedCalendarDate === systemTodayYMD ? 'text-black' : 'text-amber-400'}`} />
+                      <Calendar className={`w-3.5 h-3.5 ${selectedCalendarDate === systemTodayYMD ? 'text-black' : 'text-amber-500'}`} />
                       <span>{selectedCalendarDate === systemTodayYMD ? `HOY ${selectedCalendarDate}` : selectedCalendarDate}</span>
                       {selectedCalendarDate === systemTodayYMD && (
                         <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
@@ -917,7 +917,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                         d.setDate(d.getDate() + 1);
                         setSelectedCalendarDate(d.toISOString().slice(0, 10));
                       }}
-                      className="p-1.5 hover:bg-zinc-800 dark:hover:bg-zinc-200 rounded-xl text-zinc-400 hover:text-white transition cursor-pointer"
+                      className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition cursor-pointer"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -925,9 +925,9 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
 
                   {/* FLOATING CALENDAR DROPDOWN POPOVER */}
                   {isCalendarDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 z-50 bg-[#0c1017]/95 dark:bg-white backdrop-blur-xl border border-zinc-700 dark:border-zinc-300 rounded-3xl p-4 shadow-[0_15px_40px_rgba(0,0,0,0.6)] w-80 font-sans animate-in fade-in zoom-in-95 duration-150">
-                      <div className="flex items-center justify-between pb-3 border-b border-zinc-800 dark:border-zinc-200 text-xs">
-                        <span className="font-black text-white dark:text-zinc-950 uppercase font-mono flex items-center gap-1.5">
+                    <div className="absolute right-0 top-full mt-2 z-50 bg-white/95 dark:bg-[#0c1017]/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700 rounded-3xl p-4 shadow-[0_15px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.6)] w-80 font-sans animate-in fade-in zoom-in-95 duration-150 text-zinc-950 dark:text-white">
+                      <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 text-xs">
+                        <span className="font-black text-zinc-950 dark:text-white uppercase font-mono flex items-center gap-1.5">
                           <Calendar className="w-4 h-4 text-amber-500" />
                           <span>Seleccionar Fecha</span>
                         </span>
@@ -1163,7 +1163,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                         className={`p-3 rounded-2xl border text-center transition-all duration-200 cursor-pointer flex flex-col justify-between h-32 select-none ${
                           isSelected
                             ? 'bg-gradient-to-b from-amber-500 via-amber-400 to-amber-500 text-black border-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.45)] ring-2 ring-amber-300 scale-105 font-black z-10'
-                            : 'bg-zinc-950/80 dark:bg-white border-zinc-800 dark:border-zinc-300 text-zinc-400 hover:border-zinc-600 hover:text-white dark:hover:text-zinc-950'
+                            : 'bg-zinc-100 dark:bg-zinc-900 border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 hover:text-zinc-950 dark:hover:text-white'
                         }`}
                       >
                         <div>
@@ -1203,7 +1203,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
           </div>
 
           {/* SECTION 2: PROCESADO POR ÁREA DE TRABAJO EN EL DÍA (EXACT MATCH TO IMAGE 2) */}
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 shadow-2xl space-y-4 text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-4 text-zinc-950 dark:text-white">
             
             <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-200 pb-3">
               <div>
@@ -1516,7 +1516,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
           </div>
 
           {/* SECTION 3: DETALLE INDIVIDUAL POR TRABAJADOR / INSPECTOR (EXACT MATCH TO IMAGE 3) */}
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 shadow-2xl space-y-5 text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-5 text-zinc-950 dark:text-white">
             
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-zinc-800 dark:border-zinc-200 pb-4">
               <div className="space-y-1">
@@ -1683,7 +1683,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
         <div className="space-y-6 animate-in fade-in duration-200">
           
           {/* HEADER BANNER: ESTUDIO ESTADÍSTICO DE PRODUCTIVIDAD Y TIEMPOS */}
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 shadow-2xl space-y-6 text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-6 text-zinc-950 dark:text-white">
             
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="space-y-1.5">
@@ -1762,7 +1762,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
           </div>
 
           {/* MONTHLY MEASUREMENT FILTER & SUMMARY CARDS (IMAGE 4) */}
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 shadow-2xl space-y-5 text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-5 text-zinc-950 dark:text-white">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 dark:border-zinc-200 pb-3">
               <div className="flex items-center gap-2">
@@ -1828,7 +1828,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
           </div>
 
           {/* MONTHLY EVALUATION BAR CHART & AREA EFFICIENCY ANALYSIS (IMAGE 5) */}
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 shadow-2xl space-y-6 text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-6 text-zinc-950 dark:text-white">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
@@ -2158,7 +2158,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
         <div className="space-y-6 animate-in fade-in duration-200">
           
           {/* MONTH BUTTONS (UP TO ACTIVE MONTH) & DONUT VIEW */}
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 shadow-2xl space-y-5 text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-5 text-zinc-950 dark:text-white">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 dark:border-zinc-200 pb-3">
               <div className="flex items-center gap-2">
@@ -2457,7 +2457,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {filteredRejectedOps.map(rej => (
-                <div key={rej.op} className="bg-[#0c1017] dark:bg-white border border-rose-900/60 dark:border-rose-200 rounded-2xl p-4 space-y-2 shadow-sm text-white dark:text-zinc-950">
+                <div key={rej.op} className="bg-white dark:bg-[#0c1017] border border-rose-200 dark:border-rose-900/60 rounded-2xl p-4 space-y-2 shadow-sm text-zinc-950 dark:text-white">
                   <div className="flex items-center justify-between">
                     <span className="bg-rose-600 text-white font-mono font-black text-xs px-2 py-0.5 rounded">OP: {rej.op}</span>
                     <span className="text-[10px] font-mono text-zinc-400 uppercase">{rej.mes}</span>
@@ -2486,7 +2486,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
           {/* 4 TOP SUMMARY KPIS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             
-            <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 p-4.5 rounded-3xl shadow-xl space-y-1 text-white dark:text-zinc-950">
+            <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 p-4.5 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-1 text-zinc-950 dark:text-white">
               <div className="flex items-center justify-between text-[10px] text-cyan-400 dark:text-cyan-600 font-bold uppercase">
                 <span>CUMPLIMIENTO SLA TIEMPOS</span>
                 <Clock className="w-4 h-4 text-cyan-500" />
@@ -2495,7 +2495,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
               <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">Dentro del SLA Objetivo</span>
             </div>
 
-            <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 p-4.5 rounded-3xl shadow-xl space-y-1 text-white dark:text-zinc-950">
+            <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 p-4.5 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-1 text-zinc-950 dark:text-white">
               <div className="flex items-center justify-between text-[10px] text-purple-400 dark:text-purple-600 font-bold uppercase">
                 <span>TIEMPO PROMEDIO DE CICLO</span>
                 <Clock className="w-4 h-4 text-purple-500" />
@@ -2504,7 +2504,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
               <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">~8.3 Días hábiles total</span>
             </div>
 
-            <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 p-4.5 rounded-3xl shadow-xl space-y-1 text-white dark:text-zinc-950">
+            <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 p-4.5 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-1 text-zinc-950 dark:text-white">
               <div className="flex items-center justify-between text-[10px] text-amber-400 dark:text-amber-600 font-bold uppercase">
                 <span>CUELLO DE BOTELLA PRINCIPAL</span>
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
@@ -2513,7 +2513,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
               <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">Fase de mayor tiempo muerto</span>
             </div>
 
-            <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 p-4.5 rounded-3xl shadow-xl space-y-1 text-white dark:text-zinc-950">
+            <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 p-4.5 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-1 text-zinc-950 dark:text-white">
               <div className="flex items-center justify-between text-[10px] text-emerald-400 dark:text-emerald-600 font-bold uppercase">
                 <span>EFECTIVIDAD LABORATORIO STF</span>
                 <Sparkles className="w-4 h-4 text-emerald-500" />
@@ -2525,7 +2525,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
           </div>
 
           {/* SECTION 1: EFECTIVIDAD POR ÁREA SEGÚN TIEMPOS DE PROCESAMIENTO (SCREENSHOT 1) */}
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 shadow-2xl space-y-5 text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-5 text-zinc-950 dark:text-white">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 dark:border-zinc-200 pb-3">
               <div>
@@ -2712,7 +2712,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
           </div>
 
           {/* SECTION 2: ANÁLISIS DE CUELLOS DE BOTELLA Y RETENCIÓN DE CARGA (SCREENSHOT 2) */}
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 shadow-2xl space-y-5 text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-5 text-zinc-950 dark:text-white">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 dark:border-zinc-200 pb-3">
               <div>
@@ -2761,19 +2761,19 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                   </div>
                 </div>
 
-                <span className="text-xs font-mono font-bold text-rose-400 dark:text-rose-700 bg-zinc-900 dark:bg-white px-3 py-1 rounded-xl border border-rose-800 dark:border-rose-200 self-start sm:self-auto">
+                <span className="text-xs font-mono font-bold text-rose-400 dark:text-rose-700 bg-rose-50 dark:bg-zinc-900 px-3 py-1 rounded-xl border border-rose-200 dark:border-rose-800 self-start sm:self-auto">
                   Retardo Promedio: +18.8h sobre productivo
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="bg-zinc-950 dark:bg-white p-3.5 rounded-2xl border border-rose-900/60 dark:border-rose-200 space-y-0.5 shadow-sm">
+                <div className="bg-white dark:bg-zinc-950 p-3.5 rounded-2xl border border-rose-200 dark:border-rose-900/60 space-y-0.5 shadow-sm">
                   <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">TIEMPO MUERTO ACUMULADO</span>
                   <div className="text-xl font-black text-rose-400 dark:text-rose-600 font-mono">6.8 Horas / OP</div>
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">Demora en espera de vehículo inter-planta</span>
                 </div>
 
-                <div className="bg-zinc-950 dark:bg-white p-3.5 rounded-2xl border border-rose-900/60 dark:border-rose-200 space-y-0.5 shadow-sm">
+                <div className="bg-white dark:bg-zinc-950 p-3.5 rounded-2xl border border-rose-200 dark:border-rose-900/60 space-y-0.5 shadow-sm">
                   <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">ACUMULACIÓN EN COLA</span>
                   <div className="text-xl font-black text-white dark:text-zinc-950 font-mono">
                     {metrics.lavanderia || 12} OPs Retenidas
@@ -2781,7 +2781,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">En proceso de tambor o retorno</span>
                 </div>
 
-                <div className="bg-zinc-950 dark:bg-white p-3.5 rounded-2xl border border-rose-900/60 dark:border-rose-200 space-y-0.5 shadow-sm">
+                <div className="bg-white dark:bg-zinc-950 p-3.5 rounded-2xl border border-rose-200 dark:border-rose-900/60 space-y-0.5 shadow-sm">
                   <span className="text-[9px] text-indigo-400 dark:text-indigo-600 font-bold uppercase block">ACCIÓN CORRECTIVA RECOMENDADA</span>
                   <div className="text-xs font-black text-white dark:text-zinc-950">
                     Programar 2ª ruta de transporte diario
@@ -2813,19 +2813,19 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                   </div>
                 </div>
 
-                <span className="text-xs font-mono font-bold text-amber-400 dark:text-amber-700 bg-zinc-900 dark:bg-white px-3 py-1 rounded-xl border border-amber-800 dark:border-amber-200 self-start sm:self-auto">
+                <span className="text-xs font-mono font-bold text-amber-400 dark:text-amber-700 bg-amber-50 dark:bg-zinc-900 px-3 py-1 rounded-xl border border-amber-200 dark:border-amber-800 self-start sm:self-auto">
                   Retardo Promedio: +14.1h sobre productivo
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="bg-zinc-950 dark:bg-white p-3.5 rounded-2xl border border-amber-900/60 dark:border-amber-200 space-y-0.5 shadow-sm">
+                <div className="bg-white dark:bg-zinc-950 p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/60 space-y-0.5 shadow-sm">
                   <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">TIEMPO MUERTO ACUMULADO</span>
                   <div className="text-xl font-black text-amber-400 dark:text-amber-600 font-mono">5.1 Horas / OP</div>
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">Espera para consolidación de lote</span>
                 </div>
 
-                <div className="bg-zinc-950 dark:bg-white p-3.5 rounded-2xl border border-amber-900/60 dark:border-amber-200 space-y-0.5 shadow-sm">
+                <div className="bg-white dark:bg-zinc-950 p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/60 space-y-0.5 shadow-sm">
                   <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase block">ACUMULACIÓN EN COLA</span>
                   <div className="text-xl font-black text-white dark:text-zinc-950 font-mono">
                     {metrics.solicitados || 26} OPs Retenidas
@@ -2833,7 +2833,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">Listas para despacho logístico</span>
                 </div>
 
-                <div className="bg-zinc-950 dark:bg-white p-3.5 rounded-2xl border border-amber-900/60 dark:border-amber-200 space-y-0.5 shadow-sm">
+                <div className="bg-white dark:bg-zinc-950 p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/60 space-y-0.5 shadow-sm">
                   <span className="text-[9px] text-indigo-400 dark:text-indigo-600 font-bold uppercase block">ACCIÓN CORRECTIVA RECOMENDADA</span>
                   <div className="text-xs font-black text-white dark:text-zinc-950">
                     Despachar lotes parciales de min 3 OPs
@@ -2884,7 +2884,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
       {/* MODAL: OPS PROCESADAS POR UN TRABAJADOR EN EL DÍA */}
       {selectedWorkerOpsModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden font-sans text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden font-sans text-zinc-950 dark:text-white">
             
             <div className="p-5 border-b border-zinc-800 dark:border-zinc-200 bg-zinc-900 dark:bg-zinc-100 flex items-center justify-between">
               <div>
@@ -2968,7 +2968,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
       {/* MODAL: OPS PROCESADAS POR ÁREA EN EL DÍA */}
       {selectedAreaOpsModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden font-sans text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden font-sans text-zinc-950 dark:text-white">
             
             <div className="p-5 border-b border-zinc-800 dark:border-zinc-200 bg-zinc-900 dark:bg-zinc-100 flex items-center justify-between">
               <div>
@@ -3049,7 +3049,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
           aria-modal="true"
           className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200 select-none"
         >
-          <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-3xl max-w-3xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden font-sans text-white dark:text-zinc-950">
+          <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-3xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden font-sans text-zinc-950 dark:text-white">
             
             {/* Modal Header */}
             <div className={`p-5 border-b border-zinc-800 dark:border-zinc-200 flex items-center justify-between ${

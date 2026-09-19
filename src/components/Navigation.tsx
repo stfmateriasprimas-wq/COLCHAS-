@@ -82,7 +82,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   ];
 
   return (
-    <nav className="border-b border-zinc-800 dark:border-zinc-200 bg-[#0c1017]/90 dark:bg-white/90 backdrop-blur sticky top-[57px] z-40 transition-colors duration-200">
+    <nav className="border-b border-zinc-200/80 dark:border-zinc-800 bg-white/90 dark:bg-[#0c1017]/90 backdrop-blur sticky top-[57px] z-40 transition-colors duration-200 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-2 overflow-x-auto py-2 custom-scroll">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -93,11 +93,11 @@ export const Navigation: React.FC<NavigationProps> = ({
               onClick={() => onSelectTab(item.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all duration-150 cursor-pointer ${
                 isActive
-                  ? 'bg-white text-zinc-950 dark:bg-zinc-950 dark:text-white shadow-md'
-                  : 'text-zinc-400 dark:text-zinc-600 hover:text-white dark:hover:text-zinc-950 hover:bg-zinc-800/80 dark:hover:bg-zinc-200/80'
+                  ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-md'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/80'
               }`}
             >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-zinc-950 dark:text-white' : 'text-zinc-500'}`} />
+              <Icon className={`w-4 h-4 ${isActive ? 'text-white dark:text-zinc-950' : 'text-zinc-500'}`} />
               <span>{item.label}</span>
               {item.badge !== undefined && (
                 <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${item.badgeColor}`}>

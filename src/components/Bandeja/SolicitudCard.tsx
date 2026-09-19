@@ -43,73 +43,73 @@ const STAGE_CONFIG: Record<SectorType, {
   };
 }> = {
   PRE_SOLICITUD: {
-    border: 'border-l-cyan-400',
-    badge: 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50 dark:bg-cyan-50 dark:text-cyan-800 dark:border-cyan-300',
-    text: 'text-cyan-400 dark:text-cyan-600',
-    activeLine: 'border-cyan-400 bg-cyan-400',
-    activeText: 'text-cyan-400 dark:text-cyan-600 font-black',
-    locationBadge: 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50 dark:bg-cyan-50 dark:text-cyan-800 dark:border-cyan-300',
+    border: 'border-l-cyan-500 dark:border-l-cyan-400',
+    badge: 'bg-cyan-50 text-cyan-800 border-cyan-300 dark:bg-cyan-950/80 dark:text-cyan-300 dark:border-cyan-500/50',
+    text: 'text-cyan-700 dark:text-cyan-400',
+    activeLine: 'border-cyan-500 bg-cyan-500 dark:border-cyan-400 dark:bg-cyan-400',
+    activeText: 'text-cyan-700 dark:text-cyan-400 font-black',
+    locationBadge: 'bg-cyan-50 text-cyan-800 border-cyan-300 dark:bg-cyan-950/80 dark:text-cyan-300 dark:border-cyan-500/50',
     rollosBox: {
-      bg: 'bg-cyan-950/50 dark:bg-cyan-50',
-      border: 'border-cyan-500/50 dark:border-cyan-300',
-      label: 'text-cyan-400 dark:text-cyan-700',
-      text: 'text-cyan-200 dark:text-cyan-900'
+      bg: 'bg-cyan-50/70 dark:bg-cyan-950/50',
+      border: 'border-cyan-200 dark:border-cyan-500/50',
+      label: 'text-cyan-700 dark:text-cyan-400',
+      text: 'text-cyan-950 dark:text-cyan-200'
     }
   },
   SOLICITADO: {
     border: 'border-l-amber-500',
-    badge: 'bg-amber-950/80 text-amber-300 border-amber-500/50 dark:bg-amber-50 dark:text-amber-800 dark:border-amber-300',
-    text: 'text-amber-400 dark:text-amber-600',
+    badge: 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-500/50',
+    text: 'text-amber-700 dark:text-amber-400',
     activeLine: 'border-amber-500 bg-amber-500',
-    activeText: 'text-amber-400 dark:text-amber-600 font-black',
-    locationBadge: 'bg-amber-950/80 text-amber-300 border-amber-500/50 dark:bg-amber-50 dark:text-amber-800 dark:border-amber-300',
+    activeText: 'text-amber-700 dark:text-amber-400 font-black',
+    locationBadge: 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-500/50',
     rollosBox: {
-      bg: 'bg-amber-950/50 dark:bg-amber-50',
-      border: 'border-amber-500/50 dark:border-amber-300',
-      label: 'text-amber-400 dark:text-amber-700',
-      text: 'text-amber-200 dark:text-amber-900'
+      bg: 'bg-amber-50/70 dark:bg-amber-950/50',
+      border: 'border-amber-200 dark:border-amber-500/50',
+      label: 'text-amber-700 dark:text-amber-400',
+      text: 'text-amber-950 dark:text-amber-200'
     }
   },
   LAVANDERIA: {
     border: 'border-l-sky-500',
-    badge: 'bg-sky-950/80 text-sky-300 border-sky-500/50 dark:bg-sky-50 dark:text-sky-800 dark:border-sky-300',
-    text: 'text-sky-400 dark:text-sky-600',
+    badge: 'bg-sky-50 text-sky-800 border-sky-300 dark:bg-sky-950/80 dark:text-sky-300 dark:border-sky-500/50',
+    text: 'text-sky-700 dark:text-sky-400',
     activeLine: 'border-sky-500 bg-sky-500',
-    activeText: 'text-sky-400 dark:text-sky-600 font-black',
-    locationBadge: 'bg-sky-950/80 text-sky-300 border-sky-500/50 dark:bg-sky-50 dark:text-sky-800 dark:border-sky-300',
+    activeText: 'text-sky-700 dark:text-sky-400 font-black',
+    locationBadge: 'bg-sky-50 text-sky-800 border-sky-300 dark:bg-sky-950/80 dark:text-sky-300 dark:border-sky-500/50',
     rollosBox: {
-      bg: 'bg-sky-950/50 dark:bg-sky-50',
-      border: 'border-sky-500/50 dark:border-sky-300',
-      label: 'text-sky-400 dark:text-sky-700',
-      text: 'text-sky-200 dark:text-sky-900'
+      bg: 'bg-sky-50/70 dark:bg-sky-950/50',
+      border: 'border-sky-200 dark:border-sky-500/50',
+      label: 'text-sky-700 dark:text-sky-400',
+      text: 'text-sky-950 dark:text-sky-200'
     }
   },
   CALIDAD: {
     border: 'border-l-purple-500',
-    badge: 'bg-purple-950/80 text-purple-300 border-purple-500/50 dark:bg-purple-50 dark:text-purple-800 dark:border-purple-300',
-    text: 'text-purple-400 dark:text-purple-600',
+    badge: 'bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-500/50',
+    text: 'text-purple-700 dark:text-purple-400',
     activeLine: 'border-purple-500 bg-purple-500',
-    activeText: 'text-purple-400 dark:text-purple-600 font-black',
-    locationBadge: 'bg-purple-950/80 text-purple-300 border-purple-500/50 dark:bg-purple-50 dark:text-purple-800 dark:border-purple-300',
+    activeText: 'text-purple-700 dark:text-purple-400 font-black',
+    locationBadge: 'bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-500/50',
     rollosBox: {
-      bg: 'bg-purple-950/50 dark:bg-purple-50',
-      border: 'border-purple-500/50 dark:border-purple-300',
-      label: 'text-purple-400 dark:text-purple-700',
-      text: 'text-purple-200 dark:text-purple-900'
+      bg: 'bg-purple-50/70 dark:bg-purple-950/50',
+      border: 'border-purple-200 dark:border-purple-500/50',
+      label: 'text-purple-700 dark:text-purple-400',
+      text: 'text-purple-950 dark:text-purple-200'
     }
   },
   FINALIZADO: {
     border: 'border-l-emerald-500',
-    badge: 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50 dark:bg-emerald-50 dark:text-emerald-800 dark:border-emerald-300',
-    text: 'text-emerald-400 dark:text-emerald-600',
+    badge: 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-500/50',
+    text: 'text-emerald-700 dark:text-emerald-400',
     activeLine: 'border-emerald-500 bg-emerald-500',
-    activeText: 'text-emerald-400 dark:text-emerald-600 font-black',
-    locationBadge: 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50 dark:bg-emerald-50 dark:text-emerald-800 dark:border-emerald-300',
+    activeText: 'text-emerald-700 dark:text-emerald-400 font-black',
+    locationBadge: 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-500/50',
     rollosBox: {
-      bg: 'bg-emerald-950/50 dark:bg-emerald-50',
-      border: 'border-emerald-500/50 dark:border-emerald-300',
-      label: 'text-emerald-400 dark:text-emerald-700',
-      text: 'text-emerald-200 dark:text-emerald-900'
+      bg: 'bg-emerald-50/70 dark:bg-emerald-950/50',
+      border: 'border-emerald-200 dark:border-emerald-500/50',
+      label: 'text-emerald-700 dark:text-emerald-400',
+      text: 'text-emerald-950 dark:text-emerald-200'
     }
   }
 };
@@ -320,12 +320,12 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const hasBothPhotos = Boolean(effectiveFotoMuestra && effectiveFotoCalidad);
 
   return (
-    <div id={cardId} className={`bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 ${stageConfig.border} border-l-[8px] rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 text-white dark:text-zinc-950 scroll-mt-24`}>
+    <div id={cardId} className={`bg-white dark:bg-[#0c1017] border border-zinc-200/90 dark:border-zinc-800 ${stageConfig.border} border-l-[8px] rounded-3xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.06)] transition-all duration-300 text-zinc-950 dark:text-white scroll-mt-24`}>
       
       <div className="p-5 sm:p-6 space-y-4">
         
         {/* Top Header Row: Badges & Date */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-zinc-800/80 dark:border-zinc-200/80 pb-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-zinc-200/80 dark:border-zinc-800/80 pb-3">
           <div className="flex items-center gap-2 flex-wrap">
             {/* Stage Pill */}
             <span className={`text-[11px] font-mono font-black px-3 py-1 rounded-xl border uppercase ${stageConfig.badge}`}>
@@ -336,16 +336,16 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             {solicitud.estado === 'FINALIZADO' ? (
               <span className={`text-[11px] font-mono font-black px-3 py-1 rounded-xl border flex items-center gap-1.5 ${
                 solicitud.dictamen === 'RECHAZADO'
-                  ? 'bg-rose-950/80 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border-rose-600 dark:border-rose-300'
+                  ? 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-600'
                   : solicitud.dictamen === 'APROBADO EN GAMA'
-                  ? 'bg-teal-950/80 dark:bg-teal-50 text-teal-300 dark:text-teal-700 border-teal-600 dark:border-teal-300'
-                  : 'bg-emerald-950/80 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border-emerald-600 dark:border-emerald-300'
+                  ? 'bg-teal-50 text-teal-800 border-teal-300 dark:bg-teal-950/80 dark:text-teal-300 dark:border-teal-600'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-600'
               }`}>
                 <span>{solicitud.dictamen === 'RECHAZADO' ? '❌ RECHAZADO' : (solicitud.dictamen === 'APROBADO EN GAMA' ? '🎨 APROBADO EN GAMA' : '✅ APROBADO')}</span>
               </span>
             ) : (
-              <span className="text-[11px] font-mono font-bold px-3 py-1 rounded-xl bg-emerald-950/60 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border border-dashed border-emerald-500/80 dark:border-emerald-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-[11px] font-mono font-bold px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-dashed border-emerald-400 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-500/80 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>MUESTRA ACTIVA</span>
               </span>
             )}
@@ -354,8 +354,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             {solicitud.tieneRetraso && solicitud.estado !== 'FINALIZADO' && (
               <span className={`text-[11px] font-mono font-black px-3 py-1 rounded-xl border flex items-center gap-1.5 animate-pulse ${
                 solicitud.esRetrasoCritico 
-                  ? 'bg-rose-950/90 text-rose-300 border-rose-500/80 dark:bg-rose-50 dark:text-rose-800 dark:border-rose-300' 
-                  : 'bg-amber-950/90 text-amber-300 border-amber-500/80 dark:bg-amber-50 dark:text-amber-800 dark:border-amber-300'
+                  ? 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/90 dark:text-rose-300 dark:border-rose-500/80' 
+                  : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/90 dark:text-amber-300 dark:border-amber-500/80'
               }`}>
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>RETRASO SLA ({solicitud.diasHabiles}D/{solicitud.limiteSlaDias}D)</span>
@@ -364,7 +364,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           </div>
 
           {/* Creation Date & Time Elapsed */}
-          <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 dark:text-zinc-500">
+          <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 dark:text-zinc-400">
             <span className="flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5" />
               <span>{formatColombianDisplayDate(solicitud.fechaCreacion)}</span>
@@ -386,10 +386,10 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             {/* Prominent OP Header */}
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <h3 className="text-xl sm:text-2xl font-black font-mono tracking-tight text-white dark:text-zinc-950">
+                <h3 className="text-xl sm:text-2xl font-black font-mono tracking-tight text-zinc-950 dark:text-white">
                   {solicitud.op}
                 </h3>
-                <span className="text-sm sm:text-base font-bold text-zinc-400 dark:text-zinc-500 font-mono">
+                <span className="text-sm sm:text-base font-bold text-zinc-500 dark:text-zinc-400 font-mono">
                   / REF - {solicitud.referencia}
                 </span>
               </div>
@@ -398,7 +398,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               <button
                 type="button"
                 onClick={() => onViewDetail(solicitud)}
-                className="text-xs font-bold text-indigo-400 dark:text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>Ver Ficha</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -407,7 +407,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
             {/* Fabric Tag & Mobile Photo Thumbnail Preview */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="inline-block bg-indigo-950/80 dark:bg-indigo-50 text-indigo-300 dark:text-indigo-800 border border-indigo-500/50 dark:border-indigo-200 text-[11px] sm:text-xs font-black px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-mono">
+              <span className="inline-block bg-indigo-50 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/50 text-[11px] sm:text-xs font-black px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-mono">
                 TELA: {solicitud.tela}
               </span>
 
@@ -420,7 +420,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                       const targetPhoto = effectiveFotoCalidad || effectiveFotoMuestra;
                       if (targetPhoto) setZoomedPhotoUrl(targetPhoto);
                     }}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900/90 dark:bg-zinc-100 border border-amber-500/60 text-amber-400 dark:text-amber-700 text-[10.5px] font-mono font-bold shadow-xs active:scale-95 transition"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-900/90 border border-amber-500/60 text-amber-700 dark:text-amber-400 text-[10.5px] font-mono font-bold shadow-xs active:scale-95 transition"
                     title="Toca para ver la foto de la muestra en grande"
                   >
                     <img
@@ -432,7 +432,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     <span>VER FOTO</span>
                   </button>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-900/50 dark:bg-zinc-100 text-zinc-500 text-[9.5px] font-mono">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-900/50 text-zinc-500 dark:text-zinc-400 text-[9.5px] font-mono">
                     <Camera className="w-3 h-3" />
                     <span>Sin foto</span>
                   </span>
@@ -443,14 +443,14 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             {/* Operator & Color & Rollos Grid */}
             <div className="space-y-2 pt-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
-                <div className="bg-zinc-900/90 dark:bg-zinc-100 p-3 rounded-2xl border border-zinc-800 dark:border-zinc-200">
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-sans font-bold block uppercase tracking-wider">REGISTRADO POR</span>
-                  <span className="font-bold text-white dark:text-zinc-900 truncate block text-sm mt-0.5">{solicitud.inspector}</span>
+                <div className="bg-zinc-50 dark:bg-zinc-900/90 p-3 rounded-2xl border border-zinc-200/90 dark:border-zinc-800">
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-sans font-bold block uppercase tracking-wider">REGISTRADO POR</span>
+                  <span className="font-bold text-zinc-900 dark:text-white truncate block text-sm mt-0.5">{solicitud.inspector}</span>
                 </div>
 
-                <div className="bg-zinc-900/90 dark:bg-zinc-100 p-3 rounded-2xl border border-zinc-800 dark:border-zinc-200">
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-sans font-bold block uppercase tracking-wider">COLOR</span>
-                  <span className="font-bold text-white dark:text-zinc-900 block text-sm mt-0.5">{solicitud.color}</span>
+                <div className="bg-zinc-50 dark:bg-zinc-900/90 p-3 rounded-2xl border border-zinc-200/90 dark:border-zinc-800">
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-sans font-bold block uppercase tracking-wider">COLOR</span>
+                  <span className="font-bold text-zinc-900 dark:text-white block text-sm mt-0.5">{solicitud.color}</span>
                 </div>
               </div>
 
@@ -474,7 +474,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                 {/* Foto 1: Inicial */}
                 <div
                   onClick={() => setZoomedPhotoUrl(effectiveFotoMuestra || null)}
-                  className="w-20 h-28 rounded-2xl p-1.5 bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-700 dark:border-zinc-300 flex flex-col items-center justify-between cursor-pointer hover:border-amber-500 group overflow-hidden shadow-sm transition"
+                  className="w-20 h-28 rounded-2xl p-1.5 bg-zinc-100 dark:bg-zinc-900/90 border border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-between cursor-pointer hover:border-amber-500 group overflow-hidden shadow-sm transition"
                   title="Clic para ver y ampliar Foto 1: Muestra Inicial (Corte)"
                 >
                   <img
@@ -483,7 +483,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     referrerPolicy="no-referrer"
                     className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
                   />
-                  <span className="text-[8px] font-black font-mono text-zinc-400 dark:text-zinc-600 uppercase flex items-center gap-1">
+                  <span className="text-[8px] font-black font-mono text-zinc-600 dark:text-zinc-400 uppercase flex items-center gap-1">
                     <Eye className="w-2.5 h-2.5 text-amber-500" />
                     <span>1. INICIAL</span>
                   </span>
@@ -492,7 +492,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                 {/* Foto 2: Calidad */}
                 <div
                   onClick={() => setZoomedPhotoUrl(effectiveFotoCalidad || null)}
-                  className="w-20 h-28 rounded-2xl p-1.5 bg-purple-950/40 dark:bg-purple-50 border border-purple-500/50 dark:border-purple-300 flex flex-col items-center justify-between cursor-pointer hover:border-purple-400 group overflow-hidden shadow-sm transition"
+                  className="w-20 h-28 rounded-2xl p-1.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-500/50 flex flex-col items-center justify-between cursor-pointer hover:border-purple-400 group overflow-hidden shadow-sm transition"
                   title="Clic para ver y ampliar Foto 2: Calidad Post-Lavado"
                 >
                   <img
@@ -501,8 +501,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     referrerPolicy="no-referrer"
                     className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
                   />
-                  <span className="text-[8px] font-black font-mono text-purple-300 dark:text-purple-700 uppercase flex items-center gap-1">
-                    <Eye className="w-2.5 h-2.5 text-purple-400" />
+                  <span className="text-[8px] font-black font-mono text-purple-700 dark:text-purple-300 uppercase flex items-center gap-1">
+                    <Eye className="w-2.5 h-2.5 text-purple-500" />
                     <span>2. CALIDAD</span>
                   </span>
                 </div>
@@ -517,8 +517,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                 }}
                 className={`w-28 h-28 rounded-2xl p-2 flex flex-col items-center justify-center transition overflow-hidden relative group ${
                   (effectiveFotoCalidad || effectiveFotoMuestra)
-                    ? 'bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-700 dark:border-zinc-300 cursor-pointer hover:border-amber-500 shadow-sm'
-                    : 'bg-zinc-900/40 dark:bg-zinc-100/50 border border-zinc-800/80 dark:border-zinc-200 text-zinc-500 dark:text-zinc-400'
+                    ? 'bg-zinc-100 dark:bg-zinc-900/90 border border-zinc-300 dark:border-zinc-700 cursor-pointer hover:border-amber-500 shadow-sm'
+                    : 'bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/80 text-zinc-400 dark:text-zinc-500'
                 }`}
                 title={
                   (effectiveFotoCalidad || effectiveFotoMuestra)
@@ -543,8 +543,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   </>
                 ) : (
                   <>
-                    <Camera className="w-6 h-6 mb-1 text-zinc-500 dark:text-zinc-400 stroke-[1.5]" />
-                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-center text-zinc-400 dark:text-zinc-500 font-mono">
+                    <Camera className="w-6 h-6 mb-1 text-zinc-400 dark:text-zinc-500 stroke-[1.5]" />
+                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-center text-zinc-500 dark:text-zinc-400 font-mono">
                       SIN FOTO
                     </span>
                   </>
@@ -556,13 +556,13 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
         {/* Stepper Pipeline */}
         <div className="pt-2">
-          <div className="grid grid-cols-5 text-center text-[8.5px] sm:text-[10.5px] font-mono tracking-wider border-b border-zinc-800/80 dark:border-zinc-200/80 pb-2.5">
+          <div className="grid grid-cols-5 text-center text-[8.5px] sm:text-[10.5px] font-mono tracking-wider border-b border-zinc-200/80 dark:border-zinc-800/80 pb-2.5">
             {STAGES.map((st, i) => {
               const isActive = i === currentStageIndex;
               const isPassed = i < currentStageIndex;
               return (
                 <div key={st.key} className="relative pb-1">
-                  <span className={isActive ? stageConfig.activeText : isPassed ? 'text-emerald-400 dark:text-emerald-600 font-bold' : 'text-zinc-500 dark:text-zinc-400'}>
+                  <span className={isActive ? stageConfig.activeText : isPassed ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-zinc-400 dark:text-zinc-500'}>
                     <span className="sm:hidden">{st.shortLabel}</span>
                     <span className="hidden sm:inline">{st.label}</span>
                   </span>
@@ -576,7 +576,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
         </div>
 
         {/* Sub-footer: Location & Operator */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-zinc-400 dark:text-zinc-600 gap-2 pt-1 font-mono">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-zinc-600 dark:text-zinc-400 gap-2 pt-1 font-mono">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-sans font-bold uppercase text-zinc-500 dark:text-zinc-400">Ubicación:</span>
             <span className={`px-3 py-1 rounded-xl text-[10px] font-bold border ${stageConfig.locationBadge}`}>
@@ -585,7 +585,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           </div>
 
           <div className="text-xs">
-            Último control: <strong className="text-white dark:text-zinc-950">{solicitud.inspector}</strong>
+            Último control: <strong className="text-zinc-950 dark:text-white">{solicitud.inspector}</strong>
           </div>
         </div>
 
@@ -593,32 +593,32 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
         {/* GESTIÓN LAVANDERÍA: RECEPCIÓN TÉCNICA DE COLCHA (EXCLUSIVO LAVANDERÍA)  */}
         {/* ========================================================================= */}
         {(isLavanderiaUser(currentUser) || isAdminUser(currentUser)) && (solicitud.estado === 'PRE_SOLICITUD' || solicitud.estado === 'SOLICITADO') && (
-          <div className="relative overflow-hidden bg-gradient-to-br from-sky-950/70 via-[#0a1526] to-[#070e1a] dark:from-sky-50 dark:via-blue-50/60 dark:to-white border-2 border-sky-500/40 dark:border-sky-300 rounded-3xl p-5 sm:p-6 space-y-4 mt-3 shadow-xl backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative overflow-hidden bg-sky-50/70 dark:bg-gradient-to-br dark:from-sky-950/70 dark:via-[#0a1526] dark:to-[#070e1a] border-2 border-sky-300 dark:border-sky-500/40 rounded-3xl p-5 sm:p-6 space-y-4 mt-3 shadow-md dark:shadow-xl backdrop-blur-md animate-in fade-in duration-300">
             
             {/* Ambient Glow */}
             <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-sky-500/10 dark:bg-sky-400/20 rounded-full blur-2xl pointer-events-none" />
 
             {/* Header with icon and origin tag */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-sky-500/20 dark:border-sky-200/80 pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-sky-200 dark:border-sky-500/20 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-sky-500/20 dark:bg-sky-100 flex items-center justify-center border border-sky-400/40 text-sky-400 dark:text-sky-600 shadow-sm">
+                <div className="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-500/20 flex items-center justify-center border border-sky-300 dark:border-sky-400/40 text-sky-600 dark:text-sky-400 shadow-sm">
                   <Droplets className="w-4 h-4 animate-pulse" />
                 </div>
                 <div>
-                  <h4 className="text-sm sm:text-base font-black text-sky-300 dark:text-sky-900 tracking-wide font-sans flex items-center gap-2">
+                  <h4 className="text-sm sm:text-base font-black text-sky-900 dark:text-sky-300 tracking-wide font-sans flex items-center gap-2">
                     GESTIÓN LAVANDERÍA
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-900/60 dark:bg-sky-200/60 text-sky-300 dark:text-sky-800 border border-sky-500/30">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-500/30">
                       RECEPCIÓN
                     </span>
                   </h4>
-                  <p className="text-[10.5px] text-zinc-400 dark:text-zinc-600 font-mono">
+                  <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400 font-mono">
                     Ingreso de muestra técnica al túnel de lavado
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono font-black px-3 py-1 rounded-xl bg-sky-950/80 dark:bg-sky-100 text-sky-300 dark:text-sky-800 border border-sky-500/40 dark:border-sky-300 shadow-xs uppercase">
+                <span className="text-[10px] font-mono font-black px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-500/40 shadow-xs uppercase">
                   {solicitud.estado === 'PRE_SOLICITUD' ? '📍 ZONA FRANCA (ATELIER)' : '📍 PLANTA PRINCIPAL (DESPACHO)'}
                 </span>
               </div>
@@ -644,33 +644,33 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
         {/* GESTIÓN LAVANDERÍA (COCKPIT INTEGRADO EXCLUSIVO PARA PERFILES LAVANDERÍA) */}
         {/* ========================================================================= */}
         {(isLavanderiaUser(currentUser) || isAdminUser(currentUser)) && solicitud.estado === 'LAVANDERIA' && (
-          <div className="relative overflow-hidden bg-gradient-to-br from-sky-950/80 via-[#0a1424] to-[#070e1a] dark:from-sky-50 dark:via-blue-50/70 dark:to-white border-2 border-sky-500/50 dark:border-sky-300 rounded-3xl p-5 sm:p-6 space-y-4 mt-3 shadow-2xl backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative overflow-hidden bg-sky-50/70 dark:bg-gradient-to-br dark:from-sky-950/80 dark:via-[#0a1424] dark:to-[#070e1a] border-2 border-sky-300 dark:border-sky-500/50 rounded-3xl p-5 sm:p-6 space-y-4 mt-3 shadow-md dark:shadow-2xl backdrop-blur-md animate-in fade-in duration-300">
             
             {/* Ambient glow */}
             <div className="absolute top-0 right-0 -mt-10 -mr-10 w-36 h-36 bg-sky-500/10 dark:bg-sky-400/20 rounded-full blur-2xl pointer-events-none" />
 
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-sky-500/20 dark:border-sky-200/80 pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-sky-200 dark:border-sky-500/20 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-sky-500/20 dark:bg-sky-100 flex items-center justify-center border border-sky-400/40 text-sky-400 dark:text-sky-600 shadow-sm">
-                  <Droplets className="w-4 h-4 text-sky-400 animate-bounce" />
+                <div className="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-500/20 flex items-center justify-center border border-sky-300 dark:border-sky-400/40 text-sky-600 dark:text-sky-400 shadow-sm">
+                  <Droplets className="w-4 h-4 text-sky-500 dark:text-sky-400 animate-bounce" />
                 </div>
                 <div>
-                  <h4 className="text-sm sm:text-base font-black text-sky-300 dark:text-sky-900 tracking-wide font-sans flex items-center gap-2">
+                  <h4 className="text-sm sm:text-base font-black text-sky-900 dark:text-sky-300 tracking-wide font-sans flex items-center gap-2">
                     GESTIÓN LAVANDERÍA
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-900/60 dark:bg-sky-200/60 text-sky-300 dark:text-sky-800 border border-sky-500/30">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-500/30">
                       COLFACTORY ZF
                     </span>
                   </h4>
-                  <p className="text-[10.5px] text-zinc-400 dark:text-zinc-600 font-mono">
+                  <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400 font-mono">
                     Control de procesos, novedades técnicas y despacho a Calidad
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[10.5px] font-mono font-bold px-3 py-1 rounded-xl bg-sky-950/90 dark:bg-sky-100 text-sky-300 dark:text-sky-800 border border-sky-500/40 dark:border-sky-300 flex items-center gap-1.5 shadow-xs">
-                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
+                <span className="text-[10.5px] font-mono font-bold px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/90 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-500/40 flex items-center gap-1.5 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-sky-500 dark:bg-sky-400 animate-ping"></span>
                   <span>EN LAVADO ACTIVO</span>
                 </span>
               </div>
@@ -679,13 +679,13 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             {/* Observaciones Input with Smart Quick Tags */}
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-1.5">
-                <label className="text-[10.5px] font-bold text-sky-300 dark:text-sky-800 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                <label className="text-[10.5px] font-bold text-sky-800 dark:text-sky-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
                   <span>OBSERVACIONES DE ENVÍO Y PROCESO</span>
                 </label>
                 
                 {/* Quick tags con auto-guardado en Columna L */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[9.5px] text-zinc-400 dark:text-zinc-500 font-mono">Sugeridos:</span>
+                  <span className="text-[9.5px] text-zinc-500 dark:text-zinc-400 font-mono">Sugeridos:</span>
                   {[
                     'Lavado estándar',
                     'Desengomado + Suavizado',
@@ -700,7 +700,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                         setNotasLavado(nextVal);
                         handleGuardarObservacionLavado(nextVal);
                       }}
-                      className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-lg bg-zinc-900/90 hover:bg-sky-950 text-zinc-300 hover:text-sky-300 dark:bg-zinc-100 dark:hover:bg-sky-100 dark:text-zinc-700 dark:hover:text-sky-800 border border-zinc-700/80 hover:border-sky-500/50 transition cursor-pointer"
+                      className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-lg bg-white hover:bg-sky-100 text-zinc-700 hover:text-sky-900 dark:bg-zinc-900/90 dark:hover:bg-sky-950 dark:text-zinc-300 dark:hover:text-sky-300 border border-zinc-300 dark:border-zinc-700/80 transition cursor-pointer shadow-xs"
                     >
                       + {tag}
                     </button>
@@ -714,7 +714,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                 onBlur={() => handleGuardarObservacionLavado()}
                 rows={2}
                 placeholder="Describa el proceso técnico realizado, formulación o novedades..."
-                className="w-full bg-zinc-950/90 dark:bg-white border-2 border-zinc-800 dark:border-zinc-300 rounded-2xl p-3.5 text-xs text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none focus:border-sky-500 transition font-mono shadow-inner"
+                className="w-full bg-white dark:bg-zinc-950/90 border-2 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 text-xs text-zinc-950 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-sky-500 transition font-mono shadow-xs"
               />
 
               {/* Botón de Guardado Directo en Columna L & Confirmación Visual */}
@@ -723,24 +723,24 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   type="button"
                   onClick={() => handleGuardarObservacionLavado()}
                   disabled={isSavingLavado}
-                  className="inline-flex items-center gap-1.5 text-[10.5px] font-mono font-bold px-3 py-1.5 rounded-xl bg-sky-950/90 hover:bg-sky-900 text-sky-300 hover:text-sky-100 border border-sky-500/50 hover:border-sky-400 transition cursor-pointer active:scale-95 shadow-xs disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 text-[10.5px] font-mono font-bold px-3 py-1.5 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 hover:text-sky-900 dark:bg-sky-950/90 dark:hover:bg-sky-900 dark:text-sky-300 dark:hover:text-sky-100 border border-sky-300 dark:border-sky-500/50 transition cursor-pointer active:scale-95 shadow-xs disabled:opacity-50"
                   title="Guardar de inmediato esta observación en la Columna L (OBSERVACIÓN COLFACTORY) de Google Sheets"
                 >
                   {isSavingLavado ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-600 dark:text-sky-400" />
                       <span>Guardando en Columna L...</span>
                     </>
                   ) : (
                     <>
-                      <Save className="w-3.5 h-3.5 text-sky-400" />
+                      <Save className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                       <span>💾 GUARDAR EN COLUMNA L (COLFACTORY)</span>
                     </>
                   )}
                 </button>
 
                 {saveSuccessMsg && (
-                  <span className="text-[11px] font-mono text-emerald-400 dark:text-emerald-600 flex items-center gap-1 font-bold animate-pulse">
+                  <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-bold animate-pulse">
                     <Check className="w-3.5 h-3.5" />
                     <span>{saveSuccessMsg}</span>
                   </span>
@@ -768,10 +768,10 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                 <button
                   type="button"
                   onClick={handleDevolver}
-                  className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 dark:text-rose-600 border border-rose-500/40 hover:border-rose-500/70 py-3.5 px-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer shadow-xs active:scale-[0.99]"
+                  className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-500/40 py-3.5 px-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer shadow-xs active:scale-[0.99]"
                   title="Devolver OP por error o novedad técnica en lavandería"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-rose-400 dark:text-rose-600" />
+                  <RotateCcw className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                   <span className="font-mono">DEVOLVER (ERROR)</span>
                 </button>
               </div>
@@ -786,17 +786,17 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
         {/* ========================================================================= */}
         {solicitud.estado === 'CALIDAD' && (
           (isCalidadUser(currentUser) || isAdminUser(currentUser)) ? (
-            <div className="bg-[#0e121e] dark:bg-purple-50/70 border-2 border-indigo-500/40 dark:border-purple-300 rounded-3xl p-5 space-y-4 mt-3 shadow-xl animate-in fade-in duration-200">
+            <div className="bg-purple-50/60 dark:bg-[#0e121e] border-2 border-purple-200 dark:border-indigo-500/40 rounded-3xl p-5 space-y-4 mt-3 shadow-md dark:shadow-xl animate-in fade-in duration-200">
               
               {/* Header: (✓) CONTROL DE CALIDAD (STF) */}
-              <div className="flex items-center justify-between border-b border-zinc-800 dark:border-purple-200/80 pb-3">
+              <div className="flex items-center justify-between border-b border-purple-200 dark:border-zinc-800 pb-3">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-indigo-400 dark:text-indigo-600" />
-                  <h4 className="text-sm sm:text-base font-black text-indigo-300 dark:text-indigo-900 tracking-wide font-sans">
+                  <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  <h4 className="text-sm sm:text-base font-black text-indigo-950 dark:text-indigo-300 tracking-wide font-sans">
                     CONTROL DE CALIDAD (STF)
                   </h4>
                 </div>
-                <span className="text-[10px] font-mono font-black px-3 py-1 rounded-full bg-indigo-950/80 dark:bg-indigo-100 text-indigo-300 dark:text-indigo-800 border border-indigo-500/40 dark:border-indigo-300">
+                <span className="text-[10px] font-mono font-black px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-500/40">
                   AUDITORÍA FINAL
                 </span>
               </div>
@@ -806,13 +806,13 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                 
                 {/* 1. VEREDICTO * */}
                 <div className="md:col-span-4 space-y-1.5">
-                  <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono">
+                  <label className="block text-[10.5px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider font-mono">
                     VEREDICTO <span className="text-rose-500 font-black">*</span>
                   </label>
                   <select
                     value={veredictoLocal}
                     onChange={(e) => setVeredictoLocal(e.target.value as 'APROBADO' | 'APROBADO EN GAMA' | 'RECHAZADO' | '')}
-                    className="w-full bg-zinc-950 dark:bg-white border-2 border-zinc-700 dark:border-zinc-300 rounded-2xl p-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-indigo-500 font-bold transition shadow-sm cursor-pointer"
+                    className="w-full bg-white dark:bg-zinc-950 border-2 border-zinc-300 dark:border-zinc-700 rounded-2xl p-3 text-xs text-zinc-950 dark:text-white focus:outline-none focus:border-indigo-500 font-bold transition shadow-xs cursor-pointer"
                   >
                     <option value="">-- Veredicto --</option>
                     <option value="APROBADO">✅ APROBADO</option>
@@ -823,7 +823,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
                 {/* 2. OBSERVACIÓN FINAL * */}
                 <div className="md:col-span-5 space-y-1.5">
-                  <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono">
+                  <label className="block text-[10.5px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider font-mono">
                     OBSERVACIÓN FINAL <span className="text-rose-500 font-black">*</span>
                   </label>
                   <input
@@ -831,20 +831,20 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     value={obsCalidadLocal}
                     onChange={(e) => setObsCalidadLocal(e.target.value)}
                     placeholder="Escriba la observación técnica final..."
-                    className="w-full bg-zinc-950 dark:bg-white border-2 border-zinc-700 dark:border-zinc-300 rounded-2xl p-3 text-xs text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition font-mono shadow-sm"
+                    className="w-full bg-white dark:bg-zinc-950 border-2 border-zinc-300 dark:border-zinc-700 rounded-2xl p-3 text-xs text-zinc-950 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition font-mono shadow-xs"
                   />
                 </div>
 
                 {/* 3. FOTO * */}
                 <div className="md:col-span-3 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10.5px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider font-mono flex items-center gap-1">
-                      <Camera className="w-3.5 h-3.5 text-indigo-400" />
+                    <label className="text-[10.5px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider font-mono flex items-center gap-1">
+                      <Camera className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                       <span>FOTO 2 (CALIDAD) <span className="text-rose-500 font-black">*</span></span>
                     </label>
                     <span className={`text-[9.5px] font-mono font-bold ${
                       fotoCalidadUrlActual 
-                        ? 'text-emerald-400 dark:text-emerald-600' 
+                        ? 'text-emerald-600 dark:text-emerald-400' 
                         : 'text-zinc-500 dark:text-zinc-400'
                     }`}>
                       {fotoCalidadUrlActual ? '✓ CARGADA' : 'SIN FOTO'}
@@ -855,9 +855,9 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     type="button"
                     onClick={() => calidadFileInputRef.current?.click()}
                     disabled={isUploadingCalidadPhoto}
-                    className="w-full bg-black hover:bg-zinc-900 text-white dark:bg-zinc-950 dark:hover:bg-zinc-800 border border-zinc-700 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-md active:scale-[0.99] disabled:opacity-50"
+                    className="w-full bg-zinc-950 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-950 border border-zinc-800 dark:border-zinc-300 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-md active:scale-[0.99] disabled:opacity-50"
                   >
-                    <Upload className="w-3.5 h-3.5 text-white" />
+                    <Upload className="w-3.5 h-3.5" />
                     <span>{isUploadingCalidadPhoto ? 'CARGANDO...' : 'ACTUALIZAR FOTO'}</span>
                   </button>
                   <input
@@ -886,12 +886,12 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
             </div>
           ) : (
-            <div className="bg-purple-950/20 dark:bg-purple-50/50 border border-purple-500/30 dark:border-purple-200 rounded-3xl p-4 sm:p-5 text-center mt-3 animate-in fade-in duration-200">
-              <div className="flex items-center justify-center gap-2 text-purple-400 dark:text-purple-700 font-bold text-xs sm:text-sm font-mono">
-                <Microscope className="w-4 h-4 text-purple-400 animate-pulse" />
+            <div className="bg-purple-50/70 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-500/30 rounded-3xl p-4 sm:p-5 text-center mt-3 animate-in fade-in duration-200">
+              <div className="flex items-center justify-center gap-2 text-purple-700 dark:text-purple-400 font-bold text-xs sm:text-sm font-mono">
+                <Microscope className="w-4 h-4 text-purple-600 dark:text-purple-400 animate-pulse" />
                 <span>OP EN AUDITORÍA TÉCNICA DE CALIDAD (LABORATORIO STF)</span>
               </div>
-              <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-1.5 font-mono max-w-xl mx-auto">
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1.5 font-mono max-w-xl mx-auto">
                 Esta colcha física está en evaluación por los inspectores del laboratorio de Calidad para registrar el veredicto técnico (Aprobado/Rechazado), observación final y fotografía post-lavado.
               </p>
             </div>
@@ -899,19 +899,19 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
         )}
 
         {/* Bottom Actions Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pt-3 border-t border-zinc-800/80 dark:border-zinc-200/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pt-3 border-t border-zinc-200/80 dark:border-zinc-800/80">
           <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => onViewDetail(solicitud)}
-              className="px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-md"
+              className="px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-md"
             >
-              <Eye className="w-4 h-4 text-amber-500" />
+              <Eye className="w-4 h-4 text-amber-400" />
               <span>VER DETALLE</span>
             </button>
 
             <button
               onClick={() => onPrint(solicitud)}
-              className="px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-transparent border-2 border-zinc-700 text-white hover:bg-zinc-800 dark:border-zinc-300 dark:text-zinc-900 dark:hover:bg-zinc-100 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer"
+              className="px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-transparent border-2 border-zinc-300 text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:text-white dark:hover:bg-zinc-800 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               <span>IMPRIMIR</span>
@@ -925,7 +925,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   e.stopPropagation();
                   onDelete(solicitud);
                 }}
-                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-600 border border-rose-400/60 dark:border-rose-300 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
+                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-500 border border-rose-300 dark:border-rose-400/60 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
                 title="Eliminar esta OP automáticamente (Exclusivo Perfil ediaz)"
               >
                 <Trash2 className="w-4 h-4 text-rose-500" />
@@ -941,10 +941,10 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                   e.stopPropagation();
                   onFinalizar(solicitud);
                 }}
-                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 dark:text-emerald-700 border border-emerald-500/60 dark:border-emerald-400 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
+                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-400 dark:border-emerald-500/60 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
                 title="Dar por finalizada esta OP y moverla automáticamente a Finalizados en el sistema y base de datos"
               >
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>FINALIZAR</span>
               </button>
             )}
@@ -953,10 +953,10 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           {solicitud.estado === 'FINALIZADO' ? (
             <span className={`text-xs font-bold px-3.5 py-2 rounded-xl sm:rounded-2xl border font-mono flex items-center justify-center gap-1.5 shadow-xs w-full sm:w-auto ${
               solicitud.dictamen === 'RECHAZADO'
-                ? 'bg-rose-950/80 dark:bg-rose-50 text-rose-300 dark:text-rose-700 border-rose-500/40 dark:border-rose-300'
+                ? 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-500/40'
                 : solicitud.dictamen === 'APROBADO EN GAMA'
-                ? 'bg-teal-950/80 dark:bg-teal-50 text-teal-300 dark:text-teal-700 border-teal-500/40 dark:border-teal-300'
-                : 'bg-emerald-950/60 dark:bg-emerald-50 text-emerald-300 dark:text-emerald-700 border-emerald-500/40 dark:border-emerald-300'
+                ? 'bg-teal-50 text-teal-800 border-teal-300 dark:bg-teal-950/80 dark:text-teal-300 dark:border-teal-500/40'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-500/40'
             }`}>
               <span>{solicitud.dictamen === 'RECHAZADO' ? '❌ RECHAZADO' : (solicitud.dictamen === 'APROBADO EN GAMA' ? '🎨 LIBERADO / APROBADO EN GAMA' : '✅ LIBERADO / APROBADO')}</span>
             </span>

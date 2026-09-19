@@ -307,24 +307,24 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
   return (
     <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-200">
-      <div className="bg-[#0b1411] dark:bg-white border-2 border-emerald-500/80 rounded-3xl max-w-2xl w-full shadow-2xl shadow-emerald-950/60 overflow-hidden flex flex-col max-h-[92vh] text-white dark:text-zinc-950 font-sans animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-[#0c1017] border-2 border-emerald-500/80 rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-zinc-950 dark:text-white font-sans animate-in zoom-in-95 duration-200">
         
         {/* HEADER */}
-        <div className="p-5 sm:p-6 border-b border-emerald-900/60 dark:border-zinc-200 bg-gradient-to-r from-emerald-950/80 via-[#0b1411] to-emerald-950/80 dark:from-emerald-50 dark:via-white dark:to-emerald-50 flex items-center justify-between gap-4">
+        <div className="p-5 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500/60 flex items-center justify-center text-emerald-400 dark:text-emerald-700 shrink-0 shadow-lg shadow-emerald-500/20">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 shadow-lg shadow-emerald-500/20">
               <MessageSquare className="w-6 h-6 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base sm:text-lg font-black uppercase tracking-wide font-mono text-white dark:text-zinc-950">
+                <h3 className="text-base sm:text-lg font-black uppercase tracking-wide font-mono text-zinc-950 dark:text-white">
                   ALERTAS DE EMERGENCIA POR WHATSAPP
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-emerald-500 text-black uppercase">
                   AUTO-LOGIN DIRECTO
                 </span>
               </div>
-              <p className="text-xs text-zinc-300 dark:text-zinc-600 mt-0.5">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
                 Envío instantáneo sincronizado con la hoja <strong>USUARIOS</strong> (Columna F).
               </p>
             </div>
@@ -333,7 +333,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-zinc-400 hover:text-white dark:hover:text-black transition cursor-pointer"
+            className="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -344,12 +344,12 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
           
           {/* 1. SELECTOR DE DESTINATARIOS */}
           <div className="space-y-1.5">
-            <label className="text-xs font-mono font-bold text-emerald-400 dark:text-emerald-700 flex items-center justify-between">
+            <label className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5" />
                 DESTINATARIO DE LA ALERTA:
               </span>
-              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal">
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-normal">
                 {destinatarios.length} contactos en Google Sheets
               </span>
             </label>
@@ -357,14 +357,14 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             <select
               value={selectedRecipientId}
               onChange={(e) => setSelectedRecipientId(e.target.value)}
-              className="w-full bg-[#12231c] dark:bg-zinc-50 border-2 border-emerald-500/50 dark:border-zinc-300 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono font-bold text-white dark:text-zinc-950 focus:outline-none focus:border-emerald-400 cursor-pointer shadow-inner"
+              className="w-full bg-white dark:bg-zinc-900 border-2 border-zinc-300 dark:border-zinc-700 focus:border-emerald-500 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono font-bold text-zinc-950 dark:text-white cursor-pointer shadow-inner"
             >
-              <option value="TODOS" className="bg-[#0b1411] text-emerald-300 font-black py-2">
+              <option value="TODOS" className="bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 font-black py-2">
                 📢 Enviar a Todos ({destinatarios.length} Usuarios Registrados en Google Sheets)
               </option>
-              <optgroup label="── Contactos Registrados en Base de Datos (Columna F WhatsApp) ──" className="bg-[#0b1411] text-zinc-300">
+              <optgroup label="── Contactos Registrados en Base de Datos (Columna F WhatsApp) ──" className="bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300">
                 {destinatarios.map((dest) => (
-                  <option key={dest.id} value={dest.id} className="bg-[#0b1411] text-white py-1">
+                  <option key={dest.id} value={dest.id} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white py-1">
                     {dest.nombre} ({dest.telefono}) - {dest.area} [{dest.rol}]
                   </option>
                 ))}
@@ -374,12 +374,12 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
           {/* 2. SELECTOR DE OP / MOTIVO DE ALERTA */}
           <div className="space-y-1.5">
-            <label className="text-xs font-mono font-bold text-emerald-400 dark:text-emerald-700 flex items-center justify-between">
+            <label className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5" />
                 ORDEN DE PRODUCCIÓN / MOTIVO DE ALERTA:
               </span>
-              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal">
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-normal">
                 Opcional
               </span>
             </label>
@@ -387,20 +387,20 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             <select
               value={selectedOpMotivo}
               onChange={(e) => setSelectedOpMotivo(e.target.value)}
-              className="w-full bg-[#12231c] dark:bg-zinc-50 border-2 border-emerald-500/50 dark:border-zinc-300 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono font-bold text-white dark:text-zinc-950 focus:outline-none focus:border-emerald-400 cursor-pointer shadow-inner"
+              className="w-full bg-white dark:bg-zinc-900 border-2 border-zinc-300 dark:border-zinc-700 focus:border-emerald-500 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono font-bold text-zinc-950 dark:text-white cursor-pointer shadow-inner"
             >
-              <option value="GENERAL" className="bg-[#0b1411] text-emerald-300 font-bold">
+              <option value="GENERAL" className="bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 font-bold">
                 📊 Reporte Consolidado de Alertas SLA ({opsEnAlerta.length} OPs Retrasadas)
               </option>
-              <option value="SIN_OP" className="bg-[#0b1411] text-zinc-300">
+              <option value="SIN_OP" className="bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300">
                 Sin OP / Motivo General
               </option>
               
               {/* OPs in Alert */}
               {opsEnAlerta.length > 0 && (
-                <optgroup label="── OPs con Retraso SLA Activo (>3 Días) ──" className="bg-[#0b1411] text-rose-300">
+                <optgroup label="── OPs con Retraso SLA Activo (>3 Días) ──" className="bg-white dark:bg-zinc-900 text-rose-700 dark:text-rose-400">
                   {opsEnAlerta.map((op) => (
-                    <option key={op.id} value={`OP-${op.op}`} className="bg-[#0b1411] text-rose-300">
+                    <option key={op.id} value={`OP-${op.op}`} className="bg-white dark:bg-zinc-900 text-rose-700 dark:text-rose-400">
                       🚨 OP-{op.op} • Ref: {op.referencia} • {op.tela} (+{Math.max(0, op.diasHabiles - 3)}d Retraso en {op.areaActual || op.estado})
                     </option>
                   ))}
@@ -408,7 +408,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
               )}
 
               {/* Standard Reasons */}
-              <optgroup label="── Motivos Estándar de Emergencia ──" className="bg-[#0b1411] text-amber-300">
+              <optgroup label="── Motivos Estándar de Emergencia ──" className="bg-white dark:bg-zinc-900 text-amber-700 dark:text-amber-400">
                 <option value="OP Retrasada en Lavandería - Requiere Agilización Urgente">
                   ⚠️ OP Retrasada en Lavandería - Requiere Agilización Urgente
                 </option>
@@ -433,9 +433,9 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
           {/* 3. CAMPO DE TEXTO / DETALLE ADICIONAL */}
           <div className="space-y-1.5">
-            <label className="text-xs font-mono font-bold text-emerald-400 dark:text-emerald-700 flex items-center justify-between">
+            <label className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-between">
               <span>DETALLE ADICIONAL O ACLARACIÓN RÁPIDA:</span>
-              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal">
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-normal">
                 {detalleAdicional.length}/300 caracteres
               </span>
             </label>
@@ -445,42 +445,43 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
               value={detalleAdicional}
               onChange={(e) => setDetalleAdicional(e.target.value)}
               placeholder="Ej: Favor priorizar el lavado de los 4 rollos de índigo hoy antes de las 3:00 PM..."
-              className="w-full bg-[#12231c] dark:bg-zinc-50 border-2 border-emerald-500/50 dark:border-zinc-300 rounded-2xl p-3.5 text-xs sm:text-sm font-mono text-white dark:text-zinc-950 placeholder-zinc-500 focus:outline-none focus:border-emerald-400 shadow-inner resize-none"
+              className="w-full bg-white dark:bg-zinc-900 border-2 border-zinc-300 dark:border-zinc-700 focus:border-emerald-500 rounded-2xl p-3.5 text-xs sm:text-sm font-mono text-zinc-950 dark:text-white placeholder-zinc-400 shadow-inner resize-none"
             />
           </div>
 
           {/* 4. VISTA PREVIA DEL MENSAJE OFICIAL CON ENCABEZADO DE LOGO OFICIAL */}
-          <div className="p-4 rounded-2xl bg-[#08130e] dark:bg-emerald-50/50 border border-emerald-500/40 dark:border-emerald-200 space-y-2.5">
+          <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-black text-emerald-400 dark:text-emerald-800 uppercase flex items-center gap-1.5">
+              <span className="text-[11px] font-mono font-black text-emerald-700 dark:text-emerald-400 uppercase flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
                 VISTA PREVIA DEL MENSAJE OFICIAL:
               </span>
               <button
                 type="button"
                 onClick={handleCopyMessage}
-                className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 dark:text-emerald-800 text-[10px] font-mono font-bold flex items-center gap-1 transition cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-[10px] font-mono font-bold flex items-center gap-1 transition cursor-pointer"
               >
-                {copiedPreview ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                {copiedPreview ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
                 <span>{copiedPreview ? 'Copiado' : 'Copiar Texto'}</span>
               </button>
             </div>
 
             {/* Tarjeta de Mensaje con Encabezado de Logo Oficial */}
-            <div className="rounded-2xl bg-black/75 dark:bg-white border border-emerald-500/30 dark:border-zinc-200 overflow-hidden shadow-inner max-h-60 overflow-y-auto custom-scroll">
+            <div className="rounded-2xl bg-white dark:bg-black/75 border border-zinc-200 dark:border-emerald-500/30 overflow-hidden shadow-inner max-h-60 overflow-y-auto custom-scroll">
               {/* Encabezado Oficial con Logo de la Compañía */}
-              <div className="p-3.5 border-b border-emerald-500/20 dark:border-zinc-100 bg-gradient-to-r from-emerald-950/50 via-black to-emerald-950/50 dark:from-zinc-50 dark:via-white dark:to-zinc-50 flex flex-col items-center justify-center text-center gap-1">
-                <STFLogo isWhite={true} className="h-9 sm:h-11 w-44 sm:w-56" />
+              <div className="p-3.5 border-b border-zinc-200 dark:border-emerald-500/20 bg-zinc-100/70 dark:bg-gradient-to-r dark:from-emerald-950/50 dark:via-black dark:to-emerald-950/50 flex flex-col items-center justify-center text-center gap-1">
+                <STFLogo isWhite={false} className="dark:hidden h-9 sm:h-11 w-44 sm:w-56" />
+                <STFLogo isWhite={true} className="hidden dark:inline-flex h-9 sm:h-11 w-44 sm:w-56" />
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[9px] font-mono tracking-widest text-emerald-400 dark:text-emerald-700 font-black uppercase">
+                  <span className="text-[9px] font-mono tracking-widest text-emerald-700 dark:text-emerald-400 font-black uppercase">
                     CONTROL DE CALIDAD & TRAZABILIDAD TEXTIL
                   </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
                 </div>
               </div>
 
               {/* Texto del Mensaje */}
-              <div className="p-4 text-xs font-mono text-emerald-100 dark:text-zinc-800 whitespace-pre-line leading-relaxed select-text">
+              <div className="p-4 text-xs font-mono text-zinc-800 dark:text-emerald-100 whitespace-pre-line leading-relaxed select-text">
                 {buildWhatsAppMessage(previewName, previewId)}
               </div>
             </div>
@@ -488,8 +489,8 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
           {/* BROADCAST ALERT NOTICE IF 'TODOS' SELECTED */}
           {selectedRecipientId === 'TODOS' && (
-            <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 dark:text-amber-800 text-xs font-mono flex items-start gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-300 text-xs font-mono flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <strong>Modo Difusión Masiva:</strong> Al pulsar enviar, se abrirá la interfaz de WhatsApp para cada uno de los <strong>{destinatarios.length} usuarios registrados</strong> con su enlace personalizado de acceso directo.
               </div>
@@ -498,14 +499,14 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
 
           {/* BANNER INFORMATIVO AL ENVIAR */}
           {justSent && (
-            <div className="p-4 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500/60 text-emerald-300 dark:text-emerald-950 text-xs font-mono space-y-2 animate-in fade-in duration-200">
+            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-400 dark:border-emerald-500/60 text-emerald-800 dark:text-emerald-300 text-xs font-mono space-y-2 animate-in fade-in duration-200">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <div className="flex-1 font-bold">
                   ¡Alerta cargada en WhatsApp con el mensaje listo para enviar!
                 </div>
               </div>
-              <div className="pl-7 text-[11px] text-zinc-300 dark:text-zinc-700 space-y-1.5">
+              <div className="pl-7 text-[11px] text-zinc-600 dark:text-zinc-400 space-y-1.5">
                 <p>
                   El mensaje oficial ya está redactado en la ventana de chat con <strong>{previewName}</strong> listo para pulsar enviar. Si necesitas volver a abrirlo o copiar el texto:
                 </p>
@@ -513,7 +514,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
                   <button 
                     type="button"
                     onClick={handleCopyMessage}
-                    className="text-emerald-400 dark:text-emerald-700 underline font-bold cursor-pointer"
+                    className="text-emerald-600 dark:text-emerald-400 underline font-bold cursor-pointer"
                   >
                     📋 Copiar reporte al portapapeles
                   </button>
@@ -521,7 +522,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
                     href={`https://api.whatsapp.com/send?phone=${previewPhone}&text=${encodeURIComponent(buildWhatsAppMessage(previewName, previewId))}`} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="text-zinc-400 hover:text-white dark:hover:text-black underline"
+                    className="text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white underline"
                   >
                     🌐 Reabrir en nueva pestaña ↗
                   </a>
@@ -533,14 +534,14 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
         </div>
 
         {/* FOOTER ACTION BUTTON */}
-        <div className="p-5 sm:p-6 border-t border-emerald-900/60 dark:border-zinc-200 bg-gradient-to-r from-emerald-950/80 via-[#0b1411] to-emerald-950/80 dark:from-emerald-50 dark:via-white dark:to-emerald-50 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-xs font-mono text-zinc-400 dark:text-zinc-600 flex items-center gap-2">
+        <div className="p-5 sm:p-6 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-xs font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
             {sentCount > 0 ? (
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" /> {sentCount} alerta(s) enviada(s)
               </span>
             ) : (
-              <span className="text-[11px] text-zinc-400">
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 Al enviar se abrirá la conversación oficial de WhatsApp
               </span>
             )}
@@ -550,7 +551,7 @@ export const WhatsAppEmergencyAlertModal: React.FC<WhatsAppEmergencyAlertModalPr
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 sm:flex-none px-4 py-3 rounded-2xl border border-zinc-700 dark:border-zinc-300 text-xs font-bold text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+              className="flex-1 sm:flex-none px-4 py-3 rounded-2xl border border-zinc-300 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
             >
               Cerrar
             </button>

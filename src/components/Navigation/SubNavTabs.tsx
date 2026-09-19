@@ -59,7 +59,7 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
     <div className="w-full flex sm:justify-center overflow-x-auto no-scrollbar py-1 px-1 select-none">
       <nav 
         aria-label="Pestañas de Navegación Principal"
-        className="inline-flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl sm:rounded-3xl bg-[#0c1017]/95 dark:bg-zinc-950/90 backdrop-blur-xl border border-zinc-800/90 dark:border-zinc-800 shadow-[0_12px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/5 mx-auto sm:mx-0 shrink-0"
+        className="inline-flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-[#0c1017]/95 backdrop-blur-xl border border-zinc-200/90 dark:border-zinc-800/90 shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.04)] ring-1 ring-black/5 dark:ring-white/5 mx-auto sm:mx-0 shrink-0"
       >
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
@@ -71,8 +71,8 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
               onClick={() => onSelectTab(tab.id)}
               className={`relative px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-[11px] sm:text-xs font-bold flex items-center gap-1.5 sm:gap-2 transition-all duration-200 cursor-pointer shrink-0 group ${
                 isActive
-                  ? 'bg-zinc-900/95 text-white border border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.22)] font-black'
-                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 border border-transparent hover:border-zinc-700/60'
+                  ? 'bg-zinc-950 text-white border border-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.2)] dark:bg-zinc-900/95 dark:text-white dark:border-emerald-500/50 dark:shadow-[0_0_20px_rgba(16,185,129,0.25)] font-black'
+                  : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 border border-transparent dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60'
               }`}
             >
               {/* Active Ambient Glow Background */}
@@ -82,7 +82,7 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
 
               {/* Icon with Futuristic Color Indicator */}
               <span className={`relative z-10 transition-transform duration-200 group-hover:scale-110 ${
-                isActive ? 'text-emerald-400' : 'text-zinc-400 group-hover:text-zinc-200'
+                isActive ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-200'
               }`}>
                 {tab.icon}
               </span>
@@ -101,8 +101,8 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
               {tab.badge !== undefined && (
                 <span className={`relative z-10 text-[9px] sm:text-[9.5px] px-1.5 sm:px-2 py-0.5 rounded-full font-mono font-black border transition-all duration-200 ${
                   tab.badgeColor || (isActive 
-                    ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/50 shadow-[0_0_8px_rgba(16,185,129,0.3)]' 
-                    : 'bg-zinc-800/90 text-zinc-300 border-zinc-700 group-hover:border-zinc-500')
+                    ? 'bg-emerald-500 text-black border-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.3)] dark:bg-emerald-950/90 dark:text-emerald-300 dark:border-emerald-500/50' 
+                    : 'bg-zinc-100 text-zinc-700 border-zinc-300 group-hover:border-zinc-400 dark:bg-zinc-800/90 dark:text-zinc-300 dark:border-zinc-700 dark:group-hover:border-zinc-500')
                 }`}>
                   {tab.badge}
                 </span>

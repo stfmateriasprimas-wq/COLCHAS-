@@ -247,27 +247,27 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
         </div>
       </div>
 
-      <form onSubmit={handleDirectSubmit} className="bg-[#0c1017] dark:bg-white border-2 border-zinc-800 dark:border-zinc-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl text-white dark:text-zinc-950">
+      <form onSubmit={handleDirectSubmit} className="bg-white dark:bg-[#0c1017] border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] text-zinc-950 dark:text-white">
         
         {/* Top Title Banner */}
-        <div className="border-b border-zinc-800 dark:border-zinc-200 pb-4">
+        <div className="border-b border-zinc-200 dark:border-zinc-800 pb-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-mono font-black text-sm">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 font-mono font-black text-sm">
                 STF
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-black text-white dark:text-zinc-950 brand-title">
+                <h2 className="text-xl sm:text-2xl font-black text-zinc-950 dark:text-white brand-title">
                   Registro de Nueva Solicitud
                 </h2>
-                <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
                   {isZonaFranca 
                     ? 'Muestra textil originada en Zona Franca (Atelier). Quedará registrada automáticamente en estado PRE-SOLICITUD para despacho a Lavandería ZF.'
                     : 'Muestra textil originada por Calidad (Planta Principal). Quedará registrada automáticamente en estado SOLICITADOS para que Lavandería pueda llamarla y cargarla en Lavandería.'}
                 </p>
               </div>
             </div>
-            <span className="text-xs font-bold font-mono px-3 py-1 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 border border-zinc-800 dark:border-zinc-300">
+            <span className="text-xs font-bold font-mono px-3 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
               OPERADOR: {currentUser?.nombre || 'OPERARIO STF'}
             </span>
           </div>
@@ -285,22 +285,22 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           
           {/* COLUMNA 1: ESPECIFICACIONES TÉCNICAS */}
-          <div className="space-y-4 bg-zinc-950/50 dark:bg-zinc-50 border border-zinc-800/80 dark:border-zinc-200 rounded-2xl p-5">
-            <div className="flex items-center gap-2 pb-2 border-b border-zinc-800/60 dark:border-zinc-200">
-              <span className="text-xs font-mono font-black uppercase tracking-wider text-amber-400 dark:text-amber-700">
+          <div className="space-y-4 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 pb-2 border-b border-zinc-200 dark:border-zinc-800/60">
+              <span className="text-xs font-mono font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
                 1. DATOS TÉCNICOS DE LA PRENDA
               </span>
             </div>
 
             {/* Tela Textil */}
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-zinc-300 dark:text-zinc-700 uppercase mb-1">
+              <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase mb-1">
                 Tela Textil STF <span className="text-rose-500">*</span>
               </label>
               <select
                 value={tela}
                 onChange={handleTelaSelectChange}
-                className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 transition font-bold"
+                className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white focus:outline-none focus:border-amber-500 transition font-bold shadow-sm"
               >
                 <option value="">-- SELECCIONE TELA --</option>
                 {uniqueTelas.map((t, i) => (
@@ -317,7 +317,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
             {/* MT & Color */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold tracking-wider text-zinc-400 dark:text-zinc-500 uppercase mb-1 font-mono">
+                <label className="block text-[11px] font-bold tracking-wider text-zinc-500 dark:text-zinc-400 uppercase mb-1 font-mono">
                   Código Material (MT#)
                 </label>
                 <input
@@ -325,11 +325,11 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                   value={mt}
                   readOnly
                   placeholder="Auto calculado"
-                  className="w-full bg-zinc-950/60 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-zinc-300 dark:text-zinc-700 font-mono font-bold focus:outline-none"
+                  className="w-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-700 dark:text-zinc-300 font-mono font-bold focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold tracking-wider text-zinc-400 dark:text-zinc-500 uppercase mb-1 font-mono">
+                <label className="block text-[11px] font-bold tracking-wider text-zinc-500 dark:text-zinc-400 uppercase mb-1 font-mono">
                   Color Textil
                 </label>
                 <input
@@ -337,7 +337,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                   value={color}
                   readOnly
                   placeholder="Auto calculado"
-                  className="w-full bg-zinc-950/60 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-zinc-300 dark:text-zinc-700 focus:outline-none font-bold"
+                  className="w-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none font-bold"
                 />
               </div>
             </div>
@@ -346,7 +346,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold tracking-wider text-zinc-300 dark:text-zinc-700 uppercase">
+                  <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase">
                     Orden de Producción (OP) <span className="text-rose-500">*</span>
                   </label>
                   {availableOpsForTela.length > 0 && (
@@ -356,7 +356,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                         setIsManualOp(!isManualOp);
                         if (!isManualOp) setOp('');
                       }}
-                      className="text-[10px] font-mono font-bold text-amber-500 hover:text-amber-400 hover:underline flex items-center gap-1 transition cursor-pointer"
+                      className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 hover:text-amber-500 hover:underline flex items-center gap-1 transition cursor-pointer"
                     >
                       {isManualOp ? `📋 Ver menú de OPs (${availableOpsForTela.length})` : '✏️ Ingreso manual'}
                     </button>
@@ -368,7 +368,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                     <select
                       value={op}
                       onChange={handleOpSelectChange}
-                      className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 font-mono font-bold transition cursor-pointer"
+                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white focus:outline-none focus:border-amber-500 font-mono font-bold transition cursor-pointer shadow-sm"
                       required
                     >
                       <option value="">-- SELECCIONE OP ({availableOpsForTela.length} DISPONIBLES) --</option>
@@ -395,7 +395,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                         }
                       }}
                       placeholder="Ej: OP-95976 o 95976"
-                      className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 font-mono font-bold transition"
+                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white focus:outline-none focus:border-amber-500 font-mono font-bold transition shadow-sm"
                       required
                     />
                   </div>
@@ -403,7 +403,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold tracking-wider text-zinc-400 dark:text-zinc-500 uppercase mb-1 font-mono">
+                <label className="block text-[11px] font-bold tracking-wider text-zinc-500 dark:text-zinc-400 uppercase mb-1 font-mono">
                   Referencia Prenda STF
                 </label>
                 <input
@@ -411,7 +411,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                   value={referencia}
                   readOnly
                   placeholder="Auto de Monitoreo"
-                  className="w-full bg-zinc-950/60 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-zinc-300 dark:text-zinc-700 font-bold focus:outline-none"
+                  className="w-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-700 dark:text-zinc-300 font-bold focus:outline-none"
                 />
               </div>
             </div>
@@ -419,7 +419,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
             {/* Rollos & Lote */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold tracking-wider text-zinc-300 dark:text-zinc-700 uppercase mb-1">
+                <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase mb-1">
                   Número de Rollos <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -428,12 +428,12 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                   onChange={(e) => setRollos(e.target.value === '' ? '' : Number(e.target.value))}
                   placeholder="Ej: 2"
                   min="1"
-                  className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 transition font-mono"
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white focus:outline-none focus:border-amber-500 transition font-mono shadow-sm"
                   required
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold tracking-wider text-zinc-300 dark:text-zinc-700 uppercase mb-1">
+                <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase mb-1">
                   Código de Lote
                 </label>
                 <input
@@ -441,7 +441,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                   value={lote}
                   onChange={(e) => setLote(e.target.value)}
                   placeholder="Ej: L-409 o Lote 1,2"
-                  className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl px-4 py-3 text-xs text-white dark:text-zinc-950 focus:outline-none focus:border-amber-500 transition font-mono"
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white focus:outline-none focus:border-amber-500 transition font-mono shadow-sm"
                 />
               </div>
             </div>
@@ -451,7 +451,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
               <button
                 type="button"
                 onClick={() => setShowTechnicalParams(!showTechnicalParams)}
-                className="text-xs text-zinc-400 dark:text-zinc-600 hover:text-white dark:hover:text-zinc-950 font-bold flex items-center gap-1.5 transition cursor-pointer"
+                className="text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white font-bold flex items-center gap-1.5 transition cursor-pointer"
               >
                 <Sliders className="w-3.5 h-3.5" />
                 <span>{showTechnicalParams ? 'Ocultar Parámetros de Encogimiento' : '+ Agregar Pruebas Técnicas (Encogimiento Trama/Urdimbre)'}</span>
@@ -459,40 +459,40 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
             </div>
 
             {showTechnicalParams && (
-              <div className="p-4 bg-zinc-950/80 dark:bg-zinc-50 border border-zinc-800 dark:border-zinc-200 rounded-2xl space-y-3 animate-in fade-in">
-                <span className="text-[10px] text-zinc-300 dark:text-zinc-700 font-extrabold uppercase tracking-wider block font-mono">
+              <div className="p-4 bg-zinc-100 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-3 animate-in fade-in">
+                <span className="text-[10px] text-zinc-700 dark:text-zinc-300 font-extrabold uppercase tracking-wider block font-mono">
                   PRUEBAS TEXTILES DE ENCOGIMIENTO
                 </span>
                 <div className="grid grid-cols-3 gap-3 text-xs">
                   <div>
-                    <label className="block text-[10px] text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-1">Medida Inicial (cm)</label>
+                    <label className="block text-[10px] text-zinc-600 dark:text-zinc-400 uppercase font-bold mb-1">Medida Inicial (cm)</label>
                     <input
                       type="number"
                       value={medidaInicial}
                       onChange={(e) => setMedidaInicial(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full bg-zinc-900 dark:bg-white border border-zinc-800 dark:border-zinc-300 rounded-xl px-3 py-2 text-xs text-white dark:text-zinc-950 font-mono"
+                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-950 dark:text-white font-mono shadow-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-1">Encog. Trama (%)</label>
+                    <label className="block text-[10px] text-zinc-600 dark:text-zinc-400 uppercase font-bold mb-1">Encog. Trama (%)</label>
                     <input
                       type="number"
                       step="0.1"
                       placeholder="Ej: -3.6"
                       value={encogimientoTrama}
                       onChange={(e) => setEncogimientoTrama(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full bg-zinc-900 dark:bg-white border border-zinc-800 dark:border-zinc-300 rounded-xl px-3 py-2 text-xs text-white dark:text-zinc-950 font-mono"
+                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-950 dark:text-white font-mono shadow-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-1">Encog. Urdimbre (%)</label>
+                    <label className="block text-[10px] text-zinc-600 dark:text-zinc-400 uppercase font-bold mb-1">Encog. Urdimbre (%)</label>
                     <input
                       type="number"
                       step="0.1"
                       placeholder="Ej: -5.2"
                       value={encogimientoUrdimbre}
                       onChange={(e) => setEncogimientoUrdimbre(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full bg-zinc-900 dark:bg-white border border-zinc-800 dark:border-zinc-300 rounded-xl px-3 py-2 text-xs text-white dark:text-zinc-950 font-mono"
+                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-950 dark:text-white font-mono shadow-sm"
                     />
                   </div>
                 </div>
@@ -502,16 +502,16 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
           </div>
 
           {/* COLUMNA 2: OBSERVACIONES Y EVIDENCIA FOTOGRÁFICA */}
-          <div className="space-y-4 bg-zinc-950/50 dark:bg-zinc-50 border border-zinc-800/80 dark:border-zinc-200 rounded-2xl p-5">
-            <div className="flex items-center gap-2 pb-2 border-b border-zinc-800/60 dark:border-zinc-200">
-              <span className="text-xs font-mono font-black uppercase tracking-wider text-emerald-400 dark:text-emerald-700">
+          <div className="space-y-4 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 pb-2 border-b border-zinc-200 dark:border-zinc-800/60">
+              <span className="text-xs font-mono font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                 2. OBSERVACIONES Y EVIDENCIA FOTOGRÁFICA
               </span>
             </div>
 
             {/* Observaciones */}
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-zinc-300 dark:text-zinc-700 uppercase mb-1">
+              <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase mb-1">
                 Observaciones del Operario / Atelier
               </label>
               <textarea
@@ -519,16 +519,16 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                 onChange={(e) => setObservaciones(e.target.value)}
                 rows={4}
                 placeholder="Escriba comentarios sobre defectos iniciales, hilos sueltos o especificaciones para lavandería..."
-                className="w-full bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 rounded-xl p-3 text-xs text-white dark:text-zinc-950 placeholder-zinc-400 focus:outline-none focus:border-amber-500 transition"
+                className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl p-3 text-xs text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-amber-500 transition shadow-sm"
               />
             </div>
 
             {/* Fotografía Upload */}
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-zinc-300 dark:text-zinc-700 uppercase mb-1">
+              <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase mb-1">
                 Fotografía de Colcha Textil
               </label>
-              <div className="relative border-2 border-dashed border-zinc-800 dark:border-zinc-300 hover:border-emerald-500 dark:hover:border-emerald-500 bg-zinc-950/50 dark:bg-zinc-50 rounded-2xl p-6 text-center transition group cursor-pointer">
+              <div className="relative border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-emerald-500 dark:hover:border-emerald-500 bg-white dark:bg-zinc-950/50 rounded-2xl p-6 text-center transition group cursor-pointer shadow-sm">
                 <input
                   type="file"
                   accept="image/*"
@@ -538,8 +538,8 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                 />
                 {!photoUrl ? (
                   <div className="space-y-2 py-3">
-                    <Camera className="w-9 h-9 text-zinc-400 group-hover:text-emerald-400 dark:group-hover:text-emerald-600 mx-auto transition" />
-                    <p className="text-xs font-bold text-zinc-300 dark:text-zinc-700 group-hover:text-white dark:group-hover:text-zinc-950 transition">
+                    <Camera className="w-9 h-9 text-zinc-400 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 mx-auto transition" />
+                    <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-950 dark:group-hover:text-white transition">
                       SUBIR FOTOGRAFÍA (CÁMARA / GALERÍA)
                     </p>
                     <p className="text-[10px] text-zinc-500">
@@ -556,12 +556,12 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                       />
                       <div className="text-left">
                         <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-400 dark:text-emerald-600" />
-                          <span className="text-xs text-emerald-400 dark:text-emerald-700 font-black">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                          <span className="text-xs text-emerald-700 dark:text-emerald-400 font-black">
                             Fotografía de colcha adjunta
                           </span>
                         </div>
-                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500 block font-mono mt-0.5">
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block font-mono mt-0.5">
                           Se sincronizará en Drive y se adjuntará al correo
                         </span>
                       </div>
@@ -573,7 +573,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                         e.stopPropagation();
                         setPhotoUrl(null);
                       }}
-                      className="z-20 px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 hover:text-rose-300 border border-rose-500/40 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                      className="z-20 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/40 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                       title="Eliminar foto"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -590,11 +590,11 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
 
 
         {/* Footer Actions */}
-        <div className="pt-3 flex items-center justify-end gap-3 border-t border-zinc-800 dark:border-zinc-200">
+        <div className="pt-3 flex items-center justify-end gap-3 border-t border-zinc-200 dark:border-zinc-800">
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-3 rounded-2xl border border-zinc-800 dark:border-zinc-300 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-bold transition cursor-pointer"
+            className="px-6 py-3 rounded-2xl border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-bold transition cursor-pointer"
           >
             CANCELAR
           </button>

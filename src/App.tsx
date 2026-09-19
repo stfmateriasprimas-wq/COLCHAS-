@@ -943,36 +943,36 @@ export function App() {
       {/* DELETE OP CONFIRMATION MODAL (EDWIN ADMINISTRADOR) */}
       {confirmDeleteOp && (
         <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in select-none">
-          <div className="bg-[#0e090a] dark:bg-white border-2 border-rose-600 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-white dark:text-zinc-950 animate-in zoom-in-95">
+          <div className="bg-white dark:bg-[#0e090a] border-2 border-rose-600 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-zinc-950 dark:text-white animate-in zoom-in-95">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-500 shrink-0 shadow-md">
                 <Trash2 className="w-6 h-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-black uppercase text-rose-400 dark:text-rose-700 font-mono">
+                  <h3 className="text-base font-black uppercase text-rose-600 dark:text-rose-400 font-mono">
                     ¿Eliminar OP-{confirmDeleteOp.op.replace(/^OP-+/i, '').trim()}?
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-rose-500 text-white uppercase">
                     ADMIN EDWIN
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 dark:text-zinc-600 font-mono mt-0.5">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 font-mono mt-0.5">
                   Ref: {confirmDeleteOp.referencia} • {confirmDeleteOp.tela}
                 </p>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-200 text-xs text-zinc-300 dark:text-zinc-700 space-y-2 font-mono">
-              <div className="flex items-center justify-between text-[11px] pb-1 border-b border-zinc-800 dark:border-zinc-300">
+            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 space-y-2 font-mono">
+              <div className="flex items-center justify-between text-[11px] pb-1 border-b border-zinc-200 dark:border-zinc-800">
                 <span>Fase actual:</span>
-                <span className="font-black text-amber-400 dark:text-amber-600 uppercase">{confirmDeleteOp.estado.replace('_', ' ')}</span>
+                <span className="font-black text-amber-600 dark:text-amber-400 uppercase">{confirmDeleteOp.estado.replace('_', ' ')}</span>
               </div>
-              <div className="flex items-center justify-between text-[11px] pb-1 border-b border-zinc-800 dark:border-zinc-300">
+              <div className="flex items-center justify-between text-[11px] pb-1 border-b border-zinc-200 dark:border-zinc-800">
                 <span>Metraje / Rollos:</span>
                 <span className="font-bold">{confirmDeleteOp.rollos} Rollos ({confirmDeleteOp.rollos * 85} Mt)</span>
               </div>
-              <p className="text-[11px] text-zinc-400 dark:text-zinc-500 pt-1 leading-relaxed">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 leading-relaxed">
                 ⚠️ Al eliminarla, esta orden saldrá de inmediato de la bandeja de trabajo activa y se archivará en el <strong>Historial de OPs Eliminadas</strong> (pestaña Base de Datos), donde Edwin podrá <strong>Recuperarla</strong> con un solo clic.
               </p>
             </div>
@@ -981,7 +981,7 @@ export function App() {
               <button
                 type="button"
                 onClick={() => setConfirmDeleteOp(null)}
-                className="px-4 py-2.5 rounded-2xl border border-zinc-700 dark:border-zinc-300 text-xs font-bold text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+                className="px-4 py-2.5 rounded-2xl border border-zinc-300 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
               >
                 CANCELAR
               </button>
@@ -1001,36 +1001,36 @@ export function App() {
       {/* FINALIZAR OP CONFIRMATION MODAL */}
       {confirmFinalizarOp && (
         <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in select-none">
-          <div className="bg-[#080f0c] dark:bg-white border-2 border-emerald-500 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-white dark:text-zinc-950 animate-in zoom-in-95">
+          <div className="bg-white dark:bg-[#080f0c] border-2 border-emerald-500 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-zinc-950 dark:text-white animate-in zoom-in-95">
             <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0 shadow-md">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 shadow-md">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-black uppercase text-emerald-400 dark:text-emerald-700 font-mono">
+                  <h3 className="text-base font-black uppercase text-emerald-600 dark:text-emerald-400 font-mono">
                     ¿Finalizar OP-{confirmFinalizarOp.op}?
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-emerald-500 text-black uppercase">
                     LIBERACIÓN
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 dark:text-zinc-600 font-mono mt-0.5">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 font-mono mt-0.5">
                   Ref: {confirmFinalizarOp.referencia} • {confirmFinalizarOp.tela}
                 </p>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-zinc-900/90 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-200 text-xs text-zinc-300 dark:text-zinc-700 space-y-2 font-mono">
-              <div className="flex items-center justify-between text-[11px] pb-1 border-b border-zinc-800 dark:border-zinc-300">
+            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 space-y-2 font-mono">
+              <div className="flex items-center justify-between text-[11px] pb-1 border-b border-zinc-200 dark:border-zinc-800">
                 <span>Fase actual:</span>
-                <span className="font-black text-amber-400 dark:text-amber-600 uppercase">{confirmFinalizarOp.estado.replace('_', ' ')}</span>
+                <span className="font-black text-amber-600 dark:text-amber-400 uppercase">{confirmFinalizarOp.estado.replace('_', ' ')}</span>
               </div>
-              <div className="flex items-center justify-between text-[11px] pb-1 border-b border-zinc-800 dark:border-zinc-300">
+              <div className="flex items-center justify-between text-[11px] pb-1 border-b border-zinc-200 dark:border-zinc-800">
                 <span>Destino:</span>
-                <span className="font-black text-emerald-400 dark:text-emerald-600 uppercase">FINALIZADOS (LIBERADA / APROBADA)</span>
+                <span className="font-black text-emerald-600 dark:text-emerald-400 uppercase">FINALIZADOS (LIBERADA / APROBADA)</span>
               </div>
-              <p className="text-[11px] text-zinc-400 dark:text-zinc-500 pt-1 leading-relaxed">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 leading-relaxed">
                 ✅ Al finalizar, esta orden se marcará como <strong>LIBERADA / APROBADA</strong>, se trasladará a la sección de <strong>Finalizados</strong> y se actualizará automáticamente tanto en el sistema como en la base de datos de Google Sheets.
               </p>
             </div>
@@ -1039,7 +1039,7 @@ export function App() {
               <button
                 type="button"
                 onClick={() => setConfirmFinalizarOp(null)}
-                className="px-4 py-2.5 rounded-2xl border border-zinc-700 dark:border-zinc-300 text-xs font-bold text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+                className="px-4 py-2.5 rounded-2xl border border-zinc-300 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
               >
                 CANCELAR
               </button>

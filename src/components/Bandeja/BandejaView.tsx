@@ -203,12 +203,12 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
   // State badge styling helper
   const getSectorBadgeStyle = (estado: SectorType) => {
     switch (estado) {
-      case 'PRE_SOLICITUD': return 'bg-cyan-950 text-cyan-400 border-cyan-500/40';
-      case 'SOLICITADO': return 'bg-amber-950 text-amber-400 border-amber-500/40';
-      case 'LAVANDERIA': return 'bg-sky-950 text-sky-400 border-sky-500/40';
-      case 'CALIDAD': return 'bg-purple-950 text-purple-400 border-purple-500/40';
-      case 'FINALIZADO': return 'bg-emerald-950 text-emerald-400 border-emerald-500/40';
-      default: return 'bg-zinc-800 text-zinc-300 border-zinc-700';
+      case 'PRE_SOLICITUD': return 'bg-cyan-50 text-cyan-800 border-cyan-300 dark:bg-cyan-950 dark:text-cyan-400 dark:border-cyan-500/40';
+      case 'SOLICITADO': return 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-500/40';
+      case 'LAVANDERIA': return 'bg-sky-50 text-sky-800 border-sky-300 dark:bg-sky-950 dark:text-sky-400 dark:border-sky-500/40';
+      case 'CALIDAD': return 'bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-500/40';
+      case 'FINALIZADO': return 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-500/40';
+      default: return 'bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700';
     }
   };
 
@@ -248,7 +248,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
                 setIsSearchFocused(true);
               }}
               placeholder="Buscar por OP, Referencia, Nombre de Tela, Color, Fecha o Mt..."
-              className="w-full bg-[#0c1017] dark:bg-[#12161f] border border-zinc-800 dark:border-zinc-700 focus:border-amber-500/70 rounded-2xl pl-10 pr-10 py-3 text-xs text-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-amber-500/40 shadow-xl transition font-sans"
+              className="w-full bg-white dark:bg-[#12161f] border border-zinc-200 dark:border-zinc-700 focus:border-amber-500/70 rounded-2xl pl-10 pr-10 py-3 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-amber-500/40 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl transition font-sans"
             />
             <Search className="w-4 h-4 text-amber-500 absolute left-3.5 top-3.5" />
             
@@ -259,7 +259,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
                   setSearch('');
                   setIsSearchFocused(false);
                 }}
-                className="absolute right-3.5 top-3 text-zinc-400 hover:text-white p-1 rounded-full text-xs cursor-pointer"
+                className="absolute right-3.5 top-3 text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded-full text-xs cursor-pointer"
                 title="Limpiar búsqueda"
               >
                 <X className="w-3.5 h-3.5" />
@@ -269,15 +269,15 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
 
           {/* DROPDOWN DE SUGERENCIAS INTELIGENTES EN TIEMPO REAL */}
           {isSearchFocused && search.trim().length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-[#080d17] border border-amber-500/40 rounded-3xl p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-xl ring-1 ring-amber-500/20 max-h-96 overflow-y-auto custom-scroll">
-              <div className="flex items-center justify-between px-2 pb-2 border-b border-zinc-800/80">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-[#080d17] border border-amber-500/40 rounded-3xl p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-xl ring-1 ring-amber-500/20 max-h-96 overflow-y-auto custom-scroll">
+              <div className="flex items-center justify-between px-2 pb-2 border-b border-zinc-200/80 dark:border-zinc-800/80">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-[11px] font-black uppercase tracking-wider font-mono text-white">
+                  <span className="text-[11px] font-black uppercase tracking-wider font-mono text-zinc-900 dark:text-white">
                     Sugerencias Inteligentes ({suggestions.length})
                   </span>
                 </div>
-                <span className="text-[9.5px] font-mono text-zinc-400">
+                <span className="text-[9.5px] font-mono text-zinc-500 dark:text-zinc-400">
                   Filtro por: OP, Ref, Tela, Color, Fecha, Mt
                 </span>
               </div>
@@ -287,32 +287,32 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
                   No se encontraron coincidencias para "{search}".
                 </div>
               ) : (
-                <div className="divide-y divide-zinc-800/60 mt-1">
+                <div className="divide-y divide-zinc-200/60 dark:divide-zinc-800/60 mt-1">
                   {suggestions.map(({ item, match }) => (
                     <div
                       key={item.id}
                       onClick={() => handleSelectSuggestion(item)}
-                      className="p-2.5 rounded-2xl hover:bg-zinc-900/90 transition cursor-pointer flex items-center justify-between gap-3 group"
+                      className="p-2.5 rounded-2xl hover:bg-zinc-100 dark:hover:bg-zinc-900/90 transition cursor-pointer flex items-center justify-between gap-3 group"
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-black text-amber-400 text-xs tracking-wider group-hover:text-amber-300">
+                          <span className="font-mono font-black text-amber-600 dark:text-amber-400 text-xs tracking-wider group-hover:text-amber-500">
                             {item.op}
                           </span>
-                          <span className="text-[10.5px] font-bold text-zinc-300 font-mono">
+                          <span className="text-[10.5px] font-bold text-zinc-600 dark:text-zinc-300 font-mono">
                             / REF - {item.referencia}
                           </span>
-                          <span className="text-[9px] font-mono px-2 py-0.5 rounded-full font-black border uppercase bg-amber-950/60 text-amber-300 border-amber-500/40">
+                          <span className="text-[9px] font-mono px-2 py-0.5 rounded-full font-black border uppercase bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-500/40">
                             {match.field}
                           </span>
                         </div>
 
-                        <div className="text-[11px] text-zinc-300 truncate flex items-center gap-2">
-                          <span className="font-medium text-white">{item.tela}</span>
-                          <span className="text-zinc-500">•</span>
-                          <span className="text-zinc-400 uppercase font-mono">{item.color}</span>
-                          <span className="text-zinc-500">•</span>
-                          <span className="text-emerald-400 font-mono font-bold">{item.rollos} rollos ({item.rollos * 85} Mt)</span>
+                        <div className="text-[11px] text-zinc-600 dark:text-zinc-300 truncate flex items-center gap-2">
+                          <span className="font-medium text-zinc-900 dark:text-white">{item.tela}</span>
+                          <span className="text-zinc-400">•</span>
+                          <span className="text-zinc-500 dark:text-zinc-400 uppercase font-mono">{item.color}</span>
+                          <span className="text-zinc-400">•</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">{item.rollos} rollos ({item.rollos * 85} Mt)</span>
                         </div>
 
                         <div className="flex items-center gap-2 text-[9.5px] text-zinc-500 font-mono">
@@ -327,7 +327,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
                           {item.estado}
                         </span>
                         {item.tieneRetraso && item.estado !== 'FINALIZADO' && (
-                          <span className="text-[9px] font-mono font-bold text-rose-400 flex items-center gap-0.5">
+                          <span className="text-[9px] font-mono font-bold text-rose-600 dark:text-rose-400 flex items-center gap-0.5">
                             <AlertTriangle className="w-2.5 h-2.5" />
                             +{item.diasHabiles}d retraso
                           </span>
@@ -343,14 +343,14 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
 
         {/* BLOQUE 2: BOTÓN Y SELECTOR DE ORDENAMIENTO (MÁS RECIENTES / MÁS ANTIGUOS) */}
         <div className="relative shrink-0 w-full sm:w-auto">
-          <div className="flex items-center gap-1 sm:gap-1.5 bg-[#0c1017] dark:bg-[#12161f] border border-zinc-800 dark:border-zinc-700 rounded-2xl p-1 shadow-xl w-full sm:w-auto">
+          <div className="flex items-center gap-1 sm:gap-1.5 bg-white dark:bg-[#12161f] border border-zinc-200 dark:border-zinc-700 rounded-2xl p-1 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setSortOrder('recientes')}
               className={`flex-1 sm:flex-none justify-center px-2.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold font-mono flex items-center gap-1.5 transition cursor-pointer ${
                 sortOrder === 'recientes'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black font-black shadow-[0_0_12px_rgba(245,158,11,0.35)]'
-                  : 'text-zinc-400 hover:text-white'
+                  : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
               }`}
               title="Mostrar las OPs creadas más recientemente en la parte superior"
             >
@@ -364,7 +364,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
               className={`flex-1 sm:flex-none justify-center px-2.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold font-mono flex items-center gap-1.5 transition cursor-pointer ${
                 sortOrder === 'antiguos'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black font-black shadow-[0_0_12px_rgba(245,158,11,0.35)]'
-                  : 'text-zinc-400 hover:text-white'
+                  : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
               }`}
               title="Mostrar las OPs más antiguas sin finalizar en la parte superior para darles prioridad"
             >
@@ -382,76 +382,76 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         {/* 1. Total Histórico */}
         <div
           onClick={() => setSelectedStage('ALL')}
-          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-[#0c1017] dark:bg-[#12161f] text-white ${
+          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
             selectedStage === 'ALL'
-              ? 'border-2 border-zinc-300 shadow-[0_0_20px_rgba(255,255,255,0.25)] ring-1 ring-zinc-300/40'
-              : 'border border-zinc-800 dark:border-zinc-700 hover:border-zinc-500 shadow-xl'
+              ? 'border-2 border-zinc-900 dark:border-zinc-300 shadow-[0_4px_20px_rgba(0,0,0,0.15)] dark:shadow-[0_0_20px_rgba(255,255,255,0.25)] ring-1 ring-zinc-900/20 dark:ring-zinc-300/40'
+              : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-xs font-black text-white block tracking-wider">TOTAL</span>
-              <span className="text-[9px] text-zinc-400 font-bold uppercase block tracking-tight">HISTÓRICO</span>
+              <span className="text-xs font-black text-zinc-900 dark:text-white block tracking-wider">TOTAL</span>
+              <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block tracking-tight">HISTÓRICO</span>
             </div>
-            <div className="w-7 h-7 rounded-full bg-indigo-950/80 border border-indigo-500/50 flex items-center justify-center text-indigo-400">
+            <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/80 dark:border-indigo-500/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs">
               <BarChart3 className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-1">
-            <span className="text-2xl font-black font-mono text-white">{metrics.totalHistorico}</span>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase">OP</span>
+            <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white">{metrics.totalHistorico}</span>
+            <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase">OP</span>
           </div>
         </div>
 
         {/* 2. Total en Proceso */}
         <div
           onClick={() => setSelectedStage('EN_PROCESO')}
-          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-[#0c1017] dark:bg-[#12161f] text-white ${
+          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
             selectedStage === 'EN_PROCESO'
-              ? 'border-2 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.35)] ring-1 ring-amber-500/40'
-              : 'border border-zinc-800 dark:border-zinc-700 hover:border-amber-500/50 shadow-xl'
+              ? 'border-2 border-amber-500 shadow-[0_4px_20px_rgba(245,158,11,0.25)] dark:shadow-[0_0_20px_rgba(245,158,11,0.35)] ring-1 ring-amber-500/40'
+              : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-amber-500/50 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-xs font-black text-white block tracking-wider">TOTAL EN PROCESO</span>
-              <span className="text-[9px] text-zinc-400 font-bold uppercase block tracking-tight">FLUJO ACTIVO</span>
+              <span className="text-xs font-black text-zinc-900 dark:text-white block tracking-wider">TOTAL EN PROCESO</span>
+              <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block tracking-tight">FLUJO ACTIVO</span>
             </div>
-            <div className="w-7 h-7 rounded-full bg-amber-950/80 border border-amber-500/50 flex items-center justify-center text-amber-400">
+            <div className="w-7 h-7 rounded-full bg-amber-50 border border-amber-200 dark:bg-amber-950/80 dark:border-amber-500/50 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-xs">
               <Zap className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-1">
-            <span className="text-2xl font-black font-mono text-white">{metrics.totalEnProceso}</span>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase">OP</span>
+            <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white">{metrics.totalEnProceso}</span>
+            <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase">OP</span>
           </div>
         </div>
 
         {/* 3. Pre-Solicitud (Atelier ZF) */}
         <div
           onClick={() => setSelectedStage('PRE_SOLICITUD')}
-          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-[#0c1017] dark:bg-[#12161f] text-white ${
+          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
             selectedStage === 'PRE_SOLICITUD'
-              ? 'border-2 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.35)] ring-1 ring-cyan-400/50'
-              : 'border border-zinc-800 dark:border-zinc-700 hover:border-cyan-400/50 shadow-xl'
+              ? 'border-2 border-cyan-500 dark:border-cyan-400 shadow-[0_4px_20px_rgba(6,182,212,0.25)] dark:shadow-[0_0_20px_rgba(34,211,238,0.35)] ring-1 ring-cyan-400/50'
+              : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-cyan-400/50 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-xs font-black text-white block tracking-wider">PRE-SOLICITUD</span>
-              <span className="text-[9px] text-zinc-400 font-bold uppercase block tracking-tight">ATELIER ZF</span>
+              <span className="text-xs font-black text-zinc-900 dark:text-white block tracking-wider">PRE-SOLICITUD</span>
+              <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block tracking-tight">ATELIER ZF</span>
             </div>
-            <div className="w-7 h-7 rounded-full bg-cyan-950/80 border border-cyan-500/50 flex items-center justify-center text-cyan-400">
+            <div className="w-7 h-7 rounded-full bg-cyan-50 border border-cyan-200 dark:bg-cyan-950/80 dark:border-cyan-500/50 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-xs">
               <Clock className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-black font-mono text-white">{metrics.preSolicitud}</span>
-              <span className="text-[10px] font-bold text-zinc-400 uppercase">OP</span>
+              <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white">{metrics.preSolicitud}</span>
+              <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase">OP</span>
             </div>
             {delaysPreSol > 0 && (
-              <span className="text-[9.5px] bg-rose-950/90 text-rose-300 border border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1">
+              <span className="text-[9.5px] bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/90 dark:text-rose-300 dark:border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1 shadow-xs">
                 <span>🚨 {delaysPreSol} &gt;3D</span>
               </span>
             )}
@@ -461,28 +461,28 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         {/* 4. Solicitados (Por Despachar) */}
         <div
           onClick={() => setSelectedStage('SOLICITADO')}
-          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-[#0c1017] dark:bg-[#12161f] text-white ${
+          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
             selectedStage === 'SOLICITADO'
-              ? 'border-2 border-amber-500 shadow-[0_0_22px_rgba(245,158,11,0.4)] ring-1 ring-amber-500/50'
-              : 'border border-zinc-800 dark:border-zinc-700 hover:border-amber-500/50 shadow-xl'
+              ? 'border-2 border-amber-500 shadow-[0_4px_22px_rgba(245,158,11,0.3)] dark:shadow-[0_0_22px_rgba(245,158,11,0.4)] ring-1 ring-amber-500/50'
+              : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-amber-500/50 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-xs font-black text-white block tracking-wider">SOLICITADOS</span>
-              <span className="text-[9px] text-zinc-400 font-bold uppercase block tracking-tight">POR DESPACHAR</span>
+              <span className="text-xs font-black text-zinc-900 dark:text-white block tracking-wider">SOLICITADOS</span>
+              <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block tracking-tight">POR DESPACHAR</span>
             </div>
-            <div className="w-7 h-7 rounded-full bg-amber-950/80 border border-amber-500/50 flex items-center justify-center text-amber-400">
+            <div className="w-7 h-7 rounded-full bg-amber-50 border border-amber-200 dark:bg-amber-950/80 dark:border-amber-500/50 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-xs">
               <Send className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-black font-mono text-white">{metrics.solicitados}</span>
-              <span className="text-[10px] font-bold text-zinc-400 uppercase">OP</span>
+              <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white">{metrics.solicitados}</span>
+              <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase">OP</span>
             </div>
             {delaysSol > 0 && (
-              <span className="text-[9.5px] bg-rose-950/90 text-rose-300 border border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1">
+              <span className="text-[9.5px] bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/90 dark:text-rose-300 dark:border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1 shadow-xs">
                 <span>🚨 {delaysSol} &gt;3D</span>
               </span>
             )}
@@ -492,28 +492,28 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         {/* 5. Lavandería (En Lavado) */}
         <div
           onClick={() => setSelectedStage('LAVANDERIA')}
-          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-[#0c1017] dark:bg-[#12161f] text-white ${
+          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
             selectedStage === 'LAVANDERIA'
-              ? 'border-2 border-sky-400 shadow-[0_0_20px_rgba(56,189,248,0.35)] ring-1 ring-sky-400/50'
-              : 'border border-zinc-800 dark:border-zinc-700 hover:border-sky-400/50 shadow-xl'
+              ? 'border-2 border-sky-500 dark:border-sky-400 shadow-[0_4px_20px_rgba(14,165,233,0.25)] dark:shadow-[0_0_20px_rgba(56,189,248,0.35)] ring-1 ring-sky-400/50'
+              : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-sky-400/50 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-xs font-black text-white block tracking-wider">LAVANDERÍA</span>
-              <span className="text-[9px] text-zinc-400 font-bold uppercase block tracking-tight">EN LAVADO</span>
+              <span className="text-xs font-black text-zinc-900 dark:text-white block tracking-wider">LAVANDERÍA</span>
+              <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block tracking-tight">EN LAVADO</span>
             </div>
-            <div className="w-7 h-7 rounded-full bg-sky-950/80 border border-sky-500/50 flex items-center justify-center text-sky-400">
+            <div className="w-7 h-7 rounded-full bg-sky-50 border border-sky-200 dark:bg-sky-950/80 dark:border-sky-500/50 flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-xs">
               <Droplets className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-black font-mono text-white">{metrics.lavanderia}</span>
-              <span className="text-[10px] font-bold text-zinc-400 uppercase">OP</span>
+              <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white">{metrics.lavanderia}</span>
+              <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase">OP</span>
             </div>
             {delaysLav > 0 && (
-              <span className="text-[9.5px] bg-rose-950/90 text-rose-300 border border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1">
+              <span className="text-[9.5px] bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/90 dark:text-rose-300 dark:border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1 shadow-xs">
                 <span>🚨 {delaysLav} &gt;3D</span>
               </span>
             )}
@@ -523,28 +523,28 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         {/* 6. Calidad (En Auditoría) */}
         <div
           onClick={() => setSelectedStage('CALIDAD')}
-          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-[#0c1017] dark:bg-[#12161f] text-white ${
+          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
             selectedStage === 'CALIDAD'
-              ? 'border-2 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.35)] ring-1 ring-purple-500/50'
-              : 'border border-zinc-800 dark:border-zinc-700 hover:border-purple-500/50 shadow-xl'
+              ? 'border-2 border-purple-500 shadow-[0_4px_20px_rgba(168,85,247,0.25)] dark:shadow-[0_0_20px_rgba(168,85,247,0.35)] ring-1 ring-purple-500/50'
+              : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-purple-500/50 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-xs font-black text-white block tracking-wider">CALIDAD</span>
-              <span className="text-[9px] text-zinc-400 font-bold uppercase block tracking-tight">EN AUDITORÍA</span>
+              <span className="text-xs font-black text-zinc-900 dark:text-white block tracking-wider">CALIDAD</span>
+              <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block tracking-tight">EN AUDITORÍA</span>
             </div>
-            <div className="w-7 h-7 rounded-full bg-purple-950/80 border border-purple-500/50 flex items-center justify-center text-purple-400">
+            <div className="w-7 h-7 rounded-full bg-purple-50 border border-purple-200 dark:bg-purple-950/80 dark:border-purple-500/50 flex items-center justify-center text-purple-600 dark:text-purple-400 shadow-xs">
               <Microscope className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-black font-mono text-white">{metrics.calidad}</span>
-              <span className="text-[10px] font-bold text-zinc-400 uppercase">OP</span>
+              <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white">{metrics.calidad}</span>
+              <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase">OP</span>
             </div>
             {delaysCal > 0 && (
-              <span className="text-[9.5px] bg-rose-950/90 text-rose-300 border border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1">
+              <span className="text-[9.5px] bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/90 dark:text-rose-300 dark:border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1 shadow-xs">
                 <span>🚨 {delaysCal} &gt;3D</span>
               </span>
             )}
@@ -554,24 +554,24 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         {/* 7. Finalizados (Liberadas) */}
         <div
           onClick={() => setSelectedStage('FINALIZADO')}
-          className={`col-span-2 sm:col-span-1 rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-[#0c1017] dark:bg-[#12161f] text-white ${
+          className={`col-span-2 sm:col-span-1 rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
             selectedStage === 'FINALIZADO'
-              ? 'border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.35)] ring-1 ring-emerald-500/50'
-              : 'border border-zinc-800 dark:border-zinc-700 hover:border-emerald-500/50 shadow-xl'
+              ? 'border-2 border-emerald-500 shadow-[0_4px_20px_rgba(16,185,129,0.25)] dark:shadow-[0_0_20px_rgba(16,185,129,0.35)] ring-1 ring-emerald-500/50'
+              : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-emerald-500/50 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-xs font-black text-white block tracking-wider">FINALIZADOS</span>
-              <span className="text-[9px] text-zinc-400 font-bold uppercase block tracking-tight">LIBERADAS</span>
+              <span className="text-xs font-black text-zinc-900 dark:text-white block tracking-wider">FINALIZADOS</span>
+              <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block tracking-tight">LIBERADAS</span>
             </div>
-            <div className="w-7 h-7 rounded-full bg-emerald-950/80 border border-emerald-500/50 flex items-center justify-center text-emerald-400">
+            <div className="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/80 dark:border-emerald-500/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-xs">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-1">
-            <span className="text-2xl font-black font-mono text-white">{metrics.finalizados}</span>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase">OP</span>
+            <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white">{metrics.finalizados}</span>
+            <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase">OP</span>
           </div>
         </div>
 
@@ -580,8 +580,8 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
       {/* 4. OP CARDS LIST */}
       <div className="space-y-4">
         {filteredList.length === 0 ? (
-          <div className="bg-[#0c1017] dark:bg-black/80 border border-zinc-800 dark:border-zinc-800 rounded-3xl p-8 sm:p-12 text-center text-zinc-400 text-xs shadow-xl space-y-4">
-            <p className="text-sm font-semibold text-zinc-300">
+          <div className="bg-white dark:bg-black/80 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 sm:p-12 text-center text-zinc-600 dark:text-zinc-400 text-xs shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-xl space-y-4">
+            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-300">
               No se encontraron órdenes de producción en la sección seleccionada ({selectedStage}).
             </p>
             <div className="flex items-center justify-center gap-2 flex-wrap pt-1">
@@ -598,7 +598,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedStage('ALL')}
-                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white font-mono font-bold text-xs rounded-xl transition cursor-pointer border border-zinc-700"
+                  className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white font-mono font-bold text-xs rounded-xl transition cursor-pointer border border-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700"
                 >
                   📊 Ver Total Histórico ({metrics.totalHistorico})
                 </button>
@@ -607,7 +607,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedStage('SOLICITADO')}
-                  className="px-3.5 py-2 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 font-mono font-bold text-xs rounded-xl transition cursor-pointer border border-amber-500/40"
+                  className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:hover:bg-amber-900/80 dark:text-amber-300 font-mono font-bold text-xs rounded-xl transition cursor-pointer border border-amber-300 dark:border-amber-500/40"
                 >
                   📦 Solicitados ({metrics.solicitados})
                 </button>
@@ -616,7 +616,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedStage('CALIDAD')}
-                  className="px-3.5 py-2 bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 font-mono font-bold text-xs rounded-xl transition cursor-pointer border border-purple-500/40"
+                  className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:hover:bg-purple-900/80 dark:text-purple-300 font-mono font-bold text-xs rounded-xl transition cursor-pointer border border-purple-300 dark:border-purple-500/40"
                 >
                   🔬 Calidad ({metrics.calidad})
                 </button>

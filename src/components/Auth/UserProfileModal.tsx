@@ -110,24 +110,24 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200 select-none">
-      <div className="bg-[#0c1017] dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-[32px] max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-white dark:text-zinc-950">
+      <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-[32px] max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-zinc-950 dark:text-white">
         
         {/* MODAL HEADER */}
-        <div className="p-5 sm:p-6 border-b border-zinc-800 dark:border-zinc-200 bg-zinc-900/90 dark:bg-zinc-100 flex items-center justify-between gap-4">
+        <div className="p-5 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
               <Users className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h3 className="text-base sm:text-lg font-black text-white dark:text-zinc-950 tracking-tight">
+                <h3 className="text-base sm:text-lg font-black text-zinc-950 dark:text-white tracking-tight">
                   Directorio de Perfiles Autorizados
                 </h3>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-sky-950/80 dark:bg-sky-100 text-sky-400 dark:text-sky-800 border border-sky-500/40 dark:border-sky-300">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-500/40">
                   {usuarios.length} Perfiles
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
                 Selecciona tu perfil corporativo de STF Group para conmutar inmediatamente
               </p>
             </div>
@@ -136,7 +136,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-zinc-400 hover:text-white dark:text-zinc-500 dark:hover:text-zinc-950 p-2 rounded-2xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer"
+            className="text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white p-2 rounded-2xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer"
             title="Cerrar ventana"
           >
             <X className="w-5 h-5" />
@@ -144,7 +144,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         </div>
 
         {/* SEARCH & CATEGORY FILTER TABS */}
-        <div className="p-4 sm:p-6 border-b border-zinc-800 dark:border-zinc-200 bg-zinc-900/50 dark:bg-zinc-50 space-y-4">
+        <div className="p-4 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 space-y-4">
           
           {/* Search Bar */}
           <div className="relative">
@@ -153,14 +153,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por nombre, documento ID, cargo, área o email..."
-              className="w-full bg-zinc-950 dark:bg-white border border-zinc-800 dark:border-zinc-200 rounded-2xl pl-11 pr-10 py-3 text-xs sm:text-sm text-white dark:text-zinc-950 placeholder-zinc-400 dark:placeholder-zinc-400 focus:outline-none focus:border-indigo-500 shadow-inner"
+              className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-2xl pl-11 pr-10 py-3 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-indigo-500 shadow-inner"
             />
             <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-3.5" />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-white dark:text-zinc-500 dark:hover:text-zinc-950 p-0.5 cursor-pointer"
+                className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-0.5 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -176,8 +176,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               onClick={() => setActiveCategory('ALL')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap transition cursor-pointer ${
                 activeCategory === 'ALL'
-                  ? 'bg-white text-zinc-950 dark:bg-zinc-950 dark:text-white shadow-md'
-                  : 'bg-zinc-900 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-300'
+                  ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-md'
+                  : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -190,11 +190,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               onClick={() => setActiveCategory('CALIDAD')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap transition cursor-pointer ${
                 activeCategory === 'CALIDAD'
-                  ? 'bg-emerald-500 text-white shadow-md'
-                  : 'bg-zinc-900 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-300'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
             >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
               <span>Calidad & Operarios ({countCalidad})</span>
             </button>
 
@@ -205,10 +205,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap transition cursor-pointer ${
                 activeCategory === 'ADMIN'
                   ? 'bg-purple-600 text-white shadow-md'
-                  : 'bg-zinc-900 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-300'
+                  : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
             >
-              <FlaskConical className="w-3.5 h-3.5 text-purple-400 dark:text-purple-600" />
+              <FlaskConical className="w-3.5 h-3.5 text-purple-300" />
               <span>Admin & Lab ({countAdmin})</span>
             </button>
 
@@ -218,11 +218,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               onClick={() => setActiveCategory('LAVANDERIA')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap transition cursor-pointer ${
                 activeCategory === 'LAVANDERIA'
-                  ? 'bg-sky-500 text-white shadow-md'
-                  : 'bg-zinc-900 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-300'
+                  ? 'bg-sky-600 text-white shadow-md'
+                  : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
             >
-              <Droplets className="w-3.5 h-3.5 text-sky-400 dark:text-sky-600" />
+              <Droplets className="w-3.5 h-3.5 text-sky-300" />
               <span>Lavandería ({countLavanderia})</span>
             </button>
 
@@ -232,11 +232,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               onClick={() => setActiveCategory('COLECCIONES')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap transition cursor-pointer ${
                 activeCategory === 'COLECCIONES'
-                  ? 'bg-amber-500 text-white shadow-md'
-                  : 'bg-zinc-900 dark:bg-zinc-200 text-zinc-300 dark:text-zinc-700 hover:bg-zinc-800 dark:hover:bg-zinc-300'
+                  ? 'bg-amber-600 text-white shadow-md'
+                  : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
             >
-              <Layers className="w-3.5 h-3.5 text-amber-400 dark:text-amber-600" />
+              <Layers className="w-3.5 h-3.5 text-amber-300" />
               <span>Colecciones (ELA / SF / Outlet) ({countColecciones})</span>
             </button>
 
@@ -247,7 +247,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* PROFILES GRID */}
         <div className="overflow-y-auto flex-1 custom-scroll p-4 sm:p-6">
           {filteredUsers.length === 0 ? (
-            <div className="text-center py-12 text-zinc-400 dark:text-zinc-600 text-xs">
+            <div className="text-center py-12 text-zinc-500 dark:text-zinc-400 text-xs">
               No se encontraron perfiles corporativos que coincidan con la búsqueda.
             </div>
           ) : (
@@ -272,8 +272,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     }}
                     className={`relative rounded-3xl p-5 transition-all duration-200 cursor-pointer flex flex-col justify-between group ${
                       isSelected
-                        ? 'bg-zinc-900 dark:bg-zinc-50 border-2 border-emerald-500 shadow-lg shadow-emerald-500/10 ring-2 ring-emerald-500/20'
-                        : 'bg-zinc-950/80 dark:bg-white border border-zinc-800 dark:border-zinc-200 hover:border-zinc-600 dark:hover:border-zinc-400 shadow-sm hover:shadow-md hover:-translate-y-0.5'
+                        ? 'bg-zinc-50 dark:bg-zinc-900/90 border-2 border-emerald-500 shadow-lg shadow-emerald-500/10 ring-2 ring-emerald-500/20'
+                        : 'bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 shadow-sm hover:shadow-md hover:-translate-y-0.5'
                     }`}
                   >
                     
@@ -285,10 +285,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                             {initials}
                           </div>
                           <div>
-                            <h4 className="text-sm font-black text-white dark:text-zinc-950 tracking-tight group-hover:text-emerald-400 dark:group-hover:text-emerald-600 transition">
+                            <h4 className="text-sm font-black text-zinc-950 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
                               {user.nombre}
                             </h4>
-                            <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 font-bold block">
+                            <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 font-bold block">
                               ID: {user.id}
                             </span>
                           </div>
@@ -308,19 +308,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                           {user.rol}
                         </span>
                         
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-zinc-900 dark:bg-zinc-100 text-zinc-300 dark:text-zinc-700 border border-zinc-800 dark:border-zinc-300">
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-700">
                           {user.area}
                         </span>
 
                         {userRequiresPassword(user) && (
-                          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold font-mono bg-amber-950/80 dark:bg-amber-100 text-amber-300 dark:text-amber-800 border border-amber-500/40 dark:border-amber-300 px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold font-mono bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 px-2 py-0.5 rounded-full">
                             <Lock className="w-2.5 h-2.5" />
                             <span>CONCLAVE</span>
                           </span>
                         )}
 
                         {user.isZonaFranca && (
-                          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold font-mono bg-cyan-950/80 dark:bg-cyan-100 text-cyan-300 dark:text-cyan-800 border border-cyan-500/40 dark:border-cyan-300 px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold font-mono bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/40 px-2 py-0.5 rounded-full">
                             <MapPin className="w-2.5 h-2.5" />
                             <span>ZONA FRANCA</span>
                           </span>
@@ -329,7 +329,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
                       {/* Email Row */}
                       {user.email && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500 mt-3 truncate font-mono">
+                        <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 mt-3 truncate font-mono">
                           <Mail className="w-3.5 h-3.5 shrink-0" />
                           <span className="truncate">{user.email}</span>
                         </div>
@@ -337,7 +337,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
                       {/* WhatsApp Row */}
                       {user.telefono && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 dark:text-emerald-700 mt-1 truncate font-mono">
+                        <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 truncate font-mono">
                           <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                           <span>WhatsApp: {user.telefono}</span>
                         </div>
@@ -345,22 +345,22 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     </div>
 
                     {/* Bottom Action Footer */}
-                    <div className="mt-4 pt-3 border-t border-zinc-800/80 dark:border-zinc-200/80 flex items-center justify-between text-xs font-bold">
+                    <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs font-bold">
                       {isSelected ? (
                         <>
-                          <span className="text-emerald-400 dark:text-emerald-600 text-[11px] font-bold">
+                          <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-bold">
                             Perfil actual
                           </span>
-                          <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                          <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                             <ArrowRight className="w-3.5 h-3.5" />
                           </div>
                         </>
                       ) : (
                         <>
-                          <span className="text-zinc-400 dark:text-zinc-500 group-hover:text-white dark:group-hover:text-zinc-950 text-[11px] transition">
+                          <span className="text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white text-[11px] transition">
                             Clic para ingresar
                           </span>
-                          <div className="w-6 h-6 rounded-full bg-zinc-900 dark:bg-zinc-100 text-zinc-400 dark:text-zinc-600 group-hover:text-white dark:group-hover:text-zinc-950 group-hover:bg-zinc-800 dark:group-hover:bg-zinc-200 flex items-center justify-center transition">
+                          <div className="w-6 h-6 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700 flex items-center justify-center transition">
                             <ArrowRight className="w-3.5 h-3.5" />
                           </div>
                         </>
@@ -375,14 +375,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="p-4 sm:p-5 border-t border-zinc-800 dark:border-zinc-200 bg-zinc-900/90 dark:bg-zinc-100 flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-600 font-mono">
+        <div className="p-4 sm:p-5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400 font-mono">
           <span>
             Mostrando <strong>{filteredUsers.length}</strong> de <strong>{usuarios.length}</strong> perfiles corporativos
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800 text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-md"
+            className="px-6 py-2.5 rounded-xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-md"
           >
             CERRAR
           </button>
