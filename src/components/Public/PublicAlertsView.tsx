@@ -84,7 +84,7 @@ export const PublicAlertsView: React.FC<PublicAlertsViewProps> = ({
     <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-zinc-950 text-zinc-100' : 'bg-zinc-50 text-zinc-900'} font-sans flex flex-col justify-between select-none`}>
       
       {/* 1. TOP HEADER BRANDING */}
-      <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0c1017]/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 py-3 shadow-md">
+      <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0c1017]/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 pt-mobile-safe pb-3 shadow-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           
           {/* Logo Corporativo STF Group Centrado / Izquierda */}

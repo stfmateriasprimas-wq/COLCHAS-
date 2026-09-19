@@ -233,7 +233,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-zinc-950 text-zinc-100' : 'bg-zinc-50 text-zinc-900'} font-sans select-none flex flex-col justify-between`}>
       
       {/* 1. TOP HEADER (BRAND & QUICK ACTIONS) */}
-      <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0c1017]/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-3.5 sm:px-6 py-3 flex items-center justify-between shadow-sm gap-2">
+      <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0c1017]/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-3.5 sm:px-6 pt-mobile-safe pb-3 flex items-center justify-between shadow-sm gap-2">
         <div className="flex items-center gap-2 sm:gap-3">
           {onBackToAlerts && (
             <button

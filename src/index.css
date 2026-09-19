@@ -52,6 +52,17 @@
   }
 }
 
+/* Margen de seguridad superior para barra de estado del teléfono (Hora, 4G, Batería, Notch) */
+.pt-mobile-safe {
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 12px), 44px);
+}
+@media (min-width: 640px) {
+  .pt-mobile-safe {
+    padding-top: 0.75rem; /* 12px (sm:pt-3) en escritorio */
+  }
+}
+
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
