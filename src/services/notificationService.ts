@@ -266,7 +266,7 @@ class NotificationService {
       try {
         const title = roomTitle ? `STF Teams • ${roomTitle}` : `STF Teams • ${senderName}`;
         const body = `${senderName}: ${message}`;
-        const icon = '/logo-stf-white.png';
+        const icon = '/app-icon-192.png';
 
         const showNative = (reg?: ServiceWorkerRegistration) => {
           try {

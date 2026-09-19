@@ -16,8 +16,8 @@ self.addEventListener('push', (event) => {
   let data = {
     title: 'STF GROUP - Control de Calidad',
     body: 'Notificación del sistema de colchas.',
-    icon: '/logo-stf-white.png',
-    badge: '/logo-stf-white.png',
+    icon: '/app-icon-192.png',
+    badge: '/app-icon-192.png',
     tag: 'stf-notification',
     data: { url: '/' }
   };
@@ -33,8 +33,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: data.icon || '/logo-stf-white.png',
-    badge: data.badge || '/logo-stf-white.png',
+    icon: data.icon || '/app-icon-192.png',
+    badge: data.badge || '/app-icon-192.png',
     vibrate: [200, 100, 200],
     tag: data.tag || 'stf-notification',
     renotify: true,
