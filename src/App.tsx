@@ -63,7 +63,7 @@ export function App() {
     if (savedTheme) {
       return savedTheme === 'dark';
     }
-    return true; // Default dark
+    return false; // Default claro
   });
 
   // Apply dark class to documentElement
@@ -758,7 +758,7 @@ export function App() {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-zinc-950 text-zinc-100' : 'bg-zinc-50 text-zinc-900'}`}>
+    <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-[#06080c] text-zinc-100' : 'bg-[#f4f5f7] text-zinc-900'}`}>
       
       {/* 1. Header with Centered Brand Logo, User Badge, Theme, Exit & Back Buttons */}
       <Header
