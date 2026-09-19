@@ -52,9 +52,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     return unsub;
   }, []);
 
-  // Autofocus password input after card flips to 180 degrees
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+
+  // Autofocus password input after card flips to 180 degrees (solo en pantallas de escritorio)
   useEffect(() => {
-    if (isFlipped) {
+    if (isFlipped && isDesktop) {
       const timer = setTimeout(() => {
         passwordInputRef.current?.focus();
       }, 450);
@@ -242,8 +244,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                       setErrorMsg('');
                     }}
                     placeholder=""
-                    autoFocus={!isFlipped}
-                    className="w-full bg-transparent px-3.5 py-4 text-sm text-white placeholder-transparent font-mono font-bold focus:outline-none"
+                    autoFocus={!isFlipped && isDesktop}
+                    className="w-full bg-transparent px-3.5 py-4 text-base sm:text-sm text-white placeholder-transparent font-mono font-bold focus:outline-none"
                   />
                   {userIdInput && (
                     <button
@@ -371,7 +373,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                       setAdminErrorMsg('');
                     }}
                     placeholder=""
-                    className="w-full bg-transparent px-3.5 py-4 text-sm text-white placeholder-transparent font-mono font-bold focus:outline-none"
+                    className="w-full bg-transparent px-3.5 py-4 text-base sm:text-sm text-white placeholder-transparent font-mono font-bold focus:outline-none"
                   />
                   <button
                     type="button"

@@ -56,25 +56,25 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Top Row on Mobile / Direct grid slots on Desktop */}
           <div className="flex items-center justify-between w-full sm:contents">
             
-            {/* LEFT: Back Button & CHAT Button (Ubicación oficial solicitada) */}
-            <div className="flex items-center justify-start gap-1.5 sm:gap-2.5 shrink-0 min-w-[32px] sm:min-w-[40px]">
+            {/* LEFT: Back Button & CHAT Button */}
+            <div className="flex items-center justify-start gap-1 sm:gap-2.5 shrink-0">
               {showBackButton && (
                 <button
                   type="button"
                   onClick={onBackToDashboard}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-white flex items-center justify-center transition cursor-pointer shadow-sm shrink-0"
+                  className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-white flex items-center justify-center transition cursor-pointer shadow-sm shrink-0"
                   title="Volver al menú principal"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               )}
 
-              {/* BOTÓN OFICIAL DE CHAT EN LA POSICIÓN SEÑALADA EN LA IMAGEN (DISEÑO ULTRA-FUTURISTA STF) */}
+              {/* BOTÓN OFICIAL DE CHAT EN LA POSICIÓN SEÑALADA EN LA IMAGEN */}
               {onOpenChat && (
                 <button
                   type="button"
                   onClick={onOpenChat}
-                  className="relative group overflow-hidden px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#002f23] via-[#014d38] to-[#00281e] border border-emerald-400/70 hover:border-emerald-300 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2.5 transition-all duration-300 cursor-pointer shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:shadow-[0_0_26px_rgba(16,185,129,0.65)] hover:scale-[1.04] active:scale-95 shrink-0 ring-1 ring-emerald-500/40"
+                  className="relative group overflow-hidden px-2 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#002f23] via-[#014d38] to-[#00281e] border border-emerald-400/70 hover:border-emerald-300 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1 sm:gap-2.5 transition-all duration-300 cursor-pointer shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:shadow-[0_0_26px_rgba(16,185,129,0.65)] hover:scale-[1.04] active:scale-95 shrink-0 ring-1 ring-emerald-500/40"
                   title="Abrir Chat Corporativo STF en Tiempo Real"
                 >
                   {/* Reflejo Shimmer Holográfico Cybernetic */}
@@ -82,23 +82,23 @@ export const Header: React.FC<HeaderProps> = ({
 
                   {/* Icono con resplandor neón */}
                   <div className="relative flex items-center justify-center shrink-0">
-                    <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-300 group-hover:text-white transition-colors drop-shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+                    <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-300 group-hover:text-white transition-colors drop-shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
                   </div>
 
                   {/* Texto Futurista de Alta Tecnología */}
-                  <span className="font-mono tracking-widest font-black text-[11px] sm:text-xs text-white drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]">
+                  <span className="font-mono tracking-widest font-black text-[9.5px] sm:text-xs text-white drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]">
                     CHAT
                   </span>
 
                   {/* Radar Status Beacon en Tiempo Real */}
-                  <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
                   </span>
 
                   {/* Insignia Roja Futurista de Mensajes No Leídos */}
                   {chatUnreadCount !== undefined && chatUnreadCount > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[9.5px] font-mono font-black border border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.9)] animate-pulse flex items-center justify-center">
+                    <span className="ml-0.5 px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded-full bg-rose-600 text-white text-[8.5px] sm:text-[9.5px] font-mono font-black border border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.9)] animate-pulse flex items-center justify-center">
                       {chatUnreadCount}
                     </span>
                   )}
@@ -107,10 +107,10 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* CENTER: Centered STF GROUP Logo (with user badge on desktop) */}
-            <div className="flex flex-col items-center justify-center space-y-1 sm:space-y-1.5 py-0.5 justify-self-center text-center max-w-full">
+            <div className="flex flex-col items-center justify-center space-y-1 sm:space-y-1.5 py-0.5 justify-self-center text-center px-1 min-w-0 shrink">
               <STFLogo
                 isWhite={isDarkMode}
-                className="h-7 sm:h-12 md:h-16 w-28 sm:w-60 md:w-80 transition-all duration-300"
+                className="h-6 sm:h-12 md:h-16 w-24 sm:w-60 md:w-80 max-w-[105px] sm:max-w-none transition-all duration-300"
               />
 
               {/* User badge on desktop (hidden on mobile row 1, rendered in row 2 below) */}
@@ -138,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={onManualSync}
                 disabled={isSyncing}
-                className="px-2 sm:px-3 py-1.5 rounded-xl sm:rounded-2xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 dark:text-white text-[11px] font-bold flex items-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-sm hover:border-emerald-500/50 group disabled:opacity-75 shrink-0"
+                className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 dark:text-white text-[11px] font-bold flex items-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-sm hover:border-emerald-500/50 group disabled:opacity-75 shrink-0"
                 title="Sincronización en tiempo real con la hoja BASE_DE_DATOS. Haz clic para actualizar ahora."
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
@@ -176,11 +176,11 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onLogout}
-                className="px-2 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-sm shrink-0"
+                className="p-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-2xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-sm shrink-0"
                 title="Cerrar sesión"
               >
-                <LogOut className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden xs:inline">SALIR</span>
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">SALIR</span>
               </button>
 
             </div>
