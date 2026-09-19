@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, Database, AlertTriangle, Clock, BarChart3, MessageSquare } from 'lucide-react';
+import { Layers, Database, AlertTriangle, Clock, BarChart3 } from 'lucide-react';
 import { TabType } from '../Navigation';
 
 interface SubNavTabsProps {
@@ -14,17 +14,9 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
   activeTab,
   onSelectTab,
   totalHistorico,
-  alertCount,
-  chatUnreadCount
+  alertCount
 }) => {
   const tabs: { id: TabType; label: string; icon: React.ReactNode; badge?: string | number; badgeColor?: string }[] = [
-    {
-      id: 'chat',
-      label: 'CHAT STF',
-      icon: <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />,
-      badge: chatUnreadCount !== undefined && chatUnreadCount > 0 ? chatUnreadCount : undefined,
-      badgeColor: 'bg-emerald-500 text-black'
-    },
     {
       id: 'solicitudes',
       label: 'SOLICITUDES',
