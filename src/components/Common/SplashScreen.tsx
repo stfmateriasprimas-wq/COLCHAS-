@@ -7,17 +7,17 @@ interface SplashScreenProps {
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   onFinish,
-  durationMs = 2600
+  durationMs = 2900
 }) => {
   const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
-    // Iniciar desvanecimiento de salida 500ms antes del fin
+    // Iniciar desvanecimiento de salida suave 550ms antes del fin
     const fadeTimer = setTimeout(() => {
       setIsFadingOut(true);
-    }, Math.max(1200, durationMs - 550));
+    }, Math.max(1500, durationMs - 550));
 
-    // Finalizar intro y dar paso al Login
+    // Finalizar intro y dar paso a la pantalla de Login
     const finishTimer = setTimeout(() => {
       onFinish();
     }, durationMs);
@@ -28,155 +28,191 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     };
   }, [durationMs, onFinish]);
 
-  // Permitir omitir la animación al hacer clic o tocar la pantalla
+  // Permitir omitir la animación inmediatamente al hacer clic o tocar
   const handleSkip = () => {
     setIsFadingOut(true);
-    setTimeout(onFinish, 200);
+    setTimeout(onFinish, 180);
   };
 
   return (
     <div 
       onClick={handleSkip}
-      className={`fixed inset-0 z-9999 flex flex-col items-center justify-center bg-black select-none cursor-pointer overflow-hidden transition-all duration-500 ease-out ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none cursor-pointer overflow-hidden transition-all duration-500 ease-out ${
         isFadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
       style={{
-        backgroundColor: '#000000'
+        background: 'radial-gradient(circle at 50% 46%, #191c21 0%, #101215 45%, #050608 100%)'
       }}
     >
       <style>{`
-        @keyframes stfCinematicZoom {
+        @keyframes stfCinematic3D {
           0% {
             opacity: 0;
-            transform: scale(0.60) translateY(12px);
-            filter: blur(10px) brightness(0.5);
+            transform: perspective(1200px) scale(0.68) translateY(16px) rotateX(4deg);
+            filter: blur(8px) brightness(0.5);
           }
-          25% {
+          30% {
             opacity: 1;
             filter: blur(0px) brightness(1.25);
           }
-          75% {
+          70% {
             opacity: 1;
-            transform: scale(1.02) translateY(0px);
-            filter: blur(0px) brightness(1.0);
+            transform: perspective(1200px) scale(1.02) translateY(0px) rotateX(0deg);
+            filter: blur(0px) brightness(1.02);
           }
           100% {
-            opacity: 0.95;
-            transform: scale(1.05) translateY(0px);
+            opacity: 1;
+            transform: perspective(1200px) scale(1.05) translateY(0px) rotateX(0deg);
             filter: blur(0px) brightness(1.05);
           }
         }
 
-        @keyframes stfAuraGlow {
-          0%, 100% {
-            opacity: 0.20;
-            transform: scale(0.85);
+        @keyframes stfChromeSweep {
+          0% {
+            transform: translateX(-150%) skewX(-25deg);
+            opacity: 0;
           }
-          50% {
-            opacity: 0.45;
-            transform: scale(1.18);
+          35% {
+            opacity: 0.85;
+          }
+          75% {
+            opacity: 0.85;
+          }
+          100% {
+            transform: translateX(250%) skewX(-25deg);
+            opacity: 0;
           }
         }
 
-        @keyframes stfShimmerBar {
+        @keyframes stfHaloPulse {
+          0%, 100% {
+            opacity: 0.35;
+            transform: scale(0.92);
+          }
+          50% {
+            opacity: 0.70;
+            transform: scale(1.15);
+          }
+        }
+
+        @keyframes stfSubLine {
           0% {
             width: 0%;
             opacity: 0;
           }
-          30% {
+          35% {
             opacity: 1;
           }
-          80% {
-            width: 85%;
+          85% {
+            width: 90%;
             opacity: 0.9;
           }
           100% {
             width: 100%;
-            opacity: 0;
+            opacity: 0.4;
           }
         }
 
-        @keyframes stfTextReveal {
+        @keyframes stfSubText {
           0% {
             opacity: 0;
-            transform: translateY(8px);
+            transform: translateY(6px);
             letter-spacing: 0.15em;
           }
-          40% {
-            opacity: 0.6;
-          }
-          80% {
-            opacity: 1;
-            transform: translateY(0);
-            letter-spacing: 0.25em;
+          50% {
+            opacity: 0.5;
           }
           100% {
-            opacity: 0.9;
+            opacity: 0.95;
             transform: translateY(0);
-            letter-spacing: 0.25em;
+            letter-spacing: 0.24em;
           }
         }
 
-        .stf-logo-animation {
-          animation: stfCinematicZoom 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        .stf-3d-logo-anim {
+          animation: stfCinematic3D 2.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
-        .stf-aura-animation {
-          animation: stfAuraGlow 3s ease-in-out infinite;
+        .stf-sweep-anim {
+          animation: stfChromeSweep 2.1s cubic-bezier(0.25, 1, 0.5, 1) 0.35s forwards;
         }
 
-        .stf-shimmer-animation {
-          animation: stfShimmerBar 2.2s ease-out forwards;
+        .stf-halo-anim {
+          animation: stfHaloPulse 3.2s ease-in-out infinite;
         }
 
-        .stf-subtitle-animation {
-          animation: stfTextReveal 2.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        .stf-subline-anim {
+          animation: stfSubLine 2.4s ease-out forwards;
+        }
+
+        .stf-subtext-anim {
+          animation: stfSubText 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
 
-      {/* 1. HALO LUMINOSO AMBIENTAL DE FONDO */}
+      {/* 1. HALO LUMINOSO AMBIENTAL DE FONDO (METÁLICO / DORADO SUAVE) */}
       <div 
-        className="absolute w-[320px] sm:w-[540px] h-[320px] sm:h-[540px] rounded-full pointer-events-none stf-aura-animation"
+        className="absolute w-[360px] sm:w-[680px] h-[360px] sm:h-[680px] rounded-full pointer-events-none stf-halo-anim"
         style={{
-          background: 'radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(212, 175, 55, 0.05) 35%, rgba(0, 0, 0, 0) 70%)',
-          filter: 'blur(35px)'
+          background: 'radial-gradient(circle, rgba(255, 255, 255, 0.14) 0%, rgba(212, 175, 55, 0.08) 32%, rgba(0, 0, 0, 0) 72%)',
+          filter: 'blur(45px)'
         }}
       />
 
-      {/* 2. CONTENEDOR CENTRAL DEL LOGO STF GROUP */}
-      <div className="relative z-10 flex flex-col items-center justify-center px-6 max-w-md sm:max-w-xl w-full text-center">
+      {/* 2. CONTENEDOR PRINCIPAL DEL LOGO 3D CINEMATOGRÁFICO */}
+      <div className="relative z-10 flex flex-col items-center justify-center px-4 sm:px-8 max-w-lg sm:max-w-2xl w-full text-center">
         
-        {/* IMAGEN OFICIAL DEL LOGO STF GROUP CON ANIMACIÓN ZOOM */}
-        <div className="stf-logo-animation w-full flex flex-col items-center">
-          <img 
-            src="/stf-group-splash-logo.jpg" 
-            alt="STF GROUP S.A. • STUDIO F • ELA • STUDIO F MAN"
-            className="w-full max-w-[320px] sm:max-w-[460px] h-auto object-contain drop-shadow-[0_0_25px_rgba(255,255,255,0.25)]"
+        {/* LOGO 3D EN ALTA DEFINICIÓN CON ANIMACIÓN CINEMÁTICA Y DESTELLO */}
+        <div className="stf-3d-logo-anim relative w-full flex flex-col items-center">
+          
+          {/* Marco de imagen 3D con difuminado suave en bordes (vignette mask) */}
+          <div 
+            className="relative w-full overflow-hidden rounded-2xl sm:rounded-3xl"
             style={{
-              mixBlendMode: 'screen',
-              filter: 'contrast(1.08) brightness(1.05)'
+              WebkitMaskImage: 'radial-gradient(ellipse 94% 90% at 50% 50%, black 58%, rgba(0,0,0,0.85) 80%, transparent 100%)',
+              maskImage: 'radial-gradient(ellipse 94% 90% at 50% 50%, black 58%, rgba(0,0,0,0.85) 80%, transparent 100%)',
+              boxShadow: '0 20px 60px -15px rgba(0,0,0,0.9), 0 0 35px rgba(255,255,255,0.06)'
             }}
-          />
+          >
+            <img 
+              src="/stf-group-3d-logo.jpg" 
+              alt="STF GROUP S.A. • STUDIO F • ELA • STUDIO F MAN (3D Chrome Edition)"
+              className="w-full h-auto object-contain block drop-shadow-[0_15px_30px_rgba(0,0,0,0.9)]"
+              style={{
+                filter: 'contrast(1.08) brightness(1.06)'
+              }}
+            />
 
-          {/* LÍNEA DE LUZ EXPANSIVA SUTIL */}
-          <div className="w-full max-w-[280px] sm:max-w-[400px] h-[1px] bg-linear-to-r from-transparent via-white/60 to-transparent mt-4 stf-shimmer-animation" />
+            {/* Haz de luz de destello cromado en diagonal */}
+            <div 
+              className="absolute inset-0 pointer-events-none stf-sweep-anim"
+              style={{
+                background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.0) 30%, rgba(255, 255, 255, 0.35) 50%, rgba(212, 175, 55, 0.28) 60%, transparent 80%)',
+                mixBlendMode: 'screen'
+              }}
+            />
+          </div>
+
+          {/* LÍNEA DE LUZ EXPANSIVA METÁLICA */}
+          <div className="w-full max-w-[300px] sm:max-w-[480px] h-[1.5px] bg-gradient-to-r from-transparent via-amber-200/50 via-white/80 to-transparent mt-5 stf-subline-anim" />
 
           {/* SUBTÍTULO INSTITUCIONAL DE TRAZABILIDAD */}
-          <div className="mt-4 space-y-1 stf-subtitle-animation">
-            <span className="text-[10px] sm:text-[11.5px] font-sans font-bold text-zinc-300 uppercase tracking-[0.22em] block">
+          <div className="mt-3.5 space-y-1 stf-subtext-anim">
+            <span className="text-[10.5px] sm:text-[12.5px] font-sans font-bold text-zinc-200 uppercase tracking-[0.24em] block drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
               Control de Calidad & Trazabilidad Textil
             </span>
-            <span className="text-[8.5px] sm:text-[9.5px] font-mono text-zinc-500 tracking-[0.18em] block uppercase">
+            <span className="text-[8.5px] sm:text-[10px] font-mono text-zinc-400 tracking-[0.20em] block uppercase">
               Planta Principal • Atelier Zona Franca • Laboratorio
             </span>
           </div>
+
         </div>
 
       </div>
 
       {/* 3. MICRO INDICADOR INFERIOR PARA SALTAR */}
-      <div className="absolute bottom-6 sm:bottom-8 z-10 text-[9px] sm:text-[10px] font-mono text-zinc-600 tracking-wider flex items-center gap-1.5 transition-opacity duration-300 opacity-60 hover:opacity-100">
-        <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-ping" />
+      <div className="absolute bottom-6 sm:bottom-8 z-10 text-[9px] sm:text-[10px] font-mono text-zinc-500 tracking-wider flex items-center gap-1.5 transition-opacity duration-300 opacity-60 hover:opacity-100">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-200/70 animate-ping" />
         <span>Toca en cualquier lugar para continuar</span>
       </div>
 
