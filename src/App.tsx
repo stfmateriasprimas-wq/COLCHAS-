@@ -130,7 +130,27 @@ export function App() {
 
   // Authentication State: Siempre inicia desde el apartado de Login al ingresar al sistema
   const [currentUser, setCurrentUser] = useState<UsuarioSTF | null>(null);
-  const [showSplash, setShowSplash] = useState(true);
+
+  // Animación Intro Cinemática con sonido: solo 1 vez por cada apertura del aplicativo (sesión de navegador)
+  const [showSplash, setShowSplash] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      // Accesos directos por QR o vistas públicas no ejecutan splash
+      if (params.get('op') || params.get('view')) return false;
+      try {
+        const alreadyShown = sessionStorage.getItem('stf_splash_shown');
+        if (alreadyShown === 'true') return false;
+      } catch (e) {}
+    }
+    return true;
+  });
+
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+    try {
+      sessionStorage.setItem('stf_splash_shown', 'true');
+    } catch (e) {}
+  };
 
   const hasProcessedUrlOpRef = React.useRef(false);
 
@@ -754,19 +774,14 @@ export function App() {
     );
   }
 
-  // ANIMACIÓN INTRO CINEMATOGRÁFICA (SPLASH SCREEN STF GROUP)
+  // ANIMACIÓN INTRO CINEMATOGRÁFICA CON SONIDO (SOLO 1 VEZ POR APERTURA DEL SISTEMA)
   if (showSplash && !publicOpNumber && !isPublicAlertsView) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+    return <SplashScreen onFinish={handleSplashFinish} />;
   }
 
   // IF NOT AUTHENTICATED -> SHOW LOGIN SCREEN
   if (!currentUser) {
-    return (
-      <LoginScreen 
-        onLoginSuccess={handleLogin} 
-        onReplayIntro={() => setShowSplash(true)}
-      />
-    );
+    return <LoginScreen onLoginSuccess={handleLogin} />;
   }
 
   return (
