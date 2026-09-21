@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Volume2, VolumeX } from 'lucide-react';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -7,15 +8,51 @@ interface SplashScreenProps {
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   onFinish,
-  durationMs = 2900
+  durationMs = 4600
 }) => {
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // Desvanecimiento de salida suave 550ms antes del final
+    let audio: HTMLAudioElement | null = null;
+    let fadeInterval: any = null;
+
+    try {
+      audio = new Audio('/stf-intro-sound.mp3');
+      audio.volume = 0.85;
+      audioRef.current = audio;
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // Si el navegador bloquea el autoplay sin interacción previa, reproducir al primer toque/clic
+          const onFirstInteraction = () => {
+            if (audio) {
+              audio.play().catch(() => {});
+            }
+            window.removeEventListener('click', onFirstInteraction);
+            window.removeEventListener('touchstart', onFirstInteraction);
+          };
+          window.addEventListener('click', onFirstInteraction, { once: true });
+          window.addEventListener('touchstart', onFirstInteraction, { once: true });
+        });
+      }
+    } catch (e) {}
+
+    // Iniciar desvanecimiento gradual de salida de audio y video 700ms antes del fin
     const fadeTimer = setTimeout(() => {
       setIsFadingOut(true);
-    }, Math.max(1500, durationMs - 550));
+      if (audio) {
+        fadeInterval = setInterval(() => {
+          if (audio && audio.volume > 0.08) {
+            audio.volume = Math.max(0, audio.volume - 0.12);
+          } else {
+            clearInterval(fadeInterval);
+          }
+        }, 70);
+      }
+    }, Math.max(2000, durationMs - 700));
 
     // Transición fluida a la pantalla de Login
     const finishTimer = setTimeout(() => {
@@ -25,19 +62,38 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(finishTimer);
+      if (fadeInterval) clearInterval(fadeInterval);
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
     };
   }, [durationMs, onFinish]);
 
   // Permitir omitir la animación al hacer clic o tocar la pantalla
   const handleSkip = () => {
     setIsFadingOut(true);
+    if (audioRef.current) {
+      try {
+        audioRef.current.volume = 0.15;
+      } catch (e) {}
+    }
     setTimeout(onFinish, 180);
+  };
+
+  // Alternar sonido mudo / activo
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (audioRef.current) {
+      audioRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
   };
 
   return (
     <div 
       onClick={handleSkip}
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none cursor-pointer overflow-hidden transition-all duration-550 ease-out ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none cursor-pointer overflow-hidden transition-all duration-600 ease-out ${
         isFadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
       style={{
@@ -49,21 +105,21 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         @keyframes stfCinematic4k {
           0% {
             opacity: 0;
-            transform: scale(0.74) translateY(12px);
-            filter: blur(12px) brightness(0.4) contrast(1.15);
+            transform: scale(0.70) translateY(14px);
+            filter: blur(14px) brightness(0.35) contrast(1.15);
           }
-          26% {
+          22% {
             opacity: 1;
-            filter: blur(0px) brightness(1.2) contrast(1.08);
+            filter: blur(0px) brightness(1.22) contrast(1.08);
           }
-          70% {
+          65% {
             opacity: 1;
             transform: scale(1.01) translateY(0px);
             filter: blur(0px) brightness(1.02);
           }
           100% {
             opacity: 1;
-            transform: scale(1.04) translateY(0px);
+            transform: scale(1.05) translateY(0px);
             filter: blur(0px) brightness(1.04);
           }
         }
@@ -71,17 +127,17 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         /* Brillo Blanco Exclusivo sobre las Letras de Izquierda a Derecha */
         @keyframes stfWhiteLetterShine {
           0% {
-            transform: translateX(-150%) skewX(-24deg);
+            transform: translateX(-160%) skewX(-24deg);
             opacity: 0;
           }
-          20% {
+          25% {
             opacity: 1;
           }
-          80% {
+          75% {
             opacity: 1;
           }
           100% {
-            transform: translateX(240%) skewX(-24deg);
+            transform: translateX(250%) skewX(-24deg);
             opacity: 0;
           }
         }
@@ -92,7 +148,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             width: 0%;
             opacity: 0;
           }
-          35% {
+          30% {
             opacity: 1;
           }
           80% {
@@ -112,7 +168,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             transform: translateY(8px);
             letter-spacing: 0.16em;
           }
-          45% {
+          40% {
             opacity: 0.55;
           }
           100% {
@@ -123,21 +179,31 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         }
 
         .stf-4k-logo-anim {
-          animation: stfCinematic4k 2.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: stfCinematic4k 4.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         .stf-shine-beam {
-          animation: stfWhiteLetterShine 2.0s cubic-bezier(0.22, 1, 0.36, 1) 0.45s forwards;
+          animation: stfWhiteLetterShine 2.6s cubic-bezier(0.22, 1, 0.36, 1) 0.6s forwards;
         }
 
         .stf-beam-anim {
-          animation: stfBeamExpand 2.4s ease-out forwards;
+          animation: stfBeamExpand 3.2s ease-out forwards;
         }
 
         .stf-brand-text {
-          animation: stfBrandReveal 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: stfBrandReveal 3.0s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
+
+      {/* BOTÓN SUPERIOR DERECHO PARA SILENCIAR / ACTIVAR AUDIO */}
+      <button 
+        onClick={toggleMute}
+        type="button"
+        title={isMuted ? 'Activar sonido' : 'Silenciar'}
+        className="absolute top-6 right-6 z-20 p-2.5 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-white/70 hover:text-white transition-all backdrop-blur-md"
+      >
+        {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+      </button>
 
       {/* CONTENEDOR CENTRAL DEL LOGO DEFINITIVO 3D 4K */}
       <div className="relative z-10 flex flex-col items-center justify-center px-4 sm:px-8 max-w-md sm:max-w-2xl w-full text-center">
@@ -175,7 +241,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
               <div 
                 className="w-full h-full stf-shine-beam"
                 style={{
-                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.0) 25%, rgba(255,255,255,0.92) 50%, rgba(255,255,255,0.15) 65%, transparent 85%)',
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.0) 25%, rgba(255,255,255,0.95) 50%, rgba(255,255,255,0.15) 65%, transparent 85%)',
                   mixBlendMode: 'plus-lighter'
                 }}
               />
