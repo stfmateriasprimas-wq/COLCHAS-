@@ -17,6 +17,7 @@ import { EstadisticasView } from './components/Estadisticas/EstadisticasView';
 import { WhatsAppChatView } from './components/Chat/WhatsAppChatView';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { UserProfileModal } from './components/Auth/UserProfileModal';
+import { SplashScreen } from './components/Common/SplashScreen';
 import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList } from './services/authService';
 import { SolicitudColcha, MonitoreoItem, KpiMetrics, SectorType, DictamenType, ChatMessage } from './types';
 import { 
@@ -129,6 +130,7 @@ export function App() {
 
   // Authentication State: Siempre inicia desde el apartado de Login al ingresar al sistema
   const [currentUser, setCurrentUser] = useState<UsuarioSTF | null>(null);
+  const [showSplash, setShowSplash] = useState(true);
 
   const hasProcessedUrlOpRef = React.useRef(false);
 
@@ -752,9 +754,19 @@ export function App() {
     );
   }
 
+  // ANIMACIÓN INTRO CINEMATOGRÁFICA (SPLASH SCREEN STF GROUP)
+  if (showSplash && !publicOpNumber && !isPublicAlertsView) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
   // IF NOT AUTHENTICATED -> SHOW LOGIN SCREEN
   if (!currentUser) {
-    return <LoginScreen onLoginSuccess={handleLogin} />;
+    return (
+      <LoginScreen 
+        onLoginSuccess={handleLogin} 
+        onReplayIntro={() => setShowSplash(true)}
+      />
+    );
   }
 
   return (
