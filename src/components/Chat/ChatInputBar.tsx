@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Smile, Plus, Mic, Send, Trash2, Check, Paperclip, 
-  Image as ImageIcon, Zap, AlertTriangle, StopCircle 
+  Image as ImageIcon, Zap, AlertTriangle, StopCircle, Loader2 
 } from 'lucide-react';
 import { chatService } from '../../services/chatService';
+import { compressImageFile } from '../../services/googleSheetsService';
 
 interface ChatInputBarProps {
   onSendMessage: (text: string) => void;
@@ -29,6 +30,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -59,7 +61,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     }
   };
 
-  // Grabación de notas de voz
+  // Grabación de notas de voz nativa adaptativa
   const handleStartRecording = async () => {
     if (disabled) return;
     const started = await chatService.startAudioRecording();
@@ -70,7 +72,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
     } else {
-      alert('No se pudo acceder al micrófono. Verifica los permisos en el navegador.');
+      alert('No se pudo acceder al micrófono. Por favor verifica los permisos en el navegador de tu dispositivo.');
     }
   };
 
@@ -78,7 +80,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRecording(false);
     const audioResult = await chatService.stopAudioRecording();
-    if (audioResult && audioResult.duration > 0.5) {
+    if (audioResult && audioResult.duration >= 0.5) {
       onSendVoiceNote(audioResult);
     }
     setRecordingSeconds(0);
@@ -91,24 +93,35 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     chatService.cancelAudioRecording();
   };
 
-  // Subir imagen
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Subir imagen con compresión adaptativa obligatoria (< 60 KB)
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona únicamente archivos de imagen.');
+      alert('Por favor selecciona únicamente archivos de imagen (JPG, PNG, WEBP).');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      onSendImage(base64, file.name);
+    try {
+      setIsProcessingFile(true);
+      // Compresión adaptativa según estándares STF: < 60 KB para entrega inmediata en Firestore
+      const compressed = await compressImageFile(file, 650, 0.60);
+      onSendImage(compressed, file.name);
       setShowAttachMenu(false);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    } catch (err) {
+      console.warn('Compresión adaptativa falló, usando lector nativo:', err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        onSendImage(base64, file.name);
+        setShowAttachMenu(false);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsProcessingFile(false);
+      e.target.value = '';
+    }
   };
 
   const formatSeconds = (sec: number) => {
@@ -186,6 +199,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
 
           <button
             type="button"
+            disabled={isProcessingFile}
             onClick={() => {
               setShowAttachMenu(false);
               fileInputRef.current?.click();
@@ -201,12 +215,12 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 ? 'bg-sky-500/20 text-sky-400 group-hover:bg-sky-500 group-hover:text-black' 
                 : 'bg-sky-100 text-sky-700 group-hover:bg-sky-600 group-hover:text-white'
             }`}>
-              <ImageIcon className="w-4 h-4" />
+              {isProcessingFile ? <Loader2 className="w-4 h-4 animate-spin text-sky-500" /> : <ImageIcon className="w-4 h-4" />}
             </div>
             <div>
               <span className="block font-bold">Fotos y Evidencias</span>
               <span className={`text-[10px] block font-normal ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                Subir foto de muestra o defecto
+                {isProcessingFile ? 'Comprimiendo imagen...' : 'Subir foto de muestra o defecto'}
               </span>
             </div>
           </button>

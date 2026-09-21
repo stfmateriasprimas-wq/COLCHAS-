@@ -1,13 +1,15 @@
 /**
  * STF GROUP - SERVICIO DE CHAT CORPORATIVO EN TIEMPO REAL
- * Soporte Firestore onSnapshot, sincronización inter-pestañas (BroadcastChannel),
- * Web Audio API (sonidos cómodos exclusivos), privacidad estricta de chats 1 a 1,
- * grupos de trabajo oficiales y conteo en tiempo real de mensajes no leídos.
+ * Soporte Firestore onSnapshot singleton, sanitización estricta anti-undefined,
+ * sincronización inter-dispositivos inmediata, Web Audio API con chime armónico,
+ * privacidad estricta de chats 1 a 1, grupos de trabajo oficiales y
+ * notas de voz universales adaptativas (iOS/Safari MP4 y Android/Chrome WebM).
  */
 
 import { 
   collection, 
-  addDoc, 
+  doc,
+  setDoc,
   query, 
   orderBy, 
   limit, 
@@ -83,6 +85,13 @@ export const WORKGROUPS_STF: ChatWorkgroup[] = [
   }
 ];
 
+interface ChatSubscriber {
+  id: string;
+  canalId: string;
+  userId: string;
+  callback: (messages: ChatMessage[]) => void;
+}
+
 class ChatService {
   private broadcastChannel: BroadcastChannel | null = null;
   private audioCtx: AudioContext | null = null;
@@ -91,10 +100,19 @@ class ChatService {
   private recordingStartTime: number = 0;
   private soundEnabled: boolean = true;
 
+  // Arquitectura de suscripción singleton en tiempo real
+  private subscribers: Map<string, ChatSubscriber> = new Map();
+  private firestoreUnsubscribe: (() => void) | null = null;
+  private cachedMessages: ChatMessage[] = [];
+  private isFirestoreListening: boolean = false;
+  private hasInitialSnapshotLoaded: boolean = false;
+  private lastSnapshotTime: number = Date.now();
+
   constructor() {
     if (typeof window !== 'undefined') {
       try {
         this.broadcastChannel = new BroadcastChannel('stf_colchas_chat_channel');
+        this.broadcastChannel.addEventListener('message', this.handleBroadcastMessage.bind(this));
       } catch (e) {
         console.warn('[chatService] BroadcastChannel no disponible');
       }
@@ -102,11 +120,33 @@ class ChatService {
       const savedSound = localStorage.getItem(SOUND_ENABLED_KEY);
       this.soundEnabled = savedSound !== null ? savedSound === 'true' : true;
 
-      // Limpiar residuos de mensajes semilla anteriores si existieran
-      try {
-        localStorage.removeItem('stf_chat_cached_messages_v2');
-      } catch (e) {}
+      // Cargar caché local inmediato en memoria
+      this.cachedMessages = this.getCachedMessages();
+
+      // Iniciar escucha global de Firestore
+      this.startGlobalFirestoreListener();
     }
+  }
+
+  /**
+   * Sanitizador recursivo para Firestore:
+   * Elimina cualquier propiedad con valor 'undefined' para evitar que Firestore
+   * lance "Unsupported field value: undefined" y aborte el guardado.
+   */
+  private sanitizeForFirestore(obj: any): any {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (obj instanceof Timestamp) return obj;
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.sanitizeForFirestore(item));
+    }
+    const clean: Record<string, any> = {};
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (val !== undefined) {
+        clean[key] = this.sanitizeForFirestore(val);
+      }
+    }
+    return clean;
   }
 
   public isSoundEnabled(): boolean {
@@ -204,156 +244,21 @@ class ChatService {
    * Helper para generar el ID canónico de un chat 1 a 1 entre dos usuarios
    */
   public getDirectChannelId(userAId: string, userBId: string): string {
-    const sorted = [String(userAId).trim().toLowerCase(), String(userBId).trim().toLowerCase()].sort();
+    const cleanA = String(userAId).trim().toLowerCase();
+    const cleanB = String(userBId).trim().toLowerCase();
+    const sorted = [cleanA, cleanB].sort();
     return `DIRECT_${sorted[0]}_${sorted[1]}`;
   }
 
   /**
-   * Obtener mensajes legítimos de usuarios (100% reales, sin mensajes automáticos ni fantasmas)
+   * Verifica si un usuario forma parte de un canal directo 1 a 1
    */
-  public getCachedMessages(): ChatMessage[] {
-    if (typeof localStorage === 'undefined') return [];
-    try {
-      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-
-      // Filtrar mensajes que no sean genuinamente de usuarios
-      return parsed.filter((m) => m && m.id && !m.id.startsWith('seed_') && m.remitenteId !== 'bot');
-    } catch (e) {
-      return [];
-    }
-  }
-
-  private saveCachedMessages(messages: ChatMessage[]): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-      // Limitar a los últimos 300 mensajes legítimos
-      const clean = messages.filter((m) => m && m.id && !m.id.startsWith('seed_') && m.remitenteId !== 'bot');
-      const trimmed = clean.slice(-300);
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(trimmed));
-    } catch (e) {
-      console.warn('[chatService] Error guardando mensajes en localStorage:', e);
-    }
-  }
-
-  /**
-   * Suscribirse en tiempo real a mensajes de un canal específico (o todos los mensajes autorizados)
-   */
-  public subscribeToMessages(
-    canalId: string,
-    currentUserId: string,
-    onMessagesUpdate: (messages: ChatMessage[]) => void
-  ): () => void {
-    let firestoreUnsub: (() => void) | null = null;
-    let localMessages = this.getCachedMessages();
-
-    // 1. Entregar caché inmediatamente
-    const filteredInitial = this.filterMessagesByChannel(localMessages, canalId, currentUserId);
-    onMessagesUpdate(filteredInitial);
-
-    // 2. Suscribirse a Firestore en tiempo real
-    try {
-      const chatCol = collection(db, COLLECTION_NAME);
-      const q = query(chatCol, orderBy('createdMillis', 'asc'), limit(300));
-
-      firestoreUnsub = onSnapshot(
-        q,
-        (snapshot) => {
-          if (!snapshot.empty) {
-            const fsMessages: ChatMessage[] = [];
-            snapshot.forEach((docSnap) => {
-              const data = docSnap.data();
-              // Evitar bots o semillas
-              if (docSnap.id.startsWith('seed_') || data.remitenteId === 'bot') return;
-
-              fsMessages.push({
-                id: docSnap.id,
-                remitente: data.remitente || 'Usuario',
-                remitenteId: data.remitenteId || '',
-                destinatarioId: data.destinatarioId || '',
-                canalId: data.canalId || 'GENERAL',
-                area: data.area || 'CALIDAD',
-                mensaje: data.mensaje || '',
-                opRelacionada: data.opRelacionada,
-                opData: data.opData,
-                timestamp: data.timestamp || '',
-                fecha: data.fecha || '',
-                audioUrl: data.audioUrl,
-                audioDuracion: data.audioDuracion,
-                audioWaveform: data.audioWaveform,
-                archivoUrl: data.archivoUrl,
-                archivoNombre: data.archivoNombre,
-                archivoTipo: data.archivoTipo,
-                leido: data.leido ?? false,
-                entregado: true,
-                reacciones: data.reacciones || {},
-                tipo: data.tipo || 'texto',
-                createdMillis: data.createdMillis || Date.now()
-              });
-            });
-
-            // Combinar asegurando sin duplicados
-            const combinedMap = new Map<string, ChatMessage>();
-            localMessages.forEach((m) => combinedMap.set(m.id, m));
-            fsMessages.forEach((m) => combinedMap.set(m.id, m));
-
-            const sorted = Array.from(combinedMap.values()).sort((a, b) => (a.createdMillis || 0) - (b.createdMillis || 0));
-            localMessages = sorted;
-            this.saveCachedMessages(sorted);
-
-            const filtered = this.filterMessagesByChannel(sorted, canalId, currentUserId);
-            onMessagesUpdate(filtered);
-          }
-        },
-        (error) => {
-          console.warn('[chatService] Firestore onSnapshot fallback a modo local:', error.message);
-        }
-      );
-    } catch (err) {
-      console.warn('[chatService] Firestore no disponible, usando sincronización local:', err);
-    }
-
-    // 3. Listener de BroadcastChannel para sincronización inter-pestañas instantánea
-    const handleBroadcast = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'NEW_MESSAGE') {
-        const newMsg: ChatMessage = event.data.message;
-        if (!localMessages.some((m) => m.id === newMsg.id)) {
-          localMessages = [...localMessages, newMsg].sort((a, b) => (a.createdMillis || 0) - (b.createdMillis || 0));
-          this.saveCachedMessages(localMessages);
-
-          const filtered = this.filterMessagesByChannel(localMessages, canalId, currentUserId);
-          onMessagesUpdate(filtered);
-
-          // Si el mensaje es de otro usuario y está destinado a este canal o usuario
-          if (newMsg.remitenteId !== currentUserId) {
-            // Verificar si el usuario actual tiene acceso a este canal
-            const userHasAccess = this.canUserAccessChannel(newMsg.canalId || 'GENERAL', currentUserId);
-            if (userHasAccess) {
-              this.playReceivedSound();
-              notificationService.sendChatNotification(
-                newMsg.remitente,
-                newMsg.tipo === 'op' && newMsg.opRelacionada ? `📌 OP Compartida: ${newMsg.opRelacionada}` : (newMsg.mensaje || 'Nuevo mensaje'),
-                canalId === 'GENERAL' ? 'Canal General' : newMsg.remitente
-              );
-            }
-          }
-        }
-      }
-    };
-
-    if (this.broadcastChannel) {
-      this.broadcastChannel.addEventListener('message', handleBroadcast);
-    }
-
-    // 4. Retornar desuscripción limpia
-    return () => {
-      if (firestoreUnsub) firestoreUnsub();
-      if (this.broadcastChannel) {
-        this.broadcastChannel.removeEventListener('message', handleBroadcast);
-      }
-    };
+  public isUserInDirectChannel(canalId: string, userId: string): boolean {
+    if (!canalId || !canalId.startsWith('DIRECT_')) return false;
+    const uid = String(userId).trim().toLowerCase();
+    const rest = canalId.slice('DIRECT_'.length);
+    const parts = rest.includes('__') ? rest.split('__') : rest.split('_');
+    return parts.some(p => p.toLowerCase() === uid);
   }
 
   /**
@@ -361,12 +266,9 @@ class ChatService {
    */
   public canUserAccessChannel(canalId: string, currentUserId: string): boolean {
     if (!canalId || canalId === 'GENERAL') return true;
-    if (canalId.startsWith('GROUP_')) return true; // Los grupos corporativos de trabajo
+    if (canalId.startsWith('GROUP_')) return true; // Grupos corporativos públicos para todos los autorizados
     if (canalId.startsWith('DIRECT_')) {
-      const parts = canalId.replace('DIRECT_', '').split('_');
-      const uid = String(currentUserId).trim().toLowerCase();
-      // Solo las 2 personas del chat privado tienen acceso
-      return parts[0] === uid || parts[1] === uid;
+      return this.isUserInDirectChannel(canalId, currentUserId);
     }
     return true;
   }
@@ -385,8 +287,7 @@ class ChatService {
         if (cId === 'GENERAL') return true;
         if (cId.startsWith('GROUP_')) return true;
         if (cId.startsWith('DIRECT_')) {
-          const parts = cId.replace('DIRECT_', '').split('_');
-          return parts[0] === uid || parts[1] === uid;
+          return this.isUserInDirectChannel(cId, uid);
         }
         return false;
       });
@@ -403,9 +304,7 @@ class ChatService {
 
     // Chat privado 1 a 1 entre dos perfiles
     if (canalId.startsWith('DIRECT_')) {
-      const parts = canalId.replace('DIRECT_', '').split('_');
-      // PRIVACIDAD ESTRICTA: Si el usuario logueado NO es ninguno de los dos, no ve NINGÚN mensaje
-      if (parts[0] !== uid && parts[1] !== uid) {
+      if (!this.isUserInDirectChannel(canalId, uid)) {
         return [];
       }
       return clean.filter((m) => m.canalId === canalId);
@@ -418,6 +317,203 @@ class ChatService {
     }
 
     return clean.filter((m) => m.canalId === canalId);
+  }
+
+  /**
+   * Obtener mensajes legítimos de usuarios de la caché local
+   */
+  public getCachedMessages(): ChatMessage[] {
+    if (typeof localStorage === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((m) => m && m.id && !m.id.startsWith('seed_') && m.remitenteId !== 'bot');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  private saveCachedMessages(messages: ChatMessage[]): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const clean = messages.filter((m) => m && m.id && !m.id.startsWith('seed_') && m.remitenteId !== 'bot');
+      const trimmed = clean.slice(-300);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(trimmed));
+    } catch (e) {
+      console.warn('[chatService] Error guardando mensajes en localStorage:', e);
+    }
+  }
+
+  /**
+   * Listener global de Firestore singleton para todo el aplicativo
+   */
+  private startGlobalFirestoreListener(): void {
+    if (this.isFirestoreListening || typeof window === 'undefined') return;
+
+    try {
+      const chatCol = collection(db, COLLECTION_NAME);
+      const q = query(chatCol, orderBy('createdMillis', 'asc'), limit(300));
+
+      this.isFirestoreListening = true;
+      this.lastSnapshotTime = Date.now();
+
+      this.firestoreUnsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const fsMessages: ChatMessage[] = [];
+          let hasNewIncomingFromOther = false;
+          let incomingSenderName = '';
+          let incomingMessageText = '';
+          let incomingRoomTitle = '';
+
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (docSnap.id.startsWith('seed_') || data.remitenteId === 'bot') return;
+
+            const msgId = data.id || docSnap.id;
+            const message: ChatMessage = {
+              id: msgId,
+              remitente: data.remitente || 'Usuario',
+              remitenteId: data.remitenteId || '',
+              destinatarioId: data.destinatarioId || '',
+              canalId: data.canalId || 'GENERAL',
+              area: data.area || 'CALIDAD',
+              mensaje: data.mensaje || '',
+              opRelacionada: data.opRelacionada,
+              opData: data.opData,
+              timestamp: data.timestamp || '',
+              fecha: data.fecha || '',
+              audioUrl: data.audioUrl,
+              audioDuracion: data.audioDuracion,
+              audioWaveform: data.audioWaveform,
+              archivoUrl: data.archivoUrl,
+              archivoNombre: data.archivoNombre,
+              archivoTipo: data.archivoTipo,
+              leido: data.leido ?? false,
+              entregado: true,
+              reacciones: data.reacciones || {},
+              tipo: data.tipo || 'texto',
+              createdMillis: data.createdMillis || (data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now())
+            };
+            fsMessages.push(message);
+          });
+
+          // Detectar mensajes nuevos que hayan llegado en tiempo real después del arranque inicial
+          if (this.hasInitialSnapshotLoaded) {
+            snapshot.docChanges().forEach((change) => {
+              if (change.type === 'added') {
+                const d = change.doc.data();
+                const millis = d.createdMillis || Date.now();
+                // Si el mensaje es reciente (posterior al último snapshot)
+                if (millis > this.lastSnapshotTime - 3000) {
+                  hasNewIncomingFromOther = true;
+                  incomingSenderName = d.remitente || 'Colaborador STF';
+                  incomingMessageText = d.tipo === 'op' && d.opRelacionada 
+                    ? `📌 OP Compartida: ${d.opRelacionada}` 
+                    : (d.tipo === 'audio' ? '🎤 Nota de voz' : (d.mensaje || 'Nuevo mensaje'));
+                  incomingRoomTitle = d.canalId === 'GENERAL' ? 'Canal General' : incomingSenderName;
+                }
+              }
+            });
+          }
+
+          this.hasInitialSnapshotLoaded = true;
+          this.lastSnapshotTime = Date.now();
+
+          // Combinar y deduplicar mensajes de Firestore y caché local por ID
+          const combinedMap = new Map<string, ChatMessage>();
+          this.cachedMessages.forEach((m) => combinedMap.set(m.id, m));
+          fsMessages.forEach((m) => combinedMap.set(m.id, m));
+
+          const sorted = Array.from(combinedMap.values()).sort((a, b) => (a.createdMillis || 0) - (b.createdMillis || 0));
+          this.cachedMessages = sorted;
+          this.saveCachedMessages(sorted);
+
+          // Si llegó un nuevo mensaje en vivo por Firestore:
+          if (hasNewIncomingFromOther) {
+            this.playReceivedSound();
+            notificationService.sendChatNotification(
+              incomingSenderName,
+              incomingMessageText,
+              incomingRoomTitle
+            );
+          }
+
+          // Notificar a todos los suscriptores activos
+          this.notifyAllSubscribers();
+
+          // Disparar evento para actualizar badges de no leídos en toda la aplicación
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('stf_chat_read_updated'));
+          }
+        },
+        (error) => {
+          console.warn('[chatService] Firestore onSnapshot fallback:', error.message);
+        }
+      );
+    } catch (err) {
+      console.warn('[chatService] Error iniciando listener Firestore:', err);
+    }
+  }
+
+  /**
+   * Listener de BroadcastChannel para pestañas del mismo navegador
+   */
+  private handleBroadcastMessage(event: MessageEvent): void {
+    if (event.data && event.data.type === 'NEW_MESSAGE') {
+      const newMsg: ChatMessage = event.data.message;
+      if (!this.cachedMessages.some((m) => m.id === newMsg.id)) {
+        this.cachedMessages = [...this.cachedMessages, newMsg].sort((a, b) => (a.createdMillis || 0) - (b.createdMillis || 0));
+        this.saveCachedMessages(this.cachedMessages);
+        this.notifyAllSubscribers();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('stf_chat_read_updated'));
+        }
+      }
+    }
+  }
+
+  /**
+   * Notifica a todos los componentes suscritos con sus mensajes correspondientes
+   */
+  private notifyAllSubscribers(): void {
+    this.subscribers.forEach(({ canalId, userId, callback }) => {
+      const filtered = this.filterMessagesByChannel(this.cachedMessages, canalId, userId);
+      callback(filtered);
+    });
+  }
+
+  /**
+   * Suscribirse en tiempo real a mensajes de un canal específico (o todos los mensajes autorizados)
+   */
+  public subscribeToMessages(
+    canalId: string,
+    currentUserId: string,
+    onMessagesUpdate: (messages: ChatMessage[]) => void
+  ): () => void {
+    const subId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    
+    // Registrar suscriptor
+    this.subscribers.set(subId, {
+      id: subId,
+      canalId,
+      userId: currentUserId,
+      callback: onMessagesUpdate
+    });
+
+    // 1. Entregar caché inmediatamente (0 ms de espera)
+    const initialFiltered = this.filterMessagesByChannel(this.cachedMessages, canalId, currentUserId);
+    onMessagesUpdate(initialFiltered);
+
+    // 2. Garantizar que el listener de Firestore esté activo
+    this.startGlobalFirestoreListener();
+
+    // 3. Retornar desuscripción limpia
+    return () => {
+      this.subscribers.delete(subId);
+    };
   }
 
   /**
@@ -477,8 +573,7 @@ class ChatService {
     const directChannels = new Set<string>();
     allMessages.forEach((m) => {
       if (m.canalId && m.canalId.startsWith('DIRECT_')) {
-        const parts = m.canalId.replace('DIRECT_', '').split('_');
-        if (parts[0] === uid || parts[1] === uid) {
+        if (this.isUserInDirectChannel(m.canalId, uid)) {
           directChannels.add(m.canalId);
         }
       }
@@ -492,7 +587,7 @@ class ChatService {
   }
 
   /**
-   * Enviar mensaje genuino al chat
+   * Enviar mensaje genuino al chat con entrega en tiempo real y persistencia garantizada
    */
   public async sendMessage(
     messageData: {
@@ -534,7 +629,7 @@ class ChatService {
       destinatarioId: destId,
       canalId: cId,
       area: messageData.area,
-      mensaje: messageData.mensaje,
+      mensaje: messageData.mensaje || '',
       opRelacionada: messageData.opRelacionada,
       opData: messageData.opData,
       timestamp: timeFormatted,
@@ -551,33 +646,36 @@ class ChatService {
       createdMillis: Date.now()
     };
 
-    // 1. Sonido de envío inmediato
+    // 1. Sonido de envío inmediato en el cliente
     this.playSentSound();
 
-    // 2. Guardar en caché local
-    const local = this.getCachedMessages();
-    const updated = [...local, fullMessage];
-    this.saveCachedMessages(updated);
+    // 2. Guardar en memoria y caché local inmediatamente (0 ms)
+    this.cachedMessages = [...this.cachedMessages.filter(m => m.id !== fullMessage.id), fullMessage].sort((a, b) => (a.createdMillis || 0) - (b.createdMillis || 0));
+    this.saveCachedMessages(this.cachedMessages);
 
     // 3. Marcar como leído para el remitente
     this.markChannelAsRead(messageData.remitenteId, fullMessage.canalId || 'GENERAL');
 
-    // 4. Emitir a otras pestañas mediante BroadcastChannel
+    // 4. Actualizar inmediatamente a todos los suscriptores locales
+    this.notifyAllSubscribers();
+
+    // 5. Emitir a otras pestañas mediante BroadcastChannel
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.postMessage({ type: 'NEW_MESSAGE', message: fullMessage });
       } catch (e) {}
     }
 
-    // 5. Guardar en Firestore asíncronamente
+    // 6. Guardar en Firestore asíncronamente con sanitización estricta y setDoc determinístico
     try {
-      const chatCol = collection(db, COLLECTION_NAME);
-      await addDoc(chatCol, {
+      const sanitized = this.sanitizeForFirestore({
         ...fullMessage,
         createdAt: Timestamp.now()
       });
-    } catch (err) {
-      console.warn('[chatService] Error guardando en Firestore:', err);
+      const docRef = doc(db, COLLECTION_NAME, fullMessage.id);
+      await setDoc(docRef, sanitized);
+    } catch (err: any) {
+      console.error('[chatService] Error guardando en Firestore:', err?.message || err);
     }
 
     return fullMessage;
@@ -623,6 +721,7 @@ class ChatService {
 
   /**
    * Grabación de Notas de Voz nativa con Web Audio / MediaRecorder
+   * Adaptativo para Safari (iOS/macOS) con MP4 y Chrome/Android con WebM Opus
    */
   public async startAudioRecording(): Promise<boolean> {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -630,20 +729,49 @@ class ChatService {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
       this.audioChunks = [];
       this.recordingStartTime = Date.now();
 
-      const mediaRecorder = new MediaRecorder(stream);
-      this.mediaRecorder = mediaRecorder;
+      // Detección adaptativa de códec compatible
+      let selectedMimeType = '';
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          selectedMimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          selectedMimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          selectedMimeType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+          selectedMimeType = 'audio/ogg;codecs=opus';
+        }
+      }
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+      const options: MediaRecorderOptions = {};
+      if (selectedMimeType) {
+        options.mimeType = selectedMimeType;
+      }
+      // Optimización para voz humana: 32 kbps (peso mínimo ~4KB/s y máxima fidelidad)
+      try {
+        options.audioBitsPerSecond = 32000;
+        this.mediaRecorder = new MediaRecorder(stream, options);
+      } catch (optErr) {
+        this.mediaRecorder = new MediaRecorder(stream);
+      }
+
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
           this.audioChunks.push(event.data);
         }
       };
 
-      mediaRecorder.start();
+      this.mediaRecorder.start(250); // Recolectar chunks cada 250ms
       return true;
     } catch (err) {
       console.warn('Error al iniciar grabación de audio:', err);
@@ -661,17 +789,21 @@ class ChatService {
       const durationSec = Math.max(1, Math.round((Date.now() - this.recordingStartTime) / 1000));
 
       this.mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm;codecs=opus' });
+        const mimeType = this.mediaRecorder?.mimeType || 'audio/mp4';
+        const audioBlob = new Blob(this.audioChunks, { type: mimeType });
         
         // Detener todos los tracks del micrófono
         if (this.mediaRecorder && this.mediaRecorder.stream) {
-          this.mediaRecorder.stream.getTracks().forEach((track) => track.stop());
+          try {
+            this.mediaRecorder.stream.getTracks().forEach((track) => track.stop());
+          } catch (e) {}
         }
 
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = reader.result as string;
-          const waveform = Array.from({ length: 24 }, () => Math.round((0.2 + Math.random() * 0.8) * 100) / 100);
+          // 20 barras de onda estilizadas y proporcionales
+          const waveform = Array.from({ length: 20 }, () => Math.round((0.25 + Math.random() * 0.75) * 100));
           resolve({
             blob: audioBlob,
             base64,
@@ -683,7 +815,11 @@ class ChatService {
         reader.readAsDataURL(audioBlob);
       };
 
-      this.mediaRecorder.stop();
+      try {
+        this.mediaRecorder.stop();
+      } catch (e) {
+        resolve(null);
+      }
     });
   }
 

@@ -4,6 +4,7 @@ import { MessageSquare, GripHorizontal } from 'lucide-react';
 interface FuturisticFloatingChatButtonProps {
   onClick: () => void;
   title?: string;
+  unreadCount?: number;
 }
 
 // 5mm en píxeles de pantalla estándar (96 DPI / 25.4 mm por pulgada ≈ 3.7795 px/mm)
@@ -12,7 +13,8 @@ const STORAGE_KEY = 'STF_FUTURISTIC_CHAT_BTN_POS';
 
 export const FuturisticFloatingChatButton: React.FC<FuturisticFloatingChatButtonProps> = ({
   onClick,
-  title = 'Abrir Chat Corporativo STF'
+  title = 'Abrir Chat Corporativo STF',
+  unreadCount = 0
 }) => {
   const buttonRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -206,11 +208,16 @@ export const FuturisticFloatingChatButton: React.FC<FuturisticFloatingChatButton
         </span>
       </div>
 
-      {/* Tipografía Futurista: Solo CHAT */}
+      {/* Tipografía Futurista: CHAT o Insignia Roja */}
       <div className="flex flex-col items-center justify-center pb-0.5">
         <span className="font-mono font-black text-[10px] tracking-widest text-white group-hover:text-emerald-300 transition-colors uppercase select-none text-center">
           CHAT
         </span>
+        {unreadCount > 0 && (
+          <span className="mt-0.5 px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[9px] font-mono font-black border border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.9)] animate-pulse flex items-center justify-center">
+            {unreadCount}
+          </span>
+        )}
       </div>
     </div>
   );

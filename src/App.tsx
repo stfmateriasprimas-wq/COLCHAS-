@@ -1060,6 +1060,7 @@ export function App() {
         <FuturisticFloatingChatButton
           onClick={() => setActiveTab('chat')}
           title="Abrir Chat Corporativo STF"
+          unreadCount={chatUnreadCount}
         />
       )}
 

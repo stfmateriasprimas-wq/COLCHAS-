@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Check, CheckCheck, Play, Pause, FileText, ExternalLink, 
-  Printer, AlertTriangle, Clock, Sparkles 
+  Printer, AlertTriangle, Clock, Sparkles, Volume2
 } from 'lucide-react';
 import { ChatMessage, SolicitudColcha } from '../../types';
 import { UsuarioSTF } from '../../services/authService';
@@ -27,7 +27,26 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 }) => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Escuchar cuando otra nota de voz empiece a reproducirse para pausar esta automáticamente
+  useEffect(() => {
+    const handleOtherPlay = (e: Event) => {
+      const customEvent = e as CustomEvent<{ id: string }>;
+      if (customEvent.detail && customEvent.detail.id !== message.id) {
+        if (audioRef.current && isPlayingAudio) {
+          audioRef.current.pause();
+          setIsPlayingAudio(false);
+        }
+      }
+    };
+
+    window.addEventListener('stf_audio_play', handleOtherPlay);
+    return () => {
+      window.removeEventListener('stf_audio_play', handleOtherPlay);
+    };
+  }, [message.id, isPlayingAudio]);
 
   // Intentar encontrar los datos completos de la OP en la lista de solicitudes si no vienen en opData
   const linkedOp = message.opRelacionada 
@@ -49,28 +68,70 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
     observacion: linkedOp.observacionesCalidad || linkedOp.observacionesOperario || ''
   } : undefined);
 
-  // Manejador de reproducción de audio
+  // Obtener duración efectiva (protección contra duration === Infinity en Chromium WebM)
+  const getEffectiveDuration = (): number => {
+    if (audioRef.current && isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
+      return audioRef.current.duration;
+    }
+    return message.audioDuracion && message.audioDuracion > 0 ? message.audioDuracion : 5;
+  };
+
+  // Manejador de reproducción de audio con fallback universal
   const toggleAudio = () => {
     if (!audioRef.current) return;
+
     if (isPlayingAudio) {
       audioRef.current.pause();
       setIsPlayingAudio(false);
     } else {
+      window.dispatchEvent(new CustomEvent('stf_audio_play', { detail: { id: message.id } }));
+      
       audioRef.current.play().then(() => {
         setIsPlayingAudio(true);
-      }).catch(err => console.warn('Error al reproducir audio:', err));
+      }).catch(err => {
+        console.warn('Fallo estándar de reproducción, intentando audio directo:', err);
+        try {
+          const directAudio = new Audio(message.audioUrl);
+          directAudio.play().then(() => {
+            setIsPlayingAudio(true);
+          }).catch(e2 => console.error('Error definitivo reproduciendo audio:', e2));
+        } catch (e) {}
+      });
     }
   };
 
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
-    const progress = (audioRef.current.currentTime / (audioRef.current.duration || 1)) * 100;
+    const curr = audioRef.current.currentTime;
+    setCurrentTime(curr);
+    const dur = getEffectiveDuration();
+    const progress = Math.min(100, (curr / dur) * 100);
     setAudioProgress(progress);
   };
 
   const handleAudioEnded = () => {
     setIsPlayingAudio(false);
     setAudioProgress(0);
+    setCurrentTime(0);
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+    }
+  };
+
+  const handleSeek = (index: number, total: number) => {
+    if (!audioRef.current) return;
+    const dur = getEffectiveDuration();
+    const target = (index / Math.max(1, total - 1)) * dur;
+    audioRef.current.currentTime = target;
+    setCurrentTime(target);
+    setAudioProgress((target / dur) * 100);
+  };
+
+  const formatTime = (secs: number) => {
+    const s = Math.max(0, Math.floor(secs));
+    const mins = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${mins}:${rem < 10 ? '0' : ''}${rem}`;
   };
 
   // Color de etiqueta según área
@@ -95,6 +156,10 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
       default: return 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700';
     }
   };
+
+  const waveformBars = message.audioWaveform && message.audioWaveform.length >= 10
+    ? message.audioWaveform
+    : [35, 55, 30, 75, 45, 85, 40, 65, 55, 30, 80, 50, 40, 60, 30, 85, 45, 60, 40, 70];
 
   return (
     <div className={`flex w-full my-1 sm:my-1.5 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
@@ -226,10 +291,10 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
           </div>
         )}
 
-        {/* 2. REPRODUCTOR DE NOTA DE VOZ (AUDIO ESTILO WHATSAPP) */}
+        {/* 2. REPRODUCTOR DE NOTA DE VOZ (AUDIO ESTILO WHATSAPP DE ALTA FIDELIDAD) */}
         {message.audioUrl && (
-          <div className={`my-1.5 flex items-center gap-2.5 p-2 rounded-xl min-w-[200px] sm:min-w-[240px] ${
-            isOwnMessage ? 'bg-black/20' : 'bg-zinc-100 dark:bg-black/30 border border-zinc-200/60 dark:border-white/10'
+          <div className={`my-1.5 flex items-center gap-2.5 p-2 rounded-xl min-w-[210px] sm:min-w-[260px] ${
+            isOwnMessage ? 'bg-black/20' : 'bg-zinc-100 dark:bg-black/40 border border-zinc-200/60 dark:border-white/10'
           }`}>
             <audio 
               ref={audioRef} 
@@ -239,39 +304,53 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
               preload="metadata"
             />
             
+            {/* Botón Circular Play / Pause */}
             <button
               type="button"
               onClick={toggleAudio}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition shrink-0 cursor-pointer shadow ${
-                isOwnMessage ? 'bg-white text-emerald-900' : 'bg-emerald-600 text-white'
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition shrink-0 cursor-pointer shadow-md active:scale-95 ${
+                isOwnMessage ? 'bg-white text-emerald-900 hover:bg-zinc-100' : 'bg-emerald-600 text-white hover:bg-emerald-500'
               }`}
+              title={isPlayingAudio ? 'Pausar nota de voz' : 'Reproducir nota de voz'}
             >
               {isPlayingAudio ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
             </button>
 
-            {/* Visualizador de Onda de Audio Estilo WhatsApp */}
-            <div className="flex-1 flex flex-col justify-center gap-1">
-              <div className="flex items-center gap-0.5 h-6">
-                {(message.audioWaveform || [40, 60, 30, 80, 50, 90, 40, 70, 60, 30, 80, 50, 40, 60, 30, 90]).map((h, i) => {
-                  const barProgress = (i / 16) * 100;
+            {/* Visualizador de Onda de Audio Táctil e Interactivo */}
+            <div className="flex-1 flex flex-col justify-center gap-1 min-w-0">
+              <div 
+                className="flex items-center gap-[3px] h-7 cursor-pointer py-1"
+                title="Haz clic en cualquier barra para saltar en el audio"
+              >
+                {waveformBars.map((h, i) => {
+                  const barProgress = (i / Math.max(1, waveformBars.length - 1)) * 100;
                   const isPassed = barProgress <= audioProgress;
+                  const heightPercent = Math.max(18, Math.min(100, typeof h === 'number' ? (h > 1 ? h : h * 100) : 50));
+                  
                   return (
                     <div
                       key={i}
-                      className={`w-1 rounded-full transition-colors ${
+                      onClick={() => handleSeek(i, waveformBars.length)}
+                      className={`flex-1 min-w-[2px] max-w-[4px] rounded-full transition-all duration-150 hover:scale-y-125 ${
                         isPassed 
                           ? (isOwnMessage ? 'bg-white' : 'bg-emerald-500') 
-                          : (isOwnMessage ? 'bg-emerald-800/60' : 'bg-zinc-300 dark:bg-zinc-600')
+                          : (isOwnMessage ? 'bg-emerald-800/60' : 'bg-zinc-300 dark:bg-zinc-700')
                       }`}
-                      style={{ height: `${Math.max(20, Math.min(100, typeof h === 'number' ? (h > 1 ? h : h * 100) : 50))}%` }}
+                      style={{ height: `${heightPercent}%` }}
                     />
                   );
                 })}
               </div>
 
-              <div className={`flex justify-between items-center text-[9px] font-mono ${isOwnMessage ? 'text-white/80' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                <span>{message.audioDuracion ? `0:${message.audioDuracion < 10 ? '0' : ''}${message.audioDuracion}` : '0:05'}</span>
-                <span className="text-[8px] opacity-75">Nota de voz</span>
+              {/* Temporizador Dinámico en Vivo */}
+              <div className={`flex justify-between items-center text-[9.5px] font-mono ${isOwnMessage ? 'text-white/90' : 'text-zinc-600 dark:text-zinc-400'}`}>
+                <span className="font-bold">
+                  {isPlayingAudio ? formatTime(currentTime) : formatTime(message.audioDuracion || 0)}
+                </span>
+                <span className="text-[8.5px] uppercase tracking-wider opacity-80 flex items-center gap-1">
+                  <Volume2 className="w-2.5 h-2.5" />
+                  Nota de voz
+                </span>
               </div>
             </div>
           </div>
@@ -279,7 +358,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 
         {/* 3. IMAGEN ADJUNTA */}
         {message.archivoUrl && message.archivoTipo === 'imagen' && (
-          <div className="mb-2 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700/60 max-w-sm">
+          <div className="mb-2 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700/60 max-w-sm bg-black/5">
             <img 
               src={message.archivoUrl} 
               alt={message.archivoNombre || 'Imagen enviada'} 
@@ -296,7 +375,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
           </p>
         )}
 
-        {/* 5. METADATOS: HORA Y DOBLE CHECK AZUL/GRIS */}
+        {/* 5. METADATOS: HORA Y DOBLE CHECK AZUL/BLANCO */}
         <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] select-none ${
           isOwnMessage ? 'text-white/80' : 'text-zinc-500 dark:text-zinc-400'
         }`}>
