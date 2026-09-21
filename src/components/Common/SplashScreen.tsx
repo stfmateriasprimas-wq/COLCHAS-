@@ -41,14 +41,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         isFadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
       style={{
-        background: 'radial-gradient(circle at 50% 46%, #191c21 0%, #101215 45%, #050608 100%)'
+        background: 'radial-gradient(circle at 50% 46%, #181b20 0%, #0d0f12 45%, #050608 100%)'
       }}
     >
       <style>{`
         @keyframes stfCinematic3D {
           0% {
             opacity: 0;
-            transform: perspective(1200px) scale(0.68) translateY(16px) rotateX(4deg);
+            transform: perspective(1200px) scale(0.68) translateY(18px) rotateX(4deg);
             filter: blur(8px) brightness(0.5);
           }
           30% {
@@ -73,10 +73,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             opacity: 0;
           }
           35% {
-            opacity: 0.85;
+            opacity: 0.9;
           }
           75% {
-            opacity: 0.85;
+            opacity: 0.9;
           }
           100% {
             transform: translateX(250%) skewX(-25deg);
@@ -159,27 +159,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         }}
       />
 
-      {/* 2. CONTENEDOR PRINCIPAL DEL LOGO 3D CINEMATOGRÁFICO */}
+      {/* 2. CONTENEDOR PRINCIPAL DEL LOGO 3D CINEMATOGRÁFICO TRANSPARENTE */}
       <div className="relative z-10 flex flex-col items-center justify-center px-4 sm:px-8 max-w-lg sm:max-w-2xl w-full text-center">
         
-        {/* LOGO 3D EN ALTA DEFINICIÓN CON ANIMACIÓN CINEMÁTICA Y DESTELLO */}
+        {/* LOGO 3D EN ALTA DEFINICIÓN EN FORMATO PNG TRANSPARENTE */}
         <div className="stf-3d-logo-anim relative w-full flex flex-col items-center">
           
-          {/* Marco de imagen 3D con difuminado suave en bordes (vignette mask) */}
-          <div 
-            className="relative w-full overflow-hidden rounded-2xl sm:rounded-3xl"
-            style={{
-              WebkitMaskImage: 'radial-gradient(ellipse 94% 90% at 50% 50%, black 58%, rgba(0,0,0,0.85) 80%, transparent 100%)',
-              maskImage: 'radial-gradient(ellipse 94% 90% at 50% 50%, black 58%, rgba(0,0,0,0.85) 80%, transparent 100%)',
-              boxShadow: '0 20px 60px -15px rgba(0,0,0,0.9), 0 0 35px rgba(255,255,255,0.06)'
-            }}
-          >
+          <div className="relative w-full max-w-[340px] sm:max-w-[520px] overflow-hidden">
             <img 
-              src="/stf-group-3d-logo.jpg" 
-              alt="STF GROUP S.A. • STUDIO F • ELA • STUDIO F MAN (3D Chrome Edition)"
-              className="w-full h-auto object-contain block drop-shadow-[0_15px_30px_rgba(0,0,0,0.9)]"
+              src="/stf-group-3d-logo.png" 
+              alt="STF GROUP S.A. • STUDIO F • ELA • STUDIO F MAN (3D Chrome Edition PNG)"
+              className="w-full h-auto object-contain block drop-shadow-[0_15px_30px_rgba(0,0,0,0.95)] drop-shadow-[0_0_20px_rgba(255,255,255,0.18)]"
               style={{
-                filter: 'contrast(1.08) brightness(1.06)'
+                filter: 'contrast(1.10) brightness(1.08)'
               }}
             />
 
@@ -187,14 +179,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             <div 
               className="absolute inset-0 pointer-events-none stf-sweep-anim"
               style={{
-                background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.0) 30%, rgba(255, 255, 255, 0.35) 50%, rgba(212, 175, 55, 0.28) 60%, transparent 80%)',
-                mixBlendMode: 'screen'
+                background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.0) 25%, rgba(255, 255, 255, 0.45) 50%, rgba(212, 175, 55, 0.35) 60%, transparent 80%)',
+                mixBlendMode: 'color-dodge'
               }}
             />
           </div>
 
           {/* LÍNEA DE LUZ EXPANSIVA METÁLICA */}
-          <div className="w-full max-w-[300px] sm:max-w-[480px] h-[1.5px] bg-gradient-to-r from-transparent via-amber-200/50 via-white/80 to-transparent mt-5 stf-subline-anim" />
+          <div className="w-full max-w-[280px] sm:max-w-[460px] h-[1.5px] bg-gradient-to-r from-transparent via-amber-200/50 via-white/80 to-transparent mt-5 stf-subline-anim" />
 
           {/* SUBTÍTULO INSTITUCIONAL DE TRAZABILIDAD */}
           <div className="mt-3.5 space-y-1 stf-subtext-anim">

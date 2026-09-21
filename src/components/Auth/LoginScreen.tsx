@@ -162,18 +162,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       <div className="absolute inset-0 z-0 bg-gradient-to-t from-black/85 via-black/40 to-black/70" />
       <div className="absolute inset-0 z-0 bg-black/25 backdrop-blur-[1px]" />
 
-      {/* Top Header Pure Vector Transparent STF Logo */}
+      {/* Top Header 3D Chrome & Gold Transparent STF Logo */}
       <div 
         onClick={onReplayIntro}
-        className={`relative z-10 mb-6 sm:mb-10 text-center animate-in fade-in duration-500 flex flex-col items-center ${onReplayIntro ? 'cursor-pointer group' : ''}`}
+        className={`relative z-10 mb-5 sm:mb-8 text-center animate-in fade-in duration-500 flex flex-col items-center ${onReplayIntro ? 'cursor-pointer group' : ''}`}
         title={onReplayIntro ? 'Clic para reproducir la intro cinematográfica de STF' : undefined}
       >
-        <STFLogo
-          isWhite={true}
-          className="h-16 sm:h-24 md:h-28 w-56 sm:w-96 drop-shadow-[0_4px_25px_rgba(0,0,0,0.9)] group-hover:scale-105 transition-transform duration-300"
+        <img
+          src="/stf-group-3d-logo.png"
+          alt="STF GROUP S.A. • STUDIO F • ELA • STUDIO F MAN"
+          className="h-16 sm:h-22 md:h-26 w-auto max-w-[280px] sm:max-w-[420px] object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,0.95)] drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] group-hover:scale-105 transition-transform duration-300"
         />
         {onReplayIntro && (
-          <span className="mt-1 text-[9.5px] font-mono text-zinc-400 group-hover:text-white transition opacity-60 group-hover:opacity-100 flex items-center gap-1">
+          <span className="mt-1.5 text-[9.5px] font-mono text-zinc-400 group-hover:text-amber-200 transition opacity-70 group-hover:opacity-100 flex items-center gap-1">
             <span>✨ Ver Animación Intro</span>
           </span>
         )}
