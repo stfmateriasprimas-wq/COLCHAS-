@@ -658,11 +658,32 @@ function doPost(e) {
       var foundRowPhoto = -1;
 
       if (lastRowBdPhoto > 1) {
-        var opValsPhoto = sheetBdPhoto.getRange(2, 6, lastRowBdPhoto - 1, 1).getValues();
+        var opValsPhoto = sheetBdPhoto.getRange(2, 1, lastRowBdPhoto - 1, 7).getValues();
+        var targetDigits = targetOpPhoto.replace(/O/g, '0').replace(/\D/g, '');
+        var targetRef = String(payload.referencia || '').trim().toUpperCase();
+
+        // 1. Coincidencia exacta de texto (Columna F / índice 5)
         for (var p = 0; p < opValsPhoto.length; p++) {
-          if (String(opValsPhoto[p][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpPhoto) {
+          var cellOp = String(opValsPhoto[p][5] || '').trim().toUpperCase().replace(/^OP-?/, '');
+          if (cellOp === targetOpPhoto) {
             foundRowPhoto = p + 2;
             break;
+          }
+        }
+
+        // 2. Coincidencia numérica robusta (previene fallos por ceros iniciales como OP-96284 vs OP-00096284 o letras O)
+        if (foundRowPhoto === -1 && targetDigits) {
+          var targetInt = parseInt(targetDigits, 10);
+          for (var p2 = 0; p2 < opValsPhoto.length; p2++) {
+            var cellDigits = String(opValsPhoto[p2][5] || '').replace(/O/g, '0').replace(/\D/g, '');
+            if (cellDigits && parseInt(cellDigits, 10) === targetInt) {
+              if (targetRef && opValsPhoto[p2][6]) {
+                var cellRef = String(opValsPhoto[p2][6]).trim().toUpperCase();
+                if (cellRef && targetRef !== 'S/R' && cellRef !== targetRef) continue;
+              }
+              foundRowPhoto = p2 + 2;
+              break;
+            }
           }
         }
       }

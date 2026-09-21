@@ -1809,6 +1809,8 @@ export interface UploadMissingPhotosOptions {
   foto2Base64?: string;
   fechaCreacion?: string;
   mes?: string | number;
+  referencia?: string;
+  tela?: string;
   usuario?: string;
 }
 
@@ -1829,6 +1831,8 @@ export async function uploadMissingOpPhotos(
     fechaCreacion: options.fechaCreacion,
     fecha: options.fechaCreacion,
     mes: options.mes,
+    referencia: options.referencia,
+    tela: options.tela,
     usuario: options.usuario || 'OPERARIO STF'
   });
 

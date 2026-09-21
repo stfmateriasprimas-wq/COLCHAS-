@@ -170,6 +170,8 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
         foto2Base64: foto2NewBase64 || undefined,
         fechaCreacion: solicitud.fechaCreacion,
         mes: folderInfo.monthNumber,
+        referencia: solicitud.referencia,
+        tela: solicitud.tela,
         usuario: solicitud.inspector || 'ADMINISTRADOR'
       });
 
