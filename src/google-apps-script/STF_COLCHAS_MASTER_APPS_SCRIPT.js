@@ -669,24 +669,54 @@ function doPost(e) {
 
       if (foundRowPhoto !== -1) {
         sheetBdPhoto.getRange(foundRowPhoto, 6).setValue(opFormattedPhoto);
-        var photoUrl = payload.fotoCalidadUrl || payload.fotoCalidad || payload.fotoMuestraUrl || payload.photoUrl || '';
-        var isCalidad = !!payload.isCalidad;
-        var fileNamePhoto = opFormattedPhoto + (isCalidad ? '_POST_LAVADO_CALIDAD.jpg' : '_MUESTRA_INICIAL.jpg');
-        var savedPhotoRes = null;
 
-        if (payload.imageBase64 && payload.imageBase64.length > 50 && payload.imageBase64.indexOf('data:image/') === 0) {
-          savedPhotoRes = saveImageToDriveHierarchical(payload.imageBase64, fileNamePhoto, opFormattedPhoto, new Date());
-          if (savedPhotoRes && savedPhotoRes.driveUrl) photoUrl = savedPhotoRes.driveUrl;
-        } else if (photoUrl && photoUrl.length > 50 && photoUrl.indexOf('data:image/') === 0) {
-          savedPhotoRes = saveImageToDriveHierarchical(photoUrl, fileNamePhoto, opFormattedPhoto, new Date());
-          if (savedPhotoRes && savedPhotoRes.driveUrl) photoUrl = savedPhotoRes.driveUrl;
+        // FECHA DE LA OP: Extraer el mes y fecha histórica de creación (Columna A o Columna Q)
+        var rowFechaVal = sheetBdPhoto.getRange(foundRowPhoto, 1).getValue();
+        var rowMesVal = sheetBdPhoto.getRange(foundRowPhoto, 17).getValue();
+        var targetDate = new Date();
+
+        if (payload.fecha || payload.fechaCreacion) {
+          var pDate = new Date(payload.fecha || payload.fechaCreacion);
+          if (!isNaN(pDate.getTime())) targetDate = pDate;
+        } else if (rowFechaVal) {
+          var rDate = (rowFechaVal instanceof Date) ? rowFechaVal : new Date(rowFechaVal);
+          if (!isNaN(rDate.getTime())) {
+            targetDate = rDate;
+          } else if (typeof rowFechaVal === 'string') {
+            var parts = rowFechaVal.split(/[\/\-\s]/);
+            if (parts.length >= 3) {
+              var dPart = parseInt(parts[0], 10);
+              var mPart = parseInt(parts[1], 10) - 1;
+              var yPart = parseInt(parts[2], 10);
+              if (yPart < 100) yPart += 2000;
+              var parsedD = new Date(yPart, mPart, dPart);
+              if (!isNaN(parsedD.getTime())) targetDate = parsedD;
+            }
+          }
+        } else if (rowMesVal && !isNaN(Number(rowMesVal))) {
+          var mNum = Number(rowMesVal) - 1;
+          targetDate = new Date(new Date().getFullYear(), mNum, 1);
         }
 
-        // Columna 13 (M) - Guardar enlace oficial clickeable de la carpeta de Google Drive de la OP y enlaces directos de fotos (foto1 | foto2 | folderUrl)
+        // 1. Guardar Foto 1 (Muestra Inicial) si viene en payload
+        var foto1Input = payload.foto1Base64 || payload.fotoMuestraBase64 || (!payload.isCalidad ? (payload.imageBase64 || payload.fotoMuestraUrl || payload.photoUrl) : '');
+        var savedFoto1 = null;
+        if (foto1Input && foto1Input.length > 50 && foto1Input.indexOf('data:image/') === 0) {
+          savedFoto1 = saveImageToDriveHierarchical(foto1Input, opFormattedPhoto + '_MUESTRA_INICIAL.jpg', opFormattedPhoto, targetDate);
+        }
+
+        // 2. Guardar Foto 2 (Post-Lavado Calidad) si viene en payload
+        var foto2Input = payload.foto2Base64 || payload.fotoCalidadBase64 || (payload.isCalidad ? (payload.imageBase64 || payload.fotoCalidadUrl || payload.photoUrl) : '');
+        var savedFoto2 = null;
+        if (foto2Input && foto2Input.length > 50 && foto2Input.indexOf('data:image/') === 0) {
+          savedFoto2 = saveImageToDriveHierarchical(foto2Input, opFormattedPhoto + '_POST_LAVADO_CALIDAD.jpg', opFormattedPhoto, targetDate);
+        }
+
+        // Columna 13 (M) - Guardar enlace oficial clickeable de la carpeta de Google Drive de la OP y enlaces directos de fotos
         var disc = getOpPhotosFromDrive(opFormattedPhoto);
-        var folderColPhoto = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : (disc.folderUrl || '');
-        var finalFoto1_p = !isCalidad ? ((savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (photoUrl || disc.foto1)) : disc.foto1;
-        var finalFoto2_p = isCalidad ? ((savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (photoUrl || disc.foto2)) : disc.foto2;
+        var folderColPhoto = (savedFoto1 && savedFoto1.folderUrl) || (savedFoto2 && savedFoto2.folderUrl) || disc.folderUrl || '';
+        var finalFoto1_p = (savedFoto1 && savedFoto1.driveUrl) || disc.foto1 || '';
+        var finalFoto2_p = (savedFoto2 && savedFoto2.driveUrl) || disc.foto2 || '';
         var combinedColPhoto = [finalFoto1_p, finalFoto2_p, folderColPhoto].filter(Boolean).join(' | ');
         if (combinedColPhoto) {
           sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(combinedColPhoto);
@@ -702,9 +732,10 @@ function doPost(e) {
 
         return createJsonResponse({
           status: 'success',
-          message: 'Foto de OP ' + opFormattedPhoto + ' archivada en Drive y actualizada en Columna M',
-          driveUrl: photoUrl,
-          folderUrl: (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : ''
+          message: 'Fotos de OP ' + opFormattedPhoto + ' archivadas en Drive y actualizadas en Columna M',
+          foto1: finalFoto1_p,
+          foto2: finalFoto2_p,
+          folderUrl: folderColPhoto
         });
       }
       return createJsonResponse({ status: 'error', message: 'OP no encontrada en BASE_DE_DATOS' });

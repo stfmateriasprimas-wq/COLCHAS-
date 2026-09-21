@@ -1804,6 +1804,107 @@ export async function pushOpPhotoToSheets(
   };
 }
 
+export interface UploadMissingPhotosOptions {
+  foto1Base64?: string;
+  foto2Base64?: string;
+  fechaCreacion?: string;
+  mes?: string | number;
+  usuario?: string;
+}
+
+/**
+ * Carga y archiva en Google Drive las evidencias fotográficas faltantes de OPs históricas.
+ * Guarda en la carpeta jerárquica según la fecha/mes de creación de la OP y actualiza
+ * de forma inmediata la Columna 13 (M) de Google Sheets con el enlace oficial clickeable.
+ */
+export async function uploadMissingOpPhotos(
+  op: string, 
+  options: UploadMissingPhotosOptions
+): Promise<{ success: boolean; message: string; folderUrl?: string; foto1?: string; foto2?: string }> {
+  const formattedOp = formatOpCode(op);
+  const res = await sendAppsScriptPost('UPDATE_OP_PHOTO', { 
+    op: formattedOp, 
+    foto1Base64: options.foto1Base64,
+    foto2Base64: options.foto2Base64,
+    fechaCreacion: options.fechaCreacion,
+    fecha: options.fechaCreacion,
+    mes: options.mes,
+    usuario: options.usuario || 'OPERARIO STF'
+  });
+
+  const folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
+  const foto1 = res.data?.foto1 || (typeof (res as any).foto1 === 'string' ? (res as any).foto1 : undefined);
+  const foto2 = res.data?.foto2 || (typeof (res as any).foto2 === 'string' ? (res as any).foto2 : undefined);
+
+  if (res.success || folderUrl || foto1 || foto2) {
+    const cached = getOpPhotosFromCache(formattedOp);
+    const resolvedFoto1 = foto1 || options.foto1Base64 || cached?.foto1;
+    const resolvedFoto2 = foto2 || options.foto2Base64 || cached?.foto2;
+    const resolvedFolder = folderUrl || cached?.folderUrl;
+
+    saveOpPhotosToCache(formattedOp, {
+      foto1: resolvedFoto1,
+      foto2: resolvedFoto2,
+      folderUrl: resolvedFolder
+    });
+
+    if (typeof window !== 'undefined') {
+      const cleanTarget = formattedOp.replace(/\D/g, '') || formattedOp;
+      const current = getLocalCreatedOps();
+      const updated = current.map(item => {
+        const cleanItemOp = item.op.replace(/\D/g, '') || item.op.trim().toUpperCase();
+        if (cleanItemOp === cleanTarget || item.op === formattedOp) {
+          return {
+            ...item,
+            fotoMuestraUrl: resolvedFoto1 || item.fotoMuestraUrl,
+            fotoCalidadUrl: resolvedFoto2 || item.fotoCalidadUrl,
+            driveFolderUrl: resolvedFolder || item.driveFolderUrl,
+            fechaActualizacion: new Date().toISOString()
+          };
+        }
+        return item;
+      });
+      localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify(updated));
+
+      try {
+        const cachedOps = getCachedSolicitudes();
+        const updatedCache = cachedOps.map(item => {
+          const cleanItemOp = item.op.replace(/\D/g, '') || item.op.trim().toUpperCase();
+          if (cleanItemOp === cleanTarget || item.op === formattedOp) {
+            return {
+              ...item,
+              fotoMuestraUrl: resolvedFoto1 || item.fotoMuestraUrl,
+              fotoCalidadUrl: resolvedFoto2 || item.fotoCalidadUrl,
+              driveFolderUrl: resolvedFolder || item.driveFolderUrl
+            };
+          }
+          return item;
+        });
+        saveCachedSolicitudes(updatedCache);
+      } catch (e) {
+        console.warn('Error updating cache in uploadMissingOpPhotos:', e);
+      }
+
+      window.dispatchEvent(new CustomEvent('stf_op_photos_updated', {
+        detail: {
+          op: formattedOp,
+          foto1: resolvedFoto1,
+          foto2: resolvedFoto2,
+          folderUrl: resolvedFolder
+        }
+      }));
+    }
+  }
+
+  return {
+    success: res.success,
+    message: res.message || 'Fotografías archivadas correctamente en Google Drive y vinculadas a la OP',
+    folderUrl,
+    foto1,
+    foto2
+  };
+}
+
 /**
  * Solicita a Google Apps Script depurar todas las fotos duplicadas en las carpetas de Drive
  * garantizando que cada OP tenga estrictamente sus 2 fotos oficiales.

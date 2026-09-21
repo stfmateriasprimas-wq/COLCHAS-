@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Search, RefreshCw, ExternalLink, Filter, 
-  Trash2, Wrench, Code2, CheckCircle2, XCircle, Clock, Eye, Printer, AlertTriangle, ArrowRight
+  Trash2, Wrench, Code2, CheckCircle2, XCircle, Clock, Eye, Printer, AlertTriangle, ArrowRight, Camera
 } from 'lucide-react';
 import { SolicitudColcha } from '../../types';
 import { SubNavTabs } from '../Navigation/SubNavTabs';
@@ -11,6 +11,7 @@ import { getOpChronologicalTimestamp } from '../../services/slaCalculator';
 import { UsuarioSTF, isAdminUser, isLavanderiaUser, isEdiazUser } from '../../services/authService';
 import { getOpPhotosFromCache } from '../../services/googleSheetsService';
 import { DeletedOpsHistorySection } from './DeletedOpsHistorySection';
+import { UploadMissingPhotosModal } from '../Bandeja/UploadMissingPhotosModal';
 
 interface MasterTableProps {
   solicitudes: SolicitudColcha[];
@@ -42,6 +43,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterArea, setFilterArea] = useState<string>('TODAS');
   const [filterEstado, setFilterEstado] = useState<string>('TODOS');
+  const [uploadModalOp, setUploadModalOp] = useState<SolicitudColcha | null>(null);
   const [, setPhotoUpdateTick] = React.useState(0);
 
   React.useEffect(() => {
@@ -51,6 +53,19 @@ export const MasterTable: React.FC<MasterTableProps> = ({
   }, []);
 
   const GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/1jTM8OG2u3bO9Cyrlyn3DJSnGcyLOzA8EWwxwOyWgXdc/edit?usp=sharing";
+
+  // Helper para verificar si la OP cuenta con fotografía registrada
+  const hasPhoto = (item: SolicitudColcha) => {
+    const cached = getOpPhotosFromCache(item.op);
+    return Boolean(
+      item.fotoMuestraUrl || 
+      item.fotoCalidadUrl || 
+      item.driveFolderUrl || 
+      cached?.foto1 || 
+      cached?.foto2 || 
+      cached?.folderUrl
+    );
+  };
 
   // Dynamic counts
   const totalHistorico = solicitudes.length;
@@ -62,6 +77,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
   const finCount = solicitudes.filter(s => s.estado === 'FINALIZADO').length;
   const aprobadosCount = solicitudes.filter(s => s.dictamen === 'APROBADO' || s.dictamen === 'APROBADO EN GAMA' || s.estado === 'FINALIZADO').length;
   const rechazadosCount = solicitudes.filter(s => s.dictamen === 'RECHAZADO').length;
+  const sinFotosCount = solicitudes.filter(s => !hasPhoto(s)).length;
   const alertCount = solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length;
 
   // Area Workload counts
@@ -93,6 +109,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
     if (filterEstado === 'FINALIZADOS' && item.estado !== 'FINALIZADO') return false;
     if (filterEstado === 'APROBADOS' && item.dictamen !== 'APROBADO' && item.dictamen !== 'APROBADO EN GAMA' && item.estado !== 'FINALIZADO') return false;
     if (filterEstado === 'RECHAZADOS' && item.dictamen !== 'RECHAZADO') return false;
+    if (filterEstado === 'SIN_FOTO' && hasPhoto(item)) return false;
 
     // Search query
     const q = searchTerm.toLowerCase().trim();
@@ -165,7 +182,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
         </div>
 
         {/* Dynamic KPI summary row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 pt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 pt-2">
           <div className="bg-zinc-50 dark:bg-zinc-900/90 p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-0.5">
             <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">TOTAL BD</span>
             <span className="text-2xl font-black text-zinc-950 dark:text-white font-mono">{totalHistorico}</span>
@@ -196,12 +213,29 @@ export const MasterTable: React.FC<MasterTableProps> = ({
             <span className="text-2xl font-black text-purple-700 dark:text-purple-400 font-mono">{calCount}</span>
           </div>
 
-          <div className="col-span-2 sm:col-span-2 lg:col-span-1 bg-zinc-50 dark:bg-zinc-900/90 p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-0.5">
+          <div className="bg-zinc-50 dark:bg-zinc-900/90 p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-0.5">
             <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold block uppercase">FINALIZADOS</span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400 font-mono">{finCount}</span>
-              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">({aprobadosCount} / {rechazadosCount})</span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">({aprobadosCount}/{rechazadosCount})</span>
             </div>
+          </div>
+
+          <div 
+            onClick={() => setFilterEstado(filterEstado === 'SIN_FOTO' ? 'TODOS' : 'SIN_FOTO')}
+            className={`p-3.5 rounded-2xl border space-y-0.5 cursor-pointer transition hover:scale-105 active:scale-95 ${
+              filterEstado === 'SIN_FOTO'
+                ? 'bg-amber-500 text-black border-amber-600 shadow-md ring-2 ring-amber-500/40'
+                : 'bg-zinc-50 dark:bg-zinc-900/90 border-zinc-200 dark:border-zinc-800 hover:border-amber-400 dark:hover:border-amber-600'
+            }`}
+            title="Clic para filtrar OPs que no tienen fotos"
+          >
+            <span className={`text-[10px] font-bold uppercase block ${filterEstado === 'SIN_FOTO' ? 'text-black' : 'text-amber-600 dark:text-amber-400'}`}>
+              📷 SIN FOTOS
+            </span>
+            <span className={`text-2xl font-black font-mono ${filterEstado === 'SIN_FOTO' ? 'text-black' : 'text-amber-600 dark:text-amber-400'}`}>
+              {sinFotosCount}
+            </span>
           </div>
         </div>
 
@@ -361,6 +395,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                 className="bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-950 dark:text-white focus:outline-none font-bold cursor-pointer"
               >
                 <option value="TODOS">Todos los Estados</option>
+                <option value="SIN_FOTO">📷 Sin Fotos ({sinFotosCount})</option>
                 <option value="PRE_SOLICITUD">Pre-Solicitud</option>
                 <option value="SOLICITADO">Solicitado</option>
                 <option value="LAVANDERIA">Lavandería</option>
@@ -386,6 +421,19 @@ export const MasterTable: React.FC<MasterTableProps> = ({
             }`}
           >
             TODAS LAS OP ({totalHistorico})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterEstado('SIN_FOTO')}
+            className={`px-3 py-1 rounded-xl font-bold transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
+              filterEstado === 'SIN_FOTO'
+                ? 'bg-amber-500 text-black shadow-sm ring-2 ring-amber-500/40'
+                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-700/60 hover:bg-amber-100'
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>SIN FOTOS ({sinFotosCount})</span>
           </button>
 
           <button
@@ -586,29 +634,59 @@ export const MasterTable: React.FC<MasterTableProps> = ({
 
                         if (fotoUrl) {
                           return (
-                            <div 
-                              onClick={() => onViewDetail && onViewDetail(item)}
-                              className="w-8 h-8 rounded-lg overflow-hidden border border-zinc-300 dark:border-zinc-700 mx-auto cursor-pointer hover:scale-110 transition shadow-xs bg-zinc-100 dark:bg-zinc-900"
-                              title="Clic para ver fotografía de muestra ampliada"
-                            >
-                              <img src={fotoUrl} alt="Muestra" className="w-full h-full object-cover" />
+                            <div className="flex items-center justify-center gap-1">
+                              <div 
+                                onClick={() => onViewDetail && onViewDetail(item)}
+                                className="w-8 h-8 rounded-lg overflow-hidden border border-zinc-300 dark:border-zinc-700 cursor-pointer hover:scale-110 transition shadow-xs bg-zinc-100 dark:bg-zinc-900"
+                                title="Clic para ver fotografía de muestra ampliada"
+                              >
+                                <img src={fotoUrl} alt="Muestra" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setUploadModalOp(item)}
+                                className="p-1 rounded-lg text-zinc-400 hover:text-amber-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                                title="Gestionar evidencias fotográficas en Drive"
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           );
                         }
                         if (folderUrl) {
                           return (
-                            <a
-                              href={folderUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-8 h-8 rounded-lg flex items-center justify-center border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 mx-auto cursor-pointer hover:scale-110 transition shadow-xs text-xs font-bold"
-                              title="Abrir carpeta oficial de Drive con ambas fotos"
-                            >
-                              📁
-                            </a>
+                            <div className="flex items-center justify-center gap-1">
+                              <a
+                                href={folderUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 cursor-pointer hover:scale-110 transition shadow-xs text-xs font-bold"
+                                title="Abrir carpeta oficial de Drive con ambas fotos"
+                              >
+                                📁
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => setUploadModalOp(item)}
+                                className="p-1 rounded-lg text-zinc-400 hover:text-amber-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                                title="Cargar / actualizar fotos en Drive"
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           );
                         }
-                        return <span className="text-zinc-500 text-xs">—</span>;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setUploadModalOp(item)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] font-black font-mono transition cursor-pointer hover:scale-105 active:scale-95 shadow-2xs"
+                            title="Cargar evidencias fotográficas para esta OP (Drive)"
+                          >
+                            <Camera className="w-3 h-3 text-amber-500" />
+                            <span>Cargar</span>
+                          </button>
+                        );
                       })()}
                     </td>
 
@@ -719,6 +797,16 @@ export const MasterTable: React.FC<MasterTableProps> = ({
 
       {/* 5. FLOATING QUICK SCROLL PILL */}
       <FloatingScrollPill totalOpsCount={totalHistorico} />
+
+      {/* 6. MODAL DE CARGA DE EVIDENCIAS FOTOGRÁFICAS EN DRIVE */}
+      <UploadMissingPhotosModal
+        solicitud={uploadModalOp}
+        isOpen={Boolean(uploadModalOp)}
+        onClose={() => setUploadModalOp(null)}
+        onSuccess={() => {
+          setPhotoUpdateTick(t => t + 1);
+        }}
+      />
 
     </div>
   );

@@ -8,6 +8,7 @@ import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser, isEdiazUser } from '../../services/authService';
 import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, pushColfactoryObservationToSheets, getOpPhotosFromCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
+import { UploadMissingPhotosModal } from './UploadMissingPhotosModal';
 
 interface SolicitudCardProps {
   solicitud: SolicitudColcha;
@@ -160,6 +161,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const [fotoCalidadPreview, setFotoCalidadPreview] = useState<string | null>(solicitud.fotoCalidadUrl || null);
   const [isUploadingCalidadPhoto, setIsUploadingCalidadPhoto] = useState(false);
   const [zoomedPhotoUrl, setZoomedPhotoUrl] = useState<string | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const calidadFileInputRef = useRef<HTMLInputElement>(null);
 
   const fotoCalidadUrlActual = fotoCalidadPreview || solicitud.fotoCalidadUrl;
@@ -432,10 +434,18 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     <span>VER FOTO</span>
                   </button>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-900/50 text-zinc-500 dark:text-zinc-400 text-[9.5px] font-mono">
-                    <Camera className="w-3 h-3" />
-                    <span>Sin foto</span>
-                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowUploadModal(true);
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[9.5px] font-mono font-bold transition cursor-pointer hover:scale-105 active:scale-95"
+                    title="Cargar evidencias fotográficas para esta OP en Google Drive"
+                  >
+                    <Camera className="w-3 h-3 text-amber-500" />
+                    <span>+ Cargar foto</span>
+                  </button>
                 )}
               </div>
             </div>
@@ -542,12 +552,20 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     </div>
                   </>
                 ) : (
-                  <>
-                    <Camera className="w-6 h-6 mb-1 text-zinc-400 dark:text-zinc-500 stroke-[1.5]" />
-                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-center text-zinc-500 dark:text-zinc-400 font-mono">
-                      SIN FOTO
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowUploadModal(true);
+                    }}
+                    className="w-full h-full flex flex-col items-center justify-center p-2 text-center group cursor-pointer hover:bg-amber-500/10 transition rounded-2xl"
+                    title="Clic para cargar evidencias fotográficas en Drive"
+                  >
+                    <Camera className="w-6 h-6 mb-1 text-amber-500/80 group-hover:scale-110 transition stroke-[1.5]" />
+                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-center text-amber-600 dark:text-amber-400 font-mono">
+                      + CARGAR FOTO
                     </span>
-                  </>
+                  </button>
                 )}
               </div>
             )}
@@ -994,6 +1012,13 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL PARA CARGAR FOTOS FALTANTES A GOOGLE DRIVE */}
+      <UploadMissingPhotosModal
+        solicitud={solicitud}
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+      />
 
     </div>
   );

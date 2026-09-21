@@ -12,6 +12,7 @@ import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, getOpPhotosFromCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 import { generatePublicTrackingUrl, generatePublicTrackingUrlAsync } from '../../services/qrTrackingService';
+import { UploadMissingPhotosModal } from './UploadMissingPhotosModal';
 
 interface OpDetailModalProps {
   solicitud: SolicitudColcha | null;
@@ -35,6 +36,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   const [fotoCalidadLocal, setFotoCalidadLocal] = useState<string | null>(null);
   const [isUploadingCalidad, setIsUploadingCalidad] = useState(false);
   const [asyncPublicUrl, setAsyncPublicUrl] = useState<string>('');
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const calidadFileInputRef = useRef<HTMLInputElement>(null);
 
   const [drivePhotos, setDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(() => {
@@ -407,9 +409,15 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                         <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         <span>REGISTRO FOTOGRÁFICO DE LA OP (2 FOTOS)</span>
                       </h4>
-                      <span className="text-[9px] px-2 py-0.5 rounded font-bold border bg-zinc-200 dark:bg-zinc-950 text-zinc-700 dark:text-zinc-400 border-zinc-300 dark:border-zinc-800">
-                        Trazabilidad Visual
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowUploadModal(true)}
+                        className="px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] font-bold font-mono transition cursor-pointer flex items-center gap-1 hover:scale-105 active:scale-95"
+                        title="Cargar o actualizar evidencias fotográficas en Google Drive"
+                      >
+                        <Camera className="w-3 h-3 text-amber-500" />
+                        <span>Cargar en Drive</span>
+                      </button>
                     </div>
 
                     {/* Alert for Calidad stage */}
@@ -431,18 +439,30 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                           </span>
                         </div>
 
-                        <SmartPhotoDisplay
-                          rawUrl={fotoMuestraUrl}
-                          alt={`Muestra inicial ${solicitud.op}`}
-                          title={`Foto 1: Muestra Inicial - OP ${solicitud.op}`}
-                          emptyTitle="Sin Foto Inicial"
-                          emptySubtitle="Registrada en Atelier"
-                          accentColor="emerald"
-                          onZoom={(url, title) => {
-                            setZoomedPhotoUrl(url);
-                            setZoomedPhotoTitle(title);
-                          }}
-                        />
+                        <div className="relative group">
+                          <SmartPhotoDisplay
+                            rawUrl={fotoMuestraUrl}
+                            alt={`Muestra inicial ${solicitud.op}`}
+                            title={`Foto 1: Muestra Inicial - OP ${solicitud.op}`}
+                            emptyTitle="Sin Foto Inicial"
+                            emptySubtitle="Registrada en Atelier"
+                            accentColor="emerald"
+                            onZoom={(url, title) => {
+                              setZoomedPhotoUrl(url);
+                              setZoomedPhotoTitle(title);
+                            }}
+                          />
+                          {!fotoMuestraUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setShowUploadModal(true)}
+                              className="w-full mt-1.5 py-1.5 px-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold font-mono transition cursor-pointer flex items-center justify-center gap-1"
+                            >
+                              <Camera className="w-3 h-3 text-emerald-500" />
+                              <span>+ Cargar Foto 1 (Drive)</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* CARD 2: FOTO CALIDAD (POST-LAVADO) */}
@@ -498,6 +518,21 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                       </div>
 
                     </div>
+
+                    {(solicitud.driveFolderUrl || drivePhotos?.folderUrl) && (
+                      <div className="pt-2 flex items-center justify-between text-[11px] font-mono border-t border-zinc-200 dark:border-zinc-800">
+                        <span className="text-zinc-500">Carpeta Drive:</span>
+                        <a
+                          href={solicitud.driveFolderUrl || drivePhotos?.folderUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 hover:underline font-bold"
+                        >
+                          <span>📁 Abrir Carpeta Oficial en Drive</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
 
                     {/* Hidden input for Calidad stage */}
                     {(solicitud.estado === 'CALIDAD' || solicitud.estado === 'LAVANDERIA' || solicitud.estado === 'FINALIZADO') && (
@@ -764,6 +799,13 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL PARA CARGAR FOTOS A GOOGLE DRIVE */}
+      <UploadMissingPhotosModal
+        solicitud={solicitud}
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+      />
 
     </div>
   );
