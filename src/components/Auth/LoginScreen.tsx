@@ -20,7 +20,8 @@ import {
   syncUsuariosFromSheets, 
   userRequiresPassword, 
   verifyUserPassword,
-  isSoporteUser
+  isSoporteUser,
+  isEdiazUser
 } from '../../services/authService';
 import { auditService } from '../../services/auditService';
 import { STFLogo } from '../Common/STFLogo';
@@ -290,12 +291,76 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
               {/* Submit Button */}
               <button
                 type="submit"
-                className="relative overflow-hidden group/btn w-full bg-white hover:bg-zinc-100 text-zinc-950 py-4 px-6 rounded-2xl font-black uppercase text-xs tracking-wider transition-all duration-300 ease-out flex items-center justify-center gap-2 cursor-pointer shadow-[0_10px_25px_rgba(255,255,255,0.18)] hover:shadow-[0_18px_40px_rgba(255,255,255,0.35)] hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] font-mono select-none"
+                className="relative overflow-hidden group/btn w-full bg-white hover:bg-zinc-100 text-zinc-950 py-3.5 sm:py-4 px-6 rounded-2xl font-black uppercase text-xs tracking-wider transition-all duration-300 ease-out flex items-center justify-center gap-2 cursor-pointer shadow-[0_10px_25px_rgba(255,255,255,0.18)] hover:shadow-[0_18px_40px_rgba(255,255,255,0.35)] hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] font-mono select-none"
               >
                 <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-black/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 pointer-events-none" />
                 <span className="font-extrabold tracking-wider">INGRESAR AL SISTEMA</span>
                 <ArrowRight className="w-4 h-4 text-zinc-950 group-hover/btn:translate-x-1.5 transition-transform duration-200" />
               </button>
+
+              {/* Directory Button */}
+              <button
+                type="button"
+                onClick={() => setShowDirectoryModal(true)}
+                className="w-full py-2.5 px-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/15 hover:border-white/30 text-zinc-200 text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
+              >
+                <Users className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Explorar Directorio de Perfiles ({usuarios.length})</span>
+              </button>
+
+              {/* Acceso Rápido Profiles Pills */}
+              <div className="pt-2 border-t border-white/10 space-y-1.5">
+                <span className="text-[9.5px] font-mono text-zinc-400 uppercase tracking-wider block text-center">
+                  Accesos Directos Protegidos:
+                </span>
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sop = usuarios.find(u => isSoporteUser(u)) || {
+                        id: "1073524622",
+                        nombre: "SOPORTE TEC.",
+                        rol: "OPERARIO",
+                        area: "CALIDAD",
+                        email: "joseoneiber711@gmail.com"
+                      };
+                      setUserIdInput(sop.id);
+                      setPendingAdminUser(sop);
+                      setAdminPassword('');
+                      setAdminErrorMsg('');
+                      setIsFlipped(true);
+                    }}
+                    className="px-3 py-1 rounded-full bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm shadow-cyan-500/10 active:scale-95"
+                    title="Ingresar como Soporte Técnico (Requiere Contraseña)"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>SOPORTE TEC.</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ed = usuarios.find(u => isEdiazUser(u)) || {
+                        id: "ediaz",
+                        nombre: "EDWIN",
+                        rol: "ADMINISTRADOR",
+                        area: "CALIDAD",
+                        email: "ediaz@stfgroup.com"
+                      };
+                      setUserIdInput(ed.id);
+                      setPendingAdminUser(ed);
+                      setAdminPassword('');
+                      setAdminErrorMsg('');
+                      setIsFlipped(true);
+                    }}
+                    className="px-3 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm shadow-amber-500/10 active:scale-95"
+                    title="Ingresar como Administrador Edwin (Requiere Contraseña)"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                    <span>ADMIN EDWIN</span>
+                  </button>
+                </div>
+              </div>
 
             </form>
 
