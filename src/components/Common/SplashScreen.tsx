@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Volume2, VolumeX, FastForward } from 'lucide-react';
 
 interface SplashScreenProps {
@@ -38,96 +38,130 @@ export function allowReplayIntroSound(): void {
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   onFinish,
-  durationMs = 4600
+  durationMs = 8620
 }) => {
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [hasAudioStarted, setHasAudioStarted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isFadingOutRef = useRef<boolean>(false);
+  const hasFinishedRef = useRef<boolean>(false);
+  const finishTimeoutRef = useRef<any>(null);
+  const safetyTimerRef = useRef<any>(null);
 
-  // Detener y destruir cualquier instancia activa de audio de forma segura
-  const terminateAudio = () => {
+  // Terminar y limpiar audio de manera segura e inmediata
+  const terminateAudio = useCallback(() => {
     stopIntroSoundImmediately();
     audioRef.current = null;
-  };
+  }, []);
+
+  // Transición definitiva y segura al Login
+  const completeSplash = useCallback(() => {
+    if (hasFinishedRef.current) return;
+    hasFinishedRef.current = true;
+    terminateAudio();
+    onFinish();
+  }, [terminateAudio, onFinish]);
+
+  // Transición de salida con fade-out suave
+  const triggerExitTransition = useCallback((delayMs = 650) => {
+    if (isFadingOutRef.current) return;
+    isFadingOutRef.current = true;
+    setIsFadingOut(true);
+
+    if (finishTimeoutRef.current) clearTimeout(finishTimeoutRef.current);
+    finishTimeoutRef.current = setTimeout(() => {
+      completeSplash();
+    }, delayMs);
+  }, [completeSplash]);
 
   useEffect(() => {
-    let audio: HTMLAudioElement | null = null;
-    let fadeInterval: any = null;
     let isMounted = true;
+    let audio: HTMLAudioElement | null = null;
 
     // Verificar si el audio ya sonó previamente en esta sesión de navegación
     const alreadyPlayed = globalIntroHasPlayed || (typeof window !== 'undefined' && sessionStorage.getItem('stf_intro_sound_played') === 'true');
 
     if (alreadyPlayed) {
-      // Si ya sonó, la intro se ejecuta visualmente en silencio estricto
+      // Si ya sonó en esta sesión, la intro se ejecuta visualmente en silencio
       setHasAudioStarted(true);
       setAudioBlocked(false);
-    } else {
-      try {
-        audio = new Audio('/stf-intro-sound.mp3');
-        audio.preload = 'auto';
-        audio.volume = 0.85;
-        audioRef.current = audio;
-        globalActiveIntroAudio = audio;
-
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              if (isMounted) {
-                setHasAudioStarted(true);
-                setAudioBlocked(false);
-                globalIntroHasPlayed = true;
-                try {
-                  sessionStorage.setItem('stf_intro_sound_played', 'true');
-                } catch (e) {}
-              }
-            })
-            .catch(() => {
-              // Safari iOS u otro navegador bloqueó el autoplay sin toque previo
-              if (isMounted) {
-                setAudioBlocked(true);
-              }
-            });
-        }
-      } catch (e) {
-        if (isMounted) setAudioBlocked(true);
-      }
+      safetyTimerRef.current = setTimeout(() => {
+        if (isMounted) triggerExitTransition(600);
+      }, Math.min(durationMs, 4000));
+      return;
     }
 
-    // Iniciar desvanecimiento gradual de salida de audio y video 700ms antes del fin
-    const fadeTimer = setTimeout(() => {
-      if (!isMounted) return;
-      setIsFadingOut(true);
-      if (audioRef.current) {
-        fadeInterval = setInterval(() => {
-          if (audioRef.current && audioRef.current.volume > 0.08) {
-            audioRef.current.volume = Math.max(0, audioRef.current.volume - 0.14);
-          } else {
-            if (audioRef.current) audioRef.current.volume = 0;
-            clearInterval(fadeInterval);
-          }
-        }, 60);
-      }
-    }, Math.max(2000, durationMs - 700));
+    try {
+      audio = new Audio('/stf-intro-sound.mp3');
+      audio.preload = 'auto';
+      audio.volume = 0.85;
+      audioRef.current = audio;
+      globalActiveIntroAudio = audio;
 
-    // Transición fluida a la pantalla de Login
-    const finishTimer = setTimeout(() => {
-      if (!isMounted) return;
-      terminateAudio();
-      onFinish();
-    }, durationMs);
+      // Evento 1: Detección suave del tramo final de la pista para iniciar el fade out sin cortar la música
+      const onTimeUpdate = () => {
+        if (!isMounted || isFadingOutRef.current) return;
+        if (audio && audio.duration && !isNaN(audio.duration) && audio.currentTime > 0) {
+          // Iniciar suavemente el fade out visual cuando falten ~650ms de audio
+          if (audio.duration - audio.currentTime <= 0.65) {
+            triggerExitTransition(650);
+          }
+        }
+      };
+
+      // Evento 2: Fin natural y completo del archivo de audio (reproduce los 8.62 segundos completos)
+      const onAudioEnded = () => {
+        globalIntroHasPlayed = true;
+        try {
+          sessionStorage.setItem('stf_intro_sound_played', 'true');
+        } catch (e) {}
+        triggerExitTransition(200);
+      };
+
+      audio.addEventListener('timeupdate', onTimeUpdate);
+      audio.addEventListener('ended', onAudioEnded);
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            if (isMounted) {
+              setHasAudioStarted(true);
+              setAudioBlocked(false);
+              globalIntroHasPlayed = true;
+              try {
+                sessionStorage.setItem('stf_intro_sound_played', 'true');
+              } catch (e) {}
+            }
+          })
+          .catch(() => {
+            // Safari iOS u otro navegador bloqueó el autoplay sin interacción previa
+            if (isMounted) {
+              setAudioBlocked(true);
+            }
+          });
+      }
+    } catch (e) {
+      if (isMounted) setAudioBlocked(true);
+    }
+
+    // Timer de seguridad: garantiza que la intro avance si no hay sonido o hubo bloqueo
+    const maxWaitMs = durationMs || 8620;
+    safetyTimerRef.current = setTimeout(() => {
+      if (isMounted && !hasFinishedRef.current) {
+        triggerExitTransition(650);
+      }
+    }, maxWaitMs);
 
     return () => {
       isMounted = false;
-      clearTimeout(fadeTimer);
-      clearTimeout(finishTimer);
-      if (fadeInterval) clearInterval(fadeInterval);
+      if (finishTimeoutRef.current) clearTimeout(finishTimeoutRef.current);
+      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
       terminateAudio();
     };
-  }, [durationMs, onFinish]);
+  }, [durationMs, triggerExitTransition, completeSplash, terminateAudio]);
 
   // Permitir activar el sonido al tocar la pantalla si fue bloqueado por iOS Safari
   const handleContainerTap = () => {
@@ -141,6 +175,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           try {
             sessionStorage.setItem('stf_intro_sound_played', 'true');
           } catch (e) {}
+          // Re-sincronizar el timer de seguridad para permitir escuchar la totalidad del audio
+          if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+          safetyTimerRef.current = setTimeout(() => {
+            triggerExitTransition(650);
+          }, 8620);
         }).catch(() => {});
       } catch (e) {}
     }
@@ -149,9 +188,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   // Omitir intencionalmente la animación mediante el botón de saltar
   const handleSkip = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setIsFadingOut(true);
-    terminateAudio();
-    setTimeout(onFinish, 180);
+    globalIntroHasPlayed = true;
+    try {
+      sessionStorage.setItem('stf_intro_sound_played', 'true');
+    } catch (e) {}
+    triggerExitTransition(180);
   };
 
   // Alternar sonido mudo / activo
@@ -166,7 +207,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   return (
     <div 
       onClick={handleContainerTap}
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none overflow-hidden transition-all duration-600 ease-out ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none overflow-hidden transition-all duration-650 ease-out ${
         isFadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
       style={{
@@ -174,25 +215,25 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       }}
     >
       <style>{`
-        /* Animación Cinemática 4K Zoom Progresivo */
+        /* Animación Cinemática 4K Zoom Progresivo sincronizada a 8.4s */
         @keyframes stfCinematic4k {
           0% {
             opacity: 0;
             transform: scale(0.70) translateY(14px);
             filter: blur(14px) brightness(0.35) contrast(1.15);
           }
-          22% {
+          16% {
             opacity: 1;
             filter: blur(0px) brightness(1.22) contrast(1.08);
           }
-          65% {
+          60% {
             opacity: 1;
             transform: scale(1.01) translateY(0px);
             filter: blur(0px) brightness(1.02);
           }
           100% {
             opacity: 1;
-            transform: scale(1.05) translateY(0px);
+            transform: scale(1.06) translateY(0px);
             filter: blur(0px) brightness(1.04);
           }
         }
@@ -203,10 +244,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             transform: translateX(-160%) skewX(-24deg);
             opacity: 0;
           }
-          25% {
+          18% {
             opacity: 1;
           }
-          75% {
+          65% {
             opacity: 1;
           }
           100% {
@@ -221,16 +262,16 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             width: 0%;
             opacity: 0;
           }
-          30% {
+          20% {
             opacity: 1;
           }
-          80% {
+          75% {
             width: 92%;
             opacity: 0.9;
           }
           100% {
             width: 100%;
-            opacity: 0.45;
+            opacity: 0.5;
           }
         }
 
@@ -241,8 +282,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             transform: translateY(8px);
             letter-spacing: 0.16em;
           }
-          40% {
-            opacity: 0.55;
+          30% {
+            opacity: 0.6;
           }
           100% {
             opacity: 0.95;
@@ -252,19 +293,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         }
 
         .stf-4k-logo-anim {
-          animation: stfCinematic4k 4.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: stfCinematic4k 8.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         .stf-shine-beam {
-          animation: stfWhiteLetterShine 2.6s cubic-bezier(0.22, 1, 0.36, 1) 0.6s forwards;
+          animation: stfWhiteLetterShine 3.2s cubic-bezier(0.22, 1, 0.36, 1) 0.8s forwards;
         }
 
         .stf-beam-anim {
-          animation: stfBeamExpand 3.2s ease-out forwards;
+          animation: stfBeamExpand 4.8s ease-out forwards;
         }
 
         .stf-brand-text {
-          animation: stfBrandReveal 3.0s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: stfBrandReveal 4.0s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
 
