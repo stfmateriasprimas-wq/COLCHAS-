@@ -10,7 +10,7 @@ import { OpDetailModal } from './components/Bandeja/OpDetailModal';
 import { SlaAlertsList } from './components/Alertas/SlaAlertsList';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { UserProfileModal } from './components/Auth/UserProfileModal';
-import { SplashScreen } from './components/Common/SplashScreen';
+import { SplashScreen, stopIntroSoundImmediately, allowReplayIntroSound } from './components/Common/SplashScreen';
 import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList } from './services/authService';
 import { SolicitudColcha, MonitoreoItem, KpiMetrics, SectorType, DictamenType, ChatMessage } from './types';
 import { chatService } from './services/chatService';
@@ -151,6 +151,7 @@ export function App() {
     setShowSplash(false);
     try {
       sessionStorage.setItem('stf_splash_shown', 'true');
+      sessionStorage.setItem('stf_intro_sound_played', 'true');
     } catch (e) {}
   };
 
@@ -485,6 +486,12 @@ export function App() {
   };
 
   const handleLogin = (user: UsuarioSTF) => {
+    stopIntroSoundImmediately();
+    setShowSplash(false);
+    try {
+      sessionStorage.setItem('stf_splash_shown', 'true');
+      sessionStorage.setItem('stf_intro_sound_played', 'true');
+    } catch (e) {}
     setCurrentUser(user);
     cleanUserUrlParam();
   };
@@ -800,7 +807,10 @@ export function App() {
     return (
       <LoginScreen 
         onLoginSuccess={handleLogin} 
-        onReplayIntro={() => setShowSplash(true)}
+        onReplayIntro={() => {
+          allowReplayIntroSound();
+          setShowSplash(true);
+        }}
       />
     );
   }

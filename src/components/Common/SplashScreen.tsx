@@ -6,6 +6,36 @@ interface SplashScreenProps {
   durationMs?: number;
 }
 
+// CONTROLADOR GLOBAL PARA GARANTIZAR QUE EL AUDIO DE INTRO SUENE ESTRICTAMENTE 1 SOLA VEZ
+let globalActiveIntroAudio: HTMLAudioElement | null = null;
+let globalIntroHasPlayed = false;
+
+/**
+ * Detiene y destruye de inmediato cualquier audio residual de la intro
+ * Forzando la descarga del recurso en Safari iOS y eliminando cualquier cola de reproducción.
+ */
+export function stopIntroSoundImmediately(): void {
+  if (globalActiveIntroAudio) {
+    try {
+      globalActiveIntroAudio.pause();
+      globalActiveIntroAudio.currentTime = 0;
+      globalActiveIntroAudio.removeAttribute('src');
+      globalActiveIntroAudio.load();
+    } catch (e) {}
+    globalActiveIntroAudio = null;
+  }
+}
+
+/**
+ * Habilita la reproducción de audio únicamente cuando el usuario solicita explícitamente repetir la intro
+ */
+export function allowReplayIntroSound(): void {
+  globalIntroHasPlayed = false;
+  try {
+    sessionStorage.removeItem('stf_intro_sound_played');
+  } catch (e) {}
+}
+
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   onFinish,
   durationMs = 4600
@@ -18,14 +48,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
   // Detener y destruir cualquier instancia activa de audio de forma segura
   const terminateAudio = () => {
-    if (audioRef.current) {
-      try {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-        audioRef.current.src = '';
-      } catch (e) {}
-      audioRef.current = null;
-    }
+    stopIntroSoundImmediately();
+    audioRef.current = null;
   };
 
   useEffect(() => {
@@ -33,30 +57,44 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     let fadeInterval: any = null;
     let isMounted = true;
 
-    try {
-      audio = new Audio('/stf-intro-sound.mp3');
-      audio.preload = 'auto';
-      audio.volume = 0.85;
-      audioRef.current = audio;
+    // Verificar si el audio ya sonó previamente en esta sesión de navegación
+    const alreadyPlayed = globalIntroHasPlayed || (typeof window !== 'undefined' && sessionStorage.getItem('stf_intro_sound_played') === 'true');
 
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            if (isMounted) {
-              setHasAudioStarted(true);
-              setAudioBlocked(false);
-            }
-          })
-          .catch(() => {
-            // Safari iOS u otro navegador bloqueó el autoplay sin toque previo
-            if (isMounted) {
-              setAudioBlocked(true);
-            }
-          });
+    if (alreadyPlayed) {
+      // Si ya sonó, la intro se ejecuta visualmente en silencio estricto
+      setHasAudioStarted(true);
+      setAudioBlocked(false);
+    } else {
+      try {
+        audio = new Audio('/stf-intro-sound.mp3');
+        audio.preload = 'auto';
+        audio.volume = 0.85;
+        audioRef.current = audio;
+        globalActiveIntroAudio = audio;
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              if (isMounted) {
+                setHasAudioStarted(true);
+                setAudioBlocked(false);
+                globalIntroHasPlayed = true;
+                try {
+                  sessionStorage.setItem('stf_intro_sound_played', 'true');
+                } catch (e) {}
+              }
+            })
+            .catch(() => {
+              // Safari iOS u otro navegador bloqueó el autoplay sin toque previo
+              if (isMounted) {
+                setAudioBlocked(true);
+              }
+            });
+        }
+      } catch (e) {
+        if (isMounted) setAudioBlocked(true);
       }
-    } catch (e) {
-      if (isMounted) setAudioBlocked(true);
     }
 
     // Iniciar desvanecimiento gradual de salida de audio y video 700ms antes del fin
@@ -66,11 +104,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       if (audioRef.current) {
         fadeInterval = setInterval(() => {
           if (audioRef.current && audioRef.current.volume > 0.08) {
-            audioRef.current.volume = Math.max(0, audioRef.current.volume - 0.12);
+            audioRef.current.volume = Math.max(0, audioRef.current.volume - 0.14);
           } else {
+            if (audioRef.current) audioRef.current.volume = 0;
             clearInterval(fadeInterval);
           }
-        }, 70);
+        }, 60);
       }
     }, Math.max(2000, durationMs - 700));
 
@@ -98,6 +137,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         audioRef.current.play().then(() => {
           setHasAudioStarted(true);
           setAudioBlocked(false);
+          globalIntroHasPlayed = true;
+          try {
+            sessionStorage.setItem('stf_intro_sound_played', 'true');
+          } catch (e) {}
         }).catch(() => {});
       } catch (e) {}
     }

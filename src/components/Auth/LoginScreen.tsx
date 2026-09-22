@@ -22,6 +22,7 @@ import {
   verifyAdminPassword 
 } from '../../services/authService';
 import { STFLogo } from '../Common/STFLogo';
+import { stopIntroSoundImmediately, allowReplayIntroSound } from '../Common/SplashScreen';
 
 interface LoginScreenProps {
   onLoginSuccess: (usuario: UsuarioSTF) => void;
@@ -86,6 +87,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
         setAdminErrorMsg('');
         setIsFlipped(true);
       } else {
+        stopIntroSoundImmediately();
         onLoginSuccess(foundUser);
       }
     } else {
@@ -103,6 +105,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       setAdminErrorMsg('');
       setIsFlipped(true);
     } else {
+      stopIntroSoundImmediately();
       onLoginSuccess(user);
     }
   };
@@ -125,6 +128,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
     if (verifyAdminPassword(adminPassword)) {
       setAdminErrorMsg('');
       if (pendingAdminUser) {
+        stopIntroSoundImmediately();
         onLoginSuccess(pendingAdminUser);
       }
     } else {
