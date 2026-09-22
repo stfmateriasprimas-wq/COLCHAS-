@@ -1,25 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Header } from './components/Header';
 import { TabType } from './components/Navigation';
 import { CleanLandingView } from './components/Dashboard/CleanLandingView';
 import { AreaOpsModal } from './components/Dashboard/AreaOpsModal';
 import { SolicitudForm } from './components/NuevaSolicitud/SolicitudForm';
-import { ThermalPrinterModal } from './components/NuevaSolicitud/ThermalPrinterModal';
-import { PublicOpView } from './components/Public/PublicOpView';
-import { PublicAlertsView } from './components/Public/PublicAlertsView';
 import { BandejaView } from './components/Bandeja/BandejaView';
 import { TransferModal } from './components/Bandeja/TransferModal';
 import { OpDetailModal } from './components/Bandeja/OpDetailModal';
-import { MasterTable } from './components/BaseDatos/MasterTable';
 import { SlaAlertsList } from './components/Alertas/SlaAlertsList';
-import { TimelineView } from './components/Timeline/TimelineView';
-import { EstadisticasView } from './components/Estadisticas/EstadisticasView';
-import { WhatsAppChatView } from './components/Chat/WhatsAppChatView';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { UserProfileModal } from './components/Auth/UserProfileModal';
 import { SplashScreen } from './components/Common/SplashScreen';
 import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList } from './services/authService';
 import { SolicitudColcha, MonitoreoItem, KpiMetrics, SectorType, DictamenType, ChatMessage } from './types';
+import { chatService } from './services/chatService';
+
+// Carga perezosa (Lazy loading) de módulos pesados para inicio instantáneo en móvil
+const ThermalPrinterModal = lazy(() => import('./components/NuevaSolicitud/ThermalPrinterModal').then(m => ({ default: m.ThermalPrinterModal })));
+const PublicOpView = lazy(() => import('./components/Public/PublicOpView').then(m => ({ default: m.PublicOpView })));
+const PublicAlertsView = lazy(() => import('./components/Public/PublicAlertsView').then(m => ({ default: m.PublicAlertsView })));
+const MasterTable = lazy(() => import('./components/BaseDatos/MasterTable').then(m => ({ default: m.MasterTable })));
+const TimelineView = lazy(() => import('./components/Timeline/TimelineView').then(m => ({ default: m.TimelineView })));
+const EstadisticasView = lazy(() => import('./components/Estadisticas/EstadisticasView').then(m => ({ default: m.EstadisticasView })));
+const WhatsAppChatView = lazy(() => import('./components/Chat/WhatsAppChatView').then(m => ({ default: m.WhatsAppChatView })));
 import { 
   fetchMonitoreoSheet, 
   fetchBaseDeDatosSheet, 
@@ -53,7 +56,6 @@ import {
   unmarkOpAsDeleted,
   getDeletedOpNumbers 
 } from './services/deletedOpsService';
-import { chatService } from './services/chatService';
 import { Trash2, CheckCircle2 } from 'lucide-react';
 import { FuturisticFloatingChatButton } from './components/Chat/FuturisticFloatingChatButton';
 
@@ -708,10 +710,67 @@ export function App() {
     }
   };
 
-  // SI ACCEDE POR REPORTE PÚBLICO DE ALERTAS O CÓDIGO QR -> MOSTRAR SIN LOGIN
+  // COMPONENTE DE CARGA RÁPIDA (FALLBACK DE SUSPENSE)
+  const ViewLoadingFallback = (
+    <div className="flex flex-col items-center justify-center min-h-[50vh] py-16">
+      <div className="w-9 h-9 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
+      <span className="text-xs font-mono text-zinc-400">Cargando vista...</span>
+    </div>
+  );
+
+  // SI ACCEDE A LA VISTA PÚBLICA DE ALERTAS SLA -> MOSTRAR VISTA SIN LOGIN
   if (isPublicAlertsView) {
     if (publicOpNumber) {
       return (
+        <Suspense fallback={ViewLoadingFallback}>
+          <PublicOpView
+            opNumber={publicOpNumber}
+            solicitudes={solicitudes}
+            isSyncing={isSyncing}
+            onRefreshData={() => loadAllLiveData(false)}
+            onGoToLogin={() => {
+              setPublicOpNumber(null);
+              setIsPublicAlertsView(false);
+              const url = new URL(window.location.href);
+              url.searchParams.delete('view');
+              url.searchParams.delete('tab');
+              url.searchParams.delete('op');
+              window.history.replaceState({}, '', url.pathname);
+            }}
+            isDarkMode={isDarkMode}
+            onToggleTheme={() => setIsDarkMode(prev => !prev)}
+            onBackToAlerts={() => setPublicOpNumber(null)}
+          />
+        </Suspense>
+      );
+    }
+
+    return (
+      <Suspense fallback={ViewLoadingFallback}>
+        <PublicAlertsView
+          solicitudes={solicitudes}
+          isSyncing={isSyncing}
+          onRefreshData={() => loadAllLiveData(false)}
+          onSelectOp={(op) => setPublicOpNumber(op)}
+          onGoToLogin={() => {
+            setIsPublicAlertsView(false);
+            setPublicOpNumber(null);
+            const url = new URL(window.location.href);
+            url.searchParams.delete('view');
+            url.searchParams.delete('tab');
+            window.history.replaceState({}, '', url.pathname);
+          }}
+          isDarkMode={isDarkMode}
+          onToggleTheme={() => setIsDarkMode(prev => !prev)}
+        />
+      </Suspense>
+    );
+  }
+
+  // SI ACCEDE POR CÓDIGO QR PÚBLICO A UNA OP ESPECÍFICA -> MOSTRAR VISTA DE TRAZABILIDAD SIN LOGIN
+  if (publicOpNumber) {
+    return (
+      <Suspense fallback={ViewLoadingFallback}>
         <PublicOpView
           opNumber={publicOpNumber}
           solicitudes={solicitudes}
@@ -719,58 +778,15 @@ export function App() {
           onRefreshData={() => loadAllLiveData(false)}
           onGoToLogin={() => {
             setPublicOpNumber(null);
-            setIsPublicAlertsView(false);
             const url = new URL(window.location.href);
             url.searchParams.delete('view');
-            url.searchParams.delete('tab');
             url.searchParams.delete('op');
             window.history.replaceState({}, '', url.pathname);
           }}
           isDarkMode={isDarkMode}
           onToggleTheme={() => setIsDarkMode(prev => !prev)}
-          onBackToAlerts={() => setPublicOpNumber(null)}
         />
-      );
-    }
-
-    return (
-      <PublicAlertsView
-        solicitudes={solicitudes}
-        isSyncing={isSyncing}
-        onRefreshData={() => loadAllLiveData(false)}
-        onSelectOp={(op) => setPublicOpNumber(op)}
-        onGoToLogin={() => {
-          setIsPublicAlertsView(false);
-          setPublicOpNumber(null);
-          const url = new URL(window.location.href);
-          url.searchParams.delete('view');
-          url.searchParams.delete('tab');
-          window.history.replaceState({}, '', url.pathname);
-        }}
-        isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(prev => !prev)}
-      />
-    );
-  }
-
-  // SI ACCEDE POR CÓDIGO QR PÚBLICO A UNA OP ESPECÍFICA -> MOSTRAR VISTA DE TRAZABILIDAD SIN LOGIN
-  if (publicOpNumber) {
-    return (
-      <PublicOpView
-        opNumber={publicOpNumber}
-        solicitudes={solicitudes}
-        isSyncing={isSyncing}
-        onRefreshData={() => loadAllLiveData(false)}
-        onGoToLogin={() => {
-          setPublicOpNumber(null);
-          const url = new URL(window.location.href);
-          url.searchParams.delete('view');
-          url.searchParams.delete('op');
-          window.history.replaceState({}, '', url.pathname);
-        }}
-        isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(prev => !prev)}
-      />
+      </Suspense>
     );
   }
 
@@ -781,7 +797,12 @@ export function App() {
 
   // IF NOT AUTHENTICATED -> SHOW LOGIN SCREEN
   if (!currentUser) {
-    return <LoginScreen onLoginSuccess={handleLogin} />;
+    return (
+      <LoginScreen 
+        onLoginSuccess={handleLogin} 
+        onReplayIntro={() => setShowSplash(true)}
+      />
+    );
   }
 
   return (
@@ -850,19 +871,21 @@ export function App() {
 
         {/* VIEW 4: BASE DE DATOS MAESTRA */}
         {activeTab === 'base-datos' && (
-          <MasterTable
-            solicitudes={solicitudes}
-            currentUser={currentUser}
-            onSync={loadAllLiveData}
-            isSyncing={isSyncing}
-            onNavigateTab={(tab) => setActiveTab(tab)}
-            onViewDetail={(item) => setSelectedColchaDetail(item)}
-            onPrint={(item) => setSelectedColchaPrinter(item)}
-            onTransfer={(item) => setSelectedColchaTransfer(item)}
-            onFinalizarOp={handleFinalizarOp}
-            onDeleteOp={handleDeleteOp}
-            onOpRestored={handleRestoreOp}
-          />
+          <Suspense fallback={ViewLoadingFallback}>
+            <MasterTable
+              solicitudes={solicitudes}
+              currentUser={currentUser}
+              onSync={loadAllLiveData}
+              isSyncing={isSyncing}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onViewDetail={(item) => setSelectedColchaDetail(item)}
+              onPrint={(item) => setSelectedColchaPrinter(item)}
+              onTransfer={(item) => setSelectedColchaTransfer(item)}
+              onFinalizarOp={handleFinalizarOp}
+              onDeleteOp={handleDeleteOp}
+              onOpRestored={handleRestoreOp}
+            />
+          </Suspense>
         )}
 
         {/* VIEW 5: ALERTAS Y SLA */}
@@ -881,43 +904,49 @@ export function App() {
 
         {/* VIEW 6: LÍNEA DE TIEMPO (TIMELINE AUDIT) */}
         {activeTab === 'timeline' && (
-          <TimelineView
-            solicitudes={solicitudes}
-            metrics={metrics}
-            onViewDetail={(item) => setSelectedColchaDetail(item)}
-            onNavigateTab={(tab) => setActiveTab(tab)}
-          />
+          <Suspense fallback={ViewLoadingFallback}>
+            <TimelineView
+              solicitudes={solicitudes}
+              metrics={metrics}
+              onViewDetail={(item) => setSelectedColchaDetail(item)}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+            />
+          </Suspense>
         )}
 
         {/* VIEW 7: ESTADÍSTICAS (MÉTRICAS, MESES, APROBACIÓN & RECHAZADOS) */}
         {activeTab === 'estadisticas' && (
-          <EstadisticasView
-            solicitudes={solicitudes}
-            metrics={metrics}
-            currentUser={currentUser}
-            onNavigateTab={(tab) => setActiveTab(tab)}
-            onViewDetail={(item) => setSelectedColchaDetail(item)}
-            onSyncSheets={() => loadAllLiveData(false)}
-            isSyncing={isSyncing}
-          />
+          <Suspense fallback={ViewLoadingFallback}>
+            <EstadisticasView
+              solicitudes={solicitudes}
+              metrics={metrics}
+              currentUser={currentUser}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onViewDetail={(item) => setSelectedColchaDetail(item)}
+              onSyncSheets={() => loadAllLiveData(false)}
+              isSyncing={isSyncing}
+            />
+          </Suspense>
         )}
 
         {/* VIEW 8: CHAT CORPORATIVO EN TIEMPO REAL (ESTILO WHATSAPP) */}
         {activeTab === 'chat' && (
           <div className="animate-in fade-in duration-200">
-            <WhatsAppChatView
-              currentUser={currentUser}
-              solicitudes={solicitudes}
-              isDarkMode={isDarkMode}
-              onViewOpDetail={(opCode) => {
-                const match = solicitudes.find(s => isMatchingOp(s.op, opCode));
-                if (match) setSelectedColchaDetail(match);
-              }}
-              onPrintOp={(opCode) => {
-                const match = solicitudes.find(s => isMatchingOp(s.op, opCode));
-                if (match) setSelectedColchaPrinter(match);
-              }}
-            />
+            <Suspense fallback={ViewLoadingFallback}>
+              <WhatsAppChatView
+                currentUser={currentUser}
+                solicitudes={solicitudes}
+                isDarkMode={isDarkMode}
+                onViewOpDetail={(opCode) => {
+                  const match = solicitudes.find(s => isMatchingOp(s.op, opCode));
+                  if (match) setSelectedColchaDetail(match);
+                }}
+                onPrintOp={(opCode) => {
+                  const match = solicitudes.find(s => isMatchingOp(s.op, opCode));
+                  if (match) setSelectedColchaPrinter(match);
+                }}
+              />
+            </Suspense>
           </div>
         )}
 
@@ -939,10 +968,14 @@ export function App() {
       />
 
       {/* THERMAL PRINTER LABEL MODAL (100MM X 100MM) */}
-      <ThermalPrinterModal
-        colcha={selectedColchaPrinter}
-        onClose={() => setSelectedColchaPrinter(null)}
-      />
+      {selectedColchaPrinter && (
+        <Suspense fallback={null}>
+          <ThermalPrinterModal
+            colcha={selectedColchaPrinter}
+            onClose={() => setSelectedColchaPrinter(null)}
+          />
+        </Suspense>
+      )}
 
       {/* TRANSFER MODAL */}
       <TransferModal

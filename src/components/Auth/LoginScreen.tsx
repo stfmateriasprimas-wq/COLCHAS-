@@ -25,9 +25,10 @@ import { STFLogo } from '../Common/STFLogo';
 
 interface LoginScreenProps {
   onLoginSuccess: (usuario: UsuarioSTF) => void;
+  onReplayIntro?: () => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onReplayIntro }) => {
   const [usuarios, setUsuarios] = useState<UsuarioSTF[]>(getUsuariosList);
   const [userIdInput, setUserIdInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -162,7 +163,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       <div className="absolute inset-0 z-0 bg-black/25 backdrop-blur-[1px]" />
 
       {/* Top Header 3D Chrome & Gold Transparent STF Logo */}
-      <div className="relative z-10 mb-5 sm:mb-8 text-center animate-in fade-in duration-500 flex flex-col items-center group">
+      <div 
+        onClick={onReplayIntro}
+        className="relative z-10 mb-5 sm:mb-8 text-center animate-in fade-in duration-500 flex flex-col items-center group cursor-pointer"
+        title="Clic para reproducir la intro cinematográfica de STF Group"
+      >
         <img
           src="/stf-group-3d-logo.png"
           alt="STF GROUP S.A. • STUDIO F • ELA • STUDIO F MAN"

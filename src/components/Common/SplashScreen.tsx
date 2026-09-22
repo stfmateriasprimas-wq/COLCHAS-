@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, FastForward } from 'lucide-react';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -12,41 +12,61 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 }) => {
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const [hasAudioStarted, setHasAudioStarted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Detener y destruir cualquier instancia activa de audio de forma segura
+  const terminateAudio = () => {
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        audioRef.current.src = '';
+      } catch (e) {}
+      audioRef.current = null;
+    }
+  };
 
   useEffect(() => {
     let audio: HTMLAudioElement | null = null;
     let fadeInterval: any = null;
+    let isMounted = true;
 
     try {
       audio = new Audio('/stf-intro-sound.mp3');
+      audio.preload = 'auto';
       audio.volume = 0.85;
       audioRef.current = audio;
 
       const playPromise = audio.play();
       if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          // Si el navegador bloquea el autoplay sin interacción previa, reproducir al primer toque/clic
-          const onFirstInteraction = () => {
-            if (audio) {
-              audio.play().catch(() => {});
+        playPromise
+          .then(() => {
+            if (isMounted) {
+              setHasAudioStarted(true);
+              setAudioBlocked(false);
             }
-            window.removeEventListener('click', onFirstInteraction);
-            window.removeEventListener('touchstart', onFirstInteraction);
-          };
-          window.addEventListener('click', onFirstInteraction, { once: true });
-          window.addEventListener('touchstart', onFirstInteraction, { once: true });
-        });
+          })
+          .catch(() => {
+            // Safari iOS u otro navegador bloqueó el autoplay sin toque previo
+            if (isMounted) {
+              setAudioBlocked(true);
+            }
+          });
       }
-    } catch (e) {}
+    } catch (e) {
+      if (isMounted) setAudioBlocked(true);
+    }
 
     // Iniciar desvanecimiento gradual de salida de audio y video 700ms antes del fin
     const fadeTimer = setTimeout(() => {
+      if (!isMounted) return;
       setIsFadingOut(true);
-      if (audio) {
+      if (audioRef.current) {
         fadeInterval = setInterval(() => {
-          if (audio && audio.volume > 0.08) {
-            audio.volume = Math.max(0, audio.volume - 0.12);
+          if (audioRef.current && audioRef.current.volume > 0.08) {
+            audioRef.current.volume = Math.max(0, audioRef.current.volume - 0.12);
           } else {
             clearInterval(fadeInterval);
           }
@@ -56,28 +76,38 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
     // Transición fluida a la pantalla de Login
     const finishTimer = setTimeout(() => {
+      if (!isMounted) return;
+      terminateAudio();
       onFinish();
     }, durationMs);
 
     return () => {
+      isMounted = false;
       clearTimeout(fadeTimer);
       clearTimeout(finishTimer);
       if (fadeInterval) clearInterval(fadeInterval);
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
-      }
+      terminateAudio();
     };
   }, [durationMs, onFinish]);
 
-  // Permitir omitir la animación al hacer clic o tocar la pantalla
-  const handleSkip = () => {
-    setIsFadingOut(true);
-    if (audioRef.current) {
+  // Permitir activar el sonido al tocar la pantalla si fue bloqueado por iOS Safari
+  const handleContainerTap = () => {
+    if (audioBlocked && audioRef.current && !hasAudioStarted) {
       try {
-        audioRef.current.volume = 0.15;
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().then(() => {
+          setHasAudioStarted(true);
+          setAudioBlocked(false);
+        }).catch(() => {});
       } catch (e) {}
     }
+  };
+
+  // Omitir intencionalmente la animación mediante el botón de saltar
+  const handleSkip = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setIsFadingOut(true);
+    terminateAudio();
     setTimeout(onFinish, 180);
   };
 
@@ -92,8 +122,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
   return (
     <div 
-      onClick={handleSkip}
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none cursor-pointer overflow-hidden transition-all duration-600 ease-out ${
+      onClick={handleContainerTap}
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none overflow-hidden transition-all duration-600 ease-out ${
         isFadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
       style={{
@@ -266,10 +296,33 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
       </div>
 
-      {/* MICRO INDICADOR INFERIOR PARA SALTAR */}
-      <div className="absolute bottom-6 sm:bottom-8 z-10 text-[9px] sm:text-[10px] font-mono text-zinc-600 tracking-wider flex items-center gap-1.5 transition-opacity duration-300 opacity-60 hover:opacity-100">
-        <span className="w-1.5 h-1.5 rounded-full bg-white/70 animate-ping" />
-        <span>Toca en cualquier lugar para continuar</span>
+      {/* BADGE ELEGANTE PARA ACTIVAR SONIDO EN DISPOSITIVOS MÓVILES (iOS SAFARI) */}
+      {audioBlocked && !hasAudioStarted && (
+        <div 
+          onClick={handleContainerTap}
+          className="absolute bottom-18 sm:bottom-20 z-30 cursor-pointer flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300 text-xs font-medium tracking-wide shadow-xl shadow-black/80 backdrop-blur-md animate-bounce pointer-events-auto active:scale-95 transition-transform"
+        >
+          <Volume2 className="w-4 h-4 text-amber-400" />
+          <span>Toca para activar sonido de intro</span>
+        </div>
+      )}
+
+      {/* CONTROLES INFERIORES: INDICADOR INSTITUCIONAL Y BOTÓN PARA OMITIR */}
+      <div className="absolute bottom-5 sm:bottom-7 z-20 flex items-center justify-between w-full max-w-md px-6 pointer-events-auto">
+        <div className="text-[9.5px] sm:text-[10px] font-mono text-zinc-500 tracking-wider flex items-center gap-1.5 opacity-75">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80 animate-pulse" />
+          <span>STF GROUP · CALIDAD</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSkip}
+          className="text-[10.5px] sm:text-[11px] font-mono text-zinc-300 hover:text-white px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/12 border border-white/10 hover:border-white/20 transition-all flex items-center gap-1.5 backdrop-blur-md active:scale-95 shadow-sm"
+          title="Omitir introducción e ir al login"
+        >
+          <span>Omitir intro</span>
+          <FastForward className="w-3 h-3 text-zinc-400" />
+        </button>
       </div>
 
     </div>

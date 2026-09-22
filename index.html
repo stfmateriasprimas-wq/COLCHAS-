@@ -1,9 +1,29 @@
 <!doctype html>
-<html lang="es" class="dark">
+<html lang="es" class="dark" style="background-color: #000000; color-scheme: dark;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no" />
     <title>STF Group — Control de Calidad de Colchas</title>
+
+    <!-- Estilos inmediatos de inicio 0ms para evitar parpadeo o pantalla blanca en Safari iOS y navegadores móviles -->
+    <style>
+      html, body, #root {
+        background-color: #000000 !important;
+        background: #000000 !important;
+        color: #f4f4f5;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        min-height: 100%;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        -webkit-tap-highlight-color: transparent;
+      }
+    </style>
+
+    <!-- Preload crítico de recursos de la Intro Cinemática para ejecución instantánea y sincronizada -->
+    <link rel="preload" as="image" href="/stf-group-3d-logo.png" fetchpriority="high" />
+    <link rel="preload" as="audio" href="/stf-intro-sound.mp3" type="audio/mpeg" />
 
     <!-- Iconos de la página web, PWA y Dispositivos Móviles (Studio F / STF Group) -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -14,10 +34,9 @@
     <link rel="manifest" href="/manifest.json" />
 
     <!-- Configuración PWA y Barra de Estado en Windows, Android e iOS -->
-    <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#06080c" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#000000" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="STF Colchas" />
     <meta name="application-name" content="STF Colchas" />
     <meta name="msapplication-TileColor" content="#000000" />
@@ -43,8 +62,19 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400;500;600;700;800;900&family=Outfit:wght@200;300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-zinc-950 text-zinc-100 antialiased selection:bg-emerald-500 selection:text-black">
-    <div id="root"></div>
+  <body class="bg-black text-zinc-100 antialiased selection:bg-emerald-500 selection:text-black" style="background-color: #000000; margin: 0; padding: 0;">
+    <div id="root">
+      <!-- Shell instantáneo 0ms en negro puro con logotipo STF 3D mientras inicializa React -->
+      <div style="position: fixed; inset: 0; background-color: #000000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; pointer-events: none;">
+        <div style="max-width: 320px; width: 75%; display: flex; flex-direction: column; align-items: center; text-align: center;">
+          <img 
+            src="/stf-group-3d-logo.png" 
+            alt="STF Group" 
+            style="width: 100%; height: auto; object-fit: contain; filter: brightness(1.06) contrast(1.08); opacity: 0.95;" 
+          />
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
