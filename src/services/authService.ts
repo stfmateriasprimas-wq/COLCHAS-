@@ -42,6 +42,9 @@ export const USUARIOS_STF_MAESTROS: UsuarioSTF[] = [
 export const ADMIN_USER_ID = "ediaz";
 export const ADMIN_PASSWORD = "ediaz2026";
 
+export const SOPORTE_USER_ID = "1073524622";
+export const SOPORTE_PASSWORD = "J1073524622+";
+
 /**
  * Determina si el usuario logueado es EXCLUSIVAMENTE el perfil de EDWIN DÍAZ (ediaz)
  */
@@ -50,6 +53,16 @@ export function isEdiazUser(user?: UsuarioSTF | null): boolean {
   const uid = (user.id || '').trim().toLowerCase();
   const uname = (user.nombre || '').toUpperCase();
   return uid === 'ediaz' || uid === 'edwin' || uname.includes('EDWIN') || uname.includes('EDIAZ');
+}
+
+/**
+ * Determina si el usuario logueado es EXCLUSIVAMENTE el perfil de SOPORTE TÉCNICO
+ */
+export function isSoporteUser(user?: UsuarioSTF | null): boolean {
+  if (!user) return false;
+  const uid = (user.id || '').trim();
+  const uname = (user.nombre || '').toUpperCase();
+  return uid === SOPORTE_USER_ID || uname.includes('SOPORTE TEC');
 }
 
 /**
@@ -64,17 +77,31 @@ export function isAdminUser(user?: UsuarioSTF | null): boolean {
 }
 
 /**
- * Determina si un usuario específico requiere autenticación por contraseña de administrador.
- * Únicamente aplica para el perfil maestro de EDWIN DÍAZ (ediaz / ediaz2026).
- * Perfiles como LIBIA LABORATORIO (4321) y demás colaboradores ingresan directamente sin contraseña.
+ * Determina si un usuario específico requiere autenticación por contraseña.
+ * Aplica para el perfil de EDWIN DÍAZ (ediaz / ediaz2026) y el perfil SOPORTE TEC. (1073524622 / J1073524622+).
+ * Los demás perfiles de planta ingresan directamente sin contraseña.
  */
 export function userRequiresPassword(user?: UsuarioSTF | null): boolean {
   if (!user) return false;
-  return isEdiazUser(user);
+  return isEdiazUser(user) || isSoporteUser(user);
 }
 
 /**
- * Valida la contraseña asignada al perfil de Administrador (ediaz2026)
+ * Valida la contraseña asignada según el perfil que intenta ingresar
+ */
+export function verifyUserPassword(user: UsuarioSTF, password: string): boolean {
+  const cleanPass = password.trim();
+  if (isSoporteUser(user)) {
+    return cleanPass === SOPORTE_PASSWORD;
+  }
+  if (isEdiazUser(user)) {
+    return cleanPass === ADMIN_PASSWORD;
+  }
+  return true;
+}
+
+/**
+ * Valida la contraseña asignada al perfil de Administrador (ediaz2026) - compatibilidad
  */
 export function verifyAdminPassword(password: string): boolean {
   return password.trim() === ADMIN_PASSWORD;

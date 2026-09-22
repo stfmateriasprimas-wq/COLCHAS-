@@ -19,8 +19,10 @@ import {
   subscribeUsuariosList, 
   syncUsuariosFromSheets, 
   userRequiresPassword, 
-  verifyAdminPassword 
+  verifyUserPassword,
+  isSoporteUser
 } from '../../services/authService';
+import { auditService } from '../../services/auditService';
 import { STFLogo } from '../Common/STFLogo';
 import { stopIntroSoundImmediately, allowReplayIntroSound } from '../Common/SplashScreen';
 
@@ -88,6 +90,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
         setIsFlipped(true);
       } else {
         stopIntroSoundImmediately();
+        auditService.recordLogin(foundUser).catch(() => {});
         onLoginSuccess(foundUser);
       }
     } else {
@@ -106,6 +109,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       setIsFlipped(true);
     } else {
       stopIntroSoundImmediately();
+      auditService.recordLogin(user).catch(() => {});
       onLoginSuccess(user);
     }
   };
@@ -119,18 +123,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
   const handleAdminPasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminPassword.trim()) {
-      setAdminErrorMsg('Por favor ingrese la contraseña de administrador.');
+      const isSoporte = isSoporteUser(pendingAdminUser);
+      setAdminErrorMsg(isSoporte 
+        ? 'Por favor ingrese la contraseña de Soporte Técnico.' 
+        : 'Por favor ingrese la contraseña de administrador.');
       setIsAdminShaking(true);
       setTimeout(() => setIsAdminShaking(false), 500);
       return;
     }
 
-    if (verifyAdminPassword(adminPassword)) {
+    if (pendingAdminUser && verifyUserPassword(pendingAdminUser, adminPassword)) {
       setAdminErrorMsg('');
-      if (pendingAdminUser) {
-        stopIntroSoundImmediately();
-        onLoginSuccess(pendingAdminUser);
-      }
+      stopIntroSoundImmediately();
+      auditService.recordLogin(pendingAdminUser).catch(() => {});
+      onLoginSuccess(pendingAdminUser);
     } else {
       setAdminErrorMsg('Contraseña incorrecta. Verifique sus credenciales.');
       setIsAdminShaking(true);
@@ -345,16 +351,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
             <div className="text-center space-y-2 mb-4 relative z-10">
               
               {/* Cyber Status Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
-                <span>ACCESO PROTEGIDO</span>
+              <div className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md ${
+                isSoporteUser(pendingAdminUser)
+                  ? 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-300'
+                  : 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                  isSoporteUser(pendingAdminUser)
+                    ? 'bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]'
+                    : 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]'
+                }`} />
+                <span>{isSoporteUser(pendingAdminUser) ? 'SOPORTE TÉCNICO OFICIAL' : 'ACCESO PROTEGIDO'}</span>
               </div>
 
               <h2 className="text-2xl sm:text-3xl stf-studio-f-font py-1 select-none tracking-wide text-white drop-shadow-sm">
-                ADMINISTRADOR
+                {isSoporteUser(pendingAdminUser) ? 'SOPORTE TÉCNICO' : 'ADMINISTRADOR'}
               </h2>
               <p className="text-xs text-zinc-300/80 font-medium">
-                Perfil: <strong className="text-amber-400 font-bold">{pendingAdminUser?.nombre}</strong> • {pendingAdminUser?.rol} (<span className="font-mono text-amber-300">{pendingAdminUser?.id}</span>)
+                Perfil: <strong className={isSoporteUser(pendingAdminUser) ? 'text-cyan-300 font-bold' : 'text-amber-400 font-bold'}>{pendingAdminUser?.nombre}</strong> • {pendingAdminUser?.rol} (<span className="font-mono text-zinc-300">{pendingAdminUser?.id}</span>)
               </p>
             </div>
 
@@ -364,10 +378,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10.5px] font-mono font-bold uppercase tracking-wider text-zinc-300">
                   <label className="flex items-center gap-1.5 text-zinc-300">
-                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                    <span>CONTRASEÑA DE ADMINISTRADOR</span>
+                    <KeyRound className={`w-3.5 h-3.5 ${isSoporteUser(pendingAdminUser) ? 'text-cyan-400' : 'text-amber-400'}`} />
+                    <span>{isSoporteUser(pendingAdminUser) ? 'CONTRASEÑA DE SOPORTE' : 'CONTRASEÑA DE ADMINISTRADOR'}</span>
                   </label>
-                  <span className="text-[9px] text-amber-400/90 font-mono bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full border ${
+                    isSoporteUser(pendingAdminUser)
+                      ? 'text-cyan-300 bg-cyan-950/60 border-cyan-500/30'
+                      : 'text-amber-400/90 bg-amber-950/60 border-amber-500/30'
+                  }`}>
                     STF {pendingAdminUser?.id?.toUpperCase() || 'EDÍAZ'}
                   </span>
                 </div>

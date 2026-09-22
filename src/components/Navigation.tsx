@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, PlusCircle, Inbox, Database, AlertTriangle, Clock, BarChart3, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Inbox, Database, AlertTriangle, Clock, BarChart3, MessageSquare, ShieldCheck } from 'lucide-react';
 
-import { UsuarioSTF, isLavanderiaUser } from '../services/authService';
+import { UsuarioSTF, isLavanderiaUser, isSoporteUser } from '../services/authService';
 
 export type TabType = 
   | 'dashboard'
@@ -11,7 +11,8 @@ export type TabType =
   | 'alertas'
   | 'timeline'
   | 'estadisticas'
-  | 'chat';
+  | 'chat'
+  | 'soporte-auditoria';
 
 interface NavigationProps {
   activeTab: TabType;
@@ -78,7 +79,14 @@ export const Navigation: React.FC<NavigationProps> = ({
       id: 'estadisticas' as TabType,
       label: 'Estadísticas',
       icon: BarChart3
-    }
+    },
+    ...(isSoporteUser(currentUser) ? [{
+      id: 'soporte-auditoria' as TabType,
+      label: 'Auditoría & Historial',
+      icon: ShieldCheck,
+      badge: 'SOPORTE',
+      badgeColor: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border-cyan-500/40'
+    }] : [])
   ];
 
   return (

@@ -11,9 +11,10 @@ import { SlaAlertsList } from './components/Alertas/SlaAlertsList';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { UserProfileModal } from './components/Auth/UserProfileModal';
 import { SplashScreen, stopIntroSoundImmediately, allowReplayIntroSound } from './components/Common/SplashScreen';
-import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList } from './services/authService';
+import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList, isSoporteUser } from './services/authService';
 import { SolicitudColcha, MonitoreoItem, KpiMetrics, SectorType, DictamenType, ChatMessage } from './types';
 import { chatService } from './services/chatService';
+import { auditService } from './services/auditService';
 
 // Carga perezosa (Lazy loading) de módulos pesados para inicio instantáneo en móvil
 const ThermalPrinterModal = lazy(() => import('./components/NuevaSolicitud/ThermalPrinterModal').then(m => ({ default: m.ThermalPrinterModal })));
@@ -23,6 +24,7 @@ const MasterTable = lazy(() => import('./components/BaseDatos/MasterTable').then
 const TimelineView = lazy(() => import('./components/Timeline/TimelineView').then(m => ({ default: m.TimelineView })));
 const EstadisticasView = lazy(() => import('./components/Estadisticas/EstadisticasView').then(m => ({ default: m.EstadisticasView })));
 const WhatsAppChatView = lazy(() => import('./components/Chat/WhatsAppChatView').then(m => ({ default: m.WhatsAppChatView })));
+const SoporteAuditoriaView = lazy(() => import('./components/Soporte/SoporteAuditoriaView').then(m => ({ default: m.SoporteAuditoriaView })));
 import { 
   fetchMonitoreoSheet, 
   fetchBaseDeDatosSheet, 
@@ -222,6 +224,13 @@ export function App() {
     };
   }, [currentUser, activeTab]);
 
+  // Seguridad: Si no es usuario SOPORTE TEC. y está en la pestaña soporte-auditoria, redirigir a dashboard
+  useEffect(() => {
+    if (activeTab === 'soporte-auditoria' && !isSoporteUser(currentUser)) {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, currentUser]);
+
   // Escuchar eventos globales de fotos resueltas desde Drive para actualizar el estado central
   useEffect(() => {
     const handlePhotosUpdated = (e: Event) => {
@@ -384,6 +393,20 @@ export function App() {
     const adminName = currentUser ? `${currentUser.nombre} (${currentUser.rol || 'Administrador'})` : 'Edwin Diaz (Administrador)';
     addOpToDeletedHistory(solicitud, adminName);
     
+    // Registro forense para SOPORTE TEC.
+    auditService.logAction(
+      currentUser || { id: 'admin', nombre: adminName, rol: 'ADMINISTRADOR', area: 'CALIDAD', email: '' },
+      'ELIMINACION_OP',
+      `Eliminación manual de orden ${solicitud.op}`,
+      solicitud.op,
+      {
+        tela: solicitud.tela,
+        lote: solicitud.lote,
+        estado: solicitud.estado,
+        inspector: solicitud.inspector
+      }
+    );
+    
     const targetCleanOp = (solicitud.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
     const targetDigits = (solicitud.op || '').replace(/\D/g, '');
 
@@ -464,6 +487,15 @@ export function App() {
     notificationService.playAlertSound('EXITO');
     setConfirmFinalizarOp(null);
 
+    // Registro forense para SOPORTE TEC.
+    auditService.logAction(
+      currentUser || { id: 'auditor', nombre: auditorName, rol: 'ADMINISTRADOR', area: 'CALIDAD', email: '' },
+      'DICTAMEN_CALIDAD',
+      `Finalización y liberación inmediata de colcha ${opNumber} con veredicto APROBADO`,
+      opNumber,
+      { dictamen: 'APROBADO', auditor: auditorName }
+    );
+
     // Sincronización en vivo hacia Google Sheets (Página BASE_DE_DATOS)
     if (opNumber) {
       try {
@@ -477,6 +509,15 @@ export function App() {
   const handleRestoreOp = (restoredSol: SolicitudColcha) => {
     setSolicitudes(prev => [restoredSol, ...prev.filter(s => s.op.trim().toUpperCase() !== restoredSol.op.trim().toUpperCase())]);
     notificationService.playAlertSound('EXITO');
+
+    // Registro forense para SOPORTE TEC.
+    auditService.logAction(
+      currentUser || { id: 'admin', nombre: 'ADMINISTRADOR', rol: 'ADMINISTRADOR', area: 'CALIDAD', email: '' },
+      'RESTAURACION_OP',
+      `Restauración de orden previamente eliminada ${restoredSol.op}`,
+      restoredSol.op,
+      { tela: restoredSol.tela, lote: restoredSol.lote, estado: restoredSol.estado }
+    );
   };
 
   const handleLogin = (user: UsuarioSTF) => {
@@ -488,6 +529,9 @@ export function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    if (activeTab === 'soporte-auditoria') {
+      setActiveTab('dashboard');
+    }
     try {
       localStorage.removeItem('stf_colchas_user');
       sessionStorage.removeItem('stf_colchas_user');
@@ -515,6 +559,22 @@ export function App() {
       }
       // Desmarcar de historial de eliminadas
       unmarkOpAsDeleted(nueva.op);
+
+      // Registro en auditoría forense para SOPORTE TEC.
+      auditService.logAction(
+        currentUser || { id: 'operario', nombre: nueva.inspector || 'OPERARIO', rol: 'OPERARIO', area: nueva.areaActual, email: '' },
+        'CREACION_OP',
+        `Creación y registro de orden ${nueva.op}`,
+        nueva.op,
+        {
+          tela: nueva.tela,
+          lote: nueva.lote,
+          estadoInicial: nueva.estado,
+          inspector: nueva.inspector,
+          area: nueva.areaActual,
+          observacion: nueva.observacionesLavanderia || ''
+        }
+      );
 
       // Save to persistent storage so it survives sync and reloads
       saveLocalCreatedOp(nueva);
@@ -574,6 +634,23 @@ export function App() {
   ) => {
     const targetItem = solicitudes.find(s => s.id === solicitudId);
     const opNumber = targetItem ? targetItem.op : '';
+
+    // Registro en auditoría forense para SOPORTE TEC.
+    auditService.logAction(
+      currentUser || { id: 'operario', nombre: 'OPERARIO STF', rol: 'OPERARIO', area: 'CALIDAD', email: '' },
+      nuevoEstado === 'FINALIZADO' ? 'DICTAMEN_CALIDAD' : 'TRANSFERENCIA',
+      nuevoEstado === 'FINALIZADO' 
+        ? `Finalización y liberación de OP con veredicto ${dictamen || 'APROBADO'}`
+        : `Transferencia de etapa: ${targetItem?.estado || 'INICIAL'} ➔ ${nuevoEstado}`,
+      opNumber,
+      {
+        estadoAnterior: targetItem?.estado,
+        estadoNuevo: nuevoEstado,
+        observacion: nuevaObservacion,
+        dictamen: dictamen,
+        tieneFotoCalidad: !!fotoCalidad
+      }
+    );
 
     setSolicitudes(prev => prev.map(item => {
       if (item.id === solicitudId) {
@@ -703,6 +780,14 @@ export function App() {
     }));
 
     if (targetOpNumber) {
+      // Registro en auditoría forense para SOPORTE TEC.
+      auditService.logAction(
+        currentUser || { id: 'operario', nombre: 'OPERARIO STF', rol: 'OPERARIO', area: 'CALIDAD', email: '' },
+        'ACTUALIZACION_FOTO',
+        `Carga/actualización de ${isCalidad ? 'Foto Calidad (Post-Lavado)' : 'Foto Muestra Inicial'}`,
+        targetOpNumber,
+        { tipoFoto: isCalidad ? 'CALIDAD' : 'MUESTRA' }
+      );
       await pushOpPhotoToSheets(targetOpNumber, photoUrl, isCalidad);
     }
   };
@@ -945,6 +1030,20 @@ export function App() {
                   const match = solicitudes.find(s => isMatchingOp(s.op, opCode));
                   if (match) setSelectedColchaPrinter(match);
                 }}
+              />
+            </Suspense>
+          </div>
+        )}
+
+        {/* VIEW 9: AUDITORÍA & HISTORIAL INTELIGENTE EN TIEMPO REAL (EXCLUSIVO PERFIL SOPORTE TÉCNICO) */}
+        {activeTab === 'soporte-auditoria' && isSoporteUser(currentUser) && (
+          <div className="animate-in fade-in duration-200">
+            <Suspense fallback={ViewLoadingFallback}>
+              <SoporteAuditoriaView
+                currentUser={currentUser}
+                solicitudes={solicitudes}
+                onViewOpDetail={(item) => setSelectedColchaDetail(item)}
+                isDarkMode={isDarkMode}
               />
             </Suspense>
           </div>
