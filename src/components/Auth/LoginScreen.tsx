@@ -210,7 +210,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
           {/* ===================================================================== */}
           {/* CARA 1: FRONTAL - BIENVENIDO / ID DE USUARIO (0 GRADOS)               */}
           {/* ===================================================================== */}
-          <div className={`w-full min-h-[460px] sm:min-h-[480px] flex flex-col justify-between backface-hidden bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border border-white/20 hover:border-white/30 rounded-[32px] sm:rounded-[38px] p-6 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] text-white overflow-hidden group ${
+          <div className={`w-full min-h-[420px] sm:min-h-[440px] flex flex-col justify-between backface-hidden bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border border-white/20 hover:border-white/30 rounded-[32px] sm:rounded-[38px] p-6 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] text-white overflow-hidden group ${
             isFlipped ? 'pointer-events-none' : ''
           }`}>
             
@@ -308,71 +308,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
                 <span className="font-extrabold tracking-wider">INGRESAR AL SISTEMA</span>
                 <ArrowRight className="w-4 h-4 text-zinc-950 group-hover/btn:translate-x-1.5 transition-transform duration-200" />
               </button>
-
-              {/* Directory Button */}
-              <button
-                type="button"
-                onClick={() => setShowDirectoryModal(true)}
-                className="w-full py-2.5 px-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/15 hover:border-white/30 text-zinc-200 text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
-              >
-                <Users className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Explorar Directorio de Perfiles ({usuarios.length})</span>
-              </button>
-
-              {/* Acceso Rápido Profiles Pills */}
-              <div className="pt-2 border-t border-white/10 space-y-1.5">
-                <span className="text-[9.5px] font-mono text-zinc-400 uppercase tracking-wider block text-center">
-                  Accesos Directos Protegidos:
-                </span>
-                <div className="flex items-center justify-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const sop = usuarios.find(u => isSoporteUser(u)) || {
-                        id: "1073524622",
-                        nombre: "SOPORTE TEC.",
-                        rol: "OPERARIO",
-                        area: "CALIDAD",
-                        email: "joseoneiber711@gmail.com"
-                      };
-                      setUserIdInput(sop.id);
-                      setPendingAdminUser(sop);
-                      setAdminPassword('');
-                      setAdminErrorMsg('');
-                      setIsFlipped(true);
-                    }}
-                    className="px-3 py-1 rounded-full bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm shadow-cyan-500/10 active:scale-95"
-                    title="Ingresar como Soporte Técnico (Requiere Contraseña)"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>SOPORTE TEC.</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const ed = usuarios.find(u => isEdiazUser(u)) || {
-                        id: "ediaz",
-                        nombre: "EDWIN",
-                        rol: "ADMINISTRADOR",
-                        area: "CALIDAD",
-                        email: "ediaz@stfgroup.com"
-                      };
-                      setUserIdInput(ed.id);
-                      setPendingAdminUser(ed);
-                      setAdminPassword('');
-                      setAdminErrorMsg('');
-                      setIsFlipped(true);
-                    }}
-                    className="px-3 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm shadow-amber-500/10 active:scale-95"
-                    title="Ingresar como Administrador Edwin (Requiere Contraseña)"
-                  >
-                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                    <span>ADMIN EDWIN</span>
-                  </button>
-                </div>
-              </div>
-
             </form>
 
             {/* Bottom Security Info */}
