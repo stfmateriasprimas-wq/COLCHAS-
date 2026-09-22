@@ -72,15 +72,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
   const handleLoginSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const query = userIdInput.trim().toLowerCase();
+    const cleanDigitsQuery = query.replace(/\D/g, '');
     if (!query) {
       setErrorMsg('Por favor ingrese su ID o documento.');
       return;
     }
 
     const currentUsers = getUsuariosList();
-    const foundUser = currentUsers.find(
-      u => u.id.toLowerCase() === query || u.nombre.toLowerCase().includes(query) || (u.email && u.email.toLowerCase().includes(query))
-    );
+    const foundUser = currentUsers.find(u => {
+      const uIdLower = u.id.toLowerCase();
+      const uDigits = u.id.replace(/\D/g, '');
+      const uNameLower = u.nombre.toLowerCase();
+      const uEmailLower = (u.email || '').toLowerCase();
+
+      return (
+        uIdLower === query ||
+        (cleanDigitsQuery.length >= 4 && uDigits === cleanDigitsQuery) ||
+        uNameLower.includes(query) ||
+        (uEmailLower && uEmailLower.includes(query))
+      );
+    });
 
     if (foundUser) {
       setErrorMsg('');
@@ -376,9 +387,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
           </div>
 
           {/* ===================================================================== */}
-          {/* CARA 2: RESPALDO - CONTRASEÑA DE ADMINISTRADOR (180 GRADOS)           */}
+          {/* CARA 2: RESPALDO - CONTRASEÑA DE ADMINISTRADOR / SOPORTE (180 GRADOS) */}
           {/* ===================================================================== */}
-          <div className={`absolute inset-0 w-full h-full backface-hidden rotate-y-180 bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border border-white/20 hover:border-amber-500/40 rounded-[32px] sm:rounded-[38px] p-6 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] text-white overflow-hidden flex flex-col justify-between group ${
+          <div className={`absolute inset-0 w-full h-full backface-hidden rotate-y-180 bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border rounded-[32px] sm:rounded-[38px] p-6 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] text-white overflow-hidden flex flex-col justify-between group ${
+            isSoporteUser(pendingAdminUser)
+              ? 'border-cyan-500/40 hover:border-cyan-400/70 shadow-[0_0_40px_rgba(6,182,212,0.12)]'
+              : 'border-white/20 hover:border-amber-500/40'
+          } ${
             !isFlipped ? 'pointer-events-none' : ''
           }`}>
             
@@ -396,11 +411,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
             </div>
 
             {/* Ambient Holographic Light Glows */}
-            <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/15 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-500/25 transition duration-700" />
-            <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none group-hover:bg-cyan-500/25 transition duration-700" />
+            <div className={`absolute -top-16 -right-16 w-36 h-36 rounded-full blur-3xl pointer-events-none transition duration-700 ${
+              isSoporteUser(pendingAdminUser) ? 'bg-cyan-500/20 group-hover:bg-cyan-500/30' : 'bg-amber-500/15 group-hover:bg-amber-500/25'
+            }`} />
+            <div className={`absolute -bottom-16 -left-16 w-36 h-36 rounded-full blur-3xl pointer-events-none transition duration-700 ${
+              isSoporteUser(pendingAdminUser) ? 'bg-blue-500/20 group-hover:bg-blue-500/30' : 'bg-cyan-500/15 group-hover:bg-cyan-500/25'
+            }`} />
 
             {/* Top Tech Laser Accent Line */}
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-80" />
+            <div className={`absolute top-0 left-0 right-0 h-[2px] opacity-80 ${
+              isSoporteUser(pendingAdminUser)
+                ? 'bg-gradient-to-r from-transparent via-cyan-400 to-transparent'
+                : 'bg-gradient-to-r from-transparent via-amber-400 to-transparent'
+            }`} />
 
             {/* Return / Flip Back Button */}
             <button
@@ -455,8 +478,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
                   </span>
                 </div>
 
-                <div className="relative flex items-center bg-zinc-950/80 border border-zinc-700/80 focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/25 rounded-2xl transition duration-200 shadow-inner group/input">
-                  <Lock className="w-4 h-4 text-zinc-500 group-focus-within/input:text-amber-400 transition ml-4 shrink-0" />
+                <div className={`relative flex items-center bg-zinc-950/80 border border-zinc-700/80 rounded-2xl transition duration-200 shadow-inner group/input ${
+                  isSoporteUser(pendingAdminUser)
+                    ? 'focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/25'
+                    : 'focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/25'
+                }`}>
+                  <Lock className={`w-4 h-4 text-zinc-500 transition ml-4 shrink-0 ${
+                    isSoporteUser(pendingAdminUser) ? 'group-focus-within/input:text-cyan-400' : 'group-focus-within/input:text-amber-400'
+                  }`} />
                   <input
                     ref={passwordInputRef}
                     type={showAdminPassword ? 'text' : 'password'}
@@ -580,14 +609,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
                   className="p-3.5 hover:bg-zinc-900/90 rounded-2xl cursor-pointer transition flex items-center justify-between text-xs gap-3 group"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:border-emerald-500/50 flex items-center justify-center text-xs font-black font-mono text-emerald-400">
-                      {user.id.substring(0, 4)}
+                    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center text-xs font-black font-mono transition ${
+                      isSoporteUser(user)
+                        ? 'bg-cyan-950/70 border-cyan-500/50 text-cyan-300'
+                        : isEdiazUser(user)
+                        ? 'bg-amber-950/70 border-amber-500/50 text-amber-300'
+                        : 'bg-zinc-900 border-zinc-800 text-emerald-400 group-hover:border-emerald-500/50'
+                    }`}>
+                      {isSoporteUser(user) ? 'SOP' : isEdiazUser(user) ? 'ADM' : user.id.substring(0, 4)}
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-extrabold text-white text-sm group-hover:text-emerald-300 transition">
                           {user.nombre}
                         </span>
+                        {userRequiresPassword(user) && (
+                          <span className={`text-[9.5px] font-bold font-mono px-2 py-0.5 rounded-full flex items-center gap-1 border ${
+                            isSoporteUser(user)
+                              ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40'
+                              : 'bg-amber-950/80 text-amber-300 border-amber-500/40'
+                          }`}>
+                            <Lock className="w-2.5 h-2.5" />
+                            <span>CLAVE PROTEGIDA</span>
+                          </span>
+                        )}
                         {user.isZonaFranca ? (
                           <span className="text-[9.5px] bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 px-2 py-0.5 rounded-full font-bold font-mono flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>

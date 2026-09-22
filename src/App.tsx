@@ -561,8 +561,15 @@ export function App() {
       unmarkOpAsDeleted(nueva.op);
 
       // Registro en auditoría forense para SOPORTE TEC.
+      const auditUser: UsuarioSTF = currentUser || {
+        id: 'operario',
+        nombre: nueva.inspector || 'OPERARIO',
+        rol: 'OPERARIO',
+        area: nueva.estado === 'PRE_SOLICITUD' ? 'CALIDAD ZF' : 'CALIDAD',
+        email: ''
+      };
       auditService.logAction(
-        currentUser || { id: 'operario', nombre: nueva.inspector || 'OPERARIO', rol: 'OPERARIO', area: nueva.areaActual, email: '' },
+        auditUser,
         'CREACION_OP',
         `Creación y registro de orden ${nueva.op}`,
         nueva.op,
