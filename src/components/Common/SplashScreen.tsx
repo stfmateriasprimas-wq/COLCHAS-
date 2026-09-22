@@ -6,14 +6,19 @@ interface SplashScreenProps {
   durationMs?: number;
 }
 
-// CONTROLADOR GLOBAL PARA GARANTIZAR QUE EL AUDIO DE INTRO SUENE ESTRICTAMENTE 1 SOLA VEZ POR INTRO
+// CONTROLADOR GLOBAL PARA GARANTIZAR QUE EL AUDIO DE INTRO SUENE ESTRICTAMENTE 1 SOLA VEZ
 let globalActiveIntroAudio: HTMLAudioElement | null = null;
+let globalIntroFadeInterval: any = null;
 
 /**
  * Detiene y destruye de inmediato cualquier audio residual de la intro
- * Forzando la descarga del recurso en Safari iOS y eliminando cualquier cola de reproducción.
+ * Forzando la descarga del recurso y eliminando cualquier cola de reproducción.
  */
 export function stopIntroSoundImmediately(): void {
+  if (globalIntroFadeInterval) {
+    clearInterval(globalIntroFadeInterval);
+    globalIntroFadeInterval = null;
+  }
   if (globalActiveIntroAudio) {
     try {
       globalActiveIntroAudio.pause();
@@ -26,7 +31,7 @@ export function stopIntroSoundImmediately(): void {
 }
 
 /**
- * Función de compatibilidad para reiniciar el audio si se solicita
+ * Función de compatibilidad para reiniciar el audio si se solicita manualmente
  */
 export function allowReplayIntroSound(): void {
   stopIntroSoundImmediately();
@@ -37,15 +42,14 @@ export function allowReplayIntroSound(): void {
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   onFinish,
-  durationMs = 8620
+  durationMs = 4000
 }) => {
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [audioBlocked, setAudioBlocked] = useState(false);
-  const [hasAudioStarted, setHasAudioStarted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isFadingOutRef = useRef<boolean>(false);
   const hasFinishedRef = useRef<boolean>(false);
+  const hasAudioStartedRef = useRef<boolean>(false);
   const finishTimeoutRef = useRef<any>(null);
   const safetyTimerRef = useRef<any>(null);
 
@@ -63,138 +67,135 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     onFinish();
   }, [terminateAudio, onFinish]);
 
-  // Transición de salida con fade-out suave
-  const triggerExitTransition = useCallback((delayMs = 650) => {
+  // Transición de salida con fade-out suave de pantalla y volumen
+  const triggerExitTransition = useCallback((delayMs = 600) => {
     if (isFadingOutRef.current) return;
     isFadingOutRef.current = true;
     setIsFadingOut(true);
+
+    // Fade-out progresivo de volumen del audio
+    if (audioRef.current && !audioRef.current.paused) {
+      const audioToFade = audioRef.current;
+      const initialVol = audioToFade.volume;
+      const steps = 10;
+      const intervalMs = Math.max(20, Math.floor(delayMs / steps));
+      let currentStep = 0;
+
+      if (globalIntroFadeInterval) clearInterval(globalIntroFadeInterval);
+      globalIntroFadeInterval = setInterval(() => {
+        currentStep++;
+        try {
+          if (audioToFade) {
+            audioToFade.volume = Math.max(0, initialVol * (1 - currentStep / steps));
+          }
+        } catch (e) {}
+        if (currentStep >= steps) {
+          clearInterval(globalIntroFadeInterval);
+          globalIntroFadeInterval = null;
+          terminateAudio();
+        }
+      }, intervalMs);
+    }
 
     if (finishTimeoutRef.current) clearTimeout(finishTimeoutRef.current);
     finishTimeoutRef.current = setTimeout(() => {
       completeSplash();
     }, delayMs);
-  }, [completeSplash]);
+  }, [completeSplash, terminateAudio]);
 
   useEffect(() => {
     let isMounted = true;
-    let audio: HTMLAudioElement | null = null;
+    isFadingOutRef.current = false;
+    hasFinishedRef.current = false;
+    hasAudioStartedRef.current = false;
 
-    // Limpiar residuos previos de session storage
-    try {
-      sessionStorage.removeItem('stf_intro_sound_played');
-    } catch (e) {}
+    // Detener cualquier audio previo
+    stopIntroSoundImmediately();
 
     try {
-      audio = new Audio('/stf-intro-sound.mp3');
+      const audio = new Audio('/stf-intro-sound.mp3');
       audio.preload = 'auto';
+      audio.loop = false; // NUNCA repetir en bucle
       audio.volume = 1.0;
       audioRef.current = audio;
       globalActiveIntroAudio = audio;
 
-      // Evento 1: Detección del tramo final para fade out suave
-      const onTimeUpdate = () => {
-        if (!isMounted || isFadingOutRef.current) return;
-        if (audio && audio.duration && !isNaN(audio.duration) && audio.currentTime > 0) {
-          if (audio.duration - audio.currentTime <= 0.65) {
-            triggerExitTransition(650);
-          }
-        }
-      };
-
-      // Evento 2: Fin natural y completo del archivo de audio (8.62 segundos completos)
+      // Evento: Fin natural del audio antes de los 4s
       const onAudioEnded = () => {
-        triggerExitTransition(200);
+        if (!isMounted || isFadingOutRef.current) return;
+        triggerExitTransition(300);
       };
 
-      audio.addEventListener('timeupdate', onTimeUpdate);
       audio.addEventListener('ended', onAudioEnded);
 
-      // Intento de reproducción inmediata
+      // Intento de reproducción única
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
             if (isMounted) {
-              setHasAudioStarted(true);
-              setAudioBlocked(false);
+              hasAudioStartedRef.current = true;
             }
           })
-          .catch((err) => {
-            // El navegador bloqueó autoplay sin interacción
-            console.warn('Autoplay con audio requiere interacción de usuario:', err);
-            if (isMounted) {
-              setAudioBlocked(true);
-            }
-
-            // Desbloqueo global ante el primer clic, toque o tecla en cualquier parte de la ventana
-            const unlockAudio = () => {
-              if (audioRef.current && (audioRef.current.paused || audioRef.current.currentTime === 0)) {
-                audioRef.current.currentTime = 0;
-                audioRef.current.play().then(() => {
-                  if (isMounted) {
-                    setHasAudioStarted(true);
-                    setAudioBlocked(false);
-                  }
-                }).catch(() => {});
+          .catch(() => {
+            // Si el navegador bloquea autoplay sin interacción, permitimos desbloquear 1 sola vez en el primer gesto
+            const unlockAudioOnce = () => {
+              if (hasAudioStartedRef.current || hasFinishedRef.current || !isMounted) {
+                cleanupUnlock();
+                return;
+              }
+              if (audioRef.current && audioRef.current.paused) {
+                hasAudioStartedRef.current = true;
+                audioRef.current.play().catch(() => {});
               }
               cleanupUnlock();
             };
 
             const cleanupUnlock = () => {
-              window.removeEventListener('click', unlockAudio, true);
-              window.removeEventListener('touchstart', unlockAudio, true);
-              window.removeEventListener('pointerdown', unlockAudio, true);
-              window.removeEventListener('keydown', unlockAudio, true);
+              window.removeEventListener('click', unlockAudioOnce, true);
+              window.removeEventListener('touchstart', unlockAudioOnce, true);
+              window.removeEventListener('pointerdown', unlockAudioOnce, true);
+              window.removeEventListener('keydown', unlockAudioOnce, true);
             };
 
-            window.addEventListener('click', unlockAudio, { capture: true, once: true });
-            window.addEventListener('touchstart', unlockAudio, { capture: true, once: true });
-            window.addEventListener('pointerdown', unlockAudio, { capture: true, once: true });
-            window.addEventListener('keydown', unlockAudio, { capture: true, once: true });
+            window.addEventListener('click', unlockAudioOnce, { capture: true, once: true });
+            window.addEventListener('touchstart', unlockAudioOnce, { capture: true, once: true });
+            window.addEventListener('pointerdown', unlockAudioOnce, { capture: true, once: true });
+            window.addEventListener('keydown', unlockAudioOnce, { capture: true, once: true });
           });
       }
-    } catch (e) {
-      if (isMounted) setAudioBlocked(true);
-    }
+    } catch (e) {}
 
-    // Timer de seguridad: garantiza que la intro avance si no hay sonido o hubo bloqueo prolongado
-    const maxWaitMs = durationMs || 8620;
+    // Cronómetro estricto: Inicio de transición fade-out a los 3.4 segundos para terminar en exactamente 4 segundos
+    const targetDuration = Math.min(durationMs, 4000);
+    const fadeStartMs = Math.max(2000, targetDuration - 600);
+
     safetyTimerRef.current = setTimeout(() => {
       if (isMounted && !hasFinishedRef.current) {
-        triggerExitTransition(650);
+        triggerExitTransition(600);
       }
-    }, maxWaitMs);
+    }, fadeStartMs);
+
+    // Hard fallback para garantizar liberación total del login a los 4050ms
+    const hardLimitTimer = setTimeout(() => {
+      if (isMounted && !hasFinishedRef.current) {
+        completeSplash();
+      }
+    }, targetDuration + 50);
 
     return () => {
       isMounted = false;
       if (finishTimeoutRef.current) clearTimeout(finishTimeoutRef.current);
       if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+      clearTimeout(hardLimitTimer);
       terminateAudio();
     };
   }, [durationMs, triggerExitTransition, completeSplash, terminateAudio]);
 
-  // Permitir activar el sonido al tocar la pantalla si fue bloqueado por iOS Safari
-  const handleContainerTap = () => {
-    if (audioRef.current && (audioBlocked || !hasAudioStarted || audioRef.current.paused)) {
-      try {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().then(() => {
-          setHasAudioStarted(true);
-          setAudioBlocked(false);
-          // Re-sincronizar el timer de seguridad para permitir escuchar la totalidad del audio
-          if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
-          safetyTimerRef.current = setTimeout(() => {
-            triggerExitTransition(650);
-          }, 8620);
-        }).catch(() => {});
-      } catch (e) {}
-    }
-  };
-
   // Omitir intencionalmente la animación mediante el botón de saltar
   const handleSkip = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    triggerExitTransition(180);
+    triggerExitTransition(150);
   };
 
   // Alternar sonido mudo / activo
@@ -208,8 +209,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
   return (
     <div 
-      onClick={handleContainerTap}
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none overflow-hidden transition-all duration-650 ease-out ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none overflow-hidden transition-all duration-600 ease-out ${
         isFadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
       style={{
@@ -217,25 +217,25 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       }}
     >
       <style>{`
-        /* Animación Cinemática 4K Zoom Progresivo sincronizada a 8.4s */
+        /* Animación Cinemática 4K Zoom Progresivo ajustada a 3.8s */
         @keyframes stfCinematic4k {
           0% {
             opacity: 0;
-            transform: scale(0.70) translateY(14px);
-            filter: blur(14px) brightness(0.35) contrast(1.15);
+            transform: scale(0.74) translateY(12px);
+            filter: blur(12px) brightness(0.35) contrast(1.15);
           }
-          16% {
+          18% {
             opacity: 1;
-            filter: blur(0px) brightness(1.22) contrast(1.08);
+            filter: blur(0px) brightness(1.20) contrast(1.08);
           }
-          60% {
+          65% {
             opacity: 1;
-            transform: scale(1.01) translateY(0px);
+            transform: scale(1.00) translateY(0px);
             filter: blur(0px) brightness(1.02);
           }
           100% {
             opacity: 1;
-            transform: scale(1.06) translateY(0px);
+            transform: scale(1.04) translateY(0px);
             filter: blur(0px) brightness(1.04);
           }
         }
@@ -246,10 +246,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             transform: translateX(-160%) skewX(-24deg);
             opacity: 0;
           }
-          18% {
+          20% {
             opacity: 1;
           }
-          65% {
+          70% {
             opacity: 1;
           }
           100% {
@@ -264,7 +264,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             width: 0%;
             opacity: 0;
           }
-          20% {
+          22% {
             opacity: 1;
           }
           75% {
@@ -273,7 +273,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           }
           100% {
             width: 100%;
-            opacity: 0.5;
+            opacity: 0.6;
           }
         }
 
@@ -285,29 +285,29 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             letter-spacing: 0.16em;
           }
           30% {
-            opacity: 0.6;
+            opacity: 0.7;
           }
           100% {
             opacity: 0.95;
             transform: translateY(0);
-            letter-spacing: 0.25em;
+            letter-spacing: 0.24em;
           }
         }
 
         .stf-4k-logo-anim {
-          animation: stfCinematic4k 8.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: stfCinematic4k 3.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         .stf-shine-beam {
-          animation: stfWhiteLetterShine 3.2s cubic-bezier(0.22, 1, 0.36, 1) 0.8s forwards;
+          animation: stfWhiteLetterShine 2.0s cubic-bezier(0.22, 1, 0.36, 1) 0.35s forwards;
         }
 
         .stf-beam-anim {
-          animation: stfBeamExpand 4.8s ease-out forwards;
+          animation: stfBeamExpand 2.4s ease-out forwards;
         }
 
         .stf-brand-text {
-          animation: stfBrandReveal 4.0s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: stfBrandReveal 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
 
@@ -316,7 +316,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         onClick={toggleMute}
         type="button"
         title={isMuted ? 'Activar sonido' : 'Silenciar'}
-        className="absolute top-6 right-6 z-20 p-2.5 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-white/70 hover:text-white transition-all backdrop-blur-md"
+        className="absolute top-6 right-6 z-20 p-2.5 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-white/70 hover:text-white transition-all backdrop-blur-md cursor-pointer"
       >
         {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
       </button>
@@ -339,7 +339,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
               }}
             />
 
-            {/* 2. CAPA DE BRILLO BLANCO ENMASCARADA EXCLUSIVAMENTE SOBRE LAS LETRAS (DE IZQUIERDA A DERECHA) */}
+            {/* 2. CAPA DE BRILLO BLANCO ENMASCARADA EXCLUSIVAMENTE SOBRE LAS LETRAS */}
             <div 
               className="absolute inset-0 pointer-events-none overflow-hidden"
               style={{
@@ -382,17 +382,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
       </div>
 
-      {/* BADGE ELEGANTE PARA ACTIVAR SONIDO EN DISPOSITIVOS MÓVILES (iOS SAFARI) */}
-      {audioBlocked && !hasAudioStarted && (
-        <div 
-          onClick={handleContainerTap}
-          className="absolute bottom-18 sm:bottom-20 z-30 cursor-pointer flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300 text-xs font-medium tracking-wide shadow-xl shadow-black/80 backdrop-blur-md animate-bounce pointer-events-auto active:scale-95 transition-transform"
-        >
-          <Volume2 className="w-4 h-4 text-amber-400" />
-          <span>Toca para activar sonido de intro</span>
-        </div>
-      )}
-
       {/* CONTROLES INFERIORES: INDICADOR INSTITUCIONAL Y BOTÓN PARA OMITIR */}
       <div className="absolute bottom-5 sm:bottom-7 z-20 flex items-center justify-between w-full max-w-md px-6 pointer-events-auto">
         <div className="text-[9.5px] sm:text-[10px] font-mono text-zinc-500 tracking-wider flex items-center gap-1.5 opacity-75">
@@ -403,7 +392,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         <button
           type="button"
           onClick={handleSkip}
-          className="text-[10.5px] sm:text-[11px] font-mono text-zinc-300 hover:text-white px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/12 border border-white/10 hover:border-white/20 transition-all flex items-center gap-1.5 backdrop-blur-md active:scale-95 shadow-sm"
+          className="text-[10.5px] sm:text-[11px] font-mono text-zinc-300 hover:text-white px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/12 border border-white/10 hover:border-white/20 transition-all flex items-center gap-1.5 backdrop-blur-md active:scale-95 shadow-sm cursor-pointer"
           title="Omitir introducción e ir al login"
         >
           <span>Omitir intro</span>

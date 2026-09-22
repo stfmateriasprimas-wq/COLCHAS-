@@ -879,9 +879,9 @@ export function App() {
     );
   }
 
-  // ANIMACIÓN INTRO CINEMATOGRÁFICA CON SONIDO (SOLO 1 VEZ POR APERTURA DEL SISTEMA)
+  // ANIMACIÓN INTRO CINEMATOGRÁFICA CON SONIDO (SOLO 1 VEZ POR APERTURA DEL SISTEMA, MÁXIMO 4 SEGUNDOS)
   if (showSplash && !publicOpNumber && !isPublicAlertsView) {
-    return <SplashScreen onFinish={handleSplashFinish} />;
+    return <SplashScreen onFinish={handleSplashFinish} durationMs={4000} />;
   }
 
   // IF NOT AUTHENTICATED -> SHOW LOGIN SCREEN
