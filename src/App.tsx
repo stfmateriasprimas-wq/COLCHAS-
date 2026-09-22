@@ -133,26 +133,18 @@ export function App() {
   // Authentication State: Siempre inicia desde el apartado de Login al ingresar al sistema
   const [currentUser, setCurrentUser] = useState<UsuarioSTF | null>(null);
 
-  // Animación Intro Cinemática con sonido: solo 1 vez por cada apertura del aplicativo (sesión de navegador)
+  // Animación Intro Cinemática con sonido al acceder o recargar el aplicativo
   const [showSplash, setShowSplash] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       // Accesos directos por QR o vistas públicas no ejecutan splash
       if (params.get('op') || params.get('view')) return false;
-      try {
-        const alreadyShown = sessionStorage.getItem('stf_splash_shown');
-        if (alreadyShown === 'true') return false;
-      } catch (e) {}
     }
     return true;
   });
 
   const handleSplashFinish = () => {
     setShowSplash(false);
-    try {
-      sessionStorage.setItem('stf_splash_shown', 'true');
-      sessionStorage.setItem('stf_intro_sound_played', 'true');
-    } catch (e) {}
   };
 
   const hasProcessedUrlOpRef = React.useRef(false);
@@ -277,6 +269,8 @@ export function App() {
     try {
       localStorage.removeItem('stf_colchas_user');
       sessionStorage.removeItem('stf_colchas_user');
+      sessionStorage.removeItem('stf_splash_shown');
+      sessionStorage.removeItem('stf_intro_sound_played');
     } catch (e) {}
     cleanUserUrlParam();
 
@@ -488,10 +482,6 @@ export function App() {
   const handleLogin = (user: UsuarioSTF) => {
     stopIntroSoundImmediately();
     setShowSplash(false);
-    try {
-      sessionStorage.setItem('stf_splash_shown', 'true');
-      sessionStorage.setItem('stf_intro_sound_played', 'true');
-    } catch (e) {}
     setCurrentUser(user);
     cleanUserUrlParam();
   };

@@ -6,9 +6,8 @@ interface SplashScreenProps {
   durationMs?: number;
 }
 
-// CONTROLADOR GLOBAL PARA GARANTIZAR QUE EL AUDIO DE INTRO SUENE ESTRICTAMENTE 1 SOLA VEZ
+// CONTROLADOR GLOBAL PARA GARANTIZAR QUE EL AUDIO DE INTRO SUENE ESTRICTAMENTE 1 SOLA VEZ POR INTRO
 let globalActiveIntroAudio: HTMLAudioElement | null = null;
-let globalIntroHasPlayed = false;
 
 /**
  * Detiene y destruye de inmediato cualquier audio residual de la intro
@@ -27,10 +26,10 @@ export function stopIntroSoundImmediately(): void {
 }
 
 /**
- * Habilita la reproducción de audio únicamente cuando el usuario solicita explícitamente repetir la intro
+ * Función de compatibilidad para reiniciar el audio si se solicita
  */
 export function allowReplayIntroSound(): void {
-  globalIntroHasPlayed = false;
+  stopIntroSoundImmediately();
   try {
     sessionStorage.removeItem('stf_intro_sound_played');
   } catch (e) {}
@@ -80,49 +79,37 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     let isMounted = true;
     let audio: HTMLAudioElement | null = null;
 
-    // Verificar si el audio ya sonó previamente en esta sesión de navegación
-    const alreadyPlayed = globalIntroHasPlayed || (typeof window !== 'undefined' && sessionStorage.getItem('stf_intro_sound_played') === 'true');
-
-    if (alreadyPlayed) {
-      // Si ya sonó en esta sesión, la intro se ejecuta visualmente en silencio
-      setHasAudioStarted(true);
-      setAudioBlocked(false);
-      safetyTimerRef.current = setTimeout(() => {
-        if (isMounted) triggerExitTransition(600);
-      }, Math.min(durationMs, 4000));
-      return;
-    }
+    // Limpiar residuos previos de session storage
+    try {
+      sessionStorage.removeItem('stf_intro_sound_played');
+    } catch (e) {}
 
     try {
       audio = new Audio('/stf-intro-sound.mp3');
       audio.preload = 'auto';
-      audio.volume = 0.85;
+      audio.volume = 1.0;
       audioRef.current = audio;
       globalActiveIntroAudio = audio;
 
-      // Evento 1: Detección suave del tramo final de la pista para iniciar el fade out sin cortar la música
+      // Evento 1: Detección del tramo final para fade out suave
       const onTimeUpdate = () => {
         if (!isMounted || isFadingOutRef.current) return;
         if (audio && audio.duration && !isNaN(audio.duration) && audio.currentTime > 0) {
-          // Iniciar suavemente el fade out visual cuando falten ~650ms de audio
           if (audio.duration - audio.currentTime <= 0.65) {
             triggerExitTransition(650);
           }
         }
       };
 
-      // Evento 2: Fin natural y completo del archivo de audio (reproduce los 8.62 segundos completos)
+      // Evento 2: Fin natural y completo del archivo de audio (8.62 segundos completos)
       const onAudioEnded = () => {
-        globalIntroHasPlayed = true;
-        try {
-          sessionStorage.setItem('stf_intro_sound_played', 'true');
-        } catch (e) {}
         triggerExitTransition(200);
       };
 
       audio.addEventListener('timeupdate', onTimeUpdate);
       audio.addEventListener('ended', onAudioEnded);
 
+      // Intento de reproducción inmediata
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise
@@ -130,24 +117,47 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             if (isMounted) {
               setHasAudioStarted(true);
               setAudioBlocked(false);
-              globalIntroHasPlayed = true;
-              try {
-                sessionStorage.setItem('stf_intro_sound_played', 'true');
-              } catch (e) {}
             }
           })
-          .catch(() => {
-            // Safari iOS u otro navegador bloqueó el autoplay sin interacción previa
+          .catch((err) => {
+            // El navegador bloqueó autoplay sin interacción
+            console.warn('Autoplay con audio requiere interacción de usuario:', err);
             if (isMounted) {
               setAudioBlocked(true);
             }
+
+            // Desbloqueo global ante el primer clic, toque o tecla en cualquier parte de la ventana
+            const unlockAudio = () => {
+              if (audioRef.current && (audioRef.current.paused || audioRef.current.currentTime === 0)) {
+                audioRef.current.currentTime = 0;
+                audioRef.current.play().then(() => {
+                  if (isMounted) {
+                    setHasAudioStarted(true);
+                    setAudioBlocked(false);
+                  }
+                }).catch(() => {});
+              }
+              cleanupUnlock();
+            };
+
+            const cleanupUnlock = () => {
+              window.removeEventListener('click', unlockAudio, true);
+              window.removeEventListener('touchstart', unlockAudio, true);
+              window.removeEventListener('pointerdown', unlockAudio, true);
+              window.removeEventListener('keydown', unlockAudio, true);
+            };
+
+            window.addEventListener('click', unlockAudio, { capture: true, once: true });
+            window.addEventListener('touchstart', unlockAudio, { capture: true, once: true });
+            window.addEventListener('pointerdown', unlockAudio, { capture: true, once: true });
+            window.addEventListener('keydown', unlockAudio, { capture: true, once: true });
           });
       }
     } catch (e) {
       if (isMounted) setAudioBlocked(true);
     }
 
-    // Timer de seguridad: garantiza que la intro avance si no hay sonido o hubo bloqueo
+    // Timer de seguridad: garantiza que la intro avance si no hay sonido o hubo bloqueo prolongado
     const maxWaitMs = durationMs || 8620;
     safetyTimerRef.current = setTimeout(() => {
       if (isMounted && !hasFinishedRef.current) {
@@ -165,16 +175,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
   // Permitir activar el sonido al tocar la pantalla si fue bloqueado por iOS Safari
   const handleContainerTap = () => {
-    if (audioBlocked && audioRef.current && !hasAudioStarted) {
+    if (audioRef.current && (audioBlocked || !hasAudioStarted || audioRef.current.paused)) {
       try {
         audioRef.current.currentTime = 0;
         audioRef.current.play().then(() => {
           setHasAudioStarted(true);
           setAudioBlocked(false);
-          globalIntroHasPlayed = true;
-          try {
-            sessionStorage.setItem('stf_intro_sound_played', 'true');
-          } catch (e) {}
           // Re-sincronizar el timer de seguridad para permitir escuchar la totalidad del audio
           if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
           safetyTimerRef.current = setTimeout(() => {
@@ -188,10 +194,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   // Omitir intencionalmente la animación mediante el botón de saltar
   const handleSkip = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    globalIntroHasPlayed = true;
-    try {
-      sessionStorage.setItem('stf_intro_sound_played', 'true');
-    } catch (e) {}
     triggerExitTransition(180);
   };
 
