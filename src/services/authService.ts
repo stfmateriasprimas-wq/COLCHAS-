@@ -60,9 +60,15 @@ export function isEdiazUser(user?: UsuarioSTF | null): boolean {
  */
 export function isSoporteUser(user?: UsuarioSTF | null): boolean {
   if (!user) return false;
-  const uid = (user.id || '').trim();
+  const uid = (user.id || '').trim().toLowerCase();
   const uname = (user.nombre || '').toUpperCase();
-  return uid === SOPORTE_USER_ID || uname.includes('SOPORTE TEC');
+  const email = (user.email || '').toLowerCase();
+  return (
+    uid === SOPORTE_USER_ID.toLowerCase() || 
+    uname.includes('SOPORTE') || 
+    email.includes('joseoneiber711') ||
+    uid.includes('1073524622')
+  );
 }
 
 /**

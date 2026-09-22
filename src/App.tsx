@@ -903,6 +903,7 @@ export function App() {
         onBackToDashboard={() => setActiveTab('dashboard')}
         onOpenProfileDirectory={() => setIsProfileDirectoryOpen(true)}
         onOpenChat={() => setActiveTab('chat')}
+        onOpenAuditoria={() => setActiveTab('soporte-auditoria')}
         chatUnreadCount={chatUnreadCount}
         isSyncing={isSyncing}
         onManualSync={handleManualSync}
@@ -1042,6 +1043,8 @@ export function App() {
               <SoporteAuditoriaView
                 currentUser={currentUser}
                 solicitudes={solicitudes}
+                kpiMetrics={metrics}
+                onNavigateTab={(tab) => setActiveTab(tab)}
                 onViewOpDetail={(item) => setSelectedColchaDetail(item)}
                 isDarkMode={isDarkMode}
               />

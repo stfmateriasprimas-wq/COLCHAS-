@@ -1,6 +1,7 @@
 import React from 'react';
-import { Layers, Database, AlertTriangle, Clock, BarChart3 } from 'lucide-react';
+import { Layers, Database, AlertTriangle, Clock, BarChart3, ShieldCheck } from 'lucide-react';
 import { TabType } from '../Navigation';
+import { UsuarioSTF, isSoporteUser } from '../../services/authService';
 
 interface SubNavTabsProps {
   activeTab: TabType;
@@ -8,14 +9,27 @@ interface SubNavTabsProps {
   totalHistorico: number;
   alertCount: number;
   chatUnreadCount?: number;
+  currentUser?: UsuarioSTF | null;
 }
 
 export const SubNavTabs: React.FC<SubNavTabsProps> = ({
   activeTab,
   onSelectTab,
   totalHistorico,
-  alertCount
+  alertCount,
+  currentUser
 }) => {
+  const effectiveUser = currentUser || (() => {
+    try {
+      const saved = localStorage.getItem('stf_colchas_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  })();
+
+  const isSoporte = isSoporteUser(effectiveUser);
+
   const tabs: { id: TabType; label: string; icon: React.ReactNode; badge?: string | number; badgeColor?: string }[] = [
     {
       id: 'solicitudes',
@@ -44,7 +58,14 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
       id: 'estadisticas',
       label: 'ESTADÍSTICAS',
       icon: <BarChart3 className="w-3.5 h-3.5" />
-    }
+    },
+    ...(isSoporte ? [{
+      id: 'soporte-auditoria' as TabType,
+      label: 'AUDITORÍA & HISTORIAL',
+      badge: 'SOPORTE',
+      badgeColor: 'bg-cyan-500 text-black border-cyan-400 font-black',
+      icon: <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+    }] : [])
   ];
 
   return (

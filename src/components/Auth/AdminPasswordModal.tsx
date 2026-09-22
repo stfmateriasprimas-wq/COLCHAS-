@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, Lock, Eye, EyeOff, X, CheckCircle2, AlertCircle, KeyRound } from 'lucide-react';
-import { UsuarioSTF, verifyAdminPassword } from '../../services/authService';
+import { UsuarioSTF, verifyUserPassword, isSoporteUser } from '../../services/authService';
+import { auditService } from '../../services/auditService';
 
 interface AdminPasswordModalProps {
   isOpen: boolean;
@@ -22,21 +23,28 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
 
   if (!isOpen) return null;
 
+  const isSoporte = isSoporteUser(adminUser);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
-      setErrorMsg('Por favor ingrese la contraseña de administrador.');
+      setErrorMsg(isSoporte 
+        ? 'Por favor ingrese la contraseña de Soporte Técnico.' 
+        : 'Por favor ingrese la contraseña de administrador.');
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 500);
       return;
     }
 
-    if (verifyAdminPassword(password)) {
+    if (verifyUserPassword(adminUser, password)) {
       setErrorMsg('');
       setPassword('');
+      auditService.recordLogin(adminUser).catch(() => {});
       onSuccess(adminUser);
     } else {
-      setErrorMsg('Contraseña incorrecta. Verifique sus credenciales de administrador.');
+      setErrorMsg(isSoporte 
+        ? 'Contraseña incorrecta. Verifique la contraseña de Soporte Técnico.' 
+        : 'Contraseña incorrecta. Verifique sus credenciales de administrador.');
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 500);
     }
@@ -45,19 +53,31 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
   return (
     <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200 select-none">
       
-      {/* ULTRA-FUTURISTIC CYBER GLASSMORPHISM ADMIN MODAL */}
+      {/* ULTRA-FUTURISTIC CYBER GLASSMORPHISM ADMIN/SOPORTE MODAL */}
       <div 
-        className={`relative w-full max-w-[430px] bg-[#0a0e17]/95 backdrop-blur-3xl border border-white/15 hover:border-amber-500/40 rounded-[36px] p-7 sm:p-8 shadow-[0_25px_70px_rgba(0,0,0,0.9),0_0_40px_rgba(245,158,11,0.08)] overflow-hidden text-white transition-all duration-300 group ${
+        className={`relative w-full max-w-[430px] bg-[#0a0e17]/95 backdrop-blur-3xl border rounded-[36px] p-7 sm:p-8 shadow-[0_25px_70px_rgba(0,0,0,0.9)] overflow-hidden text-white transition-all duration-300 group ${
+          isSoporte 
+            ? 'border-cyan-500/40 hover:border-cyan-400/70 shadow-[0_0_40px_rgba(6,182,212,0.12)]' 
+            : 'border-white/15 hover:border-amber-500/40 shadow-[0_0_40px_rgba(245,158,11,0.08)]'
+        } ${
           isShaking ? 'animate-bounce' : 'animate-in zoom-in-95 duration-150'
         }`}
       >
         
         {/* Ambient Holographic Light Glows */}
-        <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/15 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-500/25 transition duration-700" />
-        <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none group-hover:bg-cyan-500/25 transition duration-700" />
+        <div className={`absolute -top-16 -right-16 w-36 h-36 rounded-full blur-3xl pointer-events-none transition duration-700 ${
+          isSoporte ? 'bg-cyan-500/20 group-hover:bg-cyan-500/30' : 'bg-amber-500/15 group-hover:bg-amber-500/25'
+        }`} />
+        <div className={`absolute -bottom-16 -left-16 w-36 h-36 rounded-full blur-3xl pointer-events-none transition duration-700 ${
+          isSoporte ? 'bg-blue-500/20 group-hover:bg-blue-500/30' : 'bg-cyan-500/15 group-hover:bg-cyan-500/25'
+        }`} />
 
         {/* Top Tech Laser Accent Line */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-80" />
+        <div className={`absolute top-0 left-0 right-0 h-[2px] opacity-80 ${
+          isSoporte 
+            ? 'bg-gradient-to-r from-transparent via-cyan-400 to-transparent' 
+            : 'bg-gradient-to-r from-transparent via-amber-400 to-transparent'
+        }`} />
 
         {/* Close Button */}
         <button
@@ -73,16 +93,24 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
         <div className="text-center space-y-2 mb-6 relative">
           
           {/* Cyber Status Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
-            <span>ACCESO PROTEGIDO</span>
+          <div className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm ${
+            isSoporte 
+              ? 'bg-cyan-500/15 border border-cyan-500/40 text-cyan-300' 
+              : 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
+          }`}>
+            <span className={`w-2 h-2 rounded-full animate-pulse ${
+              isSoporte 
+                ? 'bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]' 
+                : 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]'
+            }`} />
+            <span>{isSoporte ? 'SOPORTE TÉCNICO OFICIAL' : 'ACCESO PROTEGIDO'}</span>
           </div>
 
           <h2 className="text-xl sm:text-2xl stf-studio-f-font py-0.5 select-none text-white">
-            ADMINISTRADOR
+            {isSoporte ? 'SOPORTE TÉCNICO' : 'ADMINISTRADOR'}
           </h2>
           <p className="text-xs text-zinc-400 font-medium">
-            Perfil: <strong className="text-amber-400 font-bold">{adminUser.nombre}</strong> • {adminUser.rol} (<span className="font-mono text-amber-300">{adminUser.id}</span>)
+            Perfil: <strong className={isSoporte ? 'text-cyan-300 font-bold' : 'text-amber-400 font-bold'}>{adminUser.nombre}</strong> • {adminUser.rol} (<span className="font-mono text-zinc-300">{adminUser.id}</span>)
           </p>
         </div>
 
@@ -92,16 +120,26 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-[10.5px] font-mono font-bold uppercase tracking-wider text-zinc-300">
               <label className="flex items-center gap-1.5 text-zinc-300">
-                <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                <span>CONTRASEÑA DE ADMINISTRADOR</span>
+                <KeyRound className={`w-3.5 h-3.5 ${isSoporte ? 'text-cyan-400' : 'text-amber-400'}`} />
+                <span>{isSoporte ? 'CONTRASEÑA DE SOPORTE' : 'CONTRASEÑA DE ADMINISTRADOR'}</span>
               </label>
-              <span className="text-[9px] text-amber-400/90 font-mono bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full">
-                STF EDÍAZ
+              <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full border ${
+                isSoporte 
+                  ? 'text-cyan-300 bg-cyan-950/60 border-cyan-500/40' 
+                  : 'text-amber-400/90 bg-amber-950/60 border-amber-500/30'
+              }`}>
+                {isSoporte ? 'STF SOPORTE' : 'STF EDÍAZ'}
               </span>
             </div>
 
-            <div className="relative flex items-center bg-zinc-950/90 border border-zinc-700/80 focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/25 rounded-2xl transition duration-200 shadow-inner group/input">
-              <Lock className="w-4 h-4 text-zinc-500 group-focus-within/input:text-amber-400 transition ml-4 shrink-0" />
+            <div className={`relative flex items-center bg-zinc-950/90 border border-zinc-700/80 rounded-2xl transition duration-200 shadow-inner group/input ${
+              isSoporte 
+                ? 'focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/25' 
+                : 'focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/25'
+            }`}>
+              <Lock className={`w-4 h-4 text-zinc-500 transition ml-4 shrink-0 ${
+                isSoporte ? 'group-focus-within/input:text-cyan-400' : 'group-focus-within/input:text-amber-400'
+              }`} />
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}

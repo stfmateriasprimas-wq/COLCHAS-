@@ -1,6 +1,6 @@
 import React from 'react';
-import { Sun, Moon, LogOut, ArrowLeft, User, RefreshCw, MessageSquare } from 'lucide-react';
-import { UsuarioSTF } from '../services/authService';
+import { Sun, Moon, LogOut, ArrowLeft, User, RefreshCw, MessageSquare, ShieldCheck } from 'lucide-react';
+import { UsuarioSTF, isSoporteUser } from '../services/authService';
 import { STFLogo } from './Common/STFLogo';
 
 interface HeaderProps {
@@ -12,6 +12,7 @@ interface HeaderProps {
   onBackToDashboard?: () => void;
   onOpenProfileDirectory?: () => void;
   onOpenChat?: () => void;
+  onOpenAuditoria?: () => void;
   chatUnreadCount?: number;
   isSyncing?: boolean;
   onManualSync?: () => void;
@@ -27,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   onBackToDashboard,
   onOpenProfileDirectory,
   onOpenChat,
+  onOpenAuditoria,
   chatUnreadCount = 0,
   isSyncing = false,
   onManualSync,
@@ -56,7 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Top Row on Mobile / Direct grid slots on Desktop */}
           <div className="flex items-center justify-between w-full sm:contents">
             
-            {/* LEFT: Back Button & CHAT Button */}
+            {/* LEFT: Back Button & CHAT Button & AUDITORIA Button (SOPORTE) */}
             <div className="flex items-center justify-start gap-1 sm:gap-2.5 shrink-0">
               {showBackButton && (
                 <button
@@ -102,6 +104,25 @@ export const Header: React.FC<HeaderProps> = ({
                       {chatUnreadCount}
                     </span>
                   )}
+                </button>
+              )}
+
+              {/* BOTÓN EXCLUSIVO DE AUDITORÍA FORENSE PARA PERFIL SOPORTE TÉCNICO */}
+              {isSoporteUser(currentUser) && onOpenAuditoria && (
+                <button
+                  type="button"
+                  onClick={onOpenAuditoria}
+                  className="relative group overflow-hidden px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#011d2e] via-[#033654] to-[#011926] border border-cyan-400/80 hover:border-cyan-300 text-cyan-200 text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1 sm:gap-2 transition-all duration-300 cursor-pointer shadow-[0_0_18px_rgba(6,182,212,0.35)] hover:shadow-[0_0_26px_rgba(6,182,212,0.65)] hover:scale-[1.04] active:scale-95 shrink-0 ring-1 ring-cyan-500/40"
+                  title="Abrir Módulo Exclusivo de Auditoría Forense e Historial STF"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-300 group-hover:text-white transition-colors drop-shadow-[0_0_8px_rgba(6,182,212,0.9)]" />
+                  <span className="font-mono tracking-wider font-black text-[9.5px] sm:text-xs text-white">
+                    AUDITORÍA
+                  </span>
+                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></span>
+                  </span>
                 </button>
               )}
             </div>

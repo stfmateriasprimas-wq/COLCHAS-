@@ -29,11 +29,15 @@ import {
 } from 'lucide-react';
 import { UsuarioSTF, getUsuariosList } from '../../services/authService';
 import { auditService, AuditLogEntry, UserLoginSummary, AuditActionType } from '../../services/auditService';
-import { SolicitudColcha } from '../../types';
+import { SolicitudColcha, KpiMetrics } from '../../types';
+import { SubNavTabs } from '../Navigation/SubNavTabs';
+import { TabType } from '../Navigation';
 
 interface SoporteAuditoriaViewProps {
   currentUser: UsuarioSTF;
   solicitudes: SolicitudColcha[];
+  kpiMetrics?: KpiMetrics;
+  onNavigateTab?: (tab: TabType) => void;
   onViewOpDetail?: (solicitud: SolicitudColcha) => void;
   isDarkMode?: boolean;
 }
@@ -41,6 +45,8 @@ interface SoporteAuditoriaViewProps {
 export const SoporteAuditoriaView: React.FC<SoporteAuditoriaViewProps> = ({
   currentUser,
   solicitudes,
+  kpiMetrics,
+  onNavigateTab,
   onViewOpDetail,
   isDarkMode = false
 }) => {
@@ -246,6 +252,17 @@ export const SoporteAuditoriaView: React.FC<SoporteAuditoriaViewProps> = ({
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
       
+      {/* 0. SUB-NAVIGATION BAR (CON ACCESO DIRECTO A TODAS LAS PESTAÑAS) */}
+      {onNavigateTab && (
+        <SubNavTabs
+          activeTab="soporte-auditoria"
+          onSelectTab={onNavigateTab}
+          totalHistorico={kpiMetrics?.totalHistorico || solicitudes.length}
+          alertCount={solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length}
+          currentUser={currentUser}
+        />
+      )}
+
       {/* 1. HEADER EXCLUSIVO SOPORTE TÉCNICO & AUDITORÍA EN TIEMPO REAL */}
       <div className="relative overflow-hidden rounded-3xl p-5 sm:p-7 bg-gradient-to-r from-zinc-950 via-[#06121e] to-zinc-950 border border-cyan-500/30 shadow-2xl text-white">
         <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />

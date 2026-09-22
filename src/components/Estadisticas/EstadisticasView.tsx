@@ -711,6 +711,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
         onSelectTab={onNavigateTab}
         totalHistorico={totalHistorico}
         alertCount={inRetrasoCount}
+        currentUser={currentUser}
       />
 
       {/* 2. TOP BANNER: MÉTRICAS E INDICADORES STF */}

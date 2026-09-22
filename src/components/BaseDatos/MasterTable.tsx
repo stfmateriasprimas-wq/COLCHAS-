@@ -142,6 +142,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
         onSelectTab={onNavigateTab}
         totalHistorico={totalHistorico}
         alertCount={alertCount}
+        currentUser={currentUser}
       />
 
       {/* 2. CARD 1: BASE DE DATOS MAESTRA DE TRAZABILIDAD & MASTER KPIS */}

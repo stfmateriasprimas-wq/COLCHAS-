@@ -230,6 +230,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         onSelectTab={onNavigateTab}
         totalHistorico={metrics.totalHistorico}
         alertCount={alertCount}
+        currentUser={currentUser}
       />
 
 

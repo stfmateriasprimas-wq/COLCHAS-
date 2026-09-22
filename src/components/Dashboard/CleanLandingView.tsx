@@ -1,11 +1,11 @@
 import React from 'react';
 import { 
   PlusCircle, ClipboardList, BarChart3, Zap, 
-  Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity 
+  Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity, ShieldCheck 
 } from 'lucide-react';
 import { TabType } from '../Navigation';
 import { KpiMetrics, SectorType, SolicitudColcha } from '../../types';
-import { UsuarioSTF, isLavanderiaUser } from '../../services/authService';
+import { UsuarioSTF, isLavanderiaUser, isSoporteUser } from '../../services/authService';
 
 interface CleanLandingViewProps {
   metrics: KpiMetrics;
@@ -58,6 +58,18 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
             <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-700 dark:text-zinc-300" />
             <span>BANDEJA DE SOLICITUDES</span>
           </button>
+
+          {/* BUTTON 3: EXCLUSIVO SOPORTE TÉCNICO - AUDITORÍA & HISTORIAL */}
+          {isSoporteUser(currentUser) && (
+            <button
+              type="button"
+              onClick={() => onNavigate('soporte-auditoria')}
+              className="w-full bg-gradient-to-r from-[#021f33] via-[#053d61] to-[#021f33] hover:from-[#032d4a] hover:to-[#032d4a] text-cyan-300 border-2 border-cyan-400 py-3 sm:py-3.5 px-4 sm:px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer shadow-[0_0_20px_rgba(6,182,212,0.35)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] active:scale-[0.99] group"
+            >
+              <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 animate-pulse" />
+              <span>AUDITORÍA & HISTORIAL (EXCLUSIVO)</span>
+            </button>
+          )}
 
         </div>
       </div>
@@ -461,6 +473,35 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
             <ChevronRight className="w-4 h-4" />
           </div>
         </div>
+
+        {/* TILE EXCLUSIVO: AUDITORÍA & HISTORIAL INTELIGENTE (SOLO PERFIL SOPORTE TEC.) */}
+        {isSoporteUser(currentUser) && (
+          <div
+            onClick={() => onNavigate('soporte-auditoria')}
+            className="col-span-1 sm:col-span-2 lg:col-span-4 bg-gradient-to-r from-zinc-950 via-[#031d2e] to-zinc-950 border-2 border-cyan-400 p-5 rounded-3xl shadow-[0_0_30px_rgba(6,182,212,0.3)] hover:shadow-[0_0_45px_rgba(6,182,212,0.5)] flex items-center justify-between cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5 text-white group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0 shadow-lg">
+                <ShieldCheck className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold uppercase tracking-wider mb-1 border border-cyan-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                  <span>MÓDULO EXCLUSIVO SOPORTE TÉCNICO</span>
+                </div>
+                <h4 className="text-base sm:text-lg font-extrabold text-white">
+                  Auditoría de Ingresos & Historial Forense en Tiempo Real
+                </h4>
+                <span className="text-xs sm:text-sm text-zinc-300 block">
+                  Control de ingresos día/mes de cada usuario y apartado Historial de cambios con fecha y hora exacta
+                </span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 text-cyan-300 group-hover:bg-cyan-500 group-hover:text-black flex items-center justify-center shrink-0 transition-all font-mono font-bold ml-2">
+              <ChevronRight className="w-5 h-5" />
+            </div>
+          </div>
+        )}
 
       </div>
 
