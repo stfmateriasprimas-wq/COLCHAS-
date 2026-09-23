@@ -7,7 +7,7 @@ import {
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser, isEdiazUser, isFactoryUser } from '../../services/authService';
-import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, pushColfactoryObservationToSheets, getOpPhotosFromCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
+import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, pushColfactoryObservationToSheets, getOpPhotosFromCache, saveOpPhotosToCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
 import { UploadMissingPhotosModal } from './UploadMissingPhotosModal';
 
 interface SolicitudCardProps {
@@ -176,10 +176,16 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const [fotoCalidadPreview, setFotoCalidadPreview] = useState<string | null>(() => {
     return solicitud.fotoCalidadUrl || getOpPhotosFromCache(solicitud.op)?.foto2 || null;
   });
+  const [fotoMuestraPreview, setFotoMuestraPreview] = useState<string | null>(() => {
+    return solicitud.fotoMuestraUrl || getOpPhotosFromCache(solicitud.op)?.foto1 || null;
+  });
   const [isUploadingCalidadPhoto, setIsUploadingCalidadPhoto] = useState(false);
+  const [isUploadingInicialPhoto, setIsUploadingInicialPhoto] = useState(false);
   const [zoomedPhotoUrl, setZoomedPhotoUrl] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const calidadFileInputRef = useRef<HTMLInputElement>(null);
+  const directFileInputRef1 = useRef<HTMLInputElement>(null);
+  const directFileInputRef2 = useRef<HTMLInputElement>(null);
 
   const fotoCalidadUrlActual = fotoCalidadPreview || solicitud.fotoCalidadUrl;
 
@@ -188,17 +194,22 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
     return getOpPhotosFromCache(solicitud.op) || null;
   });
 
-  // Sincronizar fotoCalidadPreview si cambia la solicitud externamente
+  // Sincronizar fotoCalidadPreview y fotoMuestraPreview si cambia la solicitud externamente
   useEffect(() => {
     if (solicitud.fotoCalidadUrl) {
       setFotoCalidadPreview(solicitud.fotoCalidadUrl);
     } else {
       const cached = getOpPhotosFromCache(solicitud.op);
-      if (cached?.foto2) {
-        setFotoCalidadPreview(cached.foto2);
-      }
+      if (cached?.foto2) setFotoCalidadPreview(cached.foto2);
     }
-  }, [solicitud.fotoCalidadUrl, solicitud.op]);
+
+    if (solicitud.fotoMuestraUrl) {
+      setFotoMuestraPreview(solicitud.fotoMuestraUrl);
+    } else {
+      const cached = getOpPhotosFromCache(solicitud.op);
+      if (cached?.foto1) setFotoMuestraPreview(cached.foto1);
+    }
+  }, [solicitud.fotoCalidadUrl, solicitud.fotoMuestraUrl, solicitud.op]);
 
   // Escuchar eventos globales de resolución de fotos de OP en tiempo real
   useEffect(() => {
@@ -209,6 +220,9 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
       const cleanEventOp = (detail?.op || '').replace(/\D/g, '') || String(detail?.op || '').trim().toUpperCase();
       if (detail && (cleanSolOp === cleanEventOp || solicitud.op === detail.op)) {
         setCachedOrDrivePhotos(prev => ({ ...prev, ...detail }));
+        if (detail.foto1) {
+          setFotoMuestraPreview(detail.foto1);
+        }
         if (detail.foto2) {
           setFotoCalidadPreview(detail.foto2);
         }
@@ -232,6 +246,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
       fetchOpPhotosFromDrive(solicitud.op).then((res) => {
         if (isMounted && (res.foto1 || res.foto2 || res.folderUrl)) {
           setCachedOrDrivePhotos(res);
+          if (res.foto1) setFotoMuestraPreview(res.foto1);
+          if (res.foto2) setFotoCalidadPreview(res.foto2);
         }
       });
       return () => {
@@ -241,8 +257,54 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   }, [solicitud.op, solicitud.fotoMuestraUrl, solicitud.estado, fotoCalidadUrlActual]);
 
   const cachedNow = getOpPhotosFromCache(solicitud.op);
-  const effectiveFotoMuestra = solicitud.fotoMuestraUrl || cachedOrDrivePhotos?.foto1 || cachedNow?.foto1;
+  const effectiveFotoMuestra = fotoMuestraPreview || solicitud.fotoMuestraUrl || cachedOrDrivePhotos?.foto1 || cachedNow?.foto1;
   const effectiveFotoCalidad = fotoCalidadUrlActual || cachedOrDrivePhotos?.foto2 || cachedNow?.foto2;
+
+  // Carga directa de fotografías con subida automática inmediata a Google Drive
+  const handleDirectCardPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isCalidad: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (isCalidad) setIsUploadingCalidadPhoto(true);
+    else setIsUploadingInicialPhoto(true);
+
+    try {
+      const compressed = await compressImageFile(file, 650, 0.58);
+      
+      // 1. Visualización inmediata 0 ms
+      if (isCalidad) setFotoCalidadPreview(compressed);
+      else setFotoMuestraPreview(compressed);
+
+      updateLocalOpPhoto(solicitud.id, compressed, isCalidad);
+      updateLocalOpPhoto(solicitud.op, compressed, isCalidad);
+      saveOpPhotosToCache(solicitud.op, isCalidad ? { foto2: compressed } : { foto1: compressed });
+
+      // 2. Subida automática a Google Drive y persistencia en Columna M
+      const res = await pushOpPhotoToSheets(solicitud.op, compressed, isCalidad);
+      const driveUrl = res.driveUrl || (isCalidad ? res.foto2 : res.foto1);
+      if (driveUrl) {
+        if (isCalidad) setFotoCalidadPreview(driveUrl);
+        else setFotoMuestraPreview(driveUrl);
+
+        updateLocalOpPhoto(solicitud.id, driveUrl, isCalidad);
+        updateLocalOpPhoto(solicitud.op, driveUrl, isCalidad);
+        saveOpPhotosToCache(solicitud.op, isCalidad ? { foto2: driveUrl } : { foto1: driveUrl });
+        setCachedOrDrivePhotos(prev => ({
+          ...prev,
+          foto1: !isCalidad ? driveUrl : prev?.foto1,
+          foto2: isCalidad ? driveUrl : prev?.foto2,
+          folderUrl: res.folderUrl || prev?.folderUrl
+        }));
+      }
+    } catch (err) {
+      console.error('Error al subir foto directamente desde la tarjeta:', err);
+      alert('Hubo un inconveniente al conectar con Google Drive. Por favor intenta de nuevo.');
+    } finally {
+      if (isCalidad) setIsUploadingCalidadPhoto(false);
+      else setIsUploadingInicialPhoto(false);
+      if (e.target) e.target.value = '';
+    }
+  };
 
   // Determine origin for returning (ZF / Atelier vs Planta / Calidad)
   const origenIsZF = Boolean(
@@ -475,38 +537,109 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               </span>
 
               {/* Mobile Photo Mini-Preview Button (Touch-Friendly) */}
-              <div className="flex sm:hidden items-center">
-                {(effectiveFotoCalidad || effectiveFotoMuestra) ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const targetPhoto = effectiveFotoCalidad || effectiveFotoMuestra;
-                      if (targetPhoto) setZoomedPhotoUrl(targetPhoto);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-900/90 border border-amber-500/60 text-amber-700 dark:text-amber-400 text-[10.5px] font-mono font-bold shadow-xs active:scale-95 transition"
-                    title="Toca para ver la foto de la muestra en grande"
-                  >
-                    <img
-                      src={effectiveFotoCalidad || effectiveFotoMuestra}
-                      alt="Muestra"
-                      referrerPolicy="no-referrer"
-                      className="w-5 h-5 rounded-md object-cover border border-amber-500/40"
-                    />
-                    <span>VER FOTO</span>
-                  </button>
+              <div className="flex sm:hidden items-center gap-1.5 flex-wrap">
+                {solicitud.estado === 'FINALIZADO' ? (
+                  <>
+                    {/* Botón Móvil Foto 1 Inicial */}
+                    {effectiveFotoMuestra ? (
+                      <button
+                        type="button"
+                        onClick={() => setZoomedPhotoUrl(effectiveFotoMuestra)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-900/90 border border-emerald-500/60 text-emerald-700 dark:text-emerald-400 text-[10px] font-mono font-bold shadow-xs active:scale-95 transition"
+                        title="Toca para ver Foto 1 (Inicial)"
+                      >
+                        <img
+                          src={effectiveFotoMuestra}
+                          alt="Inicial"
+                          referrerPolicy="no-referrer"
+                          className="w-4 h-4 rounded-md object-cover border border-emerald-500/40"
+                        />
+                        <span>1. INICIAL</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => !isUploadingInicialPhoto && directFileInputRef1.current?.click()}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 text-[9.5px] font-mono font-bold transition active:scale-95 cursor-pointer"
+                        title="Toma o selecciona Foto 1 para subir a Drive"
+                      >
+                        {isUploadingInicialPhoto ? (
+                          <RefreshCw className="w-3 h-3 text-emerald-500 animate-spin" />
+                        ) : (
+                          <Camera className="w-3 h-3 text-emerald-500" />
+                        )}
+                        <span>{isUploadingInicialPhoto ? 'Subiendo...' : '+ 1. Inicial'}</span>
+                      </button>
+                    )}
+
+                    {/* Botón Móvil Foto 2 Calidad */}
+                    {effectiveFotoCalidad ? (
+                      <button
+                        type="button"
+                        onClick={() => setZoomedPhotoUrl(effectiveFotoCalidad)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/80 border border-purple-500/60 text-purple-700 dark:text-purple-300 text-[10px] font-mono font-bold shadow-xs active:scale-95 transition"
+                        title="Toca para ver Foto 2 (Calidad)"
+                      >
+                        <img
+                          src={effectiveFotoCalidad}
+                          alt="Calidad"
+                          referrerPolicy="no-referrer"
+                          className="w-4 h-4 rounded-md object-cover border border-purple-500/40"
+                        />
+                        <span>2. CALIDAD</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => !isUploadingCalidadPhoto && directFileInputRef2.current?.click()}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-500/40 text-[9.5px] font-mono font-bold transition active:scale-95 cursor-pointer"
+                        title="Toma o selecciona Foto 2 para subir a Drive"
+                      >
+                        {isUploadingCalidadPhoto ? (
+                          <RefreshCw className="w-3 h-3 text-purple-500 animate-spin" />
+                        ) : (
+                          <Camera className="w-3 h-3 text-purple-500" />
+                        )}
+                        <span>{isUploadingCalidadPhoto ? 'Subiendo...' : '+ 2. Calidad'}</span>
+                      </button>
+                    )}
+                  </>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowUploadModal(true);
-                    }}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[9.5px] font-mono font-bold transition cursor-pointer hover:scale-105 active:scale-95"
-                    title="Cargar evidencias fotográficas para esta OP en Google Drive"
-                  >
-                    <Camera className="w-3 h-3 text-amber-500" />
-                    <span>+ Cargar foto</span>
-                  </button>
+                  <>
+                    {(effectiveFotoCalidad || effectiveFotoMuestra) ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetPhoto = effectiveFotoCalidad || effectiveFotoMuestra;
+                          if (targetPhoto) setZoomedPhotoUrl(targetPhoto);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-900/90 border border-amber-500/60 text-amber-700 dark:text-amber-400 text-[10.5px] font-mono font-bold shadow-xs active:scale-95 transition"
+                        title="Toca para ver la foto de la muestra en grande"
+                      >
+                        <img
+                          src={effectiveFotoCalidad || effectiveFotoMuestra}
+                          alt="Muestra"
+                          referrerPolicy="no-referrer"
+                          className="w-5 h-5 rounded-md object-cover border border-amber-500/40"
+                        />
+                        <span>VER FOTO</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => !isUploadingInicialPhoto && directFileInputRef1.current?.click()}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[9.5px] font-mono font-bold transition cursor-pointer hover:scale-105 active:scale-95"
+                        title="Cargar evidencias fotográficas para esta OP en Google Drive"
+                      >
+                        {isUploadingInicialPhoto ? (
+                          <RefreshCw className="w-3 h-3 text-amber-500 animate-spin" />
+                        ) : (
+                          <Camera className="w-3 h-3 text-amber-500" />
+                        )}
+                        <span>{isUploadingInicialPhoto ? 'Subiendo...' : '+ Cargar foto'}</span>
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -538,45 +671,103 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
           </div>
 
-          {/* Right Action / Photo Box (VISOR EXCLUSIVO DE FOTOGRAFÍA - SOLO VER) */}
+          {/* Right Action / Photo Box (VISOR EXCLUSIVO DE FOTOGRAFÍAS CON SUBIDA AUTOMÁTICA A DRIVE) */}
           <div className="hidden sm:flex flex-col items-center gap-2 flex-shrink-0">
-            {solicitud.estado === 'FINALIZADO' && hasBothPhotos ? (
+            {solicitud.estado === 'FINALIZADO' ? (
               <div className="flex items-center gap-2">
-                {/* Foto 1: Inicial */}
-                <div
-                  onClick={() => setZoomedPhotoUrl(effectiveFotoMuestra || null)}
-                  className="w-20 h-28 rounded-2xl p-1.5 bg-zinc-100 dark:bg-zinc-900/90 border border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-between cursor-pointer hover:border-amber-500 group overflow-hidden shadow-sm transition"
-                  title="Clic para ver y ampliar Foto 1: Muestra Inicial (Corte)"
-                >
-                  <img
-                    src={effectiveFotoMuestra}
-                    alt="Inicial"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
-                  />
-                  <span className="text-[8px] font-black font-mono text-zinc-600 dark:text-zinc-400 uppercase flex items-center gap-1">
-                    <Eye className="w-2.5 h-2.5 text-amber-500" />
-                    <span>1. INICIAL</span>
-                  </span>
-                </div>
+                {/* SLOT 1: FOTO INICIAL */}
+                {effectiveFotoMuestra ? (
+                  <div
+                    onClick={() => setZoomedPhotoUrl(effectiveFotoMuestra)}
+                    className="w-20 h-28 rounded-2xl p-1.5 bg-zinc-100 dark:bg-zinc-900/90 border border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-between cursor-pointer hover:border-emerald-500 group overflow-hidden shadow-sm transition relative"
+                    title="Clic para ampliar Foto 1: Muestra Inicial (Corte)"
+                  >
+                    <img
+                      src={effectiveFotoMuestra}
+                      alt="Inicial"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
+                    />
+                    <span className="text-[8px] font-black font-mono text-zinc-600 dark:text-zinc-400 uppercase flex items-center gap-1">
+                      <Eye className="w-2.5 h-2.5 text-emerald-500" />
+                      <span>1. INICIAL</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        directFileInputRef1.current?.click();
+                      }}
+                      className="absolute top-1 right-1 p-1 rounded-md bg-black/70 hover:bg-black text-white opacity-0 group-hover:opacity-100 transition shadow-xs cursor-pointer"
+                      title="Cambiar Foto 1 (Drive)"
+                    >
+                      <Camera className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => !isUploadingInicialPhoto && directFileInputRef1.current?.click()}
+                    className="w-20 h-28 rounded-2xl p-1.5 border-2 border-dashed border-emerald-500/40 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 flex flex-col items-center justify-center text-center cursor-pointer transition group"
+                    title="Clic para cargar Foto 1 (Inicial) a Google Drive"
+                  >
+                    {isUploadingInicialPhoto ? (
+                      <RefreshCw className="w-5 h-5 text-emerald-500 animate-spin mb-1" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-emerald-500 mb-1 group-hover:scale-110 transition stroke-[1.5]" />
+                    )}
+                    <span className="text-[7.5px] font-bold font-mono text-emerald-700 dark:text-emerald-400 uppercase leading-tight">
+                      {isUploadingInicialPhoto ? 'Subiendo...' : '+ 1. Inicial'}
+                    </span>
+                    <span className="text-[6.5px] font-mono text-zinc-400 mt-0.5">Drive</span>
+                  </div>
+                )}
 
-                {/* Foto 2: Calidad */}
-                <div
-                  onClick={() => setZoomedPhotoUrl(effectiveFotoCalidad || null)}
-                  className="w-20 h-28 rounded-2xl p-1.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-500/50 flex flex-col items-center justify-between cursor-pointer hover:border-purple-400 group overflow-hidden shadow-sm transition"
-                  title="Clic para ver y ampliar Foto 2: Calidad Post-Lavado"
-                >
-                  <img
-                    src={effectiveFotoCalidad || ''}
-                    alt="Calidad"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
-                  />
-                  <span className="text-[8px] font-black font-mono text-purple-700 dark:text-purple-300 uppercase flex items-center gap-1">
-                    <Eye className="w-2.5 h-2.5 text-purple-500" />
-                    <span>2. CALIDAD</span>
-                  </span>
-                </div>
+                {/* SLOT 2: FOTO CALIDAD */}
+                {effectiveFotoCalidad ? (
+                  <div
+                    onClick={() => setZoomedPhotoUrl(effectiveFotoCalidad)}
+                    className="w-20 h-28 rounded-2xl p-1.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-500/50 flex flex-col items-center justify-between cursor-pointer hover:border-purple-400 group overflow-hidden shadow-sm transition relative"
+                    title="Clic para ampliar Foto 2: Calidad Post-Lavado"
+                  >
+                    <img
+                      src={effectiveFotoCalidad}
+                      alt="Calidad"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
+                    />
+                    <span className="text-[8px] font-black font-mono text-purple-700 dark:text-purple-300 uppercase flex items-center gap-1">
+                      <Eye className="w-2.5 h-2.5 text-purple-500" />
+                      <span>2. CALIDAD</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        directFileInputRef2.current?.click();
+                      }}
+                      className="absolute top-1 right-1 p-1 rounded-md bg-black/70 hover:bg-black text-white opacity-0 group-hover:opacity-100 transition shadow-xs cursor-pointer"
+                      title="Cambiar Foto 2 (Drive)"
+                    >
+                      <Camera className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => !isUploadingCalidadPhoto && directFileInputRef2.current?.click()}
+                    className="w-20 h-28 rounded-2xl p-1.5 border-2 border-dashed border-purple-500/40 hover:border-purple-500 bg-purple-500/5 hover:bg-purple-500/10 flex flex-col items-center justify-center text-center cursor-pointer transition group"
+                    title="Clic para cargar Foto 2 (Calidad) a Google Drive"
+                  >
+                    {isUploadingCalidadPhoto ? (
+                      <RefreshCw className="w-5 h-5 text-purple-500 animate-spin mb-1" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-purple-500 mb-1 group-hover:scale-110 transition stroke-[1.5]" />
+                    )}
+                    <span className="text-[7.5px] font-bold font-mono text-purple-700 dark:text-purple-300 uppercase leading-tight">
+                      {isUploadingCalidadPhoto ? 'Subiendo...' : '+ 2. Calidad'}
+                    </span>
+                    <span className="text-[6.5px] font-mono text-zinc-400 mt-0.5">Drive</span>
+                  </div>
+                )}
               </div>
             ) : (
               <div
@@ -589,12 +780,12 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                 className={`w-28 h-28 rounded-2xl p-2 flex flex-col items-center justify-center transition overflow-hidden relative group ${
                   (effectiveFotoCalidad || effectiveFotoMuestra)
                     ? 'bg-zinc-100 dark:bg-zinc-900/90 border border-zinc-300 dark:border-zinc-700 cursor-pointer hover:border-amber-500 shadow-sm'
-                    : 'bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/80 text-zinc-400 dark:text-zinc-500'
+                    : 'bg-zinc-50 dark:bg-zinc-900/40 border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-amber-500 text-zinc-400 dark:text-zinc-500 cursor-pointer'
                 }`}
                 title={
                   (effectiveFotoCalidad || effectiveFotoMuestra)
                     ? 'Clic para ver y ampliar la fotografía de la muestra' 
-                    : 'Sin fotografía registrada en la solicitud'
+                    : 'Clic para cargar foto directamente a Google Drive'
                 }
               >
                 {(effectiveFotoCalidad || effectiveFotoMuestra) ? (
@@ -605,11 +796,22 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition duration-200"
                     />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition duration-200 rounded-2xl">
-                      <div className="bg-black/80 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold text-white flex items-center gap-1 border border-zinc-700 shadow-md">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition duration-200 rounded-2xl gap-1">
+                      <div className="bg-black/80 px-2 py-1 rounded-lg text-[9px] font-mono font-bold text-white flex items-center gap-1 border border-zinc-700 shadow-md">
                         <Eye className="w-3 h-3 text-amber-400" />
-                        <span>VER FOTO</span>
+                        <span>VER</span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          directFileInputRef1.current?.click();
+                        }}
+                        className="bg-black/80 p-1 rounded-lg text-white hover:text-amber-400 border border-zinc-700 shadow-md cursor-pointer"
+                        title="Cambiar foto en Drive"
+                      >
+                        <Camera className="w-3 h-3" />
+                      </button>
                     </div>
                   </>
                 ) : (
@@ -617,15 +819,20 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowUploadModal(true);
+                      directFileInputRef1.current?.click();
                     }}
                     className="w-full h-full flex flex-col items-center justify-center p-2 text-center group cursor-pointer hover:bg-amber-500/10 transition rounded-2xl"
-                    title="Clic para cargar evidencias fotográficas en Drive"
+                    title="Clic para tomar o seleccionar fotografía y subirla automáticamente a Drive"
                   >
-                    <Camera className="w-6 h-6 mb-1 text-amber-500/80 group-hover:scale-110 transition stroke-[1.5]" />
+                    {isUploadingInicialPhoto ? (
+                      <RefreshCw className="w-6 h-6 mb-1 text-amber-500 animate-spin" />
+                    ) : (
+                      <Camera className="w-6 h-6 mb-1 text-amber-500/80 group-hover:scale-110 transition stroke-[1.5]" />
+                    )}
                     <span className="text-[8.5px] font-bold uppercase tracking-wider text-center text-amber-600 dark:text-amber-400 font-mono">
-                      + CARGAR FOTO
+                      {isUploadingInicialPhoto ? 'SUBIENDO...' : '+ CARGAR FOTO'}
                     </span>
+                    <span className="text-[7.5px] font-mono text-zinc-400 mt-0.5">Automático a Drive</span>
                   </button>
                 )}
               </div>
@@ -1170,6 +1377,24 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             setCachedOrDrivePhotos(prev => ({ ...prev, ...photos }));
           }
         }}
+      />
+
+      {/* Hidden file inputs for direct one-touch card photo upload to Google Drive */}
+      <input
+        ref={directFileInputRef1}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => handleDirectCardPhotoUpload(e, false)}
+        className="hidden"
+      />
+      <input
+        ref={directFileInputRef2}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => handleDirectCardPhotoUpload(e, true)}
+        className="hidden"
       />
 
     </div>

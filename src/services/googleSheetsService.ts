@@ -503,64 +503,111 @@ export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: 
     parts = [str];
   }
 
-  // Filtrar exclusivamente candidatos a imágenes (excluyendo carpetas de Google Drive)
-  const imageCandidates = parts
-    .map(p => normalizeImageUrl(p))
-    .filter((p): p is string => Boolean(p));
+  let foto1: string | undefined = undefined;
+  let foto2: string | undefined = undefined;
 
-  return {
-    foto1: imageCandidates[0] || undefined,
-    foto2: imageCandidates[1] || undefined,
-    folderUrl
-  };
+  for (const part of parts) {
+    const norm = normalizeImageUrl(part);
+    if (!norm) continue;
+    const lower = part.toLowerCase();
+    if (lower.includes('post_lavado') || lower.includes('calidad') || lower.includes('foto2')) {
+      foto2 = norm;
+    } else if (lower.includes('muestra_inicial') || lower.includes('inicial') || lower.includes('foto1')) {
+      foto1 = norm;
+    } else {
+      if (!foto1) {
+        foto1 = norm;
+      } else if (!foto2) {
+        foto2 = norm;
+      }
+    }
+  }
+
+  return { foto1, foto2, folderUrl };
 }
 
 // Mapa para deduplicar peticiones simultáneas hacia Google Apps Script
 const inFlightPhotoRequests = new Map<string, Promise<{ foto1?: string; foto2?: string; folderUrl?: string }>>();
 
+// Caché negativo con enfriamiento (TTL 3 minutos) para no saturar Apps Script si no hay fotos
+const negativePhotoCheckCache = new Map<string, number>();
+
+// Cola con concurrencia máxima de 2 peticiones simultáneas para proteger Apps Script de sobrecarga
+let activePhotoFetches = 0;
+const MAX_CONCURRENT_PHOTO_FETCHES = 2;
+const photoFetchQueue: Array<() => void> = [];
+
+function pumpPhotoFetchQueue() {
+  while (activePhotoFetches < MAX_CONCURRENT_PHOTO_FETCHES && photoFetchQueue.length > 0) {
+    const nextTask = photoFetchQueue.shift();
+    if (nextTask) {
+      activePhotoFetches++;
+      nextTask();
+    }
+  }
+}
+
 /**
  * Consulta en tiempo real a Google Apps Script las fotografías oficiales
  * registradas en la carpeta de Google Drive para una OP determinada.
+ * Protegido con control de concurrencia y caché negativo.
  */
 export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?: string; foto2?: string; folderUrl?: string }> {
   if (!opNumber) return {};
   const cleanOp = formatOpCode(opNumber);
 
+  // 1. Revisar si la OP ya fue consultada recientemente y no tenía fotos (enfriamiento 3 min)
+  const lastChecked = negativePhotoCheckCache.get(cleanOp);
+  if (lastChecked && Date.now() - lastChecked < 180000) {
+    return {};
+  }
+
+  // 2. Si ya hay una consulta en vuelo para este mismo código, reutilizar su promesa
   if (inFlightPhotoRequests.has(cleanOp)) {
     return inFlightPhotoRequests.get(cleanOp)!;
   }
 
-  const promise = (async () => {
-    try {
-      const scriptUrl = getAppsScriptUrl();
-      const targetUrl = `${scriptUrl}?action=GET_OP_PHOTOS&op=${encodeURIComponent(cleanOp)}`;
-      const controller = new AbortController();
-      // Timeout ampliado a 30s para soportar arranque en frío de Google Apps Script
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      const res = await fetch(targetUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && (data.foto1 || data.foto2 || data.folderUrl)) {
-          const resolved = {
-            foto1: data.foto1 ? normalizeImageUrl(data.foto1) : undefined,
-            foto2: data.foto2 ? normalizeImageUrl(data.foto2) : undefined,
-            folderUrl: data.folderUrl || undefined
-          };
-          saveOpPhotosToCache(cleanOp, resolved);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('stf_op_photos_updated', { detail: { op: cleanOp, ...resolved } }));
+  const promise = new Promise<{ foto1?: string; foto2?: string; folderUrl?: string }>((resolve) => {
+    const executeFetch = async () => {
+      try {
+        const scriptUrl = getAppsScriptUrl();
+        const targetUrl = `${scriptUrl}?action=GET_OP_PHOTOS&op=${encodeURIComponent(cleanOp)}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 18000);
+        const res = await fetch(targetUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (data.foto1 || data.foto2 || data.folderUrl)) {
+            const resolved = {
+              foto1: data.foto1 ? normalizeImageUrl(data.foto1) : undefined,
+              foto2: data.foto2 ? normalizeImageUrl(data.foto2) : undefined,
+              folderUrl: data.folderUrl || undefined
+            };
+            saveOpPhotosToCache(cleanOp, resolved);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('stf_op_photos_updated', { detail: { op: cleanOp, ...resolved } }));
+            }
+            resolve(resolved);
+            return;
           }
-          return resolved;
         }
+        // Si no arrojó fotos, marcar en caché negativo para no repetir
+        negativePhotoCheckCache.set(cleanOp, Date.now());
+        resolve({});
+      } catch (err) {
+        negativePhotoCheckCache.set(cleanOp, Date.now());
+        resolve({});
+      } finally {
+        inFlightPhotoRequests.delete(cleanOp);
+        activePhotoFetches--;
+        pumpPhotoFetchQueue();
       }
-    } catch (err) {
-      console.warn('No se pudieron resolver fotos remotas de la OP:', err);
-    } finally {
-      inFlightPhotoRequests.delete(cleanOp);
-    }
-    return {};
-  })();
+    };
+
+    photoFetchQueue.push(executeFetch);
+    pumpPhotoFetchQueue();
+  });
 
   inFlightPhotoRequests.set(cleanOp, promise);
   return promise;
@@ -2012,8 +2059,8 @@ export async function uploadMissingOpPhotos(
     referencia: options.referencia,
     tela: options.tela,
     usuario: options.usuario || 'OPERARIO STF',
-    isFinalizado: Boolean(options.isFinalizado),
-    singleImageOnly: Boolean(options.singleImageOnly)
+    isFinalizado: false,
+    singleImageOnly: false
   });
 
   const folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);

@@ -727,35 +727,19 @@ function doPost(e) {
       var savedFoto1 = null;
       var savedFoto2 = null;
 
-      if (isFinalizado) {
-        // EN MODALIDAD FINALIZADO: Estrictamente 1 sola imagen en la carpeta de la OP en Drive
-        var finalPhotoInput = payload.foto2Base64 || payload.fotoCalidadBase64 || payload.foto1Base64 || payload.fotoMuestraBase64 || payload.imageBase64 || payload.fotoCalidadUrl || payload.photoUrl || '';
-        
-        if (finalPhotoInput && finalPhotoInput.length > 50 && (finalPhotoInput.indexOf('data:image/') === 0 || finalPhotoInput.indexOf('/9j/') === 0)) {
-          if (finalPhotoInput.indexOf('data:image/') !== 0) {
-            finalPhotoInput = 'data:image/jpeg;base64,' + finalPhotoInput;
-          }
-          savedFoto2 = saveImageToDriveHierarchical(
-            finalPhotoInput, 
-            opFormattedPhoto + '_POST_LAVADO_CALIDAD.jpg', 
-            opFormattedPhoto, 
-            targetDate, 
-            true // isSingleFinalPhoto: elimina copias previas de la carpeta
-          );
-        }
-      } else {
-        // Modalidad estándar de 2 fases: Foto 1 y Foto 2
-        var foto1Input = payload.foto1Base64 || payload.fotoMuestraBase64 || (!payload.isCalidad ? (payload.imageBase64 || payload.fotoMuestraUrl || payload.photoUrl) : '');
-        if (foto1Input && foto1Input.length > 50 && (foto1Input.indexOf('data:image/') === 0 || foto1Input.indexOf('/9j/') === 0)) {
-          if (foto1Input.indexOf('data:image/') !== 0) foto1Input = 'data:image/jpeg;base64,' + foto1Input;
-          savedFoto1 = saveImageToDriveHierarchical(foto1Input, opFormattedPhoto + '_MUESTRA_INICIAL.jpg', opFormattedPhoto, targetDate, false);
-        }
+      // REGLA INMUTABLE: Cada OP preserva exactamente sus 2 fotografías (Foto 1: Muestra Inicial, Foto 2: Calidad Post-Lavado)
+      // Guardar Foto 1 si viene en el payload
+      var foto1Input = payload.foto1Base64 || payload.fotoMuestraBase64 || (!payload.isCalidad ? (payload.imageBase64 || payload.fotoMuestraUrl || payload.photoUrl) : '');
+      if (foto1Input && foto1Input.length > 50 && (foto1Input.indexOf('data:image/') === 0 || foto1Input.indexOf('/9j/') === 0)) {
+        if (foto1Input.indexOf('data:image/') !== 0) foto1Input = 'data:image/jpeg;base64,' + foto1Input;
+        savedFoto1 = saveImageToDriveHierarchical(foto1Input, opFormattedPhoto + '_MUESTRA_INICIAL.jpg', opFormattedPhoto, targetDate, false);
+      }
 
-        var foto2Input = payload.foto2Base64 || payload.fotoCalidadBase64 || (payload.isCalidad ? (payload.imageBase64 || payload.fotoCalidadUrl || payload.photoUrl) : '');
-        if (foto2Input && foto2Input.length > 50 && (foto2Input.indexOf('data:image/') === 0 || foto2Input.indexOf('/9j/') === 0)) {
-          if (foto2Input.indexOf('data:image/') !== 0) foto2Input = 'data:image/jpeg;base64,' + foto2Input;
-          savedFoto2 = saveImageToDriveHierarchical(foto2Input, opFormattedPhoto + '_POST_LAVADO_CALIDAD.jpg', opFormattedPhoto, targetDate, false);
-        }
+      // Guardar Foto 2 si viene en el payload
+      var foto2Input = payload.foto2Base64 || payload.fotoCalidadBase64 || (payload.isCalidad ? (payload.imageBase64 || payload.fotoCalidadUrl || payload.photoUrl) : '');
+      if (foto2Input && foto2Input.length > 50 && (foto2Input.indexOf('data:image/') === 0 || foto2Input.indexOf('/9j/') === 0)) {
+        if (foto2Input.indexOf('data:image/') !== 0) foto2Input = 'data:image/jpeg;base64,' + foto2Input;
+        savedFoto2 = saveImageToDriveHierarchical(foto2Input, opFormattedPhoto + '_POST_LAVADO_CALIDAD.jpg', opFormattedPhoto, targetDate, false);
       }
 
       // Descubrir enlaces de Drive vigentes
@@ -763,14 +747,12 @@ function doPost(e) {
       var folderColPhoto = (savedFoto2 && savedFoto2.folderUrl) || (savedFoto1 && savedFoto1.folderUrl) || disc.folderUrl || '';
       var finalFoto1_p = (savedFoto1 && savedFoto1.driveUrl) || disc.foto1 || '';
       var finalFoto2_p = (savedFoto2 && savedFoto2.driveUrl) || disc.foto2 || '';
-      var primaryDriveUrl = finalFoto2_p || finalFoto1_p || (savedFoto2 && savedFoto2.driveUrl) || '';
+      var primaryDriveUrl = (payload.isCalidad ? finalFoto2_p : finalFoto1_p) || finalFoto2_p || finalFoto1_p || '';
 
-      // Si la OP existe en BASE_DE_DATOS, actualizar fila y Columna 13 (M)
+      // Si la OP existe en BASE_DE_DATOS, actualizar fila y Columna 13 (M) preservando AMBAS fotos
       if (foundRowPhoto !== -1 && sheetBdPhoto) {
         sheetBdPhoto.getRange(foundRowPhoto, 6).setValue(opFormattedPhoto);
-        var combinedColPhoto = isFinalizado
-          ? [finalFoto2_p, folderColPhoto].filter(Boolean).join(' | ')
-          : [finalFoto1_p, finalFoto2_p, folderColPhoto].filter(Boolean).join(' | ');
+        var combinedColPhoto = [finalFoto1_p, finalFoto2_p, folderColPhoto].filter(Boolean).join(' | ');
         if (combinedColPhoto) {
           sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(combinedColPhoto);
         }
@@ -1097,46 +1079,35 @@ function saveImageToDriveHierarchical(base64Data, fileName, rawOp, dateInput, is
     var opFolder = getOpDriveFolder(monthFolder, rawOp);
 
     // =========================================================================
-    // REGLA ESTRICTA DE CONTROL DE CALIDAD Y OPs FINALIZADAS
-    // Si isSingleFinalPhoto es true: DEPURACIÓN TOTAL PREVIA para dejar estrictamente
-    // 1 sola imagen en la carpeta de la OP en Google Drive (sin copias ni duplicados).
-    // Si no: MÁXIMO 2 FOTOS POR OP EN DRIVE (_MUESTRA_INICIAL y _POST_LAVADO_CALIDAD).
+    // REGLA ESTRICTA DE CONTROL DE CALIDAD: MÁXIMO 2 FOTOS POR OP EN DRIVE
+    // Slot 1: _MUESTRA_INICIAL.jpg | Slot 2: _POST_LAVADO_CALIDAD.jpg
+    // Cada slot solo reemplaza su propia versión anterior; NUNCA se elimina la otra foto.
     // =========================================================================
-    if (isSingleFinalPhoto) {
-      var allOpFiles = opFolder.getFiles();
-      while (allOpFiles.hasNext()) {
-        var aFile = allOpFiles.next();
-        try { aFile.setTrashed(true); } catch (eAllTrash) {}
-      }
-    } else {
-      // Si se sube una foto POST_LAVADO, eliminar a la papelera cualquier archivo existente que contenga POST_LAVADO
-      if (fileName.indexOf('POST_LAVADO') !== -1) {
-        var filesPost = opFolder.getFiles();
-        while (filesPost.hasNext()) {
-          var fPost = filesPost.next();
-          if (fPost.getName().indexOf('POST_LAVADO') !== -1) {
-            try { fPost.setTrashed(true); } catch (ePostTrash) {}
-          }
+    if (fileName.indexOf('POST_LAVADO') !== -1) {
+      var filesPost = opFolder.getFiles();
+      while (filesPost.hasNext()) {
+        var fPost = filesPost.next();
+        if (fPost.getName().indexOf('POST_LAVADO') !== -1) {
+          try { fPost.setTrashed(true); } catch (ePostTrash) {}
         }
       }
+    }
 
-      // Si se sube una foto MUESTRA_INICIAL, eliminar a la papelera cualquier archivo existente que contenga MUESTRA_INICIAL
-      if (fileName.indexOf('MUESTRA_INICIAL') !== -1) {
-        var filesInit = opFolder.getFiles();
-        while (filesInit.hasNext()) {
-          var fInit = filesInit.next();
-          if (fInit.getName().indexOf('MUESTRA_INICIAL') !== -1) {
-            try { fInit.setTrashed(true); } catch (eInitTrash) {}
-          }
+    if (fileName.indexOf('MUESTRA_INICIAL') !== -1) {
+      var filesInit = opFolder.getFiles();
+      while (filesInit.hasNext()) {
+        var fInit = filesInit.next();
+        if (fInit.getName().indexOf('MUESTRA_INICIAL') !== -1) {
+          try { fInit.setTrashed(true); } catch (eInitTrash) {}
         }
       }
+    }
 
-      // Por seguridad, eliminar cualquier archivo con el nombre exacto fileName
-      var exactFiles = opFolder.getFilesByName(fileName);
-      while (exactFiles.hasNext()) {
-        var exactFile = exactFiles.next();
-        try { exactFile.setTrashed(true); } catch (eExactTrash) {}
-      }
+    // Por seguridad, eliminar cualquier archivo con el nombre exacto fileName
+    var exactFiles = opFolder.getFilesByName(fileName);
+    while (exactFiles.hasNext()) {
+      var exactFile = exactFiles.next();
+      try { exactFile.setTrashed(true); } catch (eExactTrash) {}
     }
 
     var cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');

@@ -130,26 +130,28 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
   const folderInfo = getHistoricalFolderInfo();
   const isFinalizado = solicitud.estado === 'FINALIZADO';
 
-  // Guardar y sincronizar con Google Drive y Google Sheets
-  const executeSaveToDrive = async () => {
+  // Guardar y sincronizar con Google Drive y Google Sheets automáticamente
+  const executeSaveToDrive = async (overrideB64?: string, slot?: 1 | 2) => {
     if (isUploading) return;
 
-    const f1 = foto1NewBase64;
-    const f2 = foto2NewBase64;
+    const f1 = slot === 1 ? overrideB64 : (foto1NewBase64 || undefined);
+    const f2 = slot === 2 ? overrideB64 : (foto2NewBase64 || undefined);
 
-    if (!f1 && !f2) {
-      setErrorMessage(
-        isFinalizado
-          ? 'Por favor selecciona o toma la fotografía de calidad antes de guardar en Drive.'
-          : 'Por favor selecciona al menos una fotografía (Foto 1 o Foto 2) para subir.'
-      );
+    if (!f1 && !f2 && !overrideB64) {
+      setErrorMessage('Por favor selecciona al menos una fotografía para subir.');
       return;
     }
 
     setIsUploading(true);
     setErrorMessage(null);
     setSuccessData(null);
-    setUploadStatus('1/3 Preparando imagen con compresión adaptativa...');
+    setUploadStatus(
+      slot === 1
+        ? '📸 Subiendo Foto 1 (Inicial) a Google Drive...'
+        : slot === 2
+        ? '📸 Subiendo Foto 2 (Calidad) a Google Drive...'
+        : `Archivando en Google Drive (${folderInfo.folderName})...`
+    );
 
     try {
       // 1. Sincronización instantánea a 0 ms en caché local y eventos
@@ -172,13 +174,7 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
         updateLocalOpPhoto(solicitud.op, f2, true);
       }
 
-      setUploadStatus(
-        isFinalizado 
-          ? `2/3 Archivando fotografía única en Google Drive (${folderInfo.folderName})...`
-          : `2/3 Archivando en Google Drive (${folderInfo.folderName})...`
-      );
-
-      // 2. Sincronización oficial con Google Drive & Google Sheets
+      // 2. Sincronización oficial con Google Drive & Google Sheets (preservando ambas fotos)
       const res = await uploadMissingOpPhotos(formattedOp, {
         foto1Base64: f1 || undefined,
         foto2Base64: f2 || undefined,
@@ -187,8 +183,8 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
         referencia: solicitud.referencia,
         tela: solicitud.tela,
         usuario: solicitud.inspector || 'ADMINISTRADOR',
-        isFinalizado: isFinalizado,
-        singleImageOnly: isFinalizado
+        isFinalizado: false,
+        singleImageOnly: false
       });
 
       if (!res.success && !res.folderUrl && !res.foto1 && !res.foto2) {
@@ -200,9 +196,11 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
       const finalFoto2 = res.foto2 || f2 || prevCached?.foto2;
 
       setUploadStatus(
-        isFinalizado 
-          ? '✓ ¡Fotografía única archivada con éxito en Google Drive!' 
-          : '✓ ¡Fotografía archivada exitosamente!'
+        slot === 1
+          ? '✓ ¡Foto 1 (Inicial) archivada con éxito en Google Drive!'
+          : slot === 2
+          ? '✓ ¡Foto 2 (Calidad) archivada con éxito en Google Drive!'
+          : '✓ ¡Fotografía archivada exitosamente en Google Drive!'
       );
       setSuccessData({
         folderUrl: finalFolder,
@@ -230,7 +228,7 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
 
   const handleSaveToDrive = () => executeSaveToDrive();
 
-  // Procesar archivo seleccionado con compresión inteligente sin disparar subida duplicada
+  // Procesar archivo seleccionado: compresión e INICIO AUTOMÁTICO de subida a Drive
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, slot: 1 | 2) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -249,11 +247,8 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
         setFoto2Preview(compressedB64);
       }
 
-      setUploadStatus(
-        isFinalizado 
-          ? '📸 Foto seleccionada y lista. Haz clic en "Guardar en Drive" para sincronizar.' 
-          : '📸 Foto seleccionada. Haz clic en "Guardar en Drive" para sincronizar.'
-      );
+      // SUBIDA AUTOMÁTICA INMEDIATA A DRIVE AL MONTAR LA FOTO
+      await executeSaveToDrive(compressedB64, slot);
     } catch (err: any) {
       console.error('Error al procesar la imagen:', err);
       setErrorMessage('No se pudo procesar la imagen. Intenta con otra fotografía.');
@@ -319,18 +314,16 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
             </div>
           </div>
 
-          {/* BANNER ESPECIAL DE OP FINALIZADA (FOTO ÚNICA) */}
-          {isFinalizado && (
-            <div className="bg-purple-500/10 border border-purple-500/30 rounded-2xl p-3.5 space-y-1 animate-in fade-in">
-              <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 text-xs font-bold">
-                <ShieldCheck className="w-4 h-4 text-purple-500 shrink-0" />
-                <span>Modalidad OP Finalizada: Registro de Fotografía Única</span>
-              </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                Esta OP está en estado <strong>FINALIZADO</strong>. Al subir y pulsar <strong>"Guardar en Drive"</strong>, se archivará exactamente <strong>1 sola fotografía</strong> con el código de la OP en Google Drive, eliminando copias o duplicados previos.
-              </p>
+          {/* BANNER INFORMATIVO DE REGISTRO DUAL */}
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3.5 space-y-1 animate-in fade-in">
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+              <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>Trazabilidad Fotográfica Dual (Subida Automática a Google Drive)</span>
             </div>
-          )}
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              Al seleccionar o tomar cualquier fotografía, el sistema la comprime y la <strong>sube automáticamente a Google Drive</strong> en la carpeta oficial de la OP (<strong>{formattedOp}</strong>) preservando la Foto 1 (Inicial) y Foto 2 (Calidad Post-Lavado).
+            </p>
+          </div>
 
           {/* BANNER DE ÉXITO SI YA SE SUBIÓ */}
           {successData && (
@@ -585,15 +578,7 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
           <div className="flex items-start gap-2 p-3 bg-zinc-100 dark:bg-zinc-900/60 rounded-xl text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
             <ShieldCheck className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
             <span>
-              {isFinalizado ? (
-                <>
-                  <strong>Regla de OP Finalizada:</strong> En este apartado se almacena estrictamente 1 fotografía en Google Drive dentro de la carpeta de la OP (<strong>{formattedOp}</strong>), eliminando de la papelera cualquier copia intermedia para garantizar archivo único.
-                </>
-              ) : (
-                <>
-                  <strong>Regla del Sistema:</strong> Cada OP almacena estrictamente 2 fotografías en Google Drive. La compresión se realiza automáticamente en el cliente para carga rápida en redes móviles.
-                </>
-              )}
+              <strong>Regla del Sistema:</strong> Cada OP almacena de forma ordenada exactamente sus 2 fotografías en Google Drive (Foto 1: Muestra Inicial y Foto 2: Calidad Post-Lavado). La subida a Drive y la compresión en el cliente son automáticas al seleccionar o capturar la imagen.
             </span>
           </div>
 

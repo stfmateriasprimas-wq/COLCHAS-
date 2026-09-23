@@ -34,10 +34,13 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   const [zoomedPhotoTitle, setZoomedPhotoTitle] = useState<string>('');
   
   const [fotoCalidadLocal, setFotoCalidadLocal] = useState<string | null>(null);
+  const [fotoInicialLocal, setFotoInicialLocal] = useState<string | null>(null);
   const [isUploadingCalidad, setIsUploadingCalidad] = useState(false);
+  const [isUploadingInicial, setIsUploadingInicial] = useState(false);
   const [asyncPublicUrl, setAsyncPublicUrl] = useState<string>('');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const calidadFileInputRef = useRef<HTMLInputElement>(null);
+  const inicialFileInputRef = useRef<HTMLInputElement>(null);
 
   const [drivePhotos, setDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(() => {
     return solicitud?.op ? getOpPhotosFromCache(solicitud.op) : null;
@@ -46,6 +49,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   // Reiniciar estado local de foto al cambiar de OP para evitar desincronización
   useEffect(() => {
     setFotoCalidadLocal(null);
+    setFotoInicialLocal(null);
     if (solicitud?.op) {
       const cached = getOpPhotosFromCache(solicitud.op);
       setDrivePhotos(cached || null);
@@ -63,6 +67,9 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
       const cleanEvent = (detail?.op || '').replace(/\D/g, '') || String(detail?.op || '').trim().toUpperCase();
       if (cleanSol === cleanEvent || solicitud.op === detail.op) {
         setDrivePhotos(prev => ({ ...prev, ...detail }));
+        if (detail.foto1) {
+          setFotoInicialLocal(detail.foto1);
+        }
         if (detail.foto2) {
           setFotoCalidadLocal(detail.foto2);
         }
@@ -91,7 +98,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
     }
   }, [solicitud?.op, solicitud?.fotoMuestraUrl, solicitud?.fotoCalidadUrl, fotoCalidadLocal]);
 
-  const fotoMuestraUrl = solicitud?.fotoMuestraUrl || drivePhotos?.foto1;
+  const fotoMuestraUrl = fotoInicialLocal || solicitud?.fotoMuestraUrl || drivePhotos?.foto1;
   const fotoCalidadUrl = fotoCalidadLocal || solicitud?.fotoCalidadUrl || drivePhotos?.foto2;
 
   useEffect(() => {
@@ -128,6 +135,47 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
       setIsNotifying(false);
       alert(`Reporte y trazabilidad de la OP ${solicitud.op} enviados con éxito al equipo de Calidad y Lavandería.`);
     }, 600);
+  };
+
+  const handleInicialPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !solicitud) return;
+
+    setIsUploadingInicial(true);
+    try {
+      const compressed = await compressImageFile(file, 650, 0.55);
+      // Visualización instantánea a 0 ms
+      setFotoInicialLocal(compressed);
+      
+      updateLocalOpPhoto(solicitud.id, compressed, false);
+      updateLocalOpPhoto(solicitud.op, compressed, false);
+
+      if (onUpdatePhoto) {
+        onUpdatePhoto(solicitud.id, compressed, false);
+      }
+
+      // Sincronización oficial automática con Google Drive y Google Sheets
+      const res = await pushOpPhotoToSheets(solicitud.op, compressed, false);
+      if (res && res.success) {
+        const driveUrl = res.driveUrl || res.foto1;
+        if (driveUrl) {
+          setFotoInicialLocal(driveUrl);
+          setDrivePhotos(prev => ({
+            ...prev,
+            foto1: driveUrl,
+            folderUrl: res.folderUrl || prev?.folderUrl
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Error al actualizar foto inicial:', err);
+      alert('Error al guardar la fotografía inicial. Intenta de nuevo.');
+    } finally {
+      setIsUploadingInicial(false);
+      if (inicialFileInputRef.current) {
+        inicialFileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleCalidadPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -466,34 +514,57 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                         <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
                           <span>1. Muestra Inicial</span>
                           <span className={fotoMuestraUrl ? 'text-emerald-400' : 'text-zinc-500'}>
-                            {fotoMuestraUrl ? '✓ Registrada' : 'Sin Foto'}
+                            {isUploadingInicial ? '⏳ Guardando en Drive...' : (fotoMuestraUrl ? '✓ Registrada' : 'Sin Foto')}
                           </span>
                         </div>
 
-                        <div className="relative group">
-                          <SmartPhotoDisplay
-                            rawUrl={fotoMuestraUrl}
-                            alt={`Muestra inicial ${solicitud.op}`}
-                            title={`Foto 1: Muestra Inicial - OP ${solicitud.op}`}
-                            emptyTitle="Sin Foto Inicial"
-                            emptySubtitle="Registrada en Atelier"
-                            accentColor="emerald"
-                            onZoom={(url, title) => {
-                              setZoomedPhotoUrl(url);
-                              setZoomedPhotoTitle(title);
-                            }}
-                          />
-                          {!fotoMuestraUrl && (
+                        {fotoMuestraUrl ? (
+                          <div className="relative">
+                            <SmartPhotoDisplay
+                              rawUrl={fotoMuestraUrl}
+                              alt={`Muestra inicial ${solicitud.op}`}
+                              title={`Foto 1: Muestra Inicial - OP ${solicitud.op}`}
+                              emptyTitle="Sin Foto Inicial"
+                              emptySubtitle="Registrada en Atelier"
+                              accentColor="emerald"
+                              onZoom={(url, title) => {
+                                setZoomedPhotoUrl(url);
+                                setZoomedPhotoTitle(title);
+                              }}
+                            />
                             <button
                               type="button"
-                              onClick={() => setShowUploadModal(true)}
-                              className="w-full mt-1.5 py-1.5 px-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold font-mono transition cursor-pointer flex items-center justify-center gap-1"
+                              disabled={isUploadingInicial}
+                              onClick={() => inicialFileInputRef.current?.click()}
+                              className="absolute bottom-2 right-2 px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[10px] font-bold font-mono transition shadow-md flex items-center gap-1 cursor-pointer z-20"
                             >
-                              <Camera className="w-3 h-3 text-emerald-500" />
-                              <span>+ Cargar Foto 1 (Drive)</span>
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>{isUploadingInicial ? 'Guardando...' : 'Cambiar'}</span>
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <div 
+                            onClick={() => !isUploadingInicial && inicialFileInputRef.current?.click()}
+                            className="h-44 rounded-2xl bg-emerald-950/20 dark:bg-emerald-50 border-2 border-dashed border-emerald-500/60 hover:border-emerald-400 p-3 flex flex-col items-center justify-center text-center cursor-pointer transition group"
+                          >
+                            <Camera className="w-6 h-6 text-emerald-400 mb-1 group-hover:scale-110 transition" />
+                            <span className="text-[11px] font-bold text-white dark:text-zinc-950 font-mono block">
+                              {isUploadingInicial ? 'Subiendo a Google Drive...' : 'Tomar / Montar Foto Inicial'}
+                            </span>
+                            <span className="text-[9px] text-emerald-300 dark:text-emerald-700 font-mono block mt-0.5">
+                              {isUploadingInicial ? 'Guardando evidencia oficial' : '* Sube directo a Google Drive'}
+                            </span>
+                          </div>
+                        )}
+                        {!fotoMuestraUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setShowUploadModal(true)}
+                            className="w-full mt-1.5 py-1 px-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[9px] font-bold font-mono transition cursor-pointer flex items-center justify-center gap-1"
+                          >
+                            <span>Subir desde archivo / modal</span>
+                          </button>
+                        )}
                       </div>
 
                       {/* CARD 2: FOTO CALIDAD (POST-LAVADO) */}
@@ -519,37 +590,38 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                                 setZoomedPhotoTitle(title);
                               }}
                             />
-                            {(solicitud.estado === 'CALIDAD' || solicitud.estado === 'LAVANDERIA' || solicitud.estado === 'FINALIZADO') && (
-                              <button
-                                type="button"
-                                disabled={isUploadingCalidad}
-                                onClick={() => calidadFileInputRef.current?.click()}
-                                className="absolute bottom-2 right-2 px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-[10px] font-bold font-mono transition shadow-md flex items-center gap-1 cursor-pointer z-20"
-                              >
-                                <Camera className="w-3.5 h-3.5" />
-                                <span>{isUploadingCalidad ? 'Guardando...' : 'Cambiar'}</span>
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              disabled={isUploadingCalidad}
+                              onClick={() => calidadFileInputRef.current?.click()}
+                              className="absolute bottom-2 right-2 px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-[10px] font-bold font-mono transition shadow-md flex items-center gap-1 cursor-pointer z-20"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>{isUploadingCalidad ? 'Guardando...' : 'Cambiar'}</span>
+                            </button>
                           </div>
-                        ) : (solicitud.estado === 'CALIDAD' || solicitud.estado === 'LAVANDERIA' || solicitud.estado === 'FINALIZADO') ? (
+                        ) : (
                           <div 
                             onClick={() => !isUploadingCalidad && calidadFileInputRef.current?.click()}
                             className="h-44 rounded-2xl bg-purple-950/20 dark:bg-purple-50 border-2 border-dashed border-purple-500/60 hover:border-purple-400 p-3 flex flex-col items-center justify-center text-center cursor-pointer transition group"
                           >
                             <Camera className="w-6 h-6 text-purple-400 mb-1 group-hover:scale-110 transition" />
                             <span className="text-[11px] font-bold text-white dark:text-zinc-950 font-mono block">
-                              {isUploadingCalidad ? 'Subiendo a Google Drive...' : 'Tomar Foto Post-Lavado'}
+                              {isUploadingCalidad ? 'Subiendo a Google Drive...' : 'Tomar / Montar Foto Post-Lavado'}
                             </span>
                             <span className="text-[9px] text-purple-300 dark:text-purple-700 font-mono block mt-0.5">
-                              {isUploadingCalidad ? 'Guardando evidencia oficial' : '* Sincroniza en Google Sheets y Drive'}
+                              {isUploadingCalidad ? 'Guardando evidencia oficial' : '* Sube directo a Google Drive'}
                             </span>
                           </div>
-                        ) : (
-                          <div className="h-44 rounded-2xl bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 p-3 flex flex-col items-center justify-center text-center">
-                            <Lock className="w-6 h-6 text-zinc-500 opacity-50 mb-1" />
-                            <span className="text-[11px] font-bold text-zinc-400 dark:text-zinc-600 font-mono block">Sin Foto Post-Lavado</span>
-                            <span className="text-[9px] text-zinc-500 font-mono block mt-0.5">Activo en Lavandería y Calidad</span>
-                          </div>
+                        )}
+                        {!fotoCalidadUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setShowUploadModal(true)}
+                            className="w-full mt-1.5 py-1 px-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[9px] font-bold font-mono transition cursor-pointer flex items-center justify-center gap-1"
+                          >
+                            <span>Subir desde archivo / modal</span>
+                          </button>
                         )}
                       </div>
 
@@ -570,17 +642,23 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                       </div>
                     )}
 
-                    {/* Hidden input for Calidad stage */}
-                    {(solicitud.estado === 'CALIDAD' || solicitud.estado === 'LAVANDERIA' || solicitud.estado === 'FINALIZADO') && (
-                      <input
-                        type="file"
-                        ref={calidadFileInputRef}
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleCalidadPhotoChange}
-                        className="hidden"
-                      />
-                    )}
+                    {/* Inputs ocultos para subida directa de ambas fotos */}
+                    <input
+                      type="file"
+                      ref={inicialFileInputRef}
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleInicialPhotoChange}
+                      className="hidden"
+                    />
+                    <input
+                      type="file"
+                      ref={calidadFileInputRef}
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleCalidadPhotoChange}
+                      className="hidden"
+                    />
 
                   </div>
 
@@ -871,6 +949,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         onSuccess={(photos) => {
+          if (photos.foto1) setFotoInicialLocal(photos.foto1);
           if (photos.foto2) setFotoCalidadLocal(photos.foto2);
           if (photos.folderUrl || photos.foto1 || photos.foto2) {
             setDrivePhotos(prev => ({ ...prev, ...photos }));
