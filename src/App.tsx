@@ -850,7 +850,9 @@ export function App() {
           currentUser?.nombre || 'OPERARIO STF', 
           nuevaObservacion,
           targetItem?.estado,
-          colObs
+          colObs,
+          dictamen,
+          fotoCalidad
         );
       }
     }

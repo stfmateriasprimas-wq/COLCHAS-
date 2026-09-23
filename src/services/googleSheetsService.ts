@@ -1837,7 +1837,9 @@ export async function pushTransferToSheets(
   nuevoInspector: string, 
   observaciones?: string,
   estadoAnterior?: string,
-  observacionColfactory?: string
+  observacionColfactory?: string,
+  dictamen?: DictamenType | string,
+  fotoCalidad?: string
 ): Promise<{ success: boolean; message: string }> {
   const estadoFormateado = nuevoEstado === 'PRE_SOLICITUD' ? 'PRE-SOLICITUD' : (nuevoEstado === 'EVALUADO' ? 'EVALUADO Y ENVIADO' : nuevoEstado);
   const formattedOp = formatOpCode(op);
@@ -1851,6 +1853,10 @@ export async function pushTransferToSheets(
   const colObsToSend = observacionColfactory || (isFromOrToLav && realCustomObs ? realCustomObs : undefined);
   const isFinalOrEval = (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'EVALUADO');
 
+  const cleanBase64 = fotoCalidad && fotoCalidad.startsWith('data:') 
+    ? fotoCalidad 
+    : (fotoCalidad && fotoCalidad.length > 100 && !fotoCalidad.startsWith('http') ? `data:image/jpeg;base64,${fotoCalidad}` : undefined);
+
   return await sendAppsScriptPost('TRANSFER_OP', { 
     op: formattedOp, 
     nuevoEstado: estadoFormateado, 
@@ -1859,8 +1865,25 @@ export async function pushTransferToSheets(
     observaciones: realCustomObs,
     observacionColfactory: colObsToSend,
     observacionesLavanderia: colObsToSend,
-    obsOperarioFinal: (isFinalOrEval && !isFromOrToLav && realCustomObs) ? realCustomObs : undefined
+    obsOperarioFinal: (isFinalOrEval && !isFromOrToLav && realCustomObs) ? realCustomObs : undefined,
+    observacionesCalidad: (isFinalOrEval && realCustomObs) ? realCustomObs : undefined,
+    dictamen: dictamen,
+    dictamenFinal: dictamen,
+    inspector: nuevoInspector,
+    nuevoInspector: nuevoInspector,
+    auditorCalidad: nuevoInspector,
+    fotoCalidad: cleanBase64 || fotoCalidad,
+    fotoCalidadUrl: cleanBase64 || fotoCalidad,
+    foto2Base64: cleanBase64
   });
+}
+
+/**
+ * Activa y actualiza la regla de validación de datos en la Columna J (ESTADO)
+ * de la hoja BASE_DE_DATOS para incluir la nueva etiqueta 'EVALUADO Y ENVIADO'.
+ */
+export async function activateEvaluadoDropdownInSheets(): Promise<{ success: boolean; message: string }> {
+  return await sendAppsScriptPost('ACTIVATE_EVALUADO_DROPDOWN', {});
 }
 
 export async function pushDictamenToSheets(

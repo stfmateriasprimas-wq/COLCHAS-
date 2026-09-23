@@ -79,6 +79,7 @@ function onOpen() {
     .addItem('🧹 Dar Formato Profesional a Todas las Hojas', 'formatAllSheets')
     .addItem('🖼️ Depurar Fotos Duplicadas en Drive (Dejar estrictamente 2 fotos por OP)', 'cleanDuplicatesDriveMenuAction')
     .addItem('📁 Crear / Verificar Estructura en Google Drive (Mes y OPs)', 'verifyAndBuildDriveStructureMenuAction')
+    .addItem('🏷️ Actualizar Desplegable ESTADO (Incluir EVALUADO Y ENVIADO)', 'actualizarValidacionEstadosMenuAction')
     .addToUi();
 
   var ss = getTargetSpreadsheet();
@@ -120,6 +121,34 @@ function cleanMonitoreoMenuAction() {
   var ss = getTargetSpreadsheet();
   var removed = autoCleanMonitoreoFromBaseDeDatos(ss);
   SpreadsheetApp.getActiveSpreadsheet().toast('Se depuraron ' + (removed || 0) + ' OPs de la hoja MONITOREO', '🚀 STF GROUP', 5);
+}
+
+function actualizarValidacionEstadosMenuAction() {
+  var ss = getTargetSpreadsheet();
+  var res = configurarValidacionEstados(ss);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ ' + res.message, '🚀 STF GROUP', 6);
+}
+
+function configurarValidacionEstados(ss) {
+  var sheet = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+  var lastRow = Math.max(sheet.getLastRow(), 2000);
+
+  var estadosValidos = [
+    'PRE-SOLICITUD',
+    'SOLICITADO',
+    'RECIBIDO LAVADERO',
+    'ENVIADO A STF',
+    'EVALUADO Y ENVIADO',
+    'FINALIZADO'
+  ];
+
+  var rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(estadosValidos, true)
+    .setAllowInvalid(true)
+    .build();
+
+  sheet.getRange(2, 10, lastRow - 1, 1).setDataValidation(rule);
+  return { status: 'success', message: 'Validación de columna J actualizada con EVALUADO Y ENVIADO' };
 }
 
 function verUsuariosMenuAction() {
@@ -481,11 +510,24 @@ function doPost(e) {
 
       if (foundRowTrans !== -1) {
         sheetBdTrans.getRange(foundRowTrans, 6).setValue('OP-' + targetOpTrans);
-        if (payload.nuevoEstado) sheetBdTrans.getRange(foundRowTrans, 10).setValue(payload.nuevoEstado);
+        
+        var estadoFinalTrans = String(payload.nuevoEstado || payload.estado || '').trim();
+        if (estadoFinalTrans.indexOf('EVALUAD') !== -1) {
+          estadoFinalTrans = 'EVALUADO Y ENVIADO';
+        }
+        if (estadoFinalTrans) {
+          sheetBdTrans.getRange(foundRowTrans, 10).setValue(estadoFinalTrans);
+        }
+
+        // Actualizar Inspector (Columna B: 2) si viene definido
+        var inspectorTrans = payload.nuevoInspector || payload.inspector || payload.auditorCalidad || '';
+        if (inspectorTrans) {
+          sheetBdTrans.getRange(foundRowTrans, 2).setValue(String(inspectorTrans).trim());
+        }
 
         // Guardar Observación Colfactory en Columna L (Columna 12)
         var obsColfactoryInput = payload.observacionColfactory || payload.observacionesLavanderia || '';
-        if (!obsColfactoryInput && (payload.nuevoEstado === 'LAVANDERIA' || payload.estadoAnterior === 'LAVANDERIA' || payload.nuevoEstado === 'CALIDAD' || payload.estado === 'LAVANDERIA' || payload.origen === 'LAVANDERIA')) {
+        if (!obsColfactoryInput && (estadoFinalTrans === 'LAVANDERIA' || payload.estadoAnterior === 'LAVANDERIA' || estadoFinalTrans === 'CALIDAD' || payload.estado === 'LAVANDERIA' || payload.origen === 'LAVANDERIA')) {
           obsColfactoryInput = payload.observaciones || '';
         }
         if (obsColfactoryInput) {
@@ -496,9 +538,10 @@ function doPost(e) {
         }
 
         // Columna O (15) para concepto de calidad y Columna P (16) para dictamen en FINALIZADO o EVALUADO
-        var isFinOrEvalState = payload.nuevoEstado === 'FINALIZADO' || String(payload.nuevoEstado || '').indexOf('EVALUAD') !== -1;
-        if (payload.obsOperarioFinal && isFinOrEvalState) {
-          var finalObsToSet = String(payload.obsOperarioFinal).trim();
+        var isFinOrEvalState = estadoFinalTrans === 'FINALIZADO' || estadoFinalTrans.indexOf('EVALUAD') !== -1;
+        var calidadObs = payload.obsOperarioFinal || payload.observacionesCalidad || payload.observacionesTecnicas || (isFinOrEvalState ? payload.observaciones : '');
+        if (calidadObs && isFinOrEvalState) {
+          var finalObsToSet = String(calidadObs).trim();
           if (finalObsToSet.toLowerCase().indexOf('colcha recibida') === -1) {
             sheetBdTrans.getRange(foundRowTrans, 15).setValue(finalObsToSet);
           }
@@ -507,9 +550,33 @@ function doPost(e) {
           sheetBdTrans.getRange(foundRowTrans, 16).setValue(payload.dictamen);
         }
 
-        return createJsonResponse({ status: 'success', message: 'OP OP-' + targetOpTrans + ' transferida a fase ' + payload.nuevoEstado });
+        // Guardar Foto 2 en Google Drive si se envía durante la evaluación técnica
+        var calPhotoPayload = payload.fotoCalidad || payload.fotoCalidadUrl || payload.foto2Base64 || payload.imageBase64 || '';
+        if (calPhotoPayload && calPhotoPayload.length > 50 && isFinOrEvalState) {
+          try {
+            var rootDirTrans = getRootDriveFolder();
+            var monthDirTrans = getMonthDriveFolder(rootDirTrans, new Date());
+            var opDirTrans = getOpDriveFolder(monthDirTrans, 'OP-' + targetOpTrans);
+            var savedFotoTrans = saveImageToDriveHierarchical(rootDirTrans, 'OP-' + targetOpTrans, calPhotoPayload, false, false);
+            if (savedFotoTrans && savedFotoTrans.url) {
+              var currColMVal = String(sheetBdTrans.getRange(foundRowTrans, 13).getValue() || '');
+              var parsedM = parseColumnaMFotos(currColMVal);
+              var updatedM = [parsedM.foto1, savedFotoTrans.url, opDirTrans.getUrl()].filter(Boolean).join(' | ');
+              sheetBdTrans.getRange(foundRowTrans, 13).setValue(updatedM);
+            }
+          } catch (errFotoTrans) {
+            Logger.log('Error guardando foto en TRANSFER_OP: ' + errFotoTrans.toString());
+          }
+        }
+
+        return createJsonResponse({ status: 'success', message: 'OP OP-' + targetOpTrans + ' transferida a fase ' + estadoFinalTrans });
       }
       return createJsonResponse({ status: 'error', message: 'OP no encontrada en BASE_DE_DATOS' });
+    }
+
+    if (action === 'ACTIVATE_EVALUADO_DROPDOWN' || action === 'UPDATE_STATUS_VALIDATION') {
+      var resVal = configurarValidacionEstados(ss);
+      return createJsonResponse(resVal);
     }
 
     // -----------------------------------------------------------------------

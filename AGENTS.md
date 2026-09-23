@@ -28,6 +28,7 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
 4. **Auditoría Técnica y Envío a Evaluado y Enviado**:
    - En `CALIDAD`, los auditores técnicos evalúan la muestra (encogimiento, tono, revirado), ingresan el veredicto formal (`APROBADO`, `APROBADO EN GAMA` o `RECHAZADO`), la observación de calidad y la Foto 2 (Post-Lavado).
    - Al pulsar el botón de envío en Calidad, la OP **NO pasa directamente a Finalizado**, sino que se transfiere obligatoriamente al apartado **`EVALUADO Y ENVIADO`** (`EVALUADO`).
+   - **ETIQUETA OFICIAL EN BASE DE DATOS**: Al transferir la OP a esta fase, en la hoja **`BASE_DE_DATOS`** de Google Sheets, la **Columna J (10: `ESTADO`)** se marca y almacena estrictamente con la etiqueta oficial **`EVALUADO Y ENVIADO`**. La regla de validación de datos (menú desplegable de chips) de la columna J incluye los 6 estados oficiales: `PRE-SOLICITUD`, `SOLICITADO`, `RECIBIDO LAVADERO`, `ENVIADO A STF`, `EVALUADO Y ENVIADO` y `FINALIZADO`.
 5. **Apartado EVALUADO Y ENVIADO & Control Exclusivo Factory**:
    - **REGLA DE VISIBILIDAD EXCLUSIVA**: El apartado y tarjeta **`EVALUADO Y ENVIADO`** solo existe y es visible para los perfiles de **CALIDAD** y **COLFACTORY** (Lavandería y Administrador). Para perfiles como Atelier ZF (Zona Franca), Colecciones (Clientes SF/ELA/Outlet) y Despacho, este apartado permanece oculto en la interfaz.
    - En este apartado se muestra la ficha con los resultados de la auditoría técnica de Calidad (Veredicto, Observación técnica y Fotos).
