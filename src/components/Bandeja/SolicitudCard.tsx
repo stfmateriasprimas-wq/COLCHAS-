@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser, isEdiazUser } from '../../services/authService';
+import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser, isEdiazUser, isFactoryUser } from '../../services/authService';
 import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, pushColfactoryObservationToSheets, getOpPhotosFromCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
 import { UploadMissingPhotosModal } from './UploadMissingPhotosModal';
 
@@ -26,6 +26,7 @@ const STAGES: { key: SectorType; label: string; shortLabel: string }[] = [
   { key: 'SOLICITADO', label: 'SOLICITADO', shortLabel: 'SOLICIT.' },
   { key: 'LAVANDERIA', label: 'LAVANDERÍA', shortLabel: 'LAVADO' },
   { key: 'CALIDAD', label: 'CALIDAD', shortLabel: 'CALIDAD' },
+  { key: 'EVALUADO', label: 'EVALUADO', shortLabel: 'EVALUAD.' },
   { key: 'FINALIZADO', label: 'FINALIZADO', shortLabel: 'FINALIZ.' }
 ];
 
@@ -99,6 +100,20 @@ const STAGE_CONFIG: Record<SectorType, {
       text: 'text-purple-950 dark:text-purple-200'
     }
   },
+  EVALUADO: {
+    border: 'border-l-teal-500',
+    badge: 'bg-teal-50 text-teal-800 border-teal-300 dark:bg-teal-950/80 dark:text-teal-300 dark:border-teal-500/50',
+    text: 'text-teal-700 dark:text-teal-400',
+    activeLine: 'border-teal-500 bg-teal-500',
+    activeText: 'text-teal-700 dark:text-teal-400 font-black',
+    locationBadge: 'bg-teal-50 text-teal-800 border-teal-300 dark:bg-teal-950/80 dark:text-teal-300 dark:border-teal-500/50',
+    rollosBox: {
+      bg: 'bg-teal-50/70 dark:bg-teal-950/50',
+      border: 'border-teal-200 dark:border-teal-500/50',
+      label: 'text-teal-700 dark:text-teal-400',
+      text: 'text-teal-950 dark:text-teal-200'
+    }
+  },
   FINALIZADO: {
     border: 'border-l-emerald-500',
     badge: 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-500/50',
@@ -158,7 +173,9 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   // Estado local para Control de Calidad (STF)
   const [veredictoLocal, setVeredictoLocal] = useState<'APROBADO' | 'APROBADO EN GAMA' | 'RECHAZADO' | ''>('');
   const [obsCalidadLocal, setObsCalidadLocal] = useState('');
-  const [fotoCalidadPreview, setFotoCalidadPreview] = useState<string | null>(solicitud.fotoCalidadUrl || null);
+  const [fotoCalidadPreview, setFotoCalidadPreview] = useState<string | null>(() => {
+    return solicitud.fotoCalidadUrl || getOpPhotosFromCache(solicitud.op)?.foto2 || null;
+  });
   const [isUploadingCalidadPhoto, setIsUploadingCalidadPhoto] = useState(false);
   const [zoomedPhotoUrl, setZoomedPhotoUrl] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -171,6 +188,18 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
     return getOpPhotosFromCache(solicitud.op) || null;
   });
 
+  // Sincronizar fotoCalidadPreview si cambia la solicitud externamente
+  useEffect(() => {
+    if (solicitud.fotoCalidadUrl) {
+      setFotoCalidadPreview(solicitud.fotoCalidadUrl);
+    } else {
+      const cached = getOpPhotosFromCache(solicitud.op);
+      if (cached?.foto2) {
+        setFotoCalidadPreview(cached.foto2);
+      }
+    }
+  }, [solicitud.fotoCalidadUrl, solicitud.op]);
+
   // Escuchar eventos globales de resolución de fotos de OP en tiempo real
   useEffect(() => {
     const handlePhotosUpdated = (e: Event) => {
@@ -180,6 +209,9 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
       const cleanEventOp = (detail?.op || '').replace(/\D/g, '') || String(detail?.op || '').trim().toUpperCase();
       if (detail && (cleanSolOp === cleanEventOp || solicitud.op === detail.op)) {
         setCachedOrDrivePhotos(prev => ({ ...prev, ...detail }));
+        if (detail.foto2) {
+          setFotoCalidadPreview(detail.foto2);
+        }
       }
     };
     window.addEventListener('stf_op_photos_updated', handlePhotosUpdated);
@@ -277,6 +309,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
     setIsUploadingCalidadPhoto(true);
     try {
       const compressed = await compressImageFile(file, 650, 0.55);
+      // Visualización instantánea a 0 ms
       setFotoCalidadPreview(compressed);
       
       // Persistir localmente como foto de calidad (isCalidad = true)
@@ -285,26 +318,36 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
       // Sincronizar con Google Sheets & Drive (con sobreescritura estricta)
       const resPhoto = await pushOpPhotoToSheets(solicitud.op, compressed, true);
-      if (resPhoto && resPhoto.driveUrl) {
-        updateLocalOpPhoto(solicitud.id, resPhoto.driveUrl, true);
-        updateLocalOpPhoto(solicitud.op, resPhoto.driveUrl, true);
+      const driveUrl = resPhoto?.driveUrl || resPhoto?.foto2;
+      if (driveUrl) {
+        updateLocalOpPhoto(solicitud.id, driveUrl, true);
+        updateLocalOpPhoto(solicitud.op, driveUrl, true);
+        setFotoCalidadPreview(driveUrl);
+        setCachedOrDrivePhotos(prev => ({
+          ...prev,
+          foto2: driveUrl,
+          folderUrl: resPhoto?.folderUrl || prev?.folderUrl
+        }));
       }
     } catch (err) {
       console.error('Error al cargar foto de calidad:', err);
       alert('Hubo un error al procesar la imagen. Por favor intenta de nuevo.');
     } finally {
       setIsUploadingCalidadPhoto(false);
+      if (calidadFileInputRef.current) {
+        calidadFileInputRef.current.value = '';
+      }
     }
   };
 
-  // Emisión de Dictamen Final en Calidad
+  // Emisión de Dictamen en Calidad: envía la OP a "EVALUADO Y ENVIADO"
   const handleEmitirDictamen = () => {
     if (!veredictoLocal) {
-      alert('⚠️ Por favor seleccione el VEREDICTO (APROBADO, APROBADO EN GAMA o RECHAZADO) para emitir el dictamen final.');
+      alert('⚠️ Por favor seleccione el VEREDICTO (APROBADO, APROBADO EN GAMA o RECHAZADO) para emitir la evaluación técnica.');
       return;
     }
     if (!obsCalidadLocal.trim()) {
-      alert('⚠️ Por favor ingrese la OBSERVACIÓN FINAL del dictamen de calidad.');
+      alert('⚠️ Por favor ingrese la OBSERVACIÓN de la evaluación de calidad.');
       return;
     }
 
@@ -313,9 +356,27 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
     const fotoFinal = fotoCalidadPreview || solicitud.fotoCalidadUrl;
 
     if (onDirectTransfer) {
-      onDirectTransfer(solicitud.id, 'FINALIZADO', obsFinal, dictamen, fotoFinal);
+      onDirectTransfer(solicitud.id, 'EVALUADO', obsFinal, dictamen, fotoFinal);
     } else {
       onTransfer(solicitud);
+    }
+  };
+
+  // Acción Exclusiva de Colfactory / Factory: Finalizar OP desde "EVALUADO Y ENVIADO"
+  const handleFinalizarColfactory = () => {
+    const isFactory = isFactoryUser(currentUser);
+    if (!isFactory) {
+      alert('⚠️ Acción restringida: Únicamente los usuarios de Factory (Colfactory / Lavandería) tienen autorización para finalizar esta orden.');
+      return;
+    }
+
+    if (onFinalizar) {
+      onFinalizar(solicitud);
+    } else if (onDirectTransfer) {
+      const dictamen = solicitud.dictamen || 'APROBADO';
+      const obs = solicitud.observacionesCalidad || 'Orden finalizada y liberada por Colfactory';
+      const foto = fotoCalidadUrlActual || solicitud.fotoCalidadUrl;
+      onDirectTransfer(solicitud.id, 'FINALIZADO', obs, dictamen, foto);
     }
   };
 
@@ -574,7 +635,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
         {/* Stepper Pipeline */}
         <div className="pt-2">
-          <div className="grid grid-cols-5 text-center text-[8.5px] sm:text-[10.5px] font-mono tracking-wider border-b border-zinc-200/80 dark:border-zinc-800/80 pb-2.5">
+          <div className="grid grid-cols-6 text-center text-[8px] sm:text-[10px] font-mono tracking-wider border-b border-zinc-200/80 dark:border-zinc-800/80 pb-2.5">
             {STAGES.map((st, i) => {
               const isActive = i === currentStageIndex;
               const isPassed = i < currentStageIndex;
@@ -861,11 +922,13 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                       <span>FOTO 2 (CALIDAD) <span className="text-rose-500 font-black">*</span></span>
                     </label>
                     <span className={`text-[9.5px] font-mono font-bold ${
-                      fotoCalidadUrlActual 
+                      isUploadingCalidadPhoto
+                        ? 'text-amber-500 animate-pulse'
+                        : fotoCalidadUrlActual 
                         ? 'text-emerald-600 dark:text-emerald-400' 
                         : 'text-zinc-500 dark:text-zinc-400'
                     }`}>
-                      {fotoCalidadUrlActual ? '✓ CARGADA' : 'SIN FOTO'}
+                      {isUploadingCalidadPhoto ? '⏳ EN DRIVE...' : (fotoCalidadUrlActual ? '✓ CARGADA' : 'SIN FOTO')}
                     </span>
                   </div>
                   
@@ -876,7 +939,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     className="w-full bg-zinc-950 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-950 border border-zinc-800 dark:border-zinc-300 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-md active:scale-[0.99] disabled:opacity-50"
                   >
                     <Upload className="w-3.5 h-3.5" />
-                    <span>{isUploadingCalidadPhoto ? 'CARGANDO...' : 'ACTUALIZAR FOTO'}</span>
+                    <span>{isUploadingCalidadPhoto ? 'GUARDANDO EN DRIVE...' : 'ACTUALIZAR FOTO'}</span>
                   </button>
                   <input
                     type="file"
@@ -890,14 +953,14 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
               </div>
 
-              {/* ACTION BUTTON: EMITIR DICTAMEN FINAL */}
+              {/* ACTION BUTTON: ENVIAR A EVALUADO Y ENVIADO */}
               <div className="pt-2">
                 <button
                   type="button"
                   onClick={handleEmitirDictamen}
-                  className="w-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-3.5 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-lg active:scale-[0.99]"
+                  className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-teal-600 hover:from-purple-500 hover:to-teal-500 text-white py-3.5 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer shadow-lg active:scale-[0.99]"
                 >
-                  <span>EMITIR DICTAMEN FINAL {veredictoLocal ? `(${veredictoLocal})` : ''}</span>
+                  <span>ENVIAR A EVALUADO Y ENVIADO {veredictoLocal ? `(${veredictoLocal})` : ''}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -910,10 +973,93 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                 <span>OP EN AUDITORÍA TÉCNICA DE CALIDAD (LABORATORIO STF)</span>
               </div>
               <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1.5 font-mono max-w-xl mx-auto">
-                Esta colcha física está en evaluación por los inspectores del laboratorio de Calidad para registrar el veredicto técnico (Aprobado/Rechazado), observación final y fotografía post-lavado.
+                Esta colcha física está en evaluación por los inspectores del laboratorio de Calidad para registrar el veredicto técnico (Aprobado/Rechazado), observación y fotografía post-lavado, y enviarla a Evaluado y Enviado.
               </p>
             </div>
           )
+        )}
+
+        {/* ========================================================================= */}
+        {/* APARTADO: EVALUADO Y ENVIADO (COCKPIT FACTORY / LIBERACIÓN FINAL)         */}
+        {/* ========================================================================= */}
+        {solicitud.estado === 'EVALUADO' && (
+          <div className="relative overflow-hidden bg-teal-50/80 dark:bg-gradient-to-br dark:from-teal-950/70 dark:via-[#0c181f] dark:to-[#071317] border-2 border-teal-300 dark:border-teal-500/50 rounded-3xl p-5 sm:p-6 space-y-4 mt-3 shadow-md dark:shadow-xl backdrop-blur-md animate-in fade-in duration-300">
+            {/* Ambient glow */}
+            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-36 h-36 bg-teal-500/10 dark:bg-teal-400/20 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-teal-200 dark:border-teal-500/20 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-500/20 flex items-center justify-center border border-teal-300 dark:border-teal-400/40 text-teal-600 dark:text-teal-400 shadow-sm">
+                  <CheckCircle2 className="w-4 h-4 text-teal-500 dark:text-teal-400" />
+                </div>
+                <div>
+                  <h4 className="text-sm sm:text-base font-black text-teal-950 dark:text-teal-300 tracking-wide font-sans flex items-center gap-2">
+                    EVALUADO Y ENVIADO
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-300 border border-teal-300 dark:border-teal-500/30">
+                      ESPERA FACTORY
+                    </span>
+                  </h4>
+                  <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400 font-mono">
+                    Auditoría de Calidad completada. Pendiente de finalización por parte de Factory.
+                  </p>
+                </div>
+              </div>
+
+              {/* Dictamen Badge */}
+              <div className="flex items-center gap-2">
+                <span className={`text-[11px] font-mono font-black px-3 py-1 rounded-xl border flex items-center gap-1.5 shadow-xs ${
+                  solicitud.dictamen === 'APROBADO'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-500/40'
+                    : solicitud.dictamen === 'APROBADO EN GAMA'
+                    ? 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-500/40'
+                    : 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-500/40'
+                }`}>
+                  <span>{solicitud.dictamen === 'APROBADO' ? '✅' : solicitud.dictamen === 'APROBADO EN GAMA' ? '🎨' : '❌'}</span>
+                  <span>VEREDICTO: {solicitud.dictamen || 'APROBADO'}</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Quality Summary Box */}
+            <div className="bg-white/80 dark:bg-zinc-950/60 border border-teal-200/80 dark:border-teal-500/30 rounded-2xl p-3.5 space-y-2">
+              <div className="text-[10.5px] font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider font-mono flex items-center justify-between">
+                <span>CONCEPTO TÉCNICO DE CALIDAD:</span>
+                <span className="text-zinc-400 text-[10px] font-normal">AUDITORÍA STF</span>
+              </div>
+              <p className="text-xs font-mono text-zinc-800 dark:text-zinc-200 bg-teal-50/50 dark:bg-teal-950/30 p-2.5 rounded-xl border border-teal-200/50 dark:border-teal-500/20">
+                {solicitud.observacionesCalidad || 'Muestra evaluada y conforme según especificaciones técnicas.'}
+              </p>
+            </div>
+
+            {/* Action Area: FACTORY ONLY BUTTON vs LOCKED INFO */}
+            {isFactoryUser(currentUser) ? (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={handleFinalizarColfactory}
+                  className="w-full group relative overflow-hidden bg-gradient-to-r from-teal-600 via-emerald-600 to-green-600 hover:from-teal-500 hover:to-emerald-500 text-white py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-600/25 active:scale-[0.99] border border-emerald-400/40"
+                  title="Finalizar OP y pasar a FINALIZADOS"
+                >
+                  <CheckCircle2 className="w-5 h-5 text-emerald-100 group-hover:scale-125 transition-transform duration-200" />
+                  <span className="font-mono text-sm tracking-wide">FINALIZAR</span>
+                  <ArrowRight className="w-4 h-4 text-emerald-100 group-hover:translate-x-1 transition-transform duration-200" />
+                </button>
+                <p className="text-center text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mt-2">
+                  ✓ Acceso exclusivo Colfactory (Factory). Al pulsar Finalizar, la OP pasa a FINALIZADOS y se liberará formalmente.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-500/30 rounded-2xl p-3 text-center">
+                <div className="flex items-center justify-center gap-2 text-amber-700 dark:text-amber-400 font-bold text-xs font-mono">
+                  <span>🔒 ESPERANDO FINALIZACIÓN POR COLFACTORY (FACTORY)</span>
+                </div>
+                <p className="text-[10.5px] text-zinc-600 dark:text-zinc-400 mt-1 font-mono">
+                  Esta orden ya fue evaluada por Calidad. El botón de finalizar es exclusivo para el equipo de Factory.
+                </p>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Bottom Actions Bar */}
@@ -951,18 +1097,18 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               </button>
             )}
 
-            {/* BOTÓN FINALIZAR (EXCLUSIVO PERFIL CALIDAD / ADMINISTRADOR) */}
-            {(isCalidadUser(currentUser) || isAdminUser(currentUser)) && solicitud.estado === 'CALIDAD' && onFinalizar && (
+            {/* BOTÓN FINALIZAR (EXCLUSIVO PERFIL FACTORY - OP EN EVALUADO) */}
+            {isFactoryUser(currentUser) && solicitud.estado === 'EVALUADO' && onFinalizar && (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onFinalizar(solicitud);
                 }}
-                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-400 dark:border-emerald-500/60 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150"
-                title="Dar por finalizada esta OP y moverla automáticamente a Finalizados en el sistema y base de datos"
+                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-md hover:scale-105 active:scale-95 duration-150 font-mono"
+                title="Dar por finalizada esta OP y moverla a Finalizados (Exclusivo Factory)"
               >
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-100" />
                 <span>FINALIZAR</span>
               </button>
             )}
@@ -1018,6 +1164,12 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
         solicitud={solicitud}
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
+        onSuccess={(photos) => {
+          if (photos.foto2) setFotoCalidadPreview(photos.foto2);
+          if (photos.folderUrl || photos.foto1 || photos.foto2) {
+            setCachedOrDrivePhotos(prev => ({ ...prev, ...photos }));
+          }
+        }}
       />
 
     </div>

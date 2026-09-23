@@ -43,6 +43,17 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
     return solicitud?.op ? getOpPhotosFromCache(solicitud.op) : null;
   });
 
+  // Reiniciar estado local de foto al cambiar de OP para evitar desincronización
+  useEffect(() => {
+    setFotoCalidadLocal(null);
+    if (solicitud?.op) {
+      const cached = getOpPhotosFromCache(solicitud.op);
+      setDrivePhotos(cached || null);
+    } else {
+      setDrivePhotos(null);
+    }
+  }, [solicitud?.id, solicitud?.op]);
+
   useEffect(() => {
     const handlePhotosUpdated = (e: Event) => {
       const customEvent = e as CustomEvent;
@@ -52,6 +63,9 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
       const cleanEvent = (detail?.op || '').replace(/\D/g, '') || String(detail?.op || '').trim().toUpperCase();
       if (cleanSol === cleanEvent || solicitud.op === detail.op) {
         setDrivePhotos(prev => ({ ...prev, ...detail }));
+        if (detail.foto2) {
+          setFotoCalidadLocal(detail.foto2);
+        }
       }
     };
     window.addEventListener('stf_op_photos_updated', handlePhotosUpdated);
@@ -123,6 +137,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
     setIsUploadingCalidad(true);
     try {
       const compressed = await compressImageFile(file, 650, 0.55);
+      // Visualización instantánea a 0 ms
       setFotoCalidadLocal(compressed);
       
       updateLocalOpPhoto(solicitud.id, compressed, true);
@@ -132,12 +147,27 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
         onUpdatePhoto(solicitud.id, compressed, true);
       }
 
-      await pushOpPhotoToSheets(solicitud.op, compressed, true);
+      // Sincronización oficial con Google Drive y Google Sheets
+      const res = await pushOpPhotoToSheets(solicitud.op, compressed, true);
+      if (res && res.success) {
+        const driveUrl = res.driveUrl || res.foto2;
+        if (driveUrl) {
+          setFotoCalidadLocal(driveUrl);
+          setDrivePhotos(prev => ({
+            ...prev,
+            foto2: driveUrl,
+            folderUrl: res.folderUrl || prev?.folderUrl
+          }));
+        }
+      }
     } catch (err) {
       console.error('Error al actualizar foto de calidad:', err);
       alert('Error al guardar la fotografía. Intenta de nuevo.');
     } finally {
       setIsUploadingCalidad(false);
+      if (calidadFileInputRef.current) {
+        calidadFileInputRef.current.value = '';
+      }
     }
   };
 
@@ -147,7 +177,8 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
       case 'SOLICITADO': return 1;
       case 'LAVANDERIA': return 2;
       case 'CALIDAD': return 3;
-      case 'FINALIZADO': return 4;
+      case 'EVALUADO': return 4;
+      case 'FINALIZADO': return 5;
       default: return 1;
     }
   };
@@ -470,7 +501,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                         <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-purple-300 dark:text-purple-700">
                           <span>2. Post-Lavado (Calidad)</span>
                           <span className={fotoCalidadUrl ? 'text-emerald-400' : 'text-amber-400'}>
-                            {fotoCalidadUrl ? '✓ Registrada' : 'Pendiente'}
+                            {isUploadingCalidad ? '⏳ Guardando en Drive...' : (fotoCalidadUrl ? '✓ Registrada' : 'Pendiente')}
                           </span>
                         </div>
 
@@ -491,22 +522,27 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                             {(solicitud.estado === 'CALIDAD' || solicitud.estado === 'LAVANDERIA' || solicitud.estado === 'FINALIZADO') && (
                               <button
                                 type="button"
+                                disabled={isUploadingCalidad}
                                 onClick={() => calidadFileInputRef.current?.click()}
-                                className="absolute bottom-2 right-2 px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold font-mono transition shadow-md flex items-center gap-1 cursor-pointer z-20"
+                                className="absolute bottom-2 right-2 px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-[10px] font-bold font-mono transition shadow-md flex items-center gap-1 cursor-pointer z-20"
                               >
                                 <Camera className="w-3.5 h-3.5" />
-                                <span>Cambiar</span>
+                                <span>{isUploadingCalidad ? 'Guardando...' : 'Cambiar'}</span>
                               </button>
                             )}
                           </div>
                         ) : (solicitud.estado === 'CALIDAD' || solicitud.estado === 'LAVANDERIA' || solicitud.estado === 'FINALIZADO') ? (
                           <div 
-                            onClick={() => calidadFileInputRef.current?.click()}
+                            onClick={() => !isUploadingCalidad && calidadFileInputRef.current?.click()}
                             className="h-44 rounded-2xl bg-purple-950/20 dark:bg-purple-50 border-2 border-dashed border-purple-500/60 hover:border-purple-400 p-3 flex flex-col items-center justify-center text-center cursor-pointer transition group"
                           >
                             <Camera className="w-6 h-6 text-purple-400 mb-1 group-hover:scale-110 transition" />
-                            <span className="text-[11px] font-bold text-white dark:text-zinc-950 font-mono block">Tomar Foto Post-Lavado</span>
-                            <span className="text-[9px] text-purple-300 dark:text-purple-700 font-mono block mt-0.5">* Sincroniza en Google Sheets</span>
+                            <span className="text-[11px] font-bold text-white dark:text-zinc-950 font-mono block">
+                              {isUploadingCalidad ? 'Subiendo a Google Drive...' : 'Tomar Foto Post-Lavado'}
+                            </span>
+                            <span className="text-[9px] text-purple-300 dark:text-purple-700 font-mono block mt-0.5">
+                              {isUploadingCalidad ? 'Guardando evidencia oficial' : '* Sincroniza en Google Sheets y Drive'}
+                            </span>
                           </div>
                         ) : (
                           <div className="h-44 rounded-2xl bg-zinc-950 dark:bg-zinc-100 border border-zinc-800 dark:border-zinc-300 p-3 flex flex-col items-center justify-center text-center">
@@ -632,7 +668,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                   TRAZABILIDAD Y FLUJO DE PROCESAMIENTO POR SECTOR
                 </span>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                   
                   {/* 1. Pre-Solicitud */}
                   <div className={`p-3 rounded-2xl border text-xs space-y-1 ${
@@ -641,7 +677,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                       : 'bg-zinc-900/60 dark:bg-zinc-100 border-zinc-800 dark:border-zinc-200 text-zinc-500'
                   }`}>
                     <span className="text-[9px] font-bold block opacity-70">1. PRE-SOLICITUD</span>
-                    <span className="font-extrabold text-white dark:text-zinc-950 block">Atelier / Diseño</span>
+                    <span className="font-extrabold text-white dark:text-zinc-950 block">Atelier ZF</span>
                     <span className="text-[9px] font-bold text-emerald-400 dark:text-emerald-600 flex items-center gap-1">
                       ✓ COMPLETADO
                     </span>
@@ -657,8 +693,8 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                   }`}>
                     <span className="text-[9px] font-bold block opacity-70">2. SOLICITADO</span>
                     <span className="font-extrabold text-white dark:text-zinc-950 block">Despacho</span>
-                    <span className="text-[9px] font-bold text-amber-400 dark:text-amber-600 flex items-center gap-1">
-                      ⚡ EN PROCESO
+                    <span className={`text-[9px] font-bold flex items-center gap-1 ${currentStageIdx === 1 ? 'text-amber-400 dark:text-amber-600' : 'text-emerald-400 dark:text-emerald-600'}`}>
+                      {currentStageIdx === 1 ? '⚡ EN PROCESO' : '✓ COMPLETADO'}
                     </span>
                   </div>
 
@@ -671,8 +707,12 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                       : 'bg-zinc-900/60 dark:bg-zinc-100 border-zinc-800 dark:border-zinc-200 text-zinc-500'
                   }`}>
                     <span className="text-[9px] font-bold block opacity-70">3. LAVANDERÍA</span>
-                    <span className="font-extrabold text-zinc-300 dark:text-zinc-700 block">Módulo Tambor</span>
-                    <span className="text-[9px] font-mono text-zinc-400 dark:text-zinc-500">PENDIENTE</span>
+                    <span className="font-extrabold text-zinc-300 dark:text-zinc-700 block">Colfactory ZF</span>
+                    <span className={`text-[9px] font-bold flex items-center gap-1 ${
+                      currentStageIdx === 2 ? 'text-sky-400 dark:text-sky-600' : currentStageIdx > 2 ? 'text-emerald-400 dark:text-emerald-600' : 'text-zinc-400'
+                    }`}>
+                      {currentStageIdx === 2 ? '⚡ EN LAVADO' : currentStageIdx > 2 ? '✓ COMPLETADO' : 'PENDIENTE'}
+                    </span>
                   </div>
 
                   {/* 4. Calidad STF */}
@@ -685,18 +725,43 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                   }`}>
                     <span className="text-[9px] font-bold block opacity-70">4. CALIDAD STF</span>
                     <span className="font-extrabold text-zinc-300 dark:text-zinc-700 block">Laboratorio</span>
-                    <span className="text-[9px] font-mono text-zinc-400 dark:text-zinc-500">PENDIENTE</span>
+                    <span className={`text-[9px] font-bold flex items-center gap-1 ${
+                      currentStageIdx === 3 ? 'text-purple-400 dark:text-purple-600' : currentStageIdx > 3 ? 'text-emerald-400 dark:text-emerald-600' : 'text-zinc-400'
+                    }`}>
+                      {currentStageIdx === 3 ? '⚡ EN AUDITORÍA' : currentStageIdx > 3 ? '✓ COMPLETADO' : 'PENDIENTE'}
+                    </span>
                   </div>
 
-                  {/* 5. Finalizado */}
+                  {/* 5. Evaluado y Enviado */}
                   <div className={`p-3 rounded-2xl border text-xs space-y-1 ${
                     currentStageIdx === 4
+                      ? 'bg-zinc-900 dark:bg-zinc-100 border-teal-500 text-teal-300 dark:text-teal-800 shadow-md ring-1 ring-teal-500/30'
+                      : currentStageIdx > 4
+                      ? 'bg-emerald-950/40 dark:bg-emerald-50 border-emerald-500/50 dark:border-emerald-300 text-emerald-300 dark:text-emerald-800'
+                      : 'bg-zinc-900/60 dark:bg-zinc-100 border-zinc-800 dark:border-zinc-200 text-zinc-500'
+                  }`}>
+                    <span className="text-[9px] font-bold block opacity-70">5. EVALUADO</span>
+                    <span className="font-extrabold text-zinc-300 dark:text-zinc-700 block">Colfactory</span>
+                    <span className={`text-[9px] font-bold flex items-center gap-1 ${
+                      currentStageIdx === 4 ? 'text-teal-400 dark:text-teal-600' : currentStageIdx > 4 ? 'text-emerald-400 dark:text-emerald-600' : 'text-zinc-400'
+                    }`}>
+                      {currentStageIdx === 4 ? '⚡ ESPERA FACTORY' : currentStageIdx > 4 ? '✓ COMPLETADO' : 'PENDIENTE'}
+                    </span>
+                  </div>
+
+                  {/* 6. Finalizado */}
+                  <div className={`p-3 rounded-2xl border text-xs space-y-1 ${
+                    currentStageIdx === 5
                       ? 'bg-emerald-950/60 dark:bg-emerald-100 border-emerald-500 text-emerald-300 dark:text-emerald-800'
                       : 'bg-zinc-900/60 dark:bg-zinc-100 border-zinc-800 dark:border-zinc-200 text-zinc-500'
                   }`}>
-                    <span className="text-[9px] font-bold block opacity-70">5. FINALIZADO</span>
-                    <span className="font-extrabold text-zinc-300 dark:text-zinc-700 block">Cierre Exitoso</span>
-                    <span className="text-[9px] font-mono text-zinc-400 dark:text-zinc-500">PENDIENTE</span>
+                    <span className="text-[9px] font-bold block opacity-70">6. FINALIZADO</span>
+                    <span className="font-extrabold text-zinc-300 dark:text-zinc-700 block">Liberada</span>
+                    <span className={`text-[9px] font-bold flex items-center gap-1 ${
+                      currentStageIdx === 5 ? 'text-emerald-400 dark:text-emerald-600' : 'text-zinc-400'
+                    }`}>
+                      {currentStageIdx === 5 ? '✓ LIBERADO' : 'PENDIENTE'}
+                    </span>
                   </div>
 
                 </div>
@@ -805,6 +870,12 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
         solicitud={solicitud}
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
+        onSuccess={(photos) => {
+          if (photos.foto2) setFotoCalidadLocal(photos.foto2);
+          if (photos.folderUrl || photos.foto1 || photos.foto2) {
+            setDrivePhotos(prev => ({ ...prev, ...photos }));
+          }
+        }}
       />
 
     </div>

@@ -18,6 +18,8 @@ import { UsuarioSTF } from './authService';
 
 export type AuditActionType =
   | 'LOGIN'
+  | 'NAVEGACION'
+  | 'CONSULTA_OP'
   | 'CREACION_OP'
   | 'TRANSFERENCIA'
   | 'DICTAMEN_CALIDAD'
@@ -39,6 +41,8 @@ export interface AuditLogEntry {
   opAfectada?: string;
   descripcion: string;
   detalles?: {
+    seccionId?: string;
+    seccionNombre?: string;
     estadoAnterior?: string;
     estadoNuevo?: string;
     dictamen?: string;
@@ -103,6 +107,8 @@ class AuditService {
   private listeners: Array<(logs: AuditLogEntry[]) => void> = [];
   private unsubscribeFirestore: (() => void) | null = null;
   private isInitialized = false;
+  private lastNavigationEvent: { userId: string; seccionId: string; timestamp: number } | null = null;
+  private lastOpInspectionEvent: { userId: string; op: string; timestamp: number } | null = null;
 
   constructor() {
     this.loadFromLocalStorage();
@@ -287,6 +293,86 @@ class AuditService {
   }
 
   /**
+   * Registra la navegación de un usuario hacia un área o módulo de trabajo
+   * Incluye control anti-rebote (3 segundos) para evitar duplicados por clics repetidos
+   */
+  public async recordNavigation(
+    usuario: UsuarioSTF | null | undefined,
+    seccionId: string,
+    seccionNombre: string,
+    extraDetalles?: Record<string, any>
+  ): Promise<AuditLogEntry | null> {
+    if (!usuario || !seccionId) return null;
+
+    const now = Date.now();
+    if (
+      this.lastNavigationEvent &&
+      this.lastNavigationEvent.userId === usuario.id &&
+      this.lastNavigationEvent.seccionId === seccionId &&
+      now - this.lastNavigationEvent.timestamp < 3000
+    ) {
+      return null; // Omitir duplicado inmediato dentro de 3 segundos
+    }
+
+    this.lastNavigationEvent = {
+      userId: usuario.id,
+      seccionId,
+      timestamp: now
+    };
+
+    return this.logAction(
+      usuario,
+      'NAVEGACION',
+      `Ingresó al área de trabajo: ${seccionNombre}`,
+      undefined,
+      {
+        seccionId,
+        seccionNombre,
+        ...extraDetalles
+      }
+    );
+  }
+
+  /**
+   * Registra la inspección o apertura de la Ficha Técnica de una OP
+   */
+  public async recordOpInspection(
+    usuario: UsuarioSTF | null | undefined,
+    op: string,
+    extraDetalles?: Record<string, any>
+  ): Promise<AuditLogEntry | null> {
+    if (!usuario || !op) return null;
+
+    const cleanOp = op.trim().toUpperCase();
+    const now = Date.now();
+    if (
+      this.lastOpInspectionEvent &&
+      this.lastOpInspectionEvent.userId === usuario.id &&
+      this.lastOpInspectionEvent.op === cleanOp &&
+      now - this.lastOpInspectionEvent.timestamp < 3000
+    ) {
+      return null;
+    }
+
+    this.lastOpInspectionEvent = {
+      userId: usuario.id,
+      op: cleanOp,
+      timestamp: now
+    };
+
+    return this.logAction(
+      usuario,
+      'CONSULTA_OP',
+      `Consultó la Ficha Técnica de la ${cleanOp}`,
+      cleanOp,
+      {
+        tipoConsulta: 'FICHA_TECNICA',
+        ...extraDetalles
+      }
+    );
+  }
+
+  /**
    * Obtiene la lista actual de registros en memoria
    */
   public getCachedLogs(): AuditLogEntry[] {
@@ -338,9 +424,53 @@ class AuditService {
   }
 
   /**
+   * Obtiene estadísticas de navegación y rango de medición para un colaborador específico
+   */
+  public getUserNavigationStats(logs: AuditLogEntry[], userId: string) {
+    const userLogs = logs.filter(l => 
+      l.usuarioId.toLowerCase() === userId.toLowerCase() ||
+      l.usuarioNombre.toUpperCase() === userId.toUpperCase()
+    );
+
+    const baseDatosCount = userLogs.filter(l => l.tipoAccion === 'NAVEGACION' && l.detalles?.seccionId === 'base-datos').length;
+    const alertasCount = userLogs.filter(l => l.tipoAccion === 'NAVEGACION' && l.detalles?.seccionId === 'alertas').length;
+    const nuevaSolicitudCount = userLogs.filter(l => l.tipoAccion === 'NAVEGACION' && l.detalles?.seccionId === 'nueva-solicitud').length;
+    const solicitudesCount = userLogs.filter(l => l.tipoAccion === 'NAVEGACION' && l.detalles?.seccionId === 'solicitudes').length;
+    const chatCount = userLogs.filter(l => l.tipoAccion === 'NAVEGACION' && l.detalles?.seccionId === 'chat').length;
+    const timelineCount = userLogs.filter(l => l.tipoAccion === 'NAVEGACION' && l.detalles?.seccionId === 'timeline').length;
+    const estadisticasCount = userLogs.filter(l => l.tipoAccion === 'NAVEGACION' && l.detalles?.seccionId === 'estadisticas').length;
+    
+    const consultasOpCount = userLogs.filter(l => l.tipoAccion === 'CONSULTA_OP').length;
+    const creacionesOpCount = userLogs.filter(l => l.tipoAccion === 'CREACION_OP').length;
+    const transferenciasCount = userLogs.filter(l => l.tipoAccion === 'TRANSFERENCIA').length;
+    const dictamenesCount = userLogs.filter(l => l.tipoAccion === 'DICTAMEN_CALIDAD').length;
+    const loginsCount = userLogs.filter(l => l.tipoAccion === 'LOGIN').length;
+
+    // Conteo por días únicos
+    const diasActivos = new Set(userLogs.map(l => l.diaKey)).size;
+
+    return {
+      totalEventos: userLogs.length,
+      diasActivos,
+      baseDatosCount,
+      alertasCount,
+      nuevaSolicitudCount,
+      solicitudesCount,
+      chatCount,
+      timelineCount,
+      estadisticasCount,
+      consultasOpCount,
+      creacionesOpCount,
+      transferenciasCount,
+      dictamenesCount,
+      loginsCount
+    };
+  }
+
+  /**
    * Exporta los registros a archivo CSV descargable con codificación UTF-8 BOM
    */
-  public exportAuditToCSV(logs: AuditLogEntry[]): void {
+  public exportAuditToCSV(logs: AuditLogEntry[], customFileName?: string): void {
     if (typeof window === 'undefined' || logs.length === 0) return;
 
     const headers = [
@@ -351,6 +481,7 @@ class AuditService {
       'ROL',
       'AREA',
       'TIPO ACCIÓN',
+      'SECCIÓN / MÓDULO',
       'OP AFECTADA',
       'DESCRIPCIÓN',
       'ESTADO ANTERIOR',
@@ -370,6 +501,7 @@ class AuditService {
       `"${l.usuarioRol}"`,
       `"${l.usuarioArea}"`,
       `"${l.tipoAccion}"`,
+      `"${l.detalles?.seccionNombre || l.detalles?.seccionId || ''}"`,
       `"${l.opAfectada || ''}"`,
       `"${(l.descripcion || '').replace(/"/g, '""')}"`,
       `"${l.detalles?.estadoAnterior || ''}"`,
@@ -386,7 +518,8 @@ class AuditService {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `STF_AUDITORIA_HISTORIAL_${new Date().toISOString().split('T')[0]}.csv`);
+    const defaultName = `STF_AUDITORIA_${new Date().toISOString().split('T')[0]}.csv`;
+    link.setAttribute('download', customFileName || defaultName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

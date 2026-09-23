@@ -43,9 +43,15 @@ const AREA_TITLES: Record<string, { title: string; subtitle: string; colorClass:
   },
   CALIDAD: {
     title: 'Calidad STF — Laboratorio & Auditoría',
-    subtitle: 'Auditoría técnica, dictamen de tolerancias y aprobación final',
+    subtitle: 'Auditoría técnica, dictamen de tolerancias y evaluación de muestras',
     colorClass: 'text-purple-300',
     badgeClass: 'bg-purple-950 text-purple-300 border-purple-500/40'
+  },
+  EVALUADO: {
+    title: 'Evaluado y Enviado — Espera Colfactory',
+    subtitle: 'Órdenes evaluadas por Calidad pendientes de finalización por Factory',
+    colorClass: 'text-teal-300',
+    badgeClass: 'bg-teal-950 text-teal-300 border-teal-500/40'
   },
   FINALIZADO: {
     title: 'Finalizados — Muestras Liberadas',

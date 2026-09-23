@@ -90,6 +90,8 @@ export const AdminSlaAlertBanner: React.FC<AdminSlaAlertBannerProps> = ({
         return { label: 'RECIBIDO LAVADERO', style: 'bg-[#0c2a47] text-sky-300 border-sky-500/50' };
       case 'CALIDAD':
         return { label: 'AUDITORÍA CALIDAD', style: 'bg-[#2b1040] text-purple-300 border-purple-500/50' };
+      case 'EVALUADO':
+        return { label: 'EVALUADO Y ENVIADO', style: 'bg-[#092b25] text-teal-300 border-teal-500/50' };
       default:
         return { label: estado, style: 'bg-zinc-800 text-zinc-300 border-zinc-700' };
     }

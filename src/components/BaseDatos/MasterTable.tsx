@@ -8,7 +8,7 @@ import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { FloatingScrollPill } from '../Common/FloatingScrollPill';
 import { TabType } from '../Navigation';
 import { getOpChronologicalTimestamp } from '../../services/slaCalculator';
-import { UsuarioSTF, isAdminUser, isLavanderiaUser, isEdiazUser } from '../../services/authService';
+import { UsuarioSTF, isAdminUser, isLavanderiaUser, isEdiazUser, isFactoryUser } from '../../services/authService';
 import { getOpPhotosFromCache } from '../../services/googleSheetsService';
 import { DeletedOpsHistorySection } from './DeletedOpsHistorySection';
 import { UploadMissingPhotosModal } from '../Bandeja/UploadMissingPhotosModal';
@@ -739,14 +739,14 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                             <Printer className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {(!isLavanderiaUser(currentUser)) && onFinalizarOp && item.estado !== 'FINALIZADO' && (
+                        {isFactoryUser(currentUser) && onFinalizarOp && (item.estado === 'EVALUADO' || (isAdminUser(currentUser) && item.estado !== 'FINALIZADO')) && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               onFinalizarOp(item);
                             }}
-                            className="px-2 py-1 bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-400 dark:text-emerald-700 border border-emerald-500/40 rounded-lg text-[10px] font-black font-mono flex items-center gap-1 transition cursor-pointer shadow-xs"
+                            className="px-2 py-1 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-lg text-[10px] font-black font-mono flex items-center gap-1 transition cursor-pointer shadow-xs"
                             title="Dar por finalizada esta OP (Pasar a Finalizados en el sistema y base de datos)"
                           >
                             <CheckCircle2 className="w-3 h-3" />

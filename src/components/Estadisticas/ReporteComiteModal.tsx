@@ -256,6 +256,7 @@ export const ReporteComiteModal: React.FC<ReporteComiteModalProps> = ({
                   <option value="SOLICITADO">Tránsito / Solicitado</option>
                   <option value="LAVANDERIA">Planta Lavandería ZF</option>
                   <option value="CALIDAD">Laboratorio Calidad STF</option>
+                  <option value="EVALUADO">Evaluado y Enviado (Colfactory)</option>
                   <option value="FINALIZADO">Finalizados / Dictaminados</option>
                 </select>
               </div>

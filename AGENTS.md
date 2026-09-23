@@ -16,7 +16,7 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
 
 ---
 
-## 2. Flujo de Estados, Roles y Trazabilidad (5 Etapas de Producción)
+## 2. Flujo de Estados, Roles y Trazabilidad (6 Etapas de Producción)
 1. **Lógica Inmutable de Registro Inicial**:
    - **Perfil Calidad / Planta Principal / Admin**: Toda nueva colcha creada por personal de Calidad o Planta Principal DEBE registrarse obligatoriamente en **`SOLICITADO`** (`TRÁNSITO / DESPACHO`). *Bajo ninguna circunstancia debe registrarse directamente en `CALIDAD`*, ya que la muestra física requiere ser lavada primero.
    - **Perfil Zona Franca (Atelier ZF / Didier Muñoz / Sebastian Herrera / Calidad ZF)**: Toda nueva colcha creada por Atelier ZF DEBE registrarse obligatoriamente en **`PRE_SOLICITUD`** (`CALIDAD 2F / ATELIER`).
@@ -25,9 +25,15 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
    - El personal de Lavandería (y Administrador) es el encargado de **"llamar esa OP y cargarla en Lavandería"**, pasando su estado a **`LAVANDERIA`** (SLA máximo: 2 días hábiles).
 3. **Paso a Calidad Laboratorio**:
    - Una vez concluido el ciclo de lavado, Lavandería transfiere la OP hacia **`CALIDAD`** (`CALIDAD STF LABORATORIO`, SLA máximo: 1 día hábil).
-4. **Auditoría Técnica y Finalización**:
-   - En `CALIDAD`, los auditores técnicos evalúan la muestra (encogimiento, tono, revirado), ingresan el veredicto formal (`APROBADO` o `RECHAZADO`), la observación final de calidad y la Foto 2 (Post-Lavado).
-   - Al confirmar, la OP pasa a **`FINALIZADO`** (Liberado) y se activa la Fase 2 de etiqueta térmica.
+4. **Auditoría Técnica y Envío a Evaluado y Enviado**:
+   - En `CALIDAD`, los auditores técnicos evalúan la muestra (encogimiento, tono, revirado), ingresan el veredicto formal (`APROBADO`, `APROBADO EN GAMA` o `RECHAZADO`), la observación de calidad y la Foto 2 (Post-Lavado).
+   - Al pulsar el botón de envío en Calidad, la OP **NO pasa directamente a Finalizado**, sino que se transfiere al apartado **`EVALUADO Y ENVIADO`** (`EVALUADO`).
+5. **Apartado EVALUADO Y ENVIADO & Control Exclusivo Factory**:
+   - En este apartado se muestra la ficha con los resultados de la auditoría técnica de Calidad (Veredicto, Observación técnica y Fotos).
+   - **REGLA DE ACCESO EXCLUSIVO AL BOTÓN FINALIZAR**: Únicamente el personal perteneciente a **Factory (Colfactory / Lavandería / Admin)** tiene acceso al botón **`FINALIZAR`** en cada ficha de OP. Para los demás usuarios (Calidad, ZF, etc.), el botón está oculto y se visualiza un estado informativo de espera.
+6. **Finalización y Liberación Oficial**:
+   - Cuando el usuario de Factory da clic en **`FINALIZAR`**, la OP pasa inmediatamente al área de trabajo **`FINALIZADOS`** (Liberada).
+   - Se depura de la hoja `ALERTAS`, se actualiza en Google Sheets a `FINALIZADO`, se dispara la notificación de correo oficial (Flujo C) y se activa la Fase 2 de etiqueta térmica.
 
 ---
 

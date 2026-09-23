@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Search, ArrowUpDown, Clock, Zap, BarChart3, Send, Droplets, 
   Microscope, CheckCircle2, Sparkles, X, Tag, Calendar, Layers,
-  ChevronDown, ArrowUp, ArrowDown, AlertTriangle
+  ChevronDown, ArrowUp, ArrowDown, AlertTriangle, ClipboardCheck
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType, KpiMetrics } from '../../types';
 import { SolicitudCard } from './SolicitudCard';
@@ -84,6 +84,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
   const delaysSol = solicitudes.filter(s => s.estado === 'SOLICITADO' && s.tieneRetraso).length;
   const delaysLav = solicitudes.filter(s => s.estado === 'LAVANDERIA' && s.tieneRetraso).length;
   const delaysCal = solicitudes.filter(s => s.estado === 'CALIDAD' && s.tieneRetraso).length;
+  const delaysEval = solicitudes.filter(s => s.estado === 'EVALUADO' && s.tieneRetraso).length;
   const alertCount = solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length;
 
   /**
@@ -207,6 +208,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
       case 'SOLICITADO': return 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-500/40';
       case 'LAVANDERIA': return 'bg-sky-50 text-sky-800 border-sky-300 dark:bg-sky-950 dark:text-sky-400 dark:border-sky-500/40';
       case 'CALIDAD': return 'bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-500/40';
+      case 'EVALUADO': return 'bg-teal-50 text-teal-800 border-teal-300 dark:bg-teal-950 dark:text-teal-400 dark:border-teal-500/40';
       case 'FINALIZADO': return 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-500/40';
       default: return 'bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700';
     }
@@ -377,8 +379,8 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
 
       </div>
 
-      {/* 3. ROW OF 7 STAGE FILTER CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3">
+      {/* 3. ROW OF 8 STAGE FILTER CARDS */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-2.5">
         
         {/* 1. Total Histórico */}
         <div
@@ -552,10 +554,41 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
           </div>
         </div>
 
-        {/* 7. Finalizados (Liberadas) */}
+        {/* 7. Evaluado y Enviado (Espera Factory) */}
+        <div
+          onClick={() => setSelectedStage('EVALUADO')}
+          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
+            selectedStage === 'EVALUADO'
+              ? 'border-2 border-teal-500 shadow-[0_4px_20px_rgba(20,184,166,0.25)] dark:shadow-[0_0_20px_rgba(20,184,166,0.35)] ring-1 ring-teal-500/50'
+              : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-teal-500/50 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'
+          }`}
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-xs font-black text-zinc-900 dark:text-white block tracking-wider">EVALUADO Y ENVIADO</span>
+              <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block tracking-tight">COLFACTORY</span>
+            </div>
+            <div className="w-7 h-7 rounded-full bg-teal-50 border border-teal-200 dark:bg-teal-950/80 dark:border-teal-500/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-xs">
+              <ClipboardCheck className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between">
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white">{metrics.evaluado || 0}</span>
+              <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase">OP</span>
+            </div>
+            {delaysEval > 0 && (
+              <span className="text-[9.5px] bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/90 dark:text-rose-300 dark:border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1 shadow-xs">
+                <span>🚨 {delaysEval} &gt;3D</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* 8. Finalizados (Liberadas) */}
         <div
           onClick={() => setSelectedStage('FINALIZADO')}
-          className={`col-span-2 sm:col-span-1 rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
+          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
             selectedStage === 'FINALIZADO'
               ? 'border-2 border-emerald-500 shadow-[0_4px_20px_rgba(16,185,129,0.25)] dark:shadow-[0_0_20px_rgba(16,185,129,0.35)] ring-1 ring-emerald-500/50'
               : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-emerald-500/50 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'

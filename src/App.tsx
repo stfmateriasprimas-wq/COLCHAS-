@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { Header } from './components/Header';
 import { TabType } from './components/Navigation';
 import { CleanLandingView } from './components/Dashboard/CleanLandingView';
@@ -47,6 +47,7 @@ import {
   getCachedSolicitudes,
   saveCachedSolicitudes,
   getOpPhotosFromCache,
+  saveOpPhotosToCache,
   INITIAL_MONITOREO_DATA, 
   INITIAL_SOLICITUDES_DATA 
 } from './services/googleSheetsService';
@@ -193,6 +194,40 @@ export function App() {
     loadAllLiveData(true);
   }, [activeTab]);
 
+  // Nombres legibles de cada área de trabajo para la auditoría forense
+  const TAB_SECTION_NAMES: Record<TabType, string> = {
+    'dashboard': 'Panel de Control Principal',
+    'nueva-solicitud': 'Nueva Solicitud de Colcha',
+    'solicitudes': 'Bandeja de Solicitudes',
+    'base-datos': 'Base de Datos Maestra',
+    'alertas': 'Alertas y Monitoreo SLA',
+    'timeline': 'Línea de Tiempo Operativa',
+    'estadisticas': 'Módulo de Estadísticas y KPI',
+    'chat': 'Chat Colaborativo STF',
+    'soporte-auditoria': 'Auditoría & Historial Forense'
+  };
+
+  // Auditoría forense en tiempo real: registro silencioso del recorrido y áreas de trabajo visitadas
+  const prevTabRef = useRef<TabType | null>(null);
+  useEffect(() => {
+    if (!currentUser) return;
+    if (prevTabRef.current !== activeTab) {
+      prevTabRef.current = activeTab;
+      const sectionName = TAB_SECTION_NAMES[activeTab] || activeTab;
+      auditService.recordNavigation(currentUser, activeTab, sectionName).catch(() => {});
+    }
+  }, [activeTab, currentUser]);
+
+  // Auditoría forense: registro cuando el colaborador consulta la Ficha Técnica de una OP
+  useEffect(() => {
+    if (!currentUser || !selectedColchaDetail) return;
+    auditService.recordOpInspection(currentUser, selectedColchaDetail.op, {
+      tela: selectedColchaDetail.tela,
+      estado: selectedColchaDetail.estado,
+      dictamen: selectedColchaDetail.dictamen
+    }).catch(() => {});
+  }, [selectedColchaDetail, currentUser]);
+
   // Monitoreo en tiempo real de mensajes de chat no leídos (Insignia roja en Header)
   useEffect(() => {
     if (!currentUser) {
@@ -328,7 +363,22 @@ export function App() {
 
         // Blindaje contra condición de carrera: asegurar que cualquier OP creada localmente nunca se pierda
         const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
-        const mergedLive = [...activeOnly];
+
+        // Enriquecer todas las OPs remotas con fotos cacheadas en memoria/disco para que el polling de Sheets no las borre
+        const enrichedRemote = activeOnly.map(remote => {
+          const cached = getOpPhotosFromCache(remote.op);
+          if (cached && (cached.foto1 || cached.foto2 || cached.folderUrl)) {
+            return {
+              ...remote,
+              fotoMuestraUrl: remote.fotoMuestraUrl || cached.foto1,
+              fotoCalidadUrl: remote.fotoCalidadUrl || cached.foto2,
+              driveFolderUrl: remote.driveFolderUrl || cached.folderUrl
+            };
+          }
+          return remote;
+        });
+
+        const mergedLive = [...enrichedRemote];
         localOps.forEach(loc => {
           const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
           const remoteIdx = mergedLive.findIndex(m => ((m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()) === cleanLocOp);
@@ -458,6 +508,9 @@ export function App() {
     const opNumber = solicitud.op;
     const auditorName = currentUser ? currentUser.nombre : 'AUDITOR STF';
 
+    const finalDictamen = (solicitud.dictamen || 'APROBADO') as DictamenType;
+    const finalObs = solicitud.observacionesCalidad || `Orden finalizada y liberada por ${auditorName}`;
+
     setSolicitudes(prev => prev.map(item => {
       if (item.id === solicitud.id || item.op.trim().toUpperCase() === solicitud.op.trim().toUpperCase()) {
         const { diasHabiles, horasHabiles } = calculateWorkingDays(item.fechaCreacion);
@@ -465,13 +518,13 @@ export function App() {
           ...item,
           estado: 'FINALIZADO' as SectorType,
           areaActual: 'CALIDAD PLANTA STF',
-          dictamen: 'APROBADO' as DictamenType,
+          dictamen: finalDictamen,
           diasHabiles,
           horasEnProceso: horasHabiles,
           tieneRetraso: false,
           esRetrasoCritico: false,
           fechaActualizacion: new Date().toISOString(),
-          observacionesCalidad: `Orden finalizada y liberada por ${auditorName}`
+          observacionesCalidad: finalObs
         };
       }
       return item;
@@ -479,9 +532,9 @@ export function App() {
 
     // Depuración en tiempo real de la página ALERTAS de Google Sheets
     removeOpFromAlertasSheet(opNumber);
-    updateLocalOpStatus(solicitud.id, 'FINALIZADO', 'CALIDAD PLANTA STF', `Orden finalizada y liberada por ${auditorName}`, 'APROBADO');
+    updateLocalOpStatus(solicitud.id, 'FINALIZADO', 'CALIDAD PLANTA STF', finalObs, finalDictamen);
     if (opNumber) {
-      updateLocalOpStatus(opNumber, 'FINALIZADO', 'CALIDAD PLANTA STF', `Orden finalizada y liberada por ${auditorName}`, 'APROBADO');
+      updateLocalOpStatus(opNumber, 'FINALIZADO', 'CALIDAD PLANTA STF', finalObs, finalDictamen);
     }
 
     notificationService.playAlertSound('EXITO');
@@ -491,19 +544,34 @@ export function App() {
     auditService.logAction(
       currentUser || { id: 'auditor', nombre: auditorName, rol: 'ADMINISTRADOR', area: 'CALIDAD', email: '' },
       'DICTAMEN_CALIDAD',
-      `Finalización y liberación inmediata de colcha ${opNumber} con veredicto APROBADO`,
+      `Finalización y liberación inmediata de colcha ${opNumber} con veredicto ${finalDictamen}`,
       opNumber,
-      { dictamen: 'APROBADO', auditor: auditorName }
+      { dictamen: finalDictamen, auditor: auditorName }
     );
 
     // Sincronización en vivo hacia Google Sheets (Página BASE_DE_DATOS)
     if (opNumber) {
       try {
-        await pushDictamenToSheets(opNumber, 'APROBADO', auditorName, 'Finalizado automático desde tarjeta de OP');
+        const cachedPhoto = getOpPhotosFromCache(opNumber);
+        const photoToSend = solicitud.fotoCalidadUrl || cachedPhoto?.foto2 || '';
+        const dictRes = await pushDictamenToSheets(opNumber, finalDictamen, auditorName, finalObs, photoToSend);
+        if (dictRes && (dictRes.driveUrl || dictRes.folderUrl)) {
+          updateLocalOpPhoto(opNumber, dictRes.driveUrl || photoToSend, true);
+        }
       } catch (err) {
         console.error("Error sincronizando dictamen final a Sheets:", err);
       }
     }
+
+    // Apertura automática del modal de etiqueta térmica en Fase 2 (Finalizado)
+    const finalizedColcha: SolicitudColcha = {
+      ...solicitud,
+      estado: 'FINALIZADO',
+      dictamen: finalDictamen,
+      observacionesCalidad: finalObs,
+      areaActual: 'CALIDAD PLANTA STF'
+    };
+    setSelectedColchaPrinter(finalizedColcha);
   };
 
   const handleRestoreOp = (restoredSol: SolicitudColcha) => {
@@ -547,6 +615,7 @@ export function App() {
     solicitados: solicitudes.filter(s => s.estado === 'SOLICITADO').length,
     lavanderia: solicitudes.filter(s => s.estado === 'LAVANDERIA').length,
     calidad: solicitudes.filter(s => s.estado === 'CALIDAD').length,
+    evaluado: solicitudes.filter(s => s.estado === 'EVALUADO').length,
     finalizados: solicitudes.filter(s => s.estado === 'FINALIZADO').length
   };
 
@@ -666,6 +735,7 @@ export function App() {
           SOLICITADO: 'TRÁNSITO / DESPACHO',
           LAVANDERIA: 'LAVANDERÍA COLFACTORY ZF',
           CALIDAD: 'CALIDAD STF LABORATORIO',
+          EVALUADO: 'EVALUADO Y ENVIADO',
           FINALIZADO: 'CALIDAD PLANTA STF'
         };
 
@@ -673,7 +743,7 @@ export function App() {
           ...item,
           estado: nuevoEstado,
           areaActual: areaMap[nuevoEstado],
-          dictamen: nuevoEstado === 'FINALIZADO' ? (dictamen || item.dictamen || 'APROBADO') : item.dictamen,
+          dictamen: (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'EVALUADO') ? (dictamen || item.dictamen || 'APROBADO') : item.dictamen,
           fotoCalidadUrl: fotoCalidad || item.fotoCalidadUrl,
           fechaActualizacion: new Date().toISOString()
         };
@@ -681,7 +751,7 @@ export function App() {
         if (nuevaObservacion) {
           if (item.estado === 'LAVANDERIA' || nuevoEstado === 'LAVANDERIA') {
             updated.observacionesLavanderia = nuevaObservacion;
-          } else if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CALIDAD') {
+          } else if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CALIDAD' || nuevoEstado === 'EVALUADO') {
             updated.observacionesCalidad = nuevaObservacion;
           }
         }
@@ -702,6 +772,7 @@ export function App() {
       SOLICITADO: 'TRÁNSITO / DESPACHO',
       LAVANDERIA: 'LAVANDERÍA COLFACTORY ZF',
       CALIDAD: 'CALIDAD STF LABORATORIO',
+      EVALUADO: 'EVALUADO Y ENVIADO',
       FINALIZADO: 'CALIDAD PLANTA STF'
     };
     updateLocalOpStatus(solicitudId, nuevoEstado, areaMap[nuevoEstado], nuevaObservacion, dictamen);
@@ -713,6 +784,11 @@ export function App() {
       if (opNumber) {
         updateLocalOpPhoto(opNumber, fotoCalidad, true);
       }
+    }
+    if (nuevoEstado === 'EVALUADO' && fotoCalidad && opNumber) {
+      pushOpPhotoToSheets(opNumber, fotoCalidad, true).catch(err => {
+        console.warn('Error sincronizando foto en Evaluado a Sheets:', err);
+      });
     }
 
     // Alertas sonoras y sincronización con Google Sheets
@@ -772,13 +848,20 @@ export function App() {
   // Update photo handler
   const handleUpdateOpPhoto = async (solicitudId: string, photoUrl: string, isCalidad?: boolean) => {
     let targetOpNumber = '';
+    const cleanIdDigits = String(solicitudId).replace(/\D/g, '');
+
+    // 1. Actualización inmediata en memoria en 0 ms
     setSolicitudes(prev => prev.map(item => {
-      if (item.id === solicitudId) {
+      const cleanItemDigits = item.op.replace(/\D/g, '');
+      const isMatch = item.id === solicitudId || 
+                      item.op === solicitudId || 
+                      (cleanIdDigits !== '' && cleanItemDigits === cleanIdDigits);
+      if (isMatch) {
         targetOpNumber = item.op;
         const updated = isCalidad
           ? { ...item, fotoCalidadUrl: photoUrl }
           : { ...item, fotoMuestraUrl: photoUrl };
-        if (selectedColchaDetail && selectedColchaDetail.id === solicitudId) {
+        if (selectedColchaDetail && (selectedColchaDetail.id === item.id || selectedColchaDetail.op === item.op)) {
           setSelectedColchaDetail(updated);
         }
         return updated;
@@ -786,16 +869,39 @@ export function App() {
       return item;
     }));
 
-    if (targetOpNumber) {
-      // Registro en auditoría forense para SOPORTE TEC.
-      auditService.logAction(
-        currentUser || { id: 'operario', nombre: 'OPERARIO STF', rol: 'OPERARIO', area: 'CALIDAD', email: '' },
-        'ACTUALIZACION_FOTO',
-        `Carga/actualización de ${isCalidad ? 'Foto Calidad (Post-Lavado)' : 'Foto Muestra Inicial'}`,
-        targetOpNumber,
-        { tipoFoto: isCalidad ? 'CALIDAD' : 'MUESTRA' }
-      );
-      await pushOpPhotoToSheets(targetOpNumber, photoUrl, isCalidad);
+    if (!targetOpNumber) {
+      targetOpNumber = solicitudId;
+    }
+
+    // Persistir de inmediato en caché local
+    saveOpPhotosToCache(targetOpNumber, isCalidad ? { foto2: photoUrl } : { foto1: photoUrl });
+    updateLocalOpPhoto(targetOpNumber, photoUrl, isCalidad);
+
+    // Registro en auditoría forense para SOPORTE TEC.
+    auditService.logAction(
+      currentUser || { id: 'operario', nombre: 'OPERARIO STF', rol: 'OPERARIO', area: 'CALIDAD', email: '' },
+      'ACTUALIZACION_FOTO',
+      `Carga/actualización de ${isCalidad ? 'Foto Calidad (Post-Lavado)' : 'Foto Muestra Inicial'}`,
+      targetOpNumber,
+      { tipoFoto: isCalidad ? 'CALIDAD' : 'MUESTRA' }
+    );
+
+    // Sincronizar en segundo plano con Google Sheets & Google Drive
+    const res = await pushOpPhotoToSheets(targetOpNumber, photoUrl, isCalidad);
+    const driveUrl = isCalidad ? (res.foto2 || res.driveUrl) : (res.foto1 || res.driveUrl);
+    if (driveUrl) {
+      setSolicitudes(prev => prev.map(item => {
+        if (item.op === targetOpNumber || item.id === solicitudId) {
+          const updated = isCalidad
+            ? { ...item, fotoCalidadUrl: driveUrl, driveFolderUrl: res.folderUrl || item.driveFolderUrl }
+            : { ...item, fotoMuestraUrl: driveUrl, driveFolderUrl: res.folderUrl || item.driveFolderUrl };
+          if (selectedColchaDetail && (selectedColchaDetail.id === item.id || selectedColchaDetail.op === item.op)) {
+            setSelectedColchaDetail(updated);
+          }
+          return updated;
+        }
+        return item;
+      }));
     }
   };
 

@@ -157,6 +157,14 @@ export function isLavanderiaUser(user?: UsuarioSTF | null): boolean {
 }
 
 /**
+ * Determina si el usuario logueado pertenece al grupo Factory (Colfactory / Lavandería / Administrador)
+ */
+export function isFactoryUser(user?: UsuarioSTF | null): boolean {
+  if (!user) return false;
+  return isLavanderiaUser(user) || isAdminUser(user);
+}
+
+/**
  * Identificadores oficiales de usuarios del área de Calidad
  */
 export const CALIDAD_USER_IDS = [

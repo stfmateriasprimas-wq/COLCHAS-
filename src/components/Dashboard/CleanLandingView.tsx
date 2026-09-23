@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   PlusCircle, ClipboardList, BarChart3, Zap, 
-  Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity, ShieldCheck 
+  Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity, ShieldCheck, ClipboardCheck 
 } from 'lucide-react';
 import { TabType } from '../Navigation';
 import { KpiMetrics, SectorType, SolicitudColcha } from '../../types';
@@ -29,6 +29,7 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
   const delaysSol = solicitudes.filter(s => s.estado === 'SOLICITADO' && s.tieneRetraso).length;
   const delaysLav = solicitudes.filter(s => s.estado === 'LAVANDERIA' && s.tieneRetraso).length;
   const delaysCal = solicitudes.filter(s => s.estado === 'CALIDAD' && s.tieneRetraso).length;
+  const delaysEval = solicitudes.filter(s => s.estado === 'EVALUADO' && s.tieneRetraso).length;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300 select-none pb-8">
@@ -74,8 +75,8 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
         </div>
       </div>
 
-      {/* 2. ROW OF 7 KPI CARDS IN REAL TIME */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3">
+      {/* 2. ROW OF 8 KPI CARDS IN REAL TIME */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
         
         {/* 1. Total Histórico */}
         <div
@@ -223,10 +224,38 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
           <span className="text-[9px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-mono mt-1 font-bold">EN AUDITORÍA</span>
         </div>
 
-        {/* 7. Finalizados */}
+        {/* 7. Evaluado y Enviado */}
+        <div
+          onClick={() => onSelectArea('EVALUADO')}
+          className="bg-white border border-zinc-200/90 hover:border-teal-500 dark:bg-[#0c1017] dark:border-zinc-800 dark:hover:border-teal-400 rounded-2xl p-4 flex flex-col justify-between shadow-[0_4px_16px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_20px_rgba(255,255,255,0.05)] hover:dark:shadow-[0_8px_25px_rgba(255,255,255,0.08)] cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 group text-zinc-950 dark:text-white"
+          title="Clic para ver OPs Evaluadas (Espera Colfactory)"
+        >
+          <div className="flex items-center justify-between text-[11px] text-teal-600 dark:text-teal-400 font-bold uppercase">
+            <span>EVALUADO</span>
+            <ClipboardCheck className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+          </div>
+          <div className="mt-3 flex items-baseline justify-between">
+            <div>
+              <span className="text-3xl font-black font-mono text-zinc-950 dark:text-white">{metrics.evaluado || 0}</span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium ml-1">OP</span>
+            </div>
+            {delaysEval > 0 ? (
+              <span className="text-[9px] bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800 px-1.5 py-0.5 rounded font-mono font-bold">
+                ⏳ {delaysEval} &gt;3D
+              </span>
+            ) : (
+              <span className="text-[9px] bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/80 dark:text-teal-300 dark:border-teal-800 px-1.5 py-0.5 rounded border font-bold font-mono">
+                FACTORY
+              </span>
+            )}
+          </div>
+          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-mono mt-1 font-bold">ESPERA FACTORY</span>
+        </div>
+
+        {/* 8. Finalizados */}
         <div
           onClick={() => onSelectArea('FINALIZADO')}
-          className="col-span-2 sm:col-span-1 bg-white border border-emerald-500/50 hover:border-emerald-600 dark:bg-[#0c1017] dark:border-emerald-500/60 dark:hover:border-emerald-400 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-[0_4px_16px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_20px_rgba(255,255,255,0.05)] hover:dark:shadow-[0_8px_25px_rgba(255,255,255,0.08)] cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 group text-zinc-950 dark:text-white"
+          className="bg-white border border-emerald-500/50 hover:border-emerald-600 dark:bg-[#0c1017] dark:border-emerald-500/60 dark:hover:border-emerald-400 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between shadow-[0_4px_16px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_20px_rgba(255,255,255,0.05)] hover:dark:shadow-[0_8px_25px_rgba(255,255,255,0.08)] cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 group text-zinc-950 dark:text-white"
           title="Clic para ver OPs Finalizadas"
         >
           <div className="flex items-center justify-between text-[11px] text-emerald-600 dark:text-emerald-400 font-bold uppercase">

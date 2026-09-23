@@ -19,7 +19,8 @@ const NEXT_SECTOR: Record<SectorType, { next: SectorType; label: string; area: s
   PRE_SOLICITUD: { next: 'LAVANDERIA', label: 'LAVANDERÍA COLFACTORY ZF', area: 'LAVANDERÍA COLFACTORY ZF' },
   SOLICITADO: { next: 'LAVANDERIA', label: 'LAVANDERÍA COLFACTORY ZF', area: 'LAVANDERÍA COLFACTORY ZF' },
   LAVANDERIA: { next: 'CALIDAD', label: 'CALIDAD STF (Laboratorio)', area: 'CALIDAD STF LABORATORIO' },
-  CALIDAD: { next: 'FINALIZADO', label: 'FINALIZADO (Liberar Muestra)', area: 'CALIDAD PLANTA STF' },
+  CALIDAD: { next: 'EVALUADO', label: 'EVALUADO Y ENVIADO (A Colfactory)', area: 'EVALUADO Y ENVIADO' },
+  EVALUADO: { next: 'FINALIZADO', label: 'FINALIZADO (Liberar Muestra)', area: 'CALIDAD PLANTA STF' },
   FINALIZADO: { next: 'FINALIZADO', label: 'FINALIZADO', area: 'FINALIZADO' }
 };
 

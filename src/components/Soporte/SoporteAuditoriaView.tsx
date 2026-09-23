@@ -25,13 +25,15 @@ import {
   UserCheck,
   Radio,
   SlidersHorizontal,
-  ChevronDown
+  ChevronDown,
+  Compass
 } from 'lucide-react';
 import { UsuarioSTF, getUsuariosList } from '../../services/authService';
 import { auditService, AuditLogEntry, UserLoginSummary, AuditActionType } from '../../services/auditService';
 import { SolicitudColcha, KpiMetrics } from '../../types';
 import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { TabType } from '../Navigation';
+import { UserAuditHistoryModal } from './UserAuditHistoryModal';
 
 interface SoporteAuditoriaViewProps {
   currentUser: UsuarioSTF;
@@ -176,10 +178,22 @@ export const SoporteAuditoriaView: React.FC<SoporteAuditoriaViewProps> = ({
     );
   }, [userLoginSummaries, userSearchQuery]);
 
-  // Atajo para filtrar historial al hacer clic en un usuario
+  // Modal de auditoría e inspección profunda de un colaborador
+  const [inspectingUser, setInspectingUser] = useState<UsuarioSTF | null>(null);
+
+  // Atajo para inspeccionar historial y recorrido forense de un usuario
   const handleInspectUserHistory = (userId: string) => {
-    setSelectedUserFilter(userId);
-    setActiveSubTab('historial');
+    const found: UsuarioSTF = usuarios.find(u => 
+      u.id.toLowerCase() === userId.toLowerCase() || 
+      u.nombre.toUpperCase() === userId.toUpperCase()
+    ) || {
+      id: userId,
+      nombre: userId,
+      rol: 'OPERARIO',
+      area: 'CALIDAD',
+      email: ''
+    };
+    setInspectingUser(found);
   };
 
   // Encontrar colcha en el estado local para ver ficha
@@ -198,6 +212,18 @@ export const SoporteAuditoriaView: React.FC<SoporteAuditoriaViewProps> = ({
   // Helper para renderizar iconos y colores por tipo de acción
   const getActionBadge = (action: AuditActionType) => {
     switch (action) {
+      case 'NAVEGACION':
+        return {
+          label: 'ACCESO A MÓDULO',
+          icon: Compass,
+          badgeClass: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
+        };
+      case 'CONSULTA_OP':
+        return {
+          label: 'FICHA OP CONSULTADA',
+          icon: Eye,
+          badgeClass: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
+        };
       case 'CREACION_OP':
         return {
           label: 'CREACIÓN DE OP',
@@ -611,6 +637,8 @@ export const SoporteAuditoriaView: React.FC<SoporteAuditoriaViewProps> = ({
                   className="w-full px-3.5 py-2.5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
                 >
                   <option value="ALL">Todas las acciones</option>
+                  <option value="NAVEGACION">Accesos a Módulos y Secciones</option>
+                  <option value="CONSULTA_OP">Consultas de Ficha OP</option>
                   <option value="CREACION_OP">Creación de OP</option>
                   <option value="TRANSFERENCIA">Transferencias de Estado</option>
                   <option value="DICTAMEN_CALIDAD">Dictamen de Calidad</option>
@@ -837,6 +865,17 @@ export const SoporteAuditoriaView: React.FC<SoporteAuditoriaViewProps> = ({
           )}
 
         </div>
+      )}
+
+      {/* 4. MODAL FORENSE DETALLADO DEL COLABORADOR (RANGO DE MEDICIÓN Y RECORRIDO) */}
+      {inspectingUser && (
+        <UserAuditHistoryModal
+          user={inspectingUser}
+          allLogs={logs}
+          solicitudes={solicitudes}
+          onClose={() => setInspectingUser(null)}
+          onViewOpDetail={onViewOpDetail}
+        />
       )}
 
     </div>

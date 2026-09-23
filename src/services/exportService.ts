@@ -190,9 +190,9 @@ export function generateColchaPdfTicket(colcha: SolicitudColcha) {
     format: [100, 100]
   });
 
-  const isFinalizado = colcha.estado === 'FINALIZADO';
   const cleanFinalObs = getCleanFinalQualityObservation(colcha);
   const cleanInitialObs = getCleanInitialObservation(colcha);
+  const isFinalizado = colcha.estado === 'FINALIZADO' || (colcha.estado === 'EVALUADO' && Boolean(cleanFinalObs));
   const obsToShow = isFinalizado ? cleanFinalObs : cleanInitialObs;
   const obsTitle = isFinalizado ? 'OBSERVACIÓN FINAL CALIDAD:' : 'OBSERVACIÓN OPERARIO / CORTE:';
 
@@ -332,9 +332,9 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
     ? `<img src="${qrDataUrl}" class="qr-img" alt="QR Trazabilidad" />`
     : `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(trackingUrl)}" class="qr-img" alt="QR Trazabilidad" />`;
 
-  const isFinalizado = colcha.estado === 'FINALIZADO';
   const cleanFinalObs = getCleanFinalQualityObservation(colcha);
   const cleanInitialObs = getCleanInitialObservation(colcha);
+  const isFinalizado = colcha.estado === 'FINALIZADO' || (colcha.estado === 'EVALUADO' && Boolean(cleanFinalObs));
   const obsToShow = isFinalizado ? cleanFinalObs : cleanInitialObs;
   const obsTitle = isFinalizado ? 'OBSERVACIÓN FINAL CALIDAD:' : 'OBSERVACIÓN OPERARIO / CORTE:';
 

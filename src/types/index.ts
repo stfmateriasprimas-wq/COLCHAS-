@@ -3,6 +3,7 @@ export type SectorType =
   | 'SOLICITADO'
   | 'LAVANDERIA'
   | 'CALIDAD'
+  | 'EVALUADO'
   | 'FINALIZADO';
 
 export type DictamenType = 'PENDIENTE' | 'APROBADO' | 'APROBADO EN GAMA' | 'RECHAZADO';
@@ -105,5 +106,6 @@ export interface KpiMetrics {
   solicitados: number;
   lavanderia: number;
   calidad: number;
+  evaluado: number;
   finalizados: number;
 }

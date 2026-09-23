@@ -25,6 +25,7 @@ export interface ComiteMetrics {
     solicitados: { count: number; metros: number; pct: number };
     lavanderia: { count: number; metros: number; pct: number };
     calidad: { count: number; metros: number; pct: number };
+    evaluado: { count: number; metros: number; pct: number };
     finalizados: { count: number; metros: number; pct: number };
   };
 }
@@ -118,6 +119,8 @@ export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMe
   let metrosLav = 0;
   let countCal = 0;
   let metrosCal = 0;
+  let countEval = 0;
+  let metrosEval = 0;
   let countFin = 0;
   let metrosFin = 0;
 
@@ -148,6 +151,9 @@ export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMe
     } else if (item.estado === 'CALIDAD') {
       countCal++;
       metrosCal += metros;
+    } else if (item.estado === 'EVALUADO') {
+      countEval++;
+      metrosEval += metros;
     } else if (item.estado === 'FINALIZADO') {
       countFin++;
       metrosFin += metros;
@@ -187,6 +193,11 @@ export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMe
         count: countCal,
         metros: metrosCal,
         pct: totalOps > 0 ? Math.round((countCal / totalOps) * 1000) / 10 : 0
+      },
+      evaluado: {
+        count: countEval,
+        metros: metrosEval,
+        pct: totalOps > 0 ? Math.round((countEval / totalOps) * 1000) / 10 : 0
       },
       finalizados: {
         count: countFin,
@@ -373,6 +384,7 @@ export function generateComitePdf(
     ['Tránsito / Lavandería (Solicitado)', `${metrics.distribucion.solicitados.count} OPs`, `${metrics.distribucion.solicitados.metros} m`, `${metrics.distribucion.solicitados.pct}%`],
     ['Planta de Lavado (Recibido)', `${metrics.distribucion.lavanderia.count} OPs`, `${metrics.distribucion.lavanderia.metros} m`, `${metrics.distribucion.lavanderia.pct}%`],
     ['Laboratorio de Calidad STF', `${metrics.distribucion.calidad.count} OPs`, `${metrics.distribucion.calidad.metros} m`, `${metrics.distribucion.calidad.pct}%`],
+    ['Evaluado y Enviado (Colfactory)', `${metrics.distribucion.evaluado.count} OPs`, `${metrics.distribucion.evaluado.metros} m`, `${metrics.distribucion.evaluado.pct}%`],
     ['Finalizados / Dictaminados', `${metrics.distribucion.finalizados.count} OPs`, `${metrics.distribucion.finalizados.metros} m`, `${metrics.distribucion.finalizados.pct}%`]
   ];
 
@@ -496,6 +508,7 @@ export function generateComiteExcel(
     ['Tránsito / Despacho (Solicitados)', metrics.distribucion.solicitados.count, metrics.distribucion.solicitados.metros, `${metrics.distribucion.solicitados.pct}%`],
     ['Lavandería (Colfactory ZF)', metrics.distribucion.lavanderia.count, metrics.distribucion.lavanderia.metros, `${metrics.distribucion.lavanderia.pct}%`],
     ['Calidad (Laboratorio STF)', metrics.distribucion.calidad.count, metrics.distribucion.calidad.metros, `${metrics.distribucion.calidad.pct}%`],
+    ['Evaluado y Enviado (Colfactory)', metrics.distribucion.evaluado.count, metrics.distribucion.evaluado.metros, `${metrics.distribucion.evaluado.pct}%`],
     ['Finalizados / Liberados', metrics.distribucion.finalizados.count, metrics.distribucion.finalizados.metros, `${metrics.distribucion.finalizados.pct}%`]
   ];
 

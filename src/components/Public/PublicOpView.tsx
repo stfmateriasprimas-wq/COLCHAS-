@@ -101,7 +101,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     const bestFotoMuestra = liveFound?.fotoMuestraUrl || localFound?.fotoMuestraUrl || parsedQr?.fotoMuestraUrl || cachedPhotos?.foto1;
     const bestFotoCalidad = liveFound?.fotoCalidadUrl || localFound?.fotoCalidadUrl || parsedQr?.fotoCalidadUrl || cachedPhotos?.foto2;
 
-    const obsCalidad = liveFound?.observacionesCalidad || localFound?.observacionesCalidad || (estadoFinal === 'FINALIZADO' ? parsedQr?.observacionesCalidad : '') || '';
+    const obsCalidad = liveFound?.observacionesCalidad || localFound?.observacionesCalidad || ((estadoFinal === 'FINALIZADO' || estadoFinal === 'EVALUADO') ? parsedQr?.observacionesCalidad : '') || '';
     const obsOperario = liveFound?.observacionesOperario || localFound?.observacionesOperario || parsedQr?.observacionesOperario || '';
     const obsLavanderia = liveFound?.observacionesLavanderia || localFound?.observacionesLavanderia || '';
 
@@ -213,7 +213,8 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
     { id: 'SOLICITADO', label: '2. En Tránsito', icon: '🚚', desc: 'Despacho hacia Lavandería' },
     { id: 'LAVANDERIA', label: '3. Lavandería ZF', icon: '💧', desc: 'Proceso de lavado industrial' },
     { id: 'CALIDAD', label: '4. Calidad Lab', icon: '🔬', desc: 'Inspección técnica y tono' },
-    { id: 'FINALIZADO', label: '5. Liberado', icon: '✅', desc: 'Aprobado para producción' }
+    { id: 'EVALUADO', label: '5. Evaluado y Enviado', icon: '📋', desc: 'Evaluada, en espera Colfactory' },
+    { id: 'FINALIZADO', label: '6. Liberado', icon: '✅', desc: 'Aprobado para producción' }
   ];
 
   const getStageIndex = (estado?: SectorType): number => {
@@ -222,7 +223,8 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
       case 'SOLICITADO': return 1;
       case 'LAVANDERIA': return 2;
       case 'CALIDAD': return 3;
-      case 'FINALIZADO': return 4;
+      case 'EVALUADO': return 4;
+      case 'FINALIZADO': return 5;
       default: return 1;
     }
   };
@@ -455,7 +457,7 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
                 </div>
 
                 {/* OBSERVACIONES TÉCNICAS Y CALIDAD */}
-                {colcha.estado === 'FINALIZADO' ? (
+                {colcha.estado === 'FINALIZADO' || colcha.estado === 'EVALUADO' ? (
                   <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
                     <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5 uppercase">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />

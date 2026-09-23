@@ -222,9 +222,11 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase font-mono ${
                       op.estado === 'FINALIZADO'
                         ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        : op.estado === 'EVALUADO'
+                        ? 'bg-teal-500/20 text-teal-600 dark:text-teal-400'
                         : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
                     }`}>
-                      {op.estado}
+                      {op.estado === 'EVALUADO' ? 'EVALUADO' : op.estado}
                     </span>
                   </div>
 
@@ -362,7 +364,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
                   <div className="bg-zinc-50 dark:bg-zinc-900/90 p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-0.5">
                     <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block uppercase">2. ÁREAS RECORRIDAS</span>
-                    <span className="text-xs font-mono font-black text-amber-600 dark:text-amber-400 block">5 Áreas Registradas</span>
+                    <span className="text-xs font-mono font-black text-amber-600 dark:text-amber-400 block">6 Áreas de Producción</span>
                     <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Permanencia registrada por cada área</span>
                   </div>
 
@@ -522,7 +524,43 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Step 5: Aprobación Final */}
+                  {/* Step 5: Calidad a Factory (Evaluado y Enviado) */}
+                  <div className="bg-zinc-50 dark:bg-zinc-900/80 border border-teal-400 dark:border-teal-500/50 rounded-2xl p-4.5 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-teal-100 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400 border border-teal-300 dark:border-teal-500/40 flex items-center justify-center text-xs">
+                          📋
+                        </div>
+                        <span className="text-xs font-black uppercase tracking-wide text-teal-700 dark:text-teal-400">
+                          MUESTRA EVALUADA Y ENVIADA A FACTORY (COLFACTORY)
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        06/03/2026 10:15:00
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] flex-wrap gap-2">
+                      <span className="bg-teal-500 text-white px-2.5 py-0.5 rounded font-bold">
+                        ● PERMANENCIA EN ÁREA: En espera de finalización exclusiva por Colfactory
+                      </span>
+                      <span className="text-zinc-500 dark:text-zinc-400 font-mono text-[10px]">
+                        (Duración acumulada: 3 días hábiles)
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400 pt-1 border-t border-zinc-200 dark:border-zinc-800">
+                      <div>ESTADO: <strong className="text-zinc-900 dark:text-zinc-100">CALIDAD STF ➔ EVALUADO Y ENVIADO</strong></div>
+                      <div>👤 RESPONSABLE: <strong className="text-zinc-900 dark:text-zinc-100">{selectedOp.inspector}</strong></div>
+                    </div>
+
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs text-zinc-700 dark:text-zinc-300">
+                      "Auditoría técnica completada con veredicto emitido. Enviada a Colfactory para cierre y liberación."
+                    </div>
+                  </div>
+
+                  {/* Step 6: Cierre y Liberación Oficial Finalizado */}
                   <div className="bg-zinc-50 dark:bg-zinc-900/80 border border-emerald-400 dark:border-emerald-500/50 rounded-2xl p-4.5 space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -530,7 +568,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                           ✓
                         </div>
                         <span className="text-xs font-black uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-                          MUESTRA APROBADA EN LABORATORIO
+                          CIERRE OFICIAL Y LIBERACIÓN FINAL (COLFACTORY)
                         </span>
                       </div>
                       <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
@@ -549,12 +587,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400 pt-1 border-t border-zinc-200 dark:border-zinc-800">
-                      <div>ESTADO: <strong className="text-zinc-900 dark:text-zinc-100">ENVIADO A STF ➔ FINALIZADO</strong></div>
-                      <div>👤 RESPONSABLE: <strong className="text-zinc-900 dark:text-zinc-100">{selectedOp.inspector}</strong></div>
+                      <div>ESTADO: <strong className="text-zinc-900 dark:text-zinc-100">EVALUADO Y ENVIADO ➔ FINALIZADO</strong></div>
+                      <div>👤 RESPONSABLE: <strong className="text-zinc-900 dark:text-zinc-100">COLFACTORY / Lavandería ZF</strong></div>
                     </div>
 
                     <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs text-zinc-700 dark:text-zinc-300">
-                      "Dictamen favorable tras verificación de estabilidad y encogimiento."
+                      "Orden liberada formalmente tras clic en Finalizar por el equipo de Factory."
                     </div>
                   </div>
 

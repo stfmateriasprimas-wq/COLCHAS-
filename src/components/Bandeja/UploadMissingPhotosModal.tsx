@@ -11,7 +11,9 @@ import {
   getOpPhotosFromCache,
   fetchOpPhotosFromDrive,
   normalizeImageUrl,
-  formatOpCode
+  formatOpCode,
+  saveOpPhotosToCache,
+  updateLocalOpPhoto
 } from '../../services/googleSheetsService';
 
 interface UploadMissingPhotosModalProps {
@@ -126,16 +128,119 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
   };
 
   const folderInfo = getHistoricalFolderInfo();
+  const isFinalizado = solicitud.estado === 'FINALIZADO';
 
-  // Procesar archivo seleccionado con compresión inteligente
+  // Guardar y sincronizar con Google Drive y Google Sheets
+  const executeSaveToDrive = async () => {
+    if (isUploading) return;
+
+    const f1 = foto1NewBase64;
+    const f2 = foto2NewBase64;
+
+    if (!f1 && !f2) {
+      setErrorMessage(
+        isFinalizado
+          ? 'Por favor selecciona o toma la fotografía de calidad antes de guardar en Drive.'
+          : 'Por favor selecciona al menos una fotografía (Foto 1 o Foto 2) para subir.'
+      );
+      return;
+    }
+
+    setIsUploading(true);
+    setErrorMessage(null);
+    setSuccessData(null);
+    setUploadStatus('1/3 Preparando imagen con compresión adaptativa...');
+
+    try {
+      // 1. Sincronización instantánea a 0 ms en caché local y eventos
+      const prevCached = getOpPhotosFromCache(formattedOp);
+      const optFoto1 = f1 || prevCached?.foto1;
+      const optFoto2 = f2 || prevCached?.foto2;
+
+      saveOpPhotosToCache(formattedOp, {
+        foto1: optFoto1,
+        foto2: optFoto2,
+        folderUrl: prevCached?.folderUrl
+      });
+
+      if (f1) {
+        updateLocalOpPhoto(solicitud.id, f1, false);
+        updateLocalOpPhoto(solicitud.op, f1, false);
+      }
+      if (f2) {
+        updateLocalOpPhoto(solicitud.id, f2, true);
+        updateLocalOpPhoto(solicitud.op, f2, true);
+      }
+
+      setUploadStatus(
+        isFinalizado 
+          ? `2/3 Archivando fotografía única en Google Drive (${folderInfo.folderName})...`
+          : `2/3 Archivando en Google Drive (${folderInfo.folderName})...`
+      );
+
+      // 2. Sincronización oficial con Google Drive & Google Sheets
+      const res = await uploadMissingOpPhotos(formattedOp, {
+        foto1Base64: f1 || undefined,
+        foto2Base64: f2 || undefined,
+        fechaCreacion: solicitud.fechaCreacion,
+        mes: folderInfo.monthNumber,
+        referencia: solicitud.referencia,
+        tela: solicitud.tela,
+        usuario: solicitud.inspector || 'ADMINISTRADOR',
+        isFinalizado: isFinalizado,
+        singleImageOnly: isFinalizado
+      });
+
+      if (!res.success && !res.folderUrl && !res.foto1 && !res.foto2) {
+        throw new Error(res.message || 'No se recibió confirmación de Google Drive.');
+      }
+
+      const finalFolder = res.folderUrl || prevCached?.folderUrl;
+      const finalFoto1 = res.foto1 || f1 || prevCached?.foto1;
+      const finalFoto2 = res.foto2 || f2 || prevCached?.foto2;
+
+      setUploadStatus(
+        isFinalizado 
+          ? '✓ ¡Fotografía única archivada con éxito en Google Drive!' 
+          : '✓ ¡Fotografía archivada exitosamente!'
+      );
+      setSuccessData({
+        folderUrl: finalFolder,
+        foto1: finalFoto1,
+        foto2: finalFoto2
+      });
+
+      if (onSuccess) {
+        onSuccess({
+          foto1: finalFoto1,
+          foto2: finalFoto2,
+          folderUrl: finalFolder
+        });
+      }
+    } catch (err: any) {
+      console.error('Error al guardar en Google Drive:', err);
+      setErrorMessage(
+        `Error al conectar con Google Drive: ${err?.message || 'Fallo de red'}. Por favor intenta de nuevo.`
+      );
+      setUploadStatus('');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSaveToDrive = () => executeSaveToDrive();
+
+  // Procesar archivo seleccionado con compresión inteligente sin disparar subida duplicada
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, slot: 1 | 2) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
       setErrorMessage(null);
+      setSuccessData(null);
       // Compresión adaptativa (max 650px, calidad 0.60 -> ~30-50KB)
       const compressedB64 = await compressImageFile(file, 650, 0.60);
+      
       if (slot === 1) {
         setFoto1NewBase64(compressedB64);
         setFoto1Preview(compressedB64);
@@ -143,61 +248,17 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
         setFoto2NewBase64(compressedB64);
         setFoto2Preview(compressedB64);
       }
+
+      setUploadStatus(
+        isFinalizado 
+          ? '📸 Foto seleccionada y lista. Haz clic en "Guardar en Drive" para sincronizar.' 
+          : '📸 Foto seleccionada. Haz clic en "Guardar en Drive" para sincronizar.'
+      );
     } catch (err: any) {
       console.error('Error al procesar la imagen:', err);
       setErrorMessage('No se pudo procesar la imagen. Intenta con otra fotografía.');
     } finally {
       if (e.target) e.target.value = '';
-    }
-  };
-
-  // Guardar y sincronizar con Google Drive y Google Sheets
-  const handleSaveToDrive = async () => {
-    if (!foto1NewBase64 && !foto2NewBase64) {
-      setErrorMessage('Por favor selecciona al menos una fotografía (Foto 1 o Foto 2) para subir.');
-      return;
-    }
-
-    setIsUploading(true);
-    setErrorMessage(null);
-    setUploadStatus('1/3 Comprimiendo y preparando imágenes...');
-
-    try {
-      setUploadStatus(`2/3 Archivando en Google Drive (${folderInfo.folderName})...`);
-
-      const res = await uploadMissingOpPhotos(formattedOp, {
-        foto1Base64: foto1NewBase64 || undefined,
-        foto2Base64: foto2NewBase64 || undefined,
-        fechaCreacion: solicitud.fechaCreacion,
-        mes: folderInfo.monthNumber,
-        referencia: solicitud.referencia,
-        tela: solicitud.tela,
-        usuario: solicitud.inspector || 'ADMINISTRADOR'
-      });
-
-      if (res.success || res.folderUrl || res.foto1 || res.foto2) {
-        setUploadStatus('3/3 ¡Fotos vinculadas y guardadas en Columna M!');
-        setSuccessData({
-          folderUrl: res.folderUrl,
-          foto1: res.foto1,
-          foto2: res.foto2
-        });
-
-        if (onSuccess) {
-          onSuccess({
-            foto1: res.foto1 || foto1NewBase64 || undefined,
-            foto2: res.foto2 || foto2NewBase64 || undefined,
-            folderUrl: res.folderUrl
-          });
-        }
-      } else {
-        setErrorMessage(res.message || 'Error al comunicarse con Google Apps Script.');
-      }
-    } catch (err: any) {
-      console.error('Error subiendo fotos a Drive:', err);
-      setErrorMessage('Ocurrió un error inesperado al subir las fotografías. Verifica tu conexión.');
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -257,6 +318,19 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
               <span>🏷️ Mes Detectado: {folderInfo.monthName} (Mes {folderInfo.monthNumber})</span>
             </div>
           </div>
+
+          {/* BANNER ESPECIAL DE OP FINALIZADA (FOTO ÚNICA) */}
+          {isFinalizado && (
+            <div className="bg-purple-500/10 border border-purple-500/30 rounded-2xl p-3.5 space-y-1 animate-in fade-in">
+              <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 text-xs font-bold">
+                <ShieldCheck className="w-4 h-4 text-purple-500 shrink-0" />
+                <span>Modalidad OP Finalizada: Registro de Fotografía Única</span>
+              </div>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                Esta OP está en estado <strong>FINALIZADO</strong>. Al subir y pulsar <strong>"Guardar en Drive"</strong>, se archivará exactamente <strong>1 sola fotografía</strong> con el código de la OP en Google Drive, eliminando copias o duplicados previos.
+              </p>
+            </div>
+          )}
 
           {/* BANNER DE ÉXITO SI YA SE SUBIÓ */}
           {successData && (
@@ -394,19 +468,30 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
             </div>
 
             {/* SLOT 2: FOTO 2 - POST-LAVADO CALIDAD */}
-            <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-900/40 space-y-3">
+            <div className={`rounded-2xl p-4 space-y-3 transition ${
+              isFinalizado
+                ? 'border-2 border-purple-500/60 bg-purple-500/5 dark:bg-purple-950/30 shadow-lg shadow-purple-500/5'
+                : 'border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40'
+            }`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block font-mono">
-                    2. Post-Lavado Calidad
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block font-mono">
+                      2. Post-Lavado Calidad
+                    </span>
+                    {isFinalizado && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-700 dark:text-purple-300 font-bold border border-purple-500/30">
+                        ⭐ Definitiva OP
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs font-bold text-zinc-900 dark:text-white">
                     Auditoría Técnica
                   </span>
                 </div>
                 {foto2Preview ? (
                   <span className="text-[9.5px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-400 font-bold">
-                    {foto2NewBase64 ? '● Nueva' : '✓ Guardada'}
+                    {foto2NewBase64 ? '● Lista para Guardar' : '✓ Guardada'}
                   </span>
                 ) : (
                   <span className="text-[9.5px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold">
@@ -474,10 +559,14 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
                 type="button"
                 onClick={() => fileInputRef2.current?.click()}
                 disabled={isUploading}
-                className="w-full py-2 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800/80 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className={`w-full py-2 px-3 rounded-xl text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  isFinalizado && !foto2Preview
+                    ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md'
+                    : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800/80 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
+                }`}
               >
-                <Camera className="w-3.5 h-3.5 text-purple-500" />
-                <span>{foto2Preview ? 'Cambiar Foto 2' : 'Cargar Foto 2'}</span>
+                <Camera className={`w-3.5 h-3.5 ${isFinalizado && !foto2Preview ? 'text-white' : 'text-purple-500'}`} />
+                <span>{foto2Preview ? 'Cambiar Foto 2' : 'Cargar Foto 2 (Definitiva)'}</span>
               </button>
 
               <input
@@ -496,7 +585,15 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
           <div className="flex items-start gap-2 p-3 bg-zinc-100 dark:bg-zinc-900/60 rounded-xl text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
             <ShieldCheck className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
             <span>
-              <strong>Regla del Sistema:</strong> Cada OP almacena estrictamente 2 fotografías en Google Drive. La compresión se realiza automáticamente en el cliente para carga rápida en redes móviles.
+              {isFinalizado ? (
+                <>
+                  <strong>Regla de OP Finalizada:</strong> En este apartado se almacena estrictamente 1 fotografía en Google Drive dentro de la carpeta de la OP (<strong>{formattedOp}</strong>), eliminando de la papelera cualquier copia intermedia para garantizar archivo único.
+                </>
+              ) : (
+                <>
+                  <strong>Regla del Sistema:</strong> Cada OP almacena estrictamente 2 fotografías en Google Drive. La compresión se realiza automáticamente en el cliente para carga rápida en redes móviles.
+                </>
+              )}
             </span>
           </div>
 
@@ -525,10 +622,12 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
 
             <button
               type="button"
-              onClick={handleSaveToDrive}
-              disabled={isUploading || !hasNewPhotos}
+              onClick={successData ? onClose : handleSaveToDrive}
+              disabled={isUploading || (!hasNewPhotos && !successData)}
               className={`w-1/2 sm:w-auto px-5 py-2.5 rounded-2xl text-xs font-black font-mono flex items-center justify-center gap-2 transition cursor-pointer shadow-md ${
-                hasNewPhotos && !isUploading
+                successData
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95'
+                  : hasNewPhotos && !isUploading
                   ? 'bg-amber-500 hover:bg-amber-400 text-black hover:scale-105 active:scale-95'
                   : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed'
               }`}
@@ -537,6 +636,11 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin text-black" />
                   <span>Subiendo a Drive...</span>
+                </>
+              ) : successData ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span>¡Guardado Exitoso!</span>
                 </>
               ) : (
                 <>

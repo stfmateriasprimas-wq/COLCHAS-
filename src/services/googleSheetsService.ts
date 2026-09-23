@@ -78,7 +78,19 @@ export function mapEstadoStringToSector(rawEstado: string): SectorType {
     return 'LAVANDERIA';
   }
 
-  // 3. Finalizado / Aprobado / Liberado
+  // 3. Evaluado y Enviado (Nuevo apartado entre Calidad y Finalizado - Espera Colfactory)
+  if (
+    s.includes('EVALUADO Y ENVIADO') ||
+    s.includes('EVALUADO_Y_ENVIADO') ||
+    s.includes('EVALUADO') ||
+    s.includes('ENVIADO A FACTORY') ||
+    s.includes('ESPERA FACTORY') ||
+    s.includes('ESPERA COLFACTORY')
+  ) {
+    return 'EVALUADO';
+  }
+
+  // 4. Finalizado / Aprobado / Liberado
   if (
     s.includes('FINALIZAD') || 
     s.includes('LIBERAD') || 
@@ -89,18 +101,17 @@ export function mapEstadoStringToSector(rawEstado: string): SectorType {
     return 'FINALIZADO';
   }
 
-  // 4. Calidad Laboratorio / Auditoría STF (Exclusivo Auditoría Laboratorio)
+  // 5. Calidad Laboratorio / Auditoría STF (Exclusivo Auditoría Laboratorio)
   if (
     s === 'ENVIADO A STF' || 
     s.includes('CALIDAD') || 
-    s.includes('EVALUA') || 
     s.includes('AUDITOR') || 
     s.includes('LABORATOR')
   ) {
     return 'CALIDAD';
   }
 
-  // 5. Solicitado / Despacho / Tránsito / Corte Planta Principal
+  // 6. Solicitado / Despacho / Tránsito / Corte Planta Principal
   if (s.includes('SOLICITAD') || s.includes('DESPACH') || s.includes('TRANSIT') || s.includes('CORTE') || s.includes('PLANTA')) {
     return 'SOLICITADO';
   }
@@ -114,6 +125,7 @@ export function mapAreaName(sector: SectorType): string {
     case 'SOLICITADO': return 'TRÁNSITO / DESPACHO';
     case 'LAVANDERIA': return 'LAVANDERÍA';
     case 'CALIDAD': return 'CALIDAD STF LABORATORIO';
+    case 'EVALUADO': return 'EVALUADO Y ENVIADO';
     case 'FINALIZADO': return 'CALIDAD PLANTA STF';
     default: return 'PLANTA STF';
   }
@@ -226,6 +238,9 @@ export async function sendAppsScriptPost(action: string, payload: any): Promise<
     ...(typeof payload === 'object' && !Array.isArray(payload) ? payload : {})
   });
 
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutTimer = controller ? setTimeout(() => controller.abort(), 45000) : null;
+
   try {
     // 1. Envío POST estándar con Content-Type text/plain;charset=utf-8 (evita preflight OPTIONS)
     const res = await fetch(webAppUrl, {
@@ -234,8 +249,10 @@ export async function sendAppsScriptPost(action: string, payload: any): Promise<
         'Content-Type': 'text/plain;charset=utf-8'
       },
       body: bodyData,
-      redirect: 'follow'
+      redirect: 'follow',
+      signal: controller?.signal
     });
+    if (timeoutTimer) clearTimeout(timeoutTimer);
 
     if (res.ok) {
       try {
@@ -266,6 +283,7 @@ export async function sendAppsScriptPost(action: string, payload: any): Promise<
       };
     }
   } catch (corsErr: any) {
+    if (timeoutTimer) clearTimeout(timeoutTimer);
     console.error('[Google Apps Script Fetch / Network Error]: Error al realizar la petición a Google Sheets:', {
       error: corsErr?.message || corsErr,
       stack: corsErr?.stack,
@@ -565,19 +583,27 @@ const memoryPhotosCache: Record<string, OpPhotosCacheItem> = {};
 
 export function getOpPhotosFromCache(opNumber?: string): OpPhotosCacheItem | undefined {
   if (typeof window === 'undefined' || !opNumber) return undefined;
-  const cleanDigits = opNumber.replace(/\D/g, '');
-  const cleanOp = formatOpCode(opNumber);
+  
+  // Extraer OP limpio si viene un ID compuesto (ej: "op-row-15-OP00096156")
+  let targetOp = String(opNumber).trim();
+  const opMatch = targetOp.match(/OP[-_\s]*\d+/i);
+  if (opMatch) {
+    targetOp = opMatch[0];
+  }
+  const cleanDigits = targetOp.replace(/\D/g, '');
+  const cleanOp = formatOpCode(targetOp);
 
   // 1. Revisar caché en memoria
   if (memoryPhotosCache[cleanOp]) return memoryPhotosCache[cleanOp];
   if (cleanDigits && memoryPhotosCache[cleanDigits]) return memoryPhotosCache[cleanDigits];
+  if (memoryPhotosCache[opNumber]) return memoryPhotosCache[opNumber];
 
   // 2. Revisar almacenamiento local
   try {
     const raw = localStorage.getItem(OP_PHOTOS_CACHE_KEY);
     if (!raw) return undefined;
     const cache: Record<string, OpPhotosCacheItem> = JSON.parse(raw);
-    const item = cache[cleanOp] || (cleanDigits ? cache[cleanDigits] : undefined);
+    const item = cache[cleanOp] || (cleanDigits ? cache[cleanDigits] : undefined) || cache[targetOp] || cache[opNumber];
     if (item) {
       memoryPhotosCache[cleanOp] = item;
       if (cleanDigits) memoryPhotosCache[cleanDigits] = item;
@@ -594,9 +620,14 @@ export function saveOpPhotosToCache(
 ): void {
   if (typeof window === 'undefined' || !opNumber) return;
   try {
-    const cleanDigits = opNumber.replace(/\D/g, '');
-    const cleanOp = formatOpCode(opNumber);
-    const existing = getOpPhotosFromCache(opNumber);
+    let targetOp = String(opNumber).trim();
+    const opMatch = targetOp.match(/OP[-_\s]*\d+/i);
+    if (opMatch) {
+      targetOp = opMatch[0];
+    }
+    const cleanDigits = targetOp.replace(/\D/g, '');
+    const cleanOp = formatOpCode(targetOp);
+    const existing = getOpPhotosFromCache(targetOp) || getOpPhotosFromCache(opNumber);
     
     const item: OpPhotosCacheItem = {
       foto1: photos.foto1 || existing?.foto1,
@@ -608,12 +639,15 @@ export function saveOpPhotosToCache(
     // Actualizar siempre memoria viva
     memoryPhotosCache[cleanOp] = item;
     if (cleanDigits) memoryPhotosCache[cleanDigits] = item;
+    memoryPhotosCache[opNumber] = item;
+    memoryPhotosCache[targetOp] = item;
 
     // Persistir en localStorage
     const raw = localStorage.getItem(OP_PHOTOS_CACHE_KEY);
     const cache: Record<string, OpPhotosCacheItem> = raw ? JSON.parse(raw) : {};
     cache[cleanOp] = item;
     if (cleanDigits) cache[cleanDigits] = item;
+    cache[targetOp] = item;
     localStorage.setItem(OP_PHOTOS_CACHE_KEY, JSON.stringify(cache));
   } catch (e) {
     console.warn('Error saving op photos to cache:', e);
@@ -737,12 +771,24 @@ export function updateLocalOpPhoto(
   isCalidad: boolean = false
 ): void {
   if (typeof window === 'undefined' || !opNumberOrId) return;
-  saveOpPhotosToCache(opNumberOrId, isCalidad ? { foto2: photoUrl } : { foto1: photoUrl });
-  const cleanTarget = opNumberOrId.replace(/\D/g, '') || opNumberOrId.trim().toUpperCase();
+  
+  let targetOp = String(opNumberOrId).trim();
+  const opMatch = targetOp.match(/OP[-_\s]*\d+/i);
+  if (opMatch) targetOp = opMatch[0];
+  const cleanTarget = targetOp.replace(/\D/g, '') || targetOp.toUpperCase();
+  const formattedTarget = formatOpCode(targetOp);
+
+  // 1. Guardar en caché estructurado
+  saveOpPhotosToCache(formattedTarget, isCalidad ? { foto2: photoUrl } : { foto1: photoUrl });
+  if (opNumberOrId !== formattedTarget) {
+    saveOpPhotosToCache(opNumberOrId, isCalidad ? { foto2: photoUrl } : { foto1: photoUrl });
+  }
+
+  // 2. Actualizar OPs creadas localmente
   const current = getLocalCreatedOps();
   const updated = current.map(item => {
     const cleanItemOp = item.op.replace(/\D/g, '') || item.op.trim().toUpperCase();
-    if (item.id === opNumberOrId || cleanItemOp === cleanTarget) {
+    if (item.id === opNumberOrId || cleanItemOp === cleanTarget || item.op === formattedTarget) {
       if (isCalidad) {
         return {
           ...item,
@@ -759,6 +805,33 @@ export function updateLocalOpPhoto(
     return item;
   });
   localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify(updated));
+
+  // 3. Actualizar caché global de base de datos
+  try {
+    const cachedOps = getCachedSolicitudes();
+    const updatedCache = cachedOps.map(item => {
+      const cleanItemOp = item.op.replace(/\D/g, '') || item.op.trim().toUpperCase();
+      if (item.id === opNumberOrId || cleanItemOp === cleanTarget || item.op === formattedTarget) {
+        return {
+          ...item,
+          fotoMuestraUrl: !isCalidad ? photoUrl : item.fotoMuestraUrl,
+          fotoCalidadUrl: isCalidad ? photoUrl : item.fotoCalidadUrl,
+          fechaActualizacion: new Date().toISOString()
+        };
+      }
+      return item;
+    });
+    saveCachedSolicitudes(updatedCache);
+  } catch (e) {}
+
+  // 4. Emitir evento reactivo global en 0 ms
+  window.dispatchEvent(new CustomEvent('stf_op_photos_updated', {
+    detail: {
+      op: formattedTarget,
+      foto1: !isCalidad ? photoUrl : undefined,
+      foto2: isCalidad ? photoUrl : undefined
+    }
+  }));
 }
 
 const CACHED_BASE_DATOS_KEY = 'STF_CACHED_BASE_DE_DATOS_V2';
@@ -1719,7 +1792,7 @@ export async function pushTransferToSheets(
   estadoAnterior?: string,
   observacionColfactory?: string
 ): Promise<{ success: boolean; message: string }> {
-  const estadoFormateado = nuevoEstado === 'PRE_SOLICITUD' ? 'PRE-SOLICITUD' : nuevoEstado;
+  const estadoFormateado = nuevoEstado === 'PRE_SOLICITUD' ? 'PRE-SOLICITUD' : (nuevoEstado === 'EVALUADO' ? 'EVALUADO Y ENVIADO' : nuevoEstado);
   const formattedOp = formatOpCode(op);
   
   // Limpiar observaciones automáticas de tránsito
@@ -1729,6 +1802,7 @@ export async function pushTransferToSheets(
 
   const isFromOrToLav = (estadoAnterior === 'LAVANDERIA' || nuevoEstado === 'LAVANDERIA');
   const colObsToSend = observacionColfactory || (isFromOrToLav && realCustomObs ? realCustomObs : undefined);
+  const isFinalOrEval = (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'EVALUADO');
 
   return await sendAppsScriptPost('TRANSFER_OP', { 
     op: formattedOp, 
@@ -1738,7 +1812,7 @@ export async function pushTransferToSheets(
     observaciones: realCustomObs,
     observacionColfactory: colObsToSend,
     observacionesLavanderia: colObsToSend,
-    obsOperarioFinal: (nuevoEstado === 'FINALIZADO' && !isFromOrToLav && realCustomObs) ? realCustomObs : undefined
+    obsOperarioFinal: (isFinalOrEval && !isFromOrToLav && realCustomObs) ? realCustomObs : undefined
   });
 }
 
@@ -1756,6 +1830,16 @@ export async function pushDictamenToSheets(
     cleanObs = cleanObs.replace(/^\[DICTAMEN:\s*(APROBADO|APROBADO EN GAMA|RECHAZADO|PENDIENTE)\]\s*/i, '').trim();
   }
 
+  // Si viene foto de calidad, persistir de inmediato en caché local en 0 ms
+  if (fotoCalidad) {
+    saveOpPhotosToCache(formattedOp, { foto2: fotoCalidad });
+    updateLocalOpPhoto(formattedOp, fotoCalidad, true);
+  }
+
+  const cleanBase64 = fotoCalidad && fotoCalidad.startsWith('data:') 
+    ? fotoCalidad 
+    : (fotoCalidad && fotoCalidad.length > 100 && !fotoCalidad.startsWith('http') ? `data:image/jpeg;base64,${fotoCalidad}` : undefined);
+
   const res = await sendAppsScriptPost('UPDATE_DICTAMEN', { 
     op: formattedOp, 
     dictamen: dictamen,
@@ -1767,16 +1851,35 @@ export async function pushDictamenToSheets(
     observacionColfactory: observacionColfactory || undefined,
     observacionesLavanderia: observacionColfactory || undefined,
     veredicto: dictamen,
-    fotoCalidadUrl: fotoCalidad,
-    fotoCalidad: fotoCalidad
+    fotoCalidadUrl: cleanBase64 || fotoCalidad,
+    fotoCalidad: cleanBase64 || fotoCalidad,
+    foto2Base64: cleanBase64
   });
 
-  let driveUrl = res.data?.driveUrl || (typeof (res as any).driveUrl === 'string' ? (res as any).driveUrl : undefined);
-  let folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
+  const foto2Res = res.data?.foto2 || (typeof (res as any).foto2 === 'string' ? (res as any).foto2 : undefined);
+  const driveUrl = foto2Res || res.data?.driveUrl || (typeof (res as any).driveUrl === 'string' ? (res as any).driveUrl : undefined);
+  const folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
+
+  if (driveUrl || folderUrl) {
+    saveOpPhotosToCache(formattedOp, {
+      foto2: driveUrl || fotoCalidad,
+      folderUrl: folderUrl
+    });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('stf_op_photos_updated', {
+        detail: {
+          op: formattedOp,
+          foto2: driveUrl || fotoCalidad,
+          folderUrl: folderUrl,
+          driveUrl: driveUrl
+        }
+      }));
+    }
+  }
 
   return {
     ...res,
-    driveUrl,
+    driveUrl: driveUrl || fotoCalidad,
     folderUrl
   };
 }
@@ -1785,22 +1888,72 @@ export async function pushOpPhotoToSheets(
   op: string, 
   photoUrl: string,
   isCalidad: boolean = false
-): Promise<{ success: boolean; message: string; driveUrl?: string; folderUrl?: string }> {
+): Promise<{ success: boolean; message: string; driveUrl?: string; folderUrl?: string; foto1?: string; foto2?: string }> {
   const formattedOp = formatOpCode(op);
+
+  // 1. Guardar de inmediato en memoria y almacenamiento local para visualización instantánea (0 ms)
+  saveOpPhotosToCache(formattedOp, isCalidad ? { foto2: photoUrl } : { foto1: photoUrl });
+  updateLocalOpPhoto(formattedOp, photoUrl, isCalidad);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('stf_op_photos_updated', {
+      detail: {
+        op: formattedOp,
+        foto1: !isCalidad ? photoUrl : undefined,
+        foto2: isCalidad ? photoUrl : undefined
+      }
+    }));
+  }
+
+  const cleanBase64 = photoUrl.startsWith('data:') 
+    ? photoUrl 
+    : (photoUrl.length > 100 && !photoUrl.startsWith('http') ? `data:image/jpeg;base64,${photoUrl}` : undefined);
+
+  // 2. Enviar a Google Apps Script para guardar en Google Drive bajo la OP y actualizar Columna M
   const res = await sendAppsScriptPost('UPDATE_OP_PHOTO', { 
     op: formattedOp, 
-    imageBase64: photoUrl.startsWith('data:') ? photoUrl : undefined,
-    fotoMuestraUrl: !isCalidad ? photoUrl : undefined,
-    fotoCalidadUrl: isCalidad ? photoUrl : undefined,
+    imageBase64: cleanBase64,
+    foto1Base64: !isCalidad ? cleanBase64 : undefined,
+    foto2Base64: isCalidad ? cleanBase64 : undefined,
+    fotoMuestraUrl: !isCalidad ? (cleanBase64 || photoUrl) : undefined,
+    fotoCalidadUrl: isCalidad ? (cleanBase64 || photoUrl) : undefined,
     isCalidad
   });
-  const driveUrl = res.data?.driveUrl || (typeof (res as any).driveUrl === 'string' ? (res as any).driveUrl : undefined);
+
+  const foto1 = res.data?.foto1 || (typeof (res as any).foto1 === 'string' ? (res as any).foto1 : undefined);
+  const foto2 = res.data?.foto2 || (typeof (res as any).foto2 === 'string' ? (res as any).foto2 : undefined);
+  const rawDrive = res.data?.driveUrl || (typeof (res as any).driveUrl === 'string' ? (res as any).driveUrl : undefined);
+  const driveUrl = (isCalidad ? foto2 : foto1) || rawDrive || (isCalidad ? foto1 : foto2);
   const folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
+
+  // 3. Si Apps Script devuelve la URL oficial de Google Drive, actualizar la caché oficial
+  if (driveUrl || folderUrl) {
+    saveOpPhotosToCache(formattedOp, {
+      foto1: !isCalidad ? (driveUrl || foto1 || photoUrl) : foto1,
+      foto2: isCalidad ? (driveUrl || foto2 || photoUrl) : foto2,
+      folderUrl: folderUrl
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('stf_op_photos_updated', {
+        detail: {
+          op: formattedOp,
+          foto1: !isCalidad ? (driveUrl || foto1 || photoUrl) : foto1,
+          foto2: isCalidad ? (driveUrl || foto2 || photoUrl) : foto2,
+          folderUrl: folderUrl,
+          driveUrl: driveUrl
+        }
+      }));
+    }
+  }
+
   return {
-    success: res.success,
-    message: res.message || 'Fotografía sincronizada correctamente con Google Sheets y archivada en Drive',
-    driveUrl,
-    folderUrl
+    success: res.success || Boolean(driveUrl || folderUrl),
+    message: res.message || 'Fotografía archivada correctamente en Google Drive con el nombre de la OP y sincronizada en Columna M',
+    driveUrl: driveUrl || photoUrl,
+    folderUrl,
+    foto1,
+    foto2
   };
 }
 
@@ -1812,6 +1965,8 @@ export interface UploadMissingPhotosOptions {
   referencia?: string;
   tela?: string;
   usuario?: string;
+  isFinalizado?: boolean;
+  singleImageOnly?: boolean;
 }
 
 /**
@@ -1824,6 +1979,29 @@ export async function uploadMissingOpPhotos(
   options: UploadMissingPhotosOptions
 ): Promise<{ success: boolean; message: string; folderUrl?: string; foto1?: string; foto2?: string }> {
   const formattedOp = formatOpCode(op);
+
+  // Optimización 0 ms: Guardar en caché y notificar a la interfaz inmediatamente
+  if (options.foto1Base64 || options.foto2Base64) {
+    const prevCached = getOpPhotosFromCache(formattedOp);
+    const optFoto1 = options.foto1Base64 || prevCached?.foto1;
+    const optFoto2 = options.foto2Base64 || prevCached?.foto2;
+    saveOpPhotosToCache(formattedOp, {
+      foto1: optFoto1,
+      foto2: optFoto2,
+      folderUrl: prevCached?.folderUrl
+    });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('stf_op_photos_updated', {
+        detail: {
+          op: formattedOp,
+          foto1: optFoto1,
+          foto2: optFoto2,
+          folderUrl: prevCached?.folderUrl
+        }
+      }));
+    }
+  }
+
   const res = await sendAppsScriptPost('UPDATE_OP_PHOTO', { 
     op: formattedOp, 
     foto1Base64: options.foto1Base64,
@@ -1833,7 +2011,9 @@ export async function uploadMissingOpPhotos(
     mes: options.mes,
     referencia: options.referencia,
     tela: options.tela,
-    usuario: options.usuario || 'OPERARIO STF'
+    usuario: options.usuario || 'OPERARIO STF',
+    isFinalizado: Boolean(options.isFinalizado),
+    singleImageOnly: Boolean(options.singleImageOnly)
   });
 
   const folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
@@ -1900,12 +2080,13 @@ export async function uploadMissingOpPhotos(
     }
   }
 
+  const cachedFinal = getOpPhotosFromCache(formattedOp);
   return {
-    success: res.success,
+    success: res.success || Boolean(folderUrl || foto1 || foto2),
     message: res.message || 'Fotografías archivadas correctamente en Google Drive y vinculadas a la OP',
-    folderUrl,
-    foto1,
-    foto2
+    folderUrl: folderUrl || cachedFinal?.folderUrl,
+    foto1: foto1 || options.foto1Base64 || cachedFinal?.foto1,
+    foto2: foto2 || options.foto2Base64 || cachedFinal?.foto2
   };
 }
 
