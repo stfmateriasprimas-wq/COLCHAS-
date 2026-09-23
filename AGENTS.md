@@ -27,12 +27,14 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
    - Una vez concluido el ciclo de lavado, Lavandería transfiere la OP hacia **`CALIDAD`** (`CALIDAD STF LABORATORIO`, SLA máximo: 1 día hábil).
 4. **Auditoría Técnica y Envío a Evaluado y Enviado**:
    - En `CALIDAD`, los auditores técnicos evalúan la muestra (encogimiento, tono, revirado), ingresan el veredicto formal (`APROBADO`, `APROBADO EN GAMA` o `RECHAZADO`), la observación de calidad y la Foto 2 (Post-Lavado).
-   - Al pulsar el botón de envío en Calidad, la OP **NO pasa directamente a Finalizado**, sino que se transfiere al apartado **`EVALUADO Y ENVIADO`** (`EVALUADO`).
+   - Al pulsar el botón de envío en Calidad, la OP **NO pasa directamente a Finalizado**, sino que se transfiere obligatoriamente al apartado **`EVALUADO Y ENVIADO`** (`EVALUADO`).
 5. **Apartado EVALUADO Y ENVIADO & Control Exclusivo Factory**:
+   - **REGLA DE VISIBILIDAD EXCLUSIVA**: El apartado y tarjeta **`EVALUADO Y ENVIADO`** solo existe y es visible para los perfiles de **CALIDAD** y **COLFACTORY** (Lavandería y Administrador). Para perfiles como Atelier ZF (Zona Franca), Colecciones (Clientes SF/ELA/Outlet) y Despacho, este apartado permanece oculto en la interfaz.
    - En este apartado se muestra la ficha con los resultados de la auditoría técnica de Calidad (Veredicto, Observación técnica y Fotos).
    - **REGLA DE ACCESO EXCLUSIVO AL BOTÓN FINALIZAR**: Únicamente el personal perteneciente a **Factory (Colfactory / Lavandería / Admin)** tiene acceso al botón **`FINALIZAR`** en cada ficha de OP. Para los demás usuarios (Calidad, ZF, etc.), el botón está oculto y se visualiza un estado informativo de espera.
+   - **REGLA INMUTABLE DE FINALIZACIÓN ÚNICA**: En todo el sistema, la **ÚNICA** manera, estado y apartado desde el cual una OP puede ser llevada a **`FINALIZADO`** es cuando se encuentra en **`EVALUADO Y ENVIADO`**. Bajo ninguna circunstancia se puede finalizar directamente una OP desde `CALIDAD`, `LAVANDERIA`, `SOLICITADO` ni `PRE_SOLICITUD`.
 6. **Finalización y Liberación Oficial**:
-   - Cuando el usuario de Factory da clic en **`FINALIZAR`**, la OP pasa inmediatamente al área de trabajo **`FINALIZADOS`** (Liberada).
+   - Cuando el usuario de Factory da clic en **`FINALIZAR`** desde `EVALUADO Y ENVIADO`, la OP pasa inmediatamente al área de trabajo **`FINALIZADOS`** (Liberada).
    - Se depura de la hoja `ALERTAS`, se actualiza en Google Sheets a `FINALIZADO`, se dispara la notificación de correo oficial (Flujo C) y se activa la Fase 2 de etiqueta térmica.
 
 ---

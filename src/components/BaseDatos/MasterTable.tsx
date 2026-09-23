@@ -739,7 +739,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
                             <Printer className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {isFactoryUser(currentUser) && onFinalizarOp && (item.estado === 'EVALUADO' || (isAdminUser(currentUser) && item.estado !== 'FINALIZADO')) && (
+                        {isFactoryUser(currentUser) && onFinalizarOp && item.estado === 'EVALUADO' && (
                           <button
                             type="button"
                             onClick={(e) => {

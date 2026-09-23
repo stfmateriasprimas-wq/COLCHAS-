@@ -673,8 +673,8 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
                                 <span>FICHA</span>
                               </button>
 
-                              {/* DEPURAR / FINALIZAR BUTTON (SOLO ADMINISTRADOR EDWIN) */}
-                              {isAdminUser(currentUser) && onFinalizarOp && (
+                              {/* DEPURAR / FINALIZAR BUTTON (SOLO ADMINISTRADOR EDWIN EN ESTADO EVALUADO) */}
+                              {isAdminUser(currentUser) && item.estado === 'EVALUADO' && onFinalizarOp && (
                                 <button
                                   type="button"
                                   onClick={() => handleDepurarAlerta(item)}

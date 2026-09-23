@@ -10,7 +10,7 @@ import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { FloatingScrollPill } from '../Common/FloatingScrollPill';
 import { TabType } from '../Navigation';
 import { getOpChronologicalTimestamp } from '../../services/slaCalculator';
-import { UsuarioSTF, isAdminUser } from '../../services/authService';
+import { UsuarioSTF, isAdminUser, canViewEvaluadoSection } from '../../services/authService';
 import { notificationService } from '../../services/notificationService';
 import { AdminSlaAlertBanner } from '../Alertas/AdminSlaAlertBanner';
 
@@ -46,8 +46,15 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
   onFinalizar,
   onNavigateTab
 }) => {
+  const showEvaluado = canViewEvaluadoSection(currentUser);
+
   // Stage filter: default 'EN_PROCESO' or 'SOLICITADO'
-  const [selectedStage, setSelectedStage] = useState<StageFilterType>(initialStageFilter || 'EN_PROCESO');
+  const [selectedStage, setSelectedStage] = useState<StageFilterType>(() => {
+    if (initialStageFilter === 'EVALUADO' && !canViewEvaluadoSection(currentUser)) {
+      return 'EN_PROCESO';
+    }
+    return initialStageFilter || 'EN_PROCESO';
+  });
   const [search, setSearch] = useState(initialSearchQuery || '');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrderType>('recientes');
@@ -55,9 +62,19 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
 
   useEffect(() => {
     if (initialStageFilter) {
-      setSelectedStage(initialStageFilter);
+      if (initialStageFilter === 'EVALUADO' && !showEvaluado) {
+        setSelectedStage('EN_PROCESO');
+      } else {
+        setSelectedStage(initialStageFilter);
+      }
     }
-  }, [initialStageFilter]);
+  }, [initialStageFilter, showEvaluado]);
+
+  useEffect(() => {
+    if (!showEvaluado && selectedStage === 'EVALUADO') {
+      setSelectedStage('EN_PROCESO');
+    }
+  }, [showEvaluado, selectedStage]);
 
   useEffect(() => {
     if (initialSearchQuery !== undefined) {
@@ -379,8 +396,8 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
 
       </div>
 
-      {/* 3. ROW OF 8 STAGE FILTER CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-2.5">
+      {/* 3. ROW OF STAGE FILTER CARDS (8 COLUMNAS SI ES CALIDAD/COLFACTORY, 7 PARA OTROS PERFILES) */}
+      <div className={`grid grid-cols-2 sm:grid-cols-4 ${showEvaluado ? 'lg:grid-cols-8' : 'lg:grid-cols-7'} gap-2 sm:gap-2.5`}>
         
         {/* 1. Total Histórico */}
         <div
@@ -554,36 +571,38 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
           </div>
         </div>
 
-        {/* 7. Evaluado y Enviado (Espera Factory) */}
-        <div
-          onClick={() => setSelectedStage('EVALUADO')}
-          className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
-            selectedStage === 'EVALUADO'
-              ? 'border-2 border-teal-500 shadow-[0_4px_20px_rgba(20,184,166,0.25)] dark:shadow-[0_0_20px_rgba(20,184,166,0.35)] ring-1 ring-teal-500/50'
-              : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-teal-500/50 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'
-          }`}
-        >
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="text-xs font-black text-zinc-900 dark:text-white block tracking-wider">EVALUADO Y ENVIADO</span>
-              <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block tracking-tight">COLFACTORY</span>
+        {/* 7. Evaluado y Enviado (Exclusivo Calidad / Colfactory / Admin) */}
+        {showEvaluado && (
+          <div
+            onClick={() => setSelectedStage('EVALUADO')}
+            className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 cursor-pointer bg-white dark:bg-[#12161f] text-zinc-950 dark:text-white ${
+              selectedStage === 'EVALUADO'
+                ? 'border-2 border-teal-500 shadow-[0_4px_20px_rgba(20,184,166,0.25)] dark:shadow-[0_0_20px_rgba(20,184,166,0.35)] ring-1 ring-teal-500/50'
+                : 'border border-zinc-200/90 dark:border-zinc-700 hover:border-teal-500/50 shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-xl'
+            }`}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-xs font-black text-zinc-900 dark:text-white block tracking-wider">EVALUADO Y ENVIADO</span>
+                <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold uppercase block tracking-tight">COLFACTORY</span>
+              </div>
+              <div className="w-7 h-7 rounded-full bg-teal-50 border border-teal-200 dark:bg-teal-950/80 dark:border-teal-500/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-xs">
+                <ClipboardCheck className="w-3.5 h-3.5" />
+              </div>
             </div>
-            <div className="w-7 h-7 rounded-full bg-teal-50 border border-teal-200 dark:bg-teal-950/80 dark:border-teal-500/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-xs">
-              <ClipboardCheck className="w-3.5 h-3.5" />
+            <div className="mt-3 flex items-baseline justify-between">
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white">{metrics.evaluado || 0}</span>
+                <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase">OP</span>
+              </div>
+              {delaysEval > 0 && (
+                <span className="text-[9.5px] bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/90 dark:text-rose-300 dark:border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1 shadow-xs">
+                  <span>🚨 {delaysEval} &gt;3D</span>
+                </span>
+              )}
             </div>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white">{metrics.evaluado || 0}</span>
-              <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase">OP</span>
-            </div>
-            {delaysEval > 0 && (
-              <span className="text-[9.5px] bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/90 dark:text-rose-300 dark:border-rose-800 px-2 py-0.5 rounded font-mono font-bold flex items-center gap-1 shadow-xs">
-                <span>🚨 {delaysEval} &gt;3D</span>
-              </span>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* 8. Finalizados (Liberadas) */}
         <div

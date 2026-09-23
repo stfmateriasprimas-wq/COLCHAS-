@@ -165,6 +165,15 @@ export function isFactoryUser(user?: UsuarioSTF | null): boolean {
 }
 
 /**
+ * Determina si el usuario logueado tiene visibilidad del apartado "EVALUADO Y ENVIADO"
+ * Exclusivo para perfiles de CALIDAD, COLFACTORY / LAVANDERÍA y ADMINISTRADOR
+ */
+export function canViewEvaluadoSection(user?: UsuarioSTF | null): boolean {
+  if (!user) return false;
+  return isCalidadUser(user) || isLavanderiaUser(user) || isAdminUser(user);
+}
+
+/**
  * Identificadores oficiales de usuarios del área de Calidad
  */
 export const CALIDAD_USER_IDS = [

@@ -501,6 +501,11 @@ export function App() {
   };
 
   const handleFinalizarOp = (solicitud: SolicitudColcha) => {
+    // REGLA INMUTABLE: La única forma de llevar una OP a FINALIZADO es que provenga del apartado EVALUADO Y ENVIADO
+    if (solicitud.estado !== 'EVALUADO') {
+      alert('⚠️ Acción restringida: Una orden solo puede ser llevada a FINALIZADO desde el nuevo apartado "EVALUADO Y ENVIADO".');
+      return;
+    }
     setConfirmFinalizarOp(solicitud);
   };
 
@@ -710,6 +715,12 @@ export function App() {
   ) => {
     const targetItem = solicitudes.find(s => s.id === solicitudId);
     const opNumber = targetItem ? targetItem.op : '';
+
+    // REGLA INMUTABLE: Solo se permite transferir a 'FINALIZADO' si la OP proviene de 'EVALUADO'
+    if (nuevoEstado === 'FINALIZADO' && targetItem && targetItem.estado !== 'EVALUADO') {
+      alert('⚠️ Acción restringida: La orden solo puede ser llevada a FINALIZADO desde el apartado EVALUADO Y ENVIADO.');
+      return;
+    }
 
     // Registro en auditoría forense para SOPORTE TEC.
     auditService.logAction(

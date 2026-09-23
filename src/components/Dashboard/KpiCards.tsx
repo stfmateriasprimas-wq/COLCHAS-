@@ -1,15 +1,19 @@
 import React from 'react';
 import { BarChart3, Zap, Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, ClipboardCheck } from 'lucide-react';
 import { KpiMetrics, SectorType } from '../../types';
+import { UsuarioSTF, canViewEvaluadoSection } from '../../services/authService';
 
 interface KpiCardsProps {
   metrics: KpiMetrics;
+  currentUser?: UsuarioSTF | null;
   onSelectArea?: (areaKey: SectorType | 'TOTAL' | 'EN_PROCESO') => void;
 }
 
-export const KpiCards: React.FC<KpiCardsProps> = ({ metrics, onSelectArea }) => {
+export const KpiCards: React.FC<KpiCardsProps> = ({ metrics, currentUser, onSelectArea }) => {
+  const showEvaluado = canViewEvaluadoSection(currentUser);
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
+    <div className={`grid grid-cols-2 sm:grid-cols-4 ${showEvaluado ? 'lg:grid-cols-8' : 'lg:grid-cols-7'} gap-2 sm:gap-3`}>
       
       {/* 1. Total Histórico */}
       <div
@@ -121,23 +125,25 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ metrics, onSelectArea }) => 
         </div>
       </div>
 
-      {/* 7. Evaluado y Enviado */}
-      <div
-        onClick={() => onSelectArea && onSelectArea('EVALUADO')}
-        className="bg-white dark:bg-[#0c1017] hover:border-teal-400 dark:hover:border-teal-600 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-between shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 group text-zinc-950 dark:text-white"
-        title="Clic para ver OPs Evaluadas (Espera Colfactory)"
-      >
-        <div className="flex items-center justify-between text-[11px] text-teal-600 dark:text-teal-400 font-bold uppercase">
-          <span>EVALUADO</span>
-          <ClipboardCheck className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+      {/* 7. Evaluado y Enviado (Exclusivo Calidad / Colfactory / Admin) */}
+      {showEvaluado && (
+        <div
+          onClick={() => onSelectArea && onSelectArea('EVALUADO')}
+          className="bg-white dark:bg-[#0c1017] hover:border-teal-400 dark:hover:border-teal-600 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-between shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 group text-zinc-950 dark:text-white"
+          title="Clic para ver OPs Evaluadas (Espera Colfactory)"
+        >
+          <div className="flex items-center justify-between text-[11px] text-teal-600 dark:text-teal-400 font-bold uppercase">
+            <span>EVALUADO</span>
+            <ClipboardCheck className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+          </div>
+          <div className="mt-2 flex items-baseline justify-between">
+            <span className="text-2xl font-black font-mono text-teal-600 dark:text-teal-400">{metrics.evaluado || 0}</span>
+            <span className="text-[9px] bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 px-1.5 py-0.5 rounded border border-teal-300 dark:border-teal-800 font-bold font-mono">
+              FACTORY
+            </span>
+          </div>
         </div>
-        <div className="mt-2 flex items-baseline justify-between">
-          <span className="text-2xl font-black font-mono text-teal-600 dark:text-teal-400">{metrics.evaluado || 0}</span>
-          <span className="text-[9px] bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 px-1.5 py-0.5 rounded border border-teal-300 dark:border-teal-800 font-bold font-mono">
-            FACTORY
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* 8. Finalizados */}
       <div
