@@ -666,16 +666,28 @@ function doPost(e) {
 
         if (uniqueRecipientsDict.length > 0) {
           try {
-            var rowVals = sheetBdDict.getRange(foundRowDict, 1, 1, 10).getValues()[0];
+            var rowVals = sheetBdDict.getRange(foundRowDict, 1, 1, 15).getValues()[0];
             var telaDict = rowVals[2] || 'TELA TEXTIL';
+            var mtDict = rowVals[3] || '';
+            var colorDict = rowVals[4] || '';
             var refDict = rowVals[6] || 'S/R';
+            var rollosDict = rowVals[7] || '';
+            var obsOperarioDict = rowVals[10] || '';
+            var obsLavaderoDict = rowVals[11] || '';
             var auditorName = payload.auditorCalidad || payload.inspector || 'LABORATORIO DE CALIDAD';
             var appUrlDict = 'https://colchas.vercel.app/?op=' + encodeURIComponent(opFormattedDict) + '&view=public';
             var isEnGama = String(dictVal).toUpperCase().indexOf('GAMA') !== -1;
             var isAprobado = String(dictVal).toUpperCase().indexOf('APROB') !== -1;
             var subjectDict = (isEnGama ? '🎨 [COLCHA APROBADA EN GAMA] ' : (isAprobado ? '✅ [COLCHA APROBADA] ' : '❌ [COLCHA RECHAZADA] ')) + opFormattedDict + ' • REF: ' + refDict + ' (' + telaDict + ')';
             var driveFotoCalUrl = (savedCalPhoto && savedCalPhoto.driveUrl) ? savedCalPhoto.driveUrl : '';
-            var htmlDict = buildDictamenEmailHtml(opFormattedDict, refDict, telaDict, dictVal, pureObs, auditorName, appUrlDict, driveFotoCalUrl);
+            var extraDict = {
+              rollos: rollosDict,
+              obsOperario: obsOperarioDict,
+              obsLavadero: obsLavaderoDict,
+              codigoMt: mtDict,
+              color: colorDict
+            };
+            var htmlDict = buildDictamenEmailHtml(opFormattedDict, refDict, telaDict, dictVal, pureObs, auditorName, appUrlDict, driveFotoCalUrl, extraDict);
 
             MailApp.sendEmail({
               to: uniqueRecipientsDict.join(','),
@@ -1583,223 +1595,248 @@ function getAllUserEmails(ss) {
  */
 
 /**
- * Plantilla Flujo A: Creación de Nueva Colcha (Diseño Amarillo & Tipografía Ultra Profesional)
+ * Plantilla Flujo A: Creación de Nueva Colcha (Diseño Limpio Minimalista STF GROUP)
  */
 function buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl) {
   var refVal = opData['REFERENCIA'] || opData.referencia || 'S/R';
   var telaVal = opData['TELA'] || opData.tela || 'TELA TEXTIL';
   var colorVal = opData['COLOR'] || opData.color || 'AZUL';
-  var mtVal = opData['CÓDIGO MT'] || opData.codigoMt || 'MT-AUTO';
+  var mtVal = opData['CÓDIGO MT'] || opData.codigoMt || '';
   var rollosVal = Number(opData['ROLLOS'] || opData.rollos || 1);
   var obsOp = opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || opData.observacionOperario || 'Muestra ingresada para proceso textil';
   var inspectorVal = opData['INSPECTOR / OPERARIO'] || opData.inspector || 'ATELIER / CORTE';
+  var rawEstado = opData['ESTADO'] || opData.estado || 'SOLICITADO';
+  var estadoDisplay = (String(rawEstado).toUpperCase().indexOf('PRE') !== -1) ? 'PRE-SOLICITUD' : 'SOLICITADO';
 
   var imgBlock = driveUrl
     ? '<div style="margin: 18px 0 6px; text-align: center;">' +
-        '<a href="' + driveUrl + '" target="_blank" style="display: inline-block; background: #0f172a; color: #ffffff; padding: 11px 22px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 11.5px; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(15,23,42,0.25);">' +
+        '<a href="' + driveUrl + '" target="_blank" style="display: inline-block; background: #0f172a; color: #ffffff; padding: 11px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 11.5px; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(15,23,42,0.25);">' +
           '📷 Ver Fotografía de Muestra en Google Drive' +
         '</a>' +
       '</div>'
     : '';
 
-  return '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);">' +
-    // Barra superior de acento Amarillo Textil
-    '<div style="background: #F59E0B; height: 5px; width: 100%;"></div>' +
+  var ctaBlock =
+    '<div style="margin-top: 10px; margin-bottom: 6px; text-align: center;">' +
+      '<a href="' + appUrl + '" target="_blank" style="display: inline-block; background: #ffffff; color: #000000; border: 1.5px solid #F59E0B; padding: 12px 28px; border-radius: 8px; font-weight: 900; text-decoration: none; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; box-shadow: 0 3px 10px rgba(245, 158, 11, 0.2);">' +
+        '📱 ABRIR FICHA PÚBLICA EN TIEMPO REAL' +
+      '</a>' +
+    '</div>';
 
-    // Encabezado Corporativo Premium
-    '<div style="background: linear-gradient(135deg, #09090b 0%, #18181b 100%); color: #ffffff; padding: 26px 22px; text-align: center;">' +
-      '<h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; color: #ffffff;">STF GROUP S.A.</h1>' +
-      '<p style="margin: 5px 0 0; font-size: 11px; color: #FBBF24; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase;">STUDIO F • ELA • STUDIO F MAN</p>' +
-      '<div style="display: inline-block; margin-top: 10px; padding: 4px 12px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px;">' +
-        '<span style="font-size: 10px; color: #cbd5e1; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;">SISTEMA INTEGRAL DE CONTROL DE CALIDAD DE COLCHAS</span>' +
-      '</div>' +
+  var mtHtml = mtVal
+    ? ' <span style="display: inline-block; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; margin-left: 6px;">' + mtVal + '</span>'
+    : '';
+
+  return '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">' +
+    // Contenedor Superior (Logo STF GROUP S.A. y Subtítulo)
+    '<div style="padding: 26px 24px 10px; text-align: center;">' +
+      '<img src="https://colchas.vercel.app/logo-stf-dark.png" alt="STF GROUP S.A." width="220" style="display: block; margin: 0 auto; max-width: 220px; height: auto;" border="0">' +
+      '<div style="margin-top: 6px; font-size: 10.5px; font-weight: 700; color: #64748b; letter-spacing: 2px; text-transform: uppercase;">CONTROL DE CALIDAD TEXTIL</div>' +
     '</div>' +
 
-    // Hero de OP: Amarillo Cálido / Ámbar Vibrante
-    '<div style="background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%); border-top: 1px solid #FDE68A; border-bottom: 2px solid #F59E0B; padding: 18px 24px; text-align: center;">' +
-      '<div style="display: inline-block; background: #D97706; color: #ffffff; font-size: 10.5px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; padding: 4px 14px; border-radius: 20px; box-shadow: 0 2px 5px rgba(217,119,6,0.25);">' +
-        '⚡ NUEVA SOLICITUD REGISTRADA' +
-      '</div>' +
-      '<div style="font-size: 28px; font-weight: 900; color: #78350F; font-family: \'JetBrains Mono\', Consolas, Monaco, monospace; letter-spacing: -0.5px; margin: 8px 0 2px;">' +
-        opVal +
-      '</div>' +
-      '<span style="display: inline-block; background: #FEF08A; color: #854D0E; font-size: 10px; font-weight: 700; padding: 2px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">ESTADO: SOLICITADO / PRE-SOLICITUD</span>' +
+    // Título con Resaltador Amarillo (Exacto a Imagen 2)
+    '<div style="text-align: center; margin: 18px 0 16px;">' +
+      '<span style="background-color: #FEEF5B; padding: 3px 8px; font-weight: 900; color: #000000; font-size: 15px; letter-spacing: 0.5px; border-radius: 2px; text-transform: uppercase;">NUEVA</span>' +
+      '<span style="font-weight: 900; color: #000000; font-size: 15px; letter-spacing: 0.5px; margin-left: 5px; text-transform: uppercase;">SOLICITUD DE COLCHA</span>' +
     '</div>' +
 
-    // Cuerpo Principal
-    '<div style="padding: 24px 22px;">' +
-      // Ficha Técnica en Tarjeta Limpia
-      '<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">' +
-        '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">' +
-          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
-            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px; width: 36%;">Referencia:</td>' +
-            '<td style="padding: 10px 14px; font-weight: 800; color: #0f172a; font-family: \'JetBrains Mono\', Consolas, monospace; font-size: 13px;">' + refVal + '</td>' +
-          '</tr>' +
-          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
-            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Tela / Código MT:</td>' +
-            '<td style="padding: 10px 14px; font-weight: 700; color: #0f172a;">' + telaVal + ' <span style="display: inline-block; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; margin-left: 4px;">' + mtVal + '</span></td>' +
-          '</tr>' +
-          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
-            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Color / Rollos:</td>' +
-            '<td style="padding: 10px 14px; font-weight: 700; color: #0f172a;">' + colorVal + ' <span style="color: #cbd5e1; margin: 0 4px;">•</span> ' + rollosVal + ' Rollos</td>' +
-          '</tr>' +
-          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
-            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Fecha Registro:</td>' +
-            '<td style="padding: 10px 14px; font-weight: 600; color: #334155;">' + fechaFormatted + '</td>' +
+    // Cuerpo con Ficha Técnica
+    '<div style="padding: 0 24px 20px;">' +
+      // Tarjeta con Barra Lateral Negra Gruesa (Exacta a Imagen 2)
+      '<div style="background-color: #f8fafc; border-radius: 8px; border-left: 5px solid #000000; padding: 14px 18px;">' +
+        '<table style="width: 100%; border-collapse: collapse; font-size: 12.5px;">' +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; width: 34%; text-transform: uppercase; letter-spacing: 0.4px;">ESTADO:</td>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase;">' + estadoDisplay + '</td>' +
           '</tr>' +
           '<tr>' +
-            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Registrado Por:</td>' +
-            '<td style="padding: 10px 14px; font-weight: 600; color: #334155;">' + inspectorVal + '</td>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">OP:</td>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; font-family: \'JetBrains Mono\', Consolas, Monaco, monospace;">' + opVal + '</td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">REFERENCIA:</td>' +
+            '<td style="padding: 4px 0; font-weight: 700; color: #1e293b;">' + refVal + '</td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">TELA:</td>' +
+            '<td style="padding: 4px 0; font-weight: 700; color: #1e293b;">' + telaVal + mtHtml + '</td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">COLOR:</td>' +
+            '<td style="padding: 4px 0; font-weight: 700; color: #1e293b; text-transform: uppercase;">' + colorVal + '</td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">ROLLOS:</td>' +
+            '<td style="padding: 4px 0; font-weight: 700; color: #1e293b;">' + rollosVal + '</td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">FECHA REGISTRO:</td>' +
+            '<td style="padding: 4px 0; font-weight: 600; color: #334155;">' + fechaFormatted + '</td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">REGISTRADO POR:</td>' +
+            '<td style="padding: 4px 0; font-weight: 600; color: #334155;">' + inspectorVal + '</td>' +
           '</tr>' +
         '</table>' +
       '</div>' +
 
-      // Caja de Observación Inicial
-      '<div style="margin-top: 14px; background: #FFFBEB; border: 1px solid #FDE68A; border-left: 4px solid #F59E0B; border-radius: 8px; padding: 12px 16px;">' +
-        '<div style="font-size: 10px; font-weight: 800; color: #B45309; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">' +
-          '💬 Observación Inicial del Operario:' +
+      // Sección de Observaciones del Operario (Exacta a Imagen 2)
+      '<div style="margin-top: 16px;">' +
+        '<div style="font-size: 11px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">' +
+          'OBSERVACIONES OPERARIO:' +
         '</div>' +
-        '<div style="font-size: 12.5px; color: #451A03; font-style: italic; line-height: 1.45;">' +
-          '&ldquo;' + obsOp + '&rdquo;' +
+        '<div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; font-size: 12px; color: #334155; line-height: 1.5; font-weight: 500; text-transform: uppercase;">' +
+          obsOp +
         '</div>' +
       '</div>' +
 
+      // Botones Originales Preservados (Google Drive y Ficha en Tiempo Real)
       imgBlock +
-
-      // Botón CTA Principal Amarillo / Ámbar Llamativo
-      '<div style="margin-top: 20px; text-align: center;">' +
-        '<a href="' + appUrl + '" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #000000; padding: 13px 30px; border-radius: 10px; font-weight: 900; text-decoration: none; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4); border: 1px solid #D97706;">' +
-          '📱 ABRIR FICHA PÚBLICA EN TIEMPO REAL' +
-        '</a>' +
-      '</div>' +
+      ctaBlock +
     '</div>' +
 
-    // Pie de Página Corporativo
-    '<div style="background: #f8fafc; padding: 16px 20px; text-align: center; font-size: 10.5px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.5;">' +
+    // Franja Inferior Negra (Exacta a Imagen 2)
+    '<div style="background-color: #000000; color: #ffffff; text-align: center; padding: 12px 16px; font-size: 10.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">' +
+      'SISTEMA INTEGRAL DE GESTIÓN DE CALIDAD | STF GROUP' +
+    '</div>' +
+
+    // Pie de Página Legal y Automático
+    '<div style="background: #f8fafc; padding: 12px 18px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.4;">' +
       '<strong style="color: #64748b;">STF GROUP S.A.</strong> • Notificación Corporativa Automática de Calidad Textil<br>' +
-      '<span style="font-size: 9.5px; color: #cbd5e1;">Este es un mensaje generado automáticamente por el sistema. Por favor no responder a esta dirección.</span>' +
+      '<span style="font-size: 9px; color: #cbd5e1;">Este es un mensaje generado automáticamente por el sistema. Por favor no responder a esta dirección.</span>' +
     '</div>' +
   '</div>';
 }
 
 /**
- * Plantilla Flujo C: Dictamen Oficial de Calidad (Diseño Super Actualizado - Aprobado / Rechazado)
+ * Plantilla Flujo C: Dictamen Oficial de Calidad (Diseño Limpio Minimalista STF GROUP)
  */
-function buildDictamenEmailHtml(opVal, refVal, telaVal, dictVal, obsFinal, auditorName, appUrl, driveFotoCalUrl) {
+function buildDictamenEmailHtml(opVal, refVal, telaVal, dictVal, obsFinal, auditorName, appUrl, driveFotoCalUrl, extraData) {
   var isEnGama = String(dictVal).toUpperCase().indexOf('GAMA') !== -1;
   var isAprob = String(dictVal).toUpperCase().indexOf('APROB') !== -1;
 
-  // Paleta temática dinámica
-  var topStripeColor = isEnGama ? '#0D9488' : (isAprob ? '#10B981' : '#EF4444');
-  var headerBg = isEnGama
-    ? 'linear-gradient(135deg, #134E4A 0%, #042F2E 100%)'
-    : (isAprob
-      ? 'linear-gradient(135deg, #064E3B 0%, #022C22 100%)'
-      : 'linear-gradient(135deg, #7F1D1D 0%, #450A0A 100%)');
-  var subheaderColor = isEnGama ? '#5EEAD4' : (isAprob ? '#6EE7B7' : '#FCA5A5');
-  var heroBg = isEnGama
-    ? 'linear-gradient(135deg, #F0FDFA 0%, #CCFBF1 100%)'
-    : (isAprob
-      ? 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)'
-      : 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)');
-  var heroBorderBottom = isEnGama ? '2px solid #0D9488' : (isAprob ? '2px solid #10B981' : '2px solid #EF4444');
-  var heroBorderTop = isEnGama ? '1px solid #99F6E4' : (isAprob ? '1px solid #A7F3D0' : '1px solid #FECACA');
-  var badgeBg = isEnGama ? '#0D9488' : (isAprob ? '#059669' : '#DC2626');
-  var badgeShadow = isEnGama ? 'rgba(13,148,136,0.3)' : (isAprob ? 'rgba(5,150,105,0.3)' : 'rgba(220,38,38,0.3)');
-  var statusText = isEnGama
-    ? 'DICTAMEN: APROBADO EN GAMA PARA CORTE / PRODUCCIÓN'
-    : (isAprob ? 'DICTAMEN: APROBADO PARA CORTE / PRODUCCIÓN' : 'DICTAMEN: RECHAZADO / NO CONFORME');
-  var icon = isEnGama ? '🎨' : (isAprob ? '✅' : '❌');
+  // Paleta de acento dinámico según dictamen
+  var themeColor = isEnGama ? '#0D9488' : (isAprob ? '#16A34A' : '#DC2626');
+  var themeCtaBg = isEnGama ? '#0D9488' : (isAprob ? '#059669' : '#DC2626');
 
-  var obsBoxBg = isEnGama ? '#F0FDFA' : (isAprob ? '#F0FDF4' : '#FEF2F2');
-  var obsBoxBorder = isEnGama ? '#99F6E4' : (isAprob ? '#BBF7D0' : '#FECACA');
-  var obsBoxLeft = isEnGama ? '#0D9488' : (isAprob ? '#059669' : '#DC2626');
-  var obsTitleColor = isEnGama ? '#115E59' : (isAprob ? '#166534' : '#991B1B');
-  var obsTextColor = isEnGama ? '#134E4A' : (isAprob ? '#14532D' : '#7F1D1D');
-  var obsTitle = (isAprob || isEnGama) ? '🔬 Dictamen y Concepto Final de Calidad:' : '⚠️ Motivo Técnico de Rechazo:';
+  var rollosVal = (extraData && (extraData.rollos || extraData['ROLLOS'])) || '';
+  var mtVal = (extraData && (extraData.codigoMt || extraData['CÓDIGO MT'])) || '';
+  var obsOperario = (extraData && (extraData.obsOperario || extraData['OBSERVACIÓN OPERARIO'] || extraData.observacionesOperario)) || '';
+  var cleanObsFinal = obsFinal || 'Muestra evaluada y aprobada conforme a los estándares de calidad de STF Group S.A.';
 
-  var ctaBg = isEnGama
-    ? 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)'
-    : (isAprob
-      ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
-      : 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)');
-  var ctaShadow = isEnGama ? 'rgba(13,148,136,0.35)' : (isAprob ? 'rgba(5,150,105,0.35)' : 'rgba(220,38,38,0.35)');
+  var mtHtml = mtVal
+    ? ' <span style="display: inline-block; background: #e2e8f0; color: #475569; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; margin-left: 6px;">' + mtVal + '</span>'
+    : '';
+
+  var rollosRow = rollosVal
+    ? '<tr>' +
+        '<td style="padding: 4px 0; font-weight: 800; color: #000000; width: 36%; text-transform: uppercase; letter-spacing: 0.4px;">ROLLOS:</td>' +
+        '<td style="padding: 4px 0; font-weight: 700; color: #1e293b;">' + rollosVal + '</td>' +
+      '</tr>'
+    : '';
+
+  var auditorRow = auditorName
+    ? '<tr>' +
+        '<td style="padding: 4px 0; font-weight: 800; color: #000000; width: 36%; text-transform: uppercase; letter-spacing: 0.4px;">AUDITOR RESPONSABLE:</td>' +
+        '<td style="padding: 4px 0; font-weight: 700; color: #334155; text-transform: uppercase;">' + auditorName + '</td>' +
+      '</tr>'
+    : '';
+
+  var obsOperarioBlock = obsOperario
+    ? '<div style="margin-top: 16px;">' +
+        '<div style="font-size: 11px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">' +
+          'OBSERVACIONES OPERARIO:' +
+        '</div>' +
+        '<div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; font-size: 12px; color: #334155; line-height: 1.5; font-weight: 500; text-transform: uppercase;">' +
+          obsOperario +
+        '</div>' +
+      '</div>'
+    : '';
 
   var imgBlock = driveFotoCalUrl
     ? '<div style="margin: 18px 0 6px; text-align: center;">' +
-        '<a href="' + driveFotoCalUrl + '" target="_blank" style="display: inline-block; background: #0f172a; color: #ffffff; padding: 11px 22px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 11.5px; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(15,23,42,0.25);">' +
+        '<a href="' + driveFotoCalUrl + '" target="_blank" style="display: inline-block; background: #0f172a; color: #ffffff; padding: 11px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 11.5px; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(15,23,42,0.25);">' +
           '📸 Ver Foto de Auditoría en Google Drive (Calidad)' +
         '</a>' +
       '</div>'
     : '';
 
-  return '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);">' +
-    // Barra superior de acento
-    '<div style="background: ' + topStripeColor + '; height: 5px; width: 100%;"></div>' +
+  var ctaBlock =
+    '<div style="margin-top: 10px; margin-bottom: 6px; text-align: center;">' +
+      '<a href="' + appUrl + '" target="_blank" style="display: inline-block; background: ' + themeCtaBg + '; color: #ffffff; padding: 13px 30px; border-radius: 8px; font-weight: 900; text-decoration: none; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; box-shadow: 0 4px 14px rgba(0,0,0,0.15);">' +
+        '📱 VER TRAZABILIDAD COMPLETA EN LA APP' +
+      '</a>' +
+    '</div>';
 
-    // Encabezado Temático
-    '<div style="background: ' + headerBg + '; color: #ffffff; padding: 26px 22px; text-align: center;">' +
-      '<h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; color: #ffffff;">STF GROUP S.A.</h1>' +
-      '<p style="margin: 5px 0 0; font-size: 11px; color: ' + subheaderColor + '; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase;">LABORATORIO & AUDITORÍA DE CALIDAD TEXTIL</p>' +
-      '<div style="display: inline-block; margin-top: 10px; padding: 4px 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 20px;">' +
-        '<span style="font-size: 10px; color: #ffffff; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;">DICTAMEN OFICIAL TEXTIL</span>' +
-      '</div>' +
+  return '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">' +
+    // Contenedor Superior (Logo STF GROUP S.A. y Subtítulo)
+    '<div style="padding: 26px 24px 10px; text-align: center;">' +
+      '<img src="https://colchas.vercel.app/logo-stf-dark.png" alt="STF GROUP S.A." width="220" style="display: block; margin: 0 auto; max-width: 220px; height: auto;" border="0">' +
+      '<div style="margin-top: 6px; font-size: 10.5px; font-weight: 700; color: #64748b; letter-spacing: 2px; text-transform: uppercase;">CONTROL DE CALIDAD TEXTIL</div>' +
     '</div>' +
 
-    // Hero Insignia de Veredicto
-    '<div style="background: ' + heroBg + '; border-top: ' + heroBorderTop + '; border-bottom: ' + heroBorderBottom + '; padding: 18px 24px; text-align: center;">' +
-      '<div style="display: inline-block; background: ' + badgeBg + '; color: #ffffff; padding: 8px 22px; border-radius: 50px; font-size: 12.5px; font-weight: 900; letter-spacing: 0.8px; text-transform: uppercase; box-shadow: 0 4px 12px ' + badgeShadow + ';">' +
-        icon + ' ' + statusText +
-      '</div>' +
-      '<div style="margin-top: 6px; font-size: 11px; font-weight: 700; color: #475569; letter-spacing: 0.5px;">' +
-        'ORDEN AUDITADA: <span style="font-family: \'JetBrains Mono\', monospace; font-weight: 900; color: #0f172a;">' + opVal + '</span>' +
-      '</div>' +
+    // Título Central (Exacto a Imagen 2)
+    '<div style="text-align: center; margin: 18px 0 16px; font-size: 16px; font-weight: 900; color: #000000; letter-spacing: 0.5px; text-transform: uppercase;">' +
+      'RESULTADO DE EVALUACIÓN' +
     '</div>' +
 
-    // Contenido Principal
-    '<div style="padding: 24px 22px;">' +
-      // Tarjeta Técnica
-      '<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">' +
-        '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">' +
-          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
-            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px; width: 36%;">Orden de Producción:</td>' +
-            '<td style="padding: 10px 14px; font-weight: 900; color: #0f172a; font-family: \'JetBrains Mono\', Consolas, monospace; font-size: 14px;">' + opVal + '</td>' +
-          '</tr>' +
-          '<tr style="border-bottom: 1px solid #f1f5f9;">' +
-            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Referencia / Tela:</td>' +
-            '<td style="padding: 10px 14px; font-weight: 700; color: #0f172a;">' + refVal + ' <span style="color: #64748b; font-weight: 600;">(' + telaVal + ')</span></td>' +
+    // Cuerpo con Ficha Técnica
+    '<div style="padding: 0 24px 20px;">' +
+      // Tarjeta con Barra Lateral Temática según Dictamen (Exacta a Imagen 2)
+      '<div style="background-color: #f8fafc; border-radius: 8px; border-left: 5px solid ' + themeColor + '; padding: 14px 18px;">' +
+        '<table style="width: 100%; border-collapse: collapse; font-size: 12.5px;">' +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; width: 36%; text-transform: uppercase; letter-spacing: 0.4px;">ESTADO:</td>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: ' + themeColor + '; text-transform: uppercase;">FINALIZADO</td>' +
           '</tr>' +
           '<tr>' +
-            '<td style="padding: 10px 14px; background: #fafafa; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.6px;">Auditor Responsable:</td>' +
-            '<td style="padding: 10px 14px; font-weight: 800; color: #0f172a;"><span style="display: inline-block; background: #f1f5f9; color: #0f172a; padding: 2px 8px; border-radius: 4px; font-size: 11px;">👤 ' + auditorName + '</span></td>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">OP:</td>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; font-family: \'JetBrains Mono\', Consolas, Monaco, monospace;">' + opVal + '</td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">REFERENCIA:</td>' +
+            '<td style="padding: 4px 0; font-weight: 700; color: #1e293b;">' + refVal + '</td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">TELA:</td>' +
+            '<td style="padding: 4px 0; font-weight: 700; color: #1e293b;">' + telaVal + mtHtml + '</td>' +
+          '</tr>' +
+          rollosRow +
+          auditorRow +
+          '<tr>' +
+            '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">RESULTADO CALIDAD:</td>' +
+            '<td style="padding: 4px 0; font-weight: 900; color: ' + themeColor + '; text-transform: uppercase;">' + dictVal + '</td>' +
           '</tr>' +
         '</table>' +
       '</div>' +
 
-      // Caja de Observación Final / Concepto
-      '<div style="margin-top: 14px; background: ' + obsBoxBg + '; border: 1px solid ' + obsBoxBorder + '; border-left: 4px solid ' + obsBoxLeft + '; border-radius: 8px; padding: 14px 16px;">' +
-        '<div style="font-size: 10px; font-weight: 800; color: ' + obsTitleColor + '; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">' +
-          obsTitle +
+      // Observaciones del Operario (si existen)
+      obsOperarioBlock +
+
+      // Observaciones Lavadero / Calidad (Concepto Final)
+      '<div style="margin-top: 14px;">' +
+        '<div style="font-size: 11px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">' +
+          'OBSERVACIONES LAVADERO / CALIDAD:' +
         '</div>' +
-        '<div style="font-size: 13px; font-weight: 700; color: ' + obsTextColor + '; line-height: 1.5;">' +
-          (obsFinal || 'Colcha evaluada conforme a los estándares de calidad de STF Group S.A.') +
+        '<div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; font-size: 12px; color: #334155; line-height: 1.5; font-weight: 500; text-transform: uppercase;">' +
+          cleanObsFinal +
         '</div>' +
       '</div>' +
 
+      // Botones Originales Preservados (Google Drive y Ficha en Tiempo Real)
       imgBlock +
-
-      // Botón CTA Principal
-      '<div style="margin-top: 20px; text-align: center;">' +
-        '<a href="' + appUrl + '" target="_blank" style="display: inline-block; background: ' + ctaBg + '; color: #ffffff; padding: 13px 30px; border-radius: 10px; font-weight: 900; text-decoration: none; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; box-shadow: 0 4px 14px ' + ctaShadow + ';">' +
-          '📱 VER TRAZABILIDAD COMPLETA EN LA APP' +
-        '</a>' +
-      '</div>' +
+      ctaBlock +
     '</div>' +
 
-    // Pie de Página
-    '<div style="background: #f8fafc; padding: 16px 20px; text-align: center; font-size: 10.5px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.5;">' +
+    // Franja Inferior Negra (Exacta a Imagen 2)
+    '<div style="background-color: #000000; color: #ffffff; text-align: center; padding: 12px 16px; font-size: 10.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">' +
+      'SISTEMA INTEGRAL DE GESTIÓN DE CALIDAD | STF GROUP' +
+    '</div>' +
+
+    // Pie de Página Legal y Automático
+    '<div style="background: #f8fafc; padding: 12px 18px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.4;">' +
       '<strong style="color: #64748b;">STF GROUP S.A.</strong> • Notificación Oficial de Dictamen de Calidad Textil<br>' +
-      '<span style="font-size: 9.5px; color: #cbd5e1;">Laboratorio de Calidad ZF • Mensaje automático generado por el sistema</span>' +
+      '<span style="font-size: 9px; color: #cbd5e1;">Laboratorio de Calidad ZF • Mensaje automático generado por el sistema</span>' +
     '</div>' +
   '</div>';
 }
