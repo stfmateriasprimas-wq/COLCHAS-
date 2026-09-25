@@ -37,6 +37,15 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
 6. **Finalización y Liberación Oficial**:
    - Cuando el usuario de Factory da clic en **`FINALIZAR`** desde `EVALUADO Y ENVIADO`, la OP pasa inmediatamente al área de trabajo **`FINALIZADOS`** (Liberada).
    - Se depura de la hoja `ALERTAS`, se actualiza en Google Sheets a `FINALIZADO`, se dispara la notificación de correo oficial (Flujo C) y se activa la Fase 2 de etiqueta térmica.
+7. **Edición Post-Finalización y Carga de Prenda Terminada**:
+   - **ACCESO EXCLUSIVO**: En el apartado `FINALIZADOS`, únicamente los perfiles de **LAVANDERÍA** (`COLFACTORY` / `OPERARIO LAVANDERÍA`), **ediaz** y **ADMINISTRADOR** tienen habilitado en la tarjeta de la OP el botón **`👕 PRENDA TERMINADA / EDITAR`**.
+   - Al pulsarlo, se abre una ventana modal amplia (`EditarOpFinalizadaModal.tsx`) que permite:
+     - Cargar hasta 2 fotos adicionales de **Prenda Terminada** (`OP-XXXXX_PRENDA_TERMINADA_1.jpg` y `OP-XXXXX_PRENDA_TERMINADA_2.jpg`).
+     - Modificar la **Observación de Lavandería** (Columna L / 12) y la **Observación Técnica de Calidad / Dictamen Operario Final** (Columna 15 / O).
+     - Añadir anotaciones adicionales firmadas automáticamente con fecha y usuario (`[PRENDA TERMINADA - dd/mm/aaaa hh:mm por Usuario]`).
+   - **REGLA DE CARPETA ÚNICA EN DRIVE**: Estas fotos se suben **estrictamente a la misma carpeta existente de la OP en Google Drive** (sin crear carpetas duplicadas).
+   - **Columna M (13)**: Unifica los enlaces `FOTO1: ... | FOTO2: ... | PRENDA1: ... | PRENDA2: ... | <Carpeta Drive>`.
+   - **Visualización Dual**: Las fotos de prenda terminada se despliegan en la tarjeta (Slots 3 y 4 en PC, y botones táctiles en Smartphone) y en el visor completo de ficha técnica (`OpDetailModal.tsx`).
 
 ---
 
@@ -72,10 +81,12 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
   - Archivos: `OP-XXXXX_MUESTRA_INICIAL.jpg` (Pre-Solicitud) y `OP-XXXXX_POST_LAVADO_CALIDAD.jpg` (Auditoría Calidad).
   - Permisos: Lectura pública por enlace (`ANYONE_WITH_LINK, VIEW`) para acceso móvil instantáneo sin login.
 - **Columna M (13) en `BASE_DE_DATOS`**: Almacena el enlace oficial 100% clickeable de la carpeta de Google Drive de la OP (`https://drive.google.com/drive/folders/...`). Al hacer clic en la celda en Google Sheets, abre directamente la carpeta de la OP en Drive donde se visualizan ambas fotos (`_MUESTRA_INICIAL.jpg` y `_POST_LAVADO_CALIDAD.jpg`). En el frontend se resuelven automáticamente las fotos individuales en CDN de alta velocidad mediante la acción `GET_OP_PHOTOS`.
-- **Límite Estricto de 2 Fotos por OP en Google Drive**:
-  - `OP-XXXXX_MUESTRA_INICIAL.jpg`: Fotografía tomada en Atelier / Corte / Solicitud.
-  - `OP-XXXXX_POST_LAVADO_CALIDAD.jpg`: Fotografía tomada en Auditoría de Calidad Post-Lavado.
-  - Cualquier versión intermedia anterior es enviada a la papelera automáticamente para garantizar exactamente 2 fotos por OP.
+- **Gestión Estricta de Fotos por OP en Google Drive**:
+  - `OP-XXXXX_MUESTRA_INICIAL.jpg`: Fotografía tomada en Atelier / Corte / Solicitud (Foto 1).
+  - `OP-XXXXX_POST_LAVADO_CALIDAD.jpg`: Fotografía tomada en Auditoría de Calidad Post-Lavado (Foto 2).
+  - `OP-XXXXX_PRENDA_TERMINADA_1.jpg`: Fotografía de prenda terminada 1 cargada en Finalizados (Foto 3).
+  - `OP-XXXXX_PRENDA_TERMINADA_2.jpg`: Fotografía de prenda terminada 2 cargada en Finalizados (Foto 4).
+  - Cada slot reemplaza únicamente su propia versión anterior al actualizarse, conservando las demás fotografías y garantizando exactamente los archivos oficiales en la misma carpeta.
 - **Reparación Automática (`repairBase64Jpeg`)**:
   - Si una foto en Base64 fue cortada por límites de celda en Google Sheets perdiendo su marcador `\xFF\xD9`, el frontend la repara de inmediato anexando el marcador de fin de archivo JPEG.
   - Esto previene el icono de imagen rota `[?]` en Safari de iOS (iPhone).
