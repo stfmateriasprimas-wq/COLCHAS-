@@ -469,9 +469,36 @@ export function normalizeImageUrl(rawUrl?: string): string | undefined {
 }
 
 /**
+ * Extrae el ID único del archivo de Google Drive desde cualquier variante de URL
+ */
+export function extractDriveFileId(url?: string): string | null {
+  if (!url || typeof url !== 'string') return null;
+  const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+                url.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+                url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Determina si dos referencias de fotografías apuntan a la misma imagen
+ * (ya sea por coincidencia exacta de URL/Base64 o mismo ID de archivo en Google Drive)
+ */
+export function isSamePhoto(url1?: string, url2?: string): boolean {
+  if (!url1 || !url2) return false;
+  const clean1 = url1.trim();
+  const clean2 = url2.trim();
+  if (clean1 === clean2) return true;
+  const id1 = extractDriveFileId(clean1);
+  const id2 = extractDriveFileId(clean2);
+  if (id1 && id2 && id1 === id2) return true;
+  return false;
+}
+
+/**
  * Parsea el campo de evidencia fotográfica permitiendo almacenar y recuperar
  * tanto la foto 1 (muestra inicial), la foto 2 (inspección calidad post-lavado)
- * y el enlace oficial a la carpeta de Google Drive donde residen ambas fotos
+ * y el enlace oficial a la carpeta de Google Drive donde residen ambas fotos.
+ * Previene estrictamente que Foto 2 se clone o duplique en Foto 1.
  */
 export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: string; folderUrl?: string } {
   if (!fotoUrlRaw || typeof fotoUrlRaw !== 'string') return {};
@@ -484,8 +511,14 @@ export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: 
     folderUrl = match ? match[0] : (str.startsWith('http') ? str : undefined);
   }
 
-  // Descartar si el valor de la celda es solo el código de la OP ("OP-XXXXX") o texto plano sin URLs
-  if ((str.toUpperCase().startsWith('OP-') || str.toUpperCase().startsWith('OP')) && !str.includes('http') && !str.includes('data:')) {
+  // Descartar si el valor de la celda es solo el código de la OP ("OP-XXXXX") o texto plano sin URLs ni extensiones de imagen
+  const isPlainOpOnly = (str.toUpperCase().startsWith('OP-') || str.toUpperCase().startsWith('OP')) && 
+                        !str.includes('http') && 
+                        !str.includes('data:') &&
+                        !str.toUpperCase().includes('.JPG') &&
+                        !str.toUpperCase().includes('.JPEG') &&
+                        !str.toUpperCase().includes('.PNG');
+  if (isPlainOpOnly) {
     return { folderUrl };
   }
 
@@ -506,21 +539,33 @@ export function parseDualPhotos(fotoUrlRaw?: string): { foto1?: string; foto2?: 
   let foto1: string | undefined = undefined;
   let foto2: string | undefined = undefined;
 
-  for (const part of parts) {
-    const norm = normalizeImageUrl(part);
-    if (!norm) continue;
+  for (let idx = 0; idx < parts.length; idx++) {
+    const part = parts[idx];
+    if (!part) continue;
     const lower = part.toLowerCase();
-    if (lower.includes('post_lavado') || lower.includes('calidad') || lower.includes('foto2')) {
-      foto2 = norm;
-    } else if (lower.includes('muestra_inicial') || lower.includes('inicial') || lower.includes('foto1')) {
-      foto1 = norm;
-    } else {
-      if (!foto1) {
+
+    const isExplicitFoto2 = lower.startsWith('foto2:') || lower.startsWith('calidad:') || lower.startsWith('post_lavado:') || lower.includes('post_lavado') || lower.includes('calidad');
+    const isExplicitFoto1 = lower.startsWith('foto1:') || lower.startsWith('inicial:') || lower.startsWith('muestra_inicial:') || lower.includes('muestra_inicial') || lower.includes('inicial');
+
+    const cleanUrlPart = part.replace(/^(foto[12]|calidad|inicial|post_lavado|muestra_inicial):\s*/i, '').trim();
+    const norm = normalizeImageUrl(cleanUrlPart);
+
+    if (isExplicitFoto2) {
+      if (norm) foto2 = norm;
+    } else if (isExplicitFoto1) {
+      if (norm) foto1 = norm;
+    } else if (norm) {
+      if (!foto1 && idx === 0) {
         foto1 = norm;
       } else if (!foto2) {
         foto2 = norm;
       }
     }
+  }
+
+  // BLINDAJE INMUTABLE: Si foto1 y foto2 resultaron ser la misma foto, descartar foto1 (la copia errónea)
+  if (foto1 && foto2 && isSamePhoto(foto1, foto2)) {
+    foto1 = undefined;
   }
 
   return { foto1, foto2, folderUrl };
@@ -640,10 +685,20 @@ export function getOpPhotosFromCache(opNumber?: string): OpPhotosCacheItem | und
   const cleanDigits = targetOp.replace(/\D/g, '');
   const cleanOp = formatOpCode(targetOp);
 
+  // Helper para sanear cualquier copia duplicada entre foto1 y foto2
+  const sanitizeItem = (item?: OpPhotosCacheItem): OpPhotosCacheItem | undefined => {
+    if (!item) return undefined;
+    if (item.foto1 && item.foto2 && isSamePhoto(item.foto1, item.foto2)) {
+      // Foto 2 es la auditoría de calidad post-lavado; Foto 1 inicial no debe ser una copia idéntica
+      item.foto1 = undefined;
+    }
+    return item;
+  };
+
   // 1. Revisar caché en memoria
-  if (memoryPhotosCache[cleanOp]) return memoryPhotosCache[cleanOp];
-  if (cleanDigits && memoryPhotosCache[cleanDigits]) return memoryPhotosCache[cleanDigits];
-  if (memoryPhotosCache[opNumber]) return memoryPhotosCache[opNumber];
+  if (memoryPhotosCache[cleanOp]) return sanitizeItem(memoryPhotosCache[cleanOp]);
+  if (cleanDigits && memoryPhotosCache[cleanDigits]) return sanitizeItem(memoryPhotosCache[cleanDigits]);
+  if (memoryPhotosCache[opNumber]) return sanitizeItem(memoryPhotosCache[opNumber]);
 
   // 2. Revisar almacenamiento local
   try {
@@ -652,10 +707,12 @@ export function getOpPhotosFromCache(opNumber?: string): OpPhotosCacheItem | und
     const cache: Record<string, OpPhotosCacheItem> = JSON.parse(raw);
     const item = cache[cleanOp] || (cleanDigits ? cache[cleanDigits] : undefined) || cache[targetOp] || cache[opNumber];
     if (item) {
-      memoryPhotosCache[cleanOp] = item;
-      if (cleanDigits) memoryPhotosCache[cleanDigits] = item;
+      const sanitized = sanitizeItem(item)!;
+      memoryPhotosCache[cleanOp] = sanitized;
+      if (cleanDigits) memoryPhotosCache[cleanDigits] = sanitized;
+      return sanitized;
     }
-    return item;
+    return undefined;
   } catch (e) {
     return undefined;
   }
@@ -676,9 +733,17 @@ export function saveOpPhotosToCache(
     const cleanOp = formatOpCode(targetOp);
     const existing = getOpPhotosFromCache(targetOp) || getOpPhotosFromCache(opNumber);
     
+    let resolvedFoto1 = photos.foto1 !== undefined ? photos.foto1 : existing?.foto1;
+    let resolvedFoto2 = photos.foto2 !== undefined ? photos.foto2 : existing?.foto2;
+
+    // BLINDAJE INMUTABLE: Si foto1 y foto2 son la misma imagen, descartar la copia en foto1
+    if (resolvedFoto1 && resolvedFoto2 && isSamePhoto(resolvedFoto1, resolvedFoto2)) {
+      resolvedFoto1 = undefined;
+    }
+
     const item: OpPhotosCacheItem = {
-      foto1: photos.foto1 || existing?.foto1,
-      foto2: photos.foto2 || existing?.foto2,
+      foto1: resolvedFoto1,
+      foto2: resolvedFoto2,
       folderUrl: photos.folderUrl || existing?.folderUrl,
       updatedAt: Date.now()
     };
@@ -840,12 +905,14 @@ export function updateLocalOpPhoto(
         return {
           ...item,
           fotoCalidadUrl: photoUrl,
+          fotoMuestraUrl: (item.fotoMuestraUrl && isSamePhoto(item.fotoMuestraUrl, photoUrl)) ? undefined : item.fotoMuestraUrl,
           fechaFotoCalidad: new Date().toISOString()
         };
       } else {
         return {
           ...item,
-          fotoMuestraUrl: photoUrl
+          fotoMuestraUrl: photoUrl,
+          fotoCalidadUrl: (item.fotoCalidadUrl && isSamePhoto(item.fotoCalidadUrl, photoUrl)) ? undefined : item.fotoCalidadUrl
         };
       }
     }
@@ -859,10 +926,16 @@ export function updateLocalOpPhoto(
     const updatedCache = cachedOps.map(item => {
       const cleanItemOp = item.op.replace(/\D/g, '') || item.op.trim().toUpperCase();
       if (item.id === opNumberOrId || cleanItemOp === cleanTarget || item.op === formattedTarget) {
+        let f1 = !isCalidad ? photoUrl : item.fotoMuestraUrl;
+        let f2 = isCalidad ? photoUrl : item.fotoCalidadUrl;
+        if (f1 && f2 && isSamePhoto(f1, f2)) {
+          if (isCalidad) f1 = undefined;
+          else f2 = undefined;
+        }
         return {
           ...item,
-          fotoMuestraUrl: !isCalidad ? photoUrl : item.fotoMuestraUrl,
-          fotoCalidadUrl: isCalidad ? photoUrl : item.fotoCalidadUrl,
+          fotoMuestraUrl: f1,
+          fotoCalidadUrl: f2,
           fechaActualizacion: new Date().toISOString()
         };
       }
@@ -890,20 +963,44 @@ export function getCachedSolicitudes(): SolicitudColcha[] {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter(item => !isOpDeleted(item.op));
+          return parsed.filter(item => !isOpDeleted(item.op)).map(item => {
+            if (item.fotoMuestraUrl && item.fotoCalidadUrl && isSamePhoto(item.fotoMuestraUrl, item.fotoCalidadUrl)) {
+              return {
+                ...item,
+                fotoMuestraUrl: undefined
+              };
+            }
+            return item;
+          });
         }
       } catch (e) {
         console.warn('Error parsing cached solicitudes:', e);
       }
     }
   }
-  return TODAY_REAL_SHEET_OPS.filter(item => !isOpDeleted(item.op));
+  return TODAY_REAL_SHEET_OPS.filter(item => !isOpDeleted(item.op)).map(item => {
+    if (item.fotoMuestraUrl && item.fotoCalidadUrl && isSamePhoto(item.fotoMuestraUrl, item.fotoCalidadUrl)) {
+      return {
+        ...item,
+        fotoMuestraUrl: undefined
+      };
+    }
+    return item;
+  });
 }
 
 export function saveCachedSolicitudes(ops: SolicitudColcha[]): void {
   if (typeof window !== 'undefined' && Array.isArray(ops)) {
     try {
-      const activeOnly = ops.filter(item => !isOpDeleted(item.op));
+      const activeOnly = ops.filter(item => !isOpDeleted(item.op)).map(item => {
+        if (item.fotoMuestraUrl && item.fotoCalidadUrl && isSamePhoto(item.fotoMuestraUrl, item.fotoCalidadUrl)) {
+          return {
+            ...item,
+            fotoMuestraUrl: undefined
+          };
+        }
+        return item;
+      });
       localStorage.setItem(CACHED_BASE_DATOS_KEY, JSON.stringify(activeOnly));
     } catch (e) {
       console.warn('Error storing cached solicitudes in localStorage:', e);
@@ -1008,9 +1105,14 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
 
               const { foto1, foto2, folderUrl } = parseDualPhotos(fotoUrlRaw);
               const cachedPhotos = getOpPhotosFromCache(cleanOp);
-              const effectiveFoto1 = foto1 || cachedPhotos?.foto1;
-              const effectiveFoto2 = foto2 || cachedPhotos?.foto2;
+              let effectiveFoto1 = foto1 || cachedPhotos?.foto1;
+              let effectiveFoto2 = foto2 || cachedPhotos?.foto2;
               const effectiveFolderUrl = folderUrl || cachedPhotos?.folderUrl;
+
+              // BLINDAJE: Si foto1 y foto2 son la misma imagen (copia errónea), se limpia foto1
+              if (effectiveFoto1 && effectiveFoto2 && isSamePhoto(effectiveFoto1, effectiveFoto2)) {
+                effectiveFoto1 = undefined;
+              }
 
               if (effectiveFoto1 || effectiveFoto2 || effectiveFolderUrl) {
                 saveOpPhotosToCache(cleanOp, { foto1: effectiveFoto1, foto2: effectiveFoto2, folderUrl: effectiveFolderUrl });
@@ -1166,9 +1268,13 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
         if (isOpDeleted(opRaw) || isOpDeleted(cleanOp)) continue;
         const { foto1, foto2, folderUrl } = parseDualPhotos(r[12] || '');
         const cachedPhotos = getOpPhotosFromCache(cleanOp);
-        const effectiveFoto1 = foto1 || cachedPhotos?.foto1;
-        const effectiveFoto2 = foto2 || cachedPhotos?.foto2;
+        let effectiveFoto1 = foto1 || cachedPhotos?.foto1;
+        let effectiveFoto2 = foto2 || cachedPhotos?.foto2;
         const effectiveFolderUrl = folderUrl || cachedPhotos?.folderUrl;
+
+        if (effectiveFoto1 && effectiveFoto2 && isSamePhoto(effectiveFoto1, effectiveFoto2)) {
+          effectiveFoto1 = undefined;
+        }
 
         if (effectiveFoto1 || effectiveFoto2 || effectiveFolderUrl) {
           saveOpPhotosToCache(cleanOp, { foto1: effectiveFoto1, foto2: effectiveFoto2, folderUrl: effectiveFolderUrl });
@@ -1370,9 +1476,13 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
 
             const { foto1, foto2, folderUrl } = parseDualPhotos(fotoUrlRaw);
             const cachedPhotos = getOpPhotosFromCache(cleanOp);
-            const effectiveFoto1 = foto1 || cachedPhotos?.foto1;
-            const effectiveFoto2 = foto2 || cachedPhotos?.foto2;
+            let effectiveFoto1 = foto1 || cachedPhotos?.foto1;
+            let effectiveFoto2 = foto2 || cachedPhotos?.foto2;
             const effectiveFolderUrl = folderUrl || cachedPhotos?.folderUrl;
+
+            if (effectiveFoto1 && effectiveFoto2 && isSamePhoto(effectiveFoto1, effectiveFoto2)) {
+              effectiveFoto1 = undefined;
+            }
 
             if (effectiveFoto1 || effectiveFoto2 || effectiveFolderUrl) {
               saveOpPhotosToCache(cleanOp, { foto1: effectiveFoto1, foto2: effectiveFoto2, folderUrl: effectiveFolderUrl });
@@ -1910,6 +2020,14 @@ export async function pushDictamenToSheets(
     ? fotoCalidad 
     : (fotoCalidad && fotoCalidad.length > 100 && !fotoCalidad.startsWith('http') ? `data:image/jpeg;base64,${fotoCalidad}` : undefined);
 
+  const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')
+    ? window.location.origin
+    : 'https://colchas.vercel.app';
+
+  const users = getUsuariosList();
+  const fallbackUserEmails = users.map(u => u.email).filter(Boolean);
+  const cleanEmailList = Array.from(new Set(fallbackUserEmails.map((e: string) => String(e).trim().toLowerCase()).filter((e: string) => e.includes('@')))).join(', ');
+
   const res = await sendAppsScriptPost('UPDATE_DICTAMEN', { 
     op: formattedOp, 
     dictamen: dictamen,
@@ -1923,7 +2041,11 @@ export async function pushDictamenToSheets(
     veredicto: dictamen,
     fotoCalidadUrl: cleanBase64 || fotoCalidad,
     fotoCalidad: cleanBase64 || fotoCalidad,
-    foto2Base64: cleanBase64
+    foto2Base64: cleanBase64,
+    userEmails: fallbackUserEmails,
+    recipients: fallbackUserEmails,
+    correoNotificado: cleanEmailList,
+    appUrl: `${origin}/?op=${encodeURIComponent(formattedOp)}&view=public`
   });
 
   const foto2Res = res.data?.foto2 || (typeof (res as any).foto2 === 'string' ? (res as any).foto2 : undefined);
@@ -1993,14 +2115,23 @@ export async function pushOpPhotoToSheets(
   const foto1 = res.data?.foto1 || (typeof (res as any).foto1 === 'string' ? (res as any).foto1 : undefined);
   const foto2 = res.data?.foto2 || (typeof (res as any).foto2 === 'string' ? (res as any).foto2 : undefined);
   const rawDrive = res.data?.driveUrl || (typeof (res as any).driveUrl === 'string' ? (res as any).driveUrl : undefined);
-  const driveUrl = (isCalidad ? foto2 : foto1) || rawDrive || (isCalidad ? foto1 : foto2);
+  const driveUrl = (isCalidad ? foto2 : foto1) || rawDrive;
   const folderUrl = res.data?.folderUrl || (typeof (res as any).folderUrl === 'string' ? (res as any).folderUrl : undefined);
+
+  let finalFoto1 = !isCalidad ? (driveUrl || foto1 || photoUrl) : foto1;
+  let finalFoto2 = isCalidad ? (driveUrl || foto2 || photoUrl) : foto2;
+
+  // BLINDAJE: Si ambas fotos son la misma imagen, descartar la copia en foto1
+  if (finalFoto1 && finalFoto2 && isSamePhoto(finalFoto1, finalFoto2)) {
+    if (isCalidad) finalFoto1 = undefined;
+    else finalFoto2 = undefined;
+  }
 
   // 3. Si Apps Script devuelve la URL oficial de Google Drive, actualizar la caché oficial
   if (driveUrl || folderUrl) {
     saveOpPhotosToCache(formattedOp, {
-      foto1: !isCalidad ? (driveUrl || foto1 || photoUrl) : foto1,
-      foto2: isCalidad ? (driveUrl || foto2 || photoUrl) : foto2,
+      foto1: finalFoto1,
+      foto2: finalFoto2,
       folderUrl: folderUrl
     });
 
@@ -2008,8 +2139,8 @@ export async function pushOpPhotoToSheets(
       window.dispatchEvent(new CustomEvent('stf_op_photos_updated', {
         detail: {
           op: formattedOp,
-          foto1: !isCalidad ? (driveUrl || foto1 || photoUrl) : foto1,
-          foto2: isCalidad ? (driveUrl || foto2 || photoUrl) : foto2,
+          foto1: finalFoto1,
+          foto2: finalFoto2,
           folderUrl: folderUrl,
           driveUrl: driveUrl
         }

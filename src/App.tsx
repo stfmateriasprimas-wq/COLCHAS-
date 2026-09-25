@@ -11,7 +11,7 @@ import { SlaAlertsList } from './components/Alertas/SlaAlertsList';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { UserProfileModal } from './components/Auth/UserProfileModal';
 import { SplashScreen, stopIntroSoundImmediately, allowReplayIntroSound } from './components/Common/SplashScreen';
-import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList, isSoporteUser } from './services/authService';
+import { UsuarioSTF, syncUsuariosFromSheets, getUsuariosList, isSoporteUser, isFactoryUser } from './services/authService';
 import { SolicitudColcha, MonitoreoItem, KpiMetrics, SectorType, DictamenType, ChatMessage } from './types';
 import { chatService } from './services/chatService';
 import { auditService } from './services/auditService';
@@ -48,6 +48,7 @@ import {
   saveCachedSolicitudes,
   getOpPhotosFromCache,
   saveOpPhotosToCache,
+  isSamePhoto,
   INITIAL_MONITOREO_DATA, 
   INITIAL_SOLICITUDES_DATA 
 } from './services/googleSheetsService';
@@ -276,10 +277,15 @@ export function App() {
       setSolicitudes(prev => prev.map(s => {
         const cleanSOp = s.op.replace(/\D/g, '') || s.op.trim().toUpperCase();
         if (cleanSOp === cleanEventOp || s.op === detail.op) {
+          let f1 = detail.foto1 !== undefined ? detail.foto1 : s.fotoMuestraUrl;
+          let f2 = detail.foto2 !== undefined ? detail.foto2 : s.fotoCalidadUrl;
+          if (f1 && f2 && isSamePhoto(f1, f2)) {
+            f1 = undefined;
+          }
           return {
             ...s,
-            fotoMuestraUrl: detail.foto1 || s.fotoMuestraUrl,
-            fotoCalidadUrl: detail.foto2 || s.fotoCalidadUrl,
+            fotoMuestraUrl: f1,
+            fotoCalidadUrl: f2,
             driveFolderUrl: detail.folderUrl || s.driveFolderUrl
           };
         }
@@ -367,15 +373,17 @@ export function App() {
         // Enriquecer todas las OPs remotas con fotos cacheadas en memoria/disco para que el polling de Sheets no las borre
         const enrichedRemote = activeOnly.map(remote => {
           const cached = getOpPhotosFromCache(remote.op);
-          if (cached && (cached.foto1 || cached.foto2 || cached.folderUrl)) {
-            return {
-              ...remote,
-              fotoMuestraUrl: remote.fotoMuestraUrl || cached.foto1,
-              fotoCalidadUrl: remote.fotoCalidadUrl || cached.foto2,
-              driveFolderUrl: remote.driveFolderUrl || cached.folderUrl
-            };
+          let f1 = remote.fotoMuestraUrl || cached?.foto1;
+          let f2 = remote.fotoCalidadUrl || cached?.foto2;
+          if (f1 && f2 && isSamePhoto(f1, f2)) {
+            f1 = undefined;
           }
-          return remote;
+          return {
+            ...remote,
+            fotoMuestraUrl: f1,
+            fotoCalidadUrl: f2,
+            driveFolderUrl: remote.driveFolderUrl || cached?.folderUrl
+          };
         });
 
         const mergedLive = [...enrichedRemote];
@@ -384,18 +392,28 @@ export function App() {
           const remoteIdx = mergedLive.findIndex(m => ((m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()) === cleanLocOp);
           const cached = getOpPhotosFromCache(cleanLocOp) || getOpPhotosFromCache(loc.op);
           if (remoteIdx === -1) {
+            let f1 = loc.fotoMuestraUrl || cached?.foto1;
+            let f2 = loc.fotoCalidadUrl || cached?.foto2;
+            if (f1 && f2 && isSamePhoto(f1, f2)) {
+              f1 = undefined;
+            }
             mergedLive.unshift({
               ...loc,
-              fotoMuestraUrl: loc.fotoMuestraUrl || cached?.foto1,
-              fotoCalidadUrl: loc.fotoCalidadUrl || cached?.foto2,
+              fotoMuestraUrl: f1,
+              fotoCalidadUrl: f2,
               driveFolderUrl: loc.driveFolderUrl || cached?.folderUrl
             });
           } else {
             const remote = mergedLive[remoteIdx];
+            let f1 = loc.fotoMuestraUrl || remote.fotoMuestraUrl || cached?.foto1;
+            let f2 = loc.fotoCalidadUrl || remote.fotoCalidadUrl || cached?.foto2;
+            if (f1 && f2 && isSamePhoto(f1, f2)) {
+              f1 = undefined;
+            }
             mergedLive[remoteIdx] = {
               ...remote,
-              fotoMuestraUrl: loc.fotoMuestraUrl || remote.fotoMuestraUrl || cached?.foto1,
-              fotoCalidadUrl: loc.fotoCalidadUrl || remote.fotoCalidadUrl || cached?.foto2,
+              fotoMuestraUrl: f1,
+              fotoCalidadUrl: f2,
               driveFolderUrl: loc.driveFolderUrl || remote.driveFolderUrl || cached?.folderUrl,
               observacionesCalidad: loc.observacionesCalidad || remote.observacionesCalidad
             };
@@ -559,7 +577,8 @@ export function App() {
       try {
         const cachedPhoto = getOpPhotosFromCache(opNumber);
         const photoToSend = solicitud.fotoCalidadUrl || cachedPhoto?.foto2 || '';
-        const dictRes = await pushDictamenToSheets(opNumber, finalDictamen, auditorName, finalObs, photoToSend);
+        const colObsToSend = solicitud.observacionesLavanderia || '';
+        const dictRes = await pushDictamenToSheets(opNumber, finalDictamen, auditorName, finalObs, photoToSend, colObsToSend);
         if (dictRes && (dictRes.driveUrl || dictRes.folderUrl)) {
           updateLocalOpPhoto(opNumber, dictRes.driveUrl || photoToSend, true);
         }
@@ -580,7 +599,14 @@ export function App() {
   };
 
   const handleRestoreOp = (restoredSol: SolicitudColcha) => {
-    setSolicitudes(prev => [restoredSol, ...prev.filter(s => s.op.trim().toUpperCase() !== restoredSol.op.trim().toUpperCase())]);
+    unmarkOpAsDeleted(restoredSol.op);
+    setSolicitudes(prev => {
+      const nextList = [restoredSol, ...prev.filter(s => s.op.trim().toUpperCase() !== restoredSol.op.trim().toUpperCase())];
+      saveCachedSolicitudes(nextList);
+      return nextList;
+    });
+    saveLocalCreatedOp(restoredSol);
+    pushSolicitudToSheets(restoredSol).catch(() => {});
     notificationService.playAlertSound('EXITO');
 
     // Registro forense para SOPORTE TEC.
@@ -719,6 +745,11 @@ export function App() {
     // REGLA INMUTABLE: Solo se permite transferir a 'FINALIZADO' si la OP proviene de 'EVALUADO'
     if (nuevoEstado === 'FINALIZADO' && targetItem && targetItem.estado !== 'EVALUADO') {
       alert('⚠️ Acción restringida: La orden solo puede ser llevada a FINALIZADO desde el apartado EVALUADO Y ENVIADO.');
+      return;
+    }
+
+    if (nuevoEstado === 'FINALIZADO' && currentUser && !isFactoryUser(currentUser)) {
+      alert('⚠️ Acción restringida: Únicamente el personal perteneciente a Factory (Colfactory / Lavandería / Admin) tiene autorización para finalizar órdenes.');
       return;
     }
 
@@ -1184,6 +1215,7 @@ export function App() {
       <AreaOpsModal
         areaKey={selectedAreaForModal}
         solicitudes={solicitudes}
+        currentUser={currentUser}
         onClose={() => setSelectedAreaForModal(null)}
         onViewDetail={(colcha) => {
           setSelectedAreaForModal(null);
@@ -1192,6 +1224,10 @@ export function App() {
         onTransfer={(colcha) => {
           setSelectedAreaForModal(null);
           setSelectedColchaTransfer(colcha);
+        }}
+        onFinalizar={(colcha) => {
+          setSelectedAreaForModal(null);
+          handleFinalizarOp(colcha);
         }}
       />
 
@@ -1208,6 +1244,7 @@ export function App() {
       {/* TRANSFER MODAL */}
       <TransferModal
         solicitud={selectedColchaTransfer}
+        currentUser={currentUser}
         onClose={() => setSelectedColchaTransfer(null)}
         onConfirmTransfer={handleConfirmTransfer}
       />

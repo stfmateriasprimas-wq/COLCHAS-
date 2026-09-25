@@ -255,7 +255,14 @@ function doGet(e) {
               var rowOpPure = rowOpStr.replace(/^OP-?/, '');
               var rowOpDigits = rowOpStr.replace(/\D/g, '');
               if (rowOpStr === cleanTargetOp || rowOpPure === targetPure || (targetDigits && rowOpDigits === targetDigits)) {
-                var newColM = [photosFound.foto1, photosFound.foto2, photosFound.folderUrl].filter(Boolean).join(' | ');
+                var f1G = photosFound.foto1 || '';
+                var f2G = photosFound.foto2 || '';
+                if (f1G && f2G && f1G === f2G) f1G = '';
+                var colMParts = [];
+                if (f1G) colMParts.push('FOTO1: ' + f1G);
+                if (f2G) colMParts.push('FOTO2: ' + f2G);
+                if (photosFound.folderUrl) colMParts.push(photosFound.folderUrl);
+                var newColM = colMParts.join(' | ');
                 if (newColM) {
                   shBdGet.getRange(b + 2, 13).setValue(newColM);
                 }
@@ -389,6 +396,9 @@ function doPost(e) {
       var savedPhotoRes = null;
       var photoRaw = opData.fotoMuestraUrl || opData.imageBase64 || opData['EVIDENCIA (LINK DRIVE)'] || '';
       var fileNameInitial = opVal + '_MUESTRA_INICIAL.jpg';
+      if (photoRaw && photoRaw.indexOf('/9j/') === 0) {
+        photoRaw = 'data:image/jpeg;base64,' + photoRaw;
+      }
       if (photoRaw && photoRaw.length > 50 && photoRaw.indexOf('data:image/') === 0) {
         savedPhotoRes = saveImageToDriveHierarchical(photoRaw, fileNameInitial, opVal, now);
         if (savedPhotoRes && savedPhotoRes.driveUrl) driveUrl = savedPhotoRes.driveUrl;
@@ -411,11 +421,8 @@ function doPost(e) {
       var evidenciaVal = [photo1Val, folderVal].filter(Boolean).join(' | ');
       
       // La Columna E de la hoja USUARIOS es la FUENTE MAESTRA DE LA VERDAD
-      var userSheetRef = getUsuariosSheet(ss);
-      var recipientsList = [];
-      if (userSheetRef) {
-        recipientsList = getAllUserEmails(ss);
-      } else {
+      var recipientsList = getAllUserEmails(ss);
+      if (!recipientsList || recipientsList.length === 0) {
         recipientsList = payload.userEmails || payload.recipients || [];
       }
 
@@ -428,16 +435,33 @@ function doPost(e) {
 
       // FLUJO A: Envío automático inmediato por correo de la nueva OP
       if (uniqueEmails.length > 0) {
+        var appUrl = payload.appUrl || ('https://colchas.vercel.app/?op=' + encodeURIComponent(opVal) + '&view=public');
+        if (appUrl.indexOf('localhost') !== -1 || appUrl.indexOf('127.0.0.1') !== -1) {
+          appUrl = 'https://colchas.vercel.app/?op=' + encodeURIComponent(opVal) + '&view=public';
+        }
+        var mailSubject = '🧵 [NUEVA COLCHA CREADA] ' + opVal + ' • ' + (refVal || 'S/R') + ' (' + telaVal + ')';
+        var mailHtml = buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl);
         try {
-          var appUrl = payload.appUrl || ('https://colchas.vercel.app/?op=' + encodeURIComponent(opVal) + '&view=public');
           MailApp.sendEmail({
             to: uniqueEmails.join(','),
-            subject: '🧵 [NUEVA COLCHA CREADA] ' + opVal + ' • ' + (refVal || 'S/R') + ' (' + telaVal + ')',
-            htmlBody: buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl),
+            subject: mailSubject,
+            htmlBody: mailHtml,
             name: 'COLCHAS STF GROUP - SISTEMA OFICIAL'
           });
         } catch (mailErr) {
-          console.error('Error enviando correo creación:', mailErr);
+          console.error('Error enviando correo creación en lote, reintentando individualmente:', mailErr);
+          for (var mi = 0; mi < uniqueEmails.length; mi++) {
+            try {
+              MailApp.sendEmail({
+                to: uniqueEmails[mi],
+                subject: mailSubject,
+                htmlBody: mailHtml,
+                name: 'COLCHAS STF GROUP - SISTEMA OFICIAL'
+              });
+            } catch (indivErr) {
+              console.error('Fallo envío creación a ' + uniqueEmails[mi] + ':', indivErr);
+            }
+          }
         }
       }
 
@@ -552,16 +576,29 @@ function doPost(e) {
 
         // Guardar Foto 2 en Google Drive si se envía durante la evaluación técnica
         var calPhotoPayload = payload.fotoCalidad || payload.fotoCalidadUrl || payload.foto2Base64 || payload.imageBase64 || '';
+        var savedFotoTrans = null;
+        var finalF2Trans = '';
+        var finalFolderTrans = '';
         if (calPhotoPayload && calPhotoPayload.length > 50 && isFinOrEvalState) {
           try {
-            var rootDirTrans = getRootDriveFolder();
-            var monthDirTrans = getMonthDriveFolder(rootDirTrans, new Date());
-            var opDirTrans = getOpDriveFolder(monthDirTrans, 'OP-' + targetOpTrans);
-            var savedFotoTrans = saveImageToDriveHierarchical(rootDirTrans, 'OP-' + targetOpTrans, calPhotoPayload, false, false);
-            if (savedFotoTrans && savedFotoTrans.url) {
-              var currColMVal = String(sheetBdTrans.getRange(foundRowTrans, 13).getValue() || '');
-              var parsedM = parseColumnaMFotos(currColMVal);
-              var updatedM = [parsedM.foto1, savedFotoTrans.url, opDirTrans.getUrl()].filter(Boolean).join(' | ');
+            if (calPhotoPayload.indexOf('data:image/') === 0 || calPhotoPayload.indexOf('/9j/') === 0) {
+              if (calPhotoPayload.indexOf('data:image/') !== 0) calPhotoPayload = 'data:image/jpeg;base64,' + calPhotoPayload;
+              var fileNamePost = 'OP-' + targetOpTrans + '_POST_LAVADO_CALIDAD.jpg';
+              savedFotoTrans = saveImageToDriveHierarchical(calPhotoPayload, fileNamePost, 'OP-' + targetOpTrans, new Date());
+            }
+            var discTrans = getOpPhotosFromDrive('OP-' + targetOpTrans);
+            var finalF1Trans = discTrans.foto1 || '';
+            finalF2Trans = (savedFotoTrans && savedFotoTrans.driveUrl) || discTrans.foto2 || (calPhotoPayload.indexOf('http') === 0 ? calPhotoPayload : '');
+            finalFolderTrans = (savedFotoTrans && savedFotoTrans.folderUrl) || discTrans.folderUrl || '';
+            if (finalF1Trans && finalF2Trans && finalF1Trans === finalF2Trans) {
+              finalF1Trans = '';
+            }
+            var colPartsTrans = [];
+            if (finalF1Trans) colPartsTrans.push('FOTO1: ' + finalF1Trans);
+            if (finalF2Trans) colPartsTrans.push('FOTO2: ' + finalF2Trans);
+            if (finalFolderTrans) colPartsTrans.push(finalFolderTrans);
+            var updatedM = colPartsTrans.join(' | ');
+            if (updatedM) {
               sheetBdTrans.getRange(foundRowTrans, 13).setValue(updatedM);
             }
           } catch (errFotoTrans) {
@@ -569,7 +606,12 @@ function doPost(e) {
           }
         }
 
-        return createJsonResponse({ status: 'success', message: 'OP OP-' + targetOpTrans + ' transferida a fase ' + estadoFinalTrans });
+        return createJsonResponse({ 
+          status: 'success', 
+          message: 'OP OP-' + targetOpTrans + ' transferida a fase ' + estadoFinalTrans,
+          driveUrl: (savedFotoTrans && savedFotoTrans.driveUrl) || finalF2Trans || '',
+          folderUrl: (savedFotoTrans && savedFotoTrans.folderUrl) || finalFolderTrans || ''
+        });
       }
       return createJsonResponse({ status: 'error', message: 'OP no encontrada en BASE_DE_DATOS' });
     }
@@ -604,6 +646,9 @@ function doPost(e) {
         var savedCalPhoto = null;
         var dictPhotoBase64 = payload.imageBase64 || payload.fotoCalidad || payload.fotoCalidadUrl || '';
         var calPhotoUrl = '';
+        if (dictPhotoBase64 && dictPhotoBase64.indexOf('/9j/') === 0) {
+          dictPhotoBase64 = 'data:image/jpeg;base64,' + dictPhotoBase64;
+        }
         if (dictPhotoBase64 && dictPhotoBase64.length > 50 && dictPhotoBase64.indexOf('data:image/') === 0) {
           savedCalPhoto = saveImageToDriveHierarchical(dictPhotoBase64, opFormattedDict + '_POST_LAVADO_CALIDAD.jpg', opFormattedDict, new Date());
           if (savedCalPhoto && savedCalPhoto.driveUrl) calPhotoUrl = savedCalPhoto.driveUrl;
@@ -616,7 +661,14 @@ function doPost(e) {
         var folderCol13 = (savedCalPhoto && savedCalPhoto.folderUrl) ? savedCalPhoto.folderUrl : (discoveredDict.folderUrl || '');
         var finalFoto1_13 = discoveredDict.foto1 || '';
         var finalFoto2_13 = (savedCalPhoto && savedCalPhoto.driveUrl) ? savedCalPhoto.driveUrl : (calPhotoUrl || discoveredDict.foto2 || '');
-        var combinedCol13 = [finalFoto1_13, finalFoto2_13, folderCol13].filter(Boolean).join(' | ');
+        if (finalFoto1_13 && finalFoto2_13 && finalFoto1_13 === finalFoto2_13) {
+          finalFoto1_13 = '';
+        }
+        var colPartsDict = [];
+        if (finalFoto1_13) colPartsDict.push('FOTO1: ' + finalFoto1_13);
+        if (finalFoto2_13) colPartsDict.push('FOTO2: ' + finalFoto2_13);
+        if (folderCol13) colPartsDict.push(folderCol13);
+        var combinedCol13 = colPartsDict.join(' | ');
         if (combinedCol13) {
           sheetBdDict.getRange(foundRowDict, 13).setValue(combinedCol13);
         }
@@ -653,42 +705,49 @@ function doPost(e) {
         // Fuente de la verdad: Correos configurados en la Columna E de la hoja USUARIOS
         var emailsFromSheetDict = getAllUserEmails(ss);
         var recipientsDict = emailsFromSheetDict;
-        if (recipientsDict.length === 0) {
+        if (!recipientsDict || recipientsDict.length === 0) {
           var col14Emails = String(sheetBdDict.getRange(foundRowDict, 14).getValue() || '');
           if (col14Emails) {
             recipientsDict = col14Emails.split(',').map(function (e) { return e.trim().toLowerCase(); }).filter(function (e) { return e.indexOf('@') !== -1; });
           }
         }
+        if (!recipientsDict || recipientsDict.length === 0) {
+          var clientEmails = payload.userEmails || payload.recipients || [];
+          if (Array.isArray(clientEmails) && clientEmails.length > 0) {
+            recipientsDict = clientEmails;
+          }
+        }
+        var cleanDictArray = (recipientsDict || []).map(function (e) { return String(e).trim().toLowerCase(); }).filter(function (e) { return e.indexOf('@') !== -1; });
         var uniqueRecipientsDict = [];
-        for (var rd = 0; rd < recipientsDict.length; rd++) {
-          if (uniqueRecipientsDict.indexOf(recipientsDict[rd]) === -1) uniqueRecipientsDict.push(recipientsDict[rd]);
+        for (var rd = 0; rd < cleanDictArray.length; rd++) {
+          if (uniqueRecipientsDict.indexOf(cleanDictArray[rd]) === -1) uniqueRecipientsDict.push(cleanDictArray[rd]);
         }
 
         if (uniqueRecipientsDict.length > 0) {
-          try {
-            var rowVals = sheetBdDict.getRange(foundRowDict, 1, 1, 15).getValues()[0];
-            var telaDict = rowVals[2] || 'TELA TEXTIL';
-            var mtDict = rowVals[3] || '';
-            var colorDict = rowVals[4] || '';
-            var refDict = rowVals[6] || 'S/R';
-            var rollosDict = rowVals[7] || '';
-            var obsOperarioDict = rowVals[10] || '';
-            var obsLavaderoDict = rowVals[11] || '';
-            var auditorName = payload.auditorCalidad || payload.inspector || 'LABORATORIO DE CALIDAD';
-            var appUrlDict = 'https://colchas.vercel.app/?op=' + encodeURIComponent(opFormattedDict) + '&view=public';
-            var isEnGama = String(dictVal).toUpperCase().indexOf('GAMA') !== -1;
-            var isAprobado = String(dictVal).toUpperCase().indexOf('APROB') !== -1;
-            var subjectDict = (isEnGama ? '🎨 [COLCHA APROBADA EN GAMA] ' : (isAprobado ? '✅ [COLCHA APROBADA] ' : '❌ [COLCHA RECHAZADA] ')) + opFormattedDict + ' • REF: ' + refDict + ' (' + telaDict + ')';
-            var driveFotoCalUrl = (savedCalPhoto && savedCalPhoto.driveUrl) ? savedCalPhoto.driveUrl : '';
-            var extraDict = {
-              rollos: rollosDict,
-              obsOperario: obsOperarioDict,
-              obsLavadero: obsLavaderoDict,
-              codigoMt: mtDict,
-              color: colorDict
-            };
-            var htmlDict = buildDictamenEmailHtml(opFormattedDict, refDict, telaDict, dictVal, pureObs, auditorName, appUrlDict, driveFotoCalUrl, extraDict);
+          var rowVals = sheetBdDict.getRange(foundRowDict, 1, 1, 15).getValues()[0];
+          var telaDict = rowVals[2] || 'TELA TEXTIL';
+          var mtDict = rowVals[3] || '';
+          var colorDict = rowVals[4] || '';
+          var refDict = rowVals[6] || 'S/R';
+          var rollosDict = rowVals[7] || '';
+          var obsOperarioDict = rowVals[10] || '';
+          var obsLavaderoDict = rowVals[11] || '';
+          var auditorName = payload.auditorCalidad || payload.inspector || 'LABORATORIO DE CALIDAD';
+          var appUrlDict = 'https://colchas.vercel.app/?op=' + encodeURIComponent(opFormattedDict) + '&view=public';
+          var isEnGama = String(dictVal).toUpperCase().indexOf('GAMA') !== -1;
+          var isAprobado = String(dictVal).toUpperCase().indexOf('APROB') !== -1;
+          var subjectDict = (isEnGama ? '🎨 [COLCHA APROBADA EN GAMA] ' : (isAprobado ? '✅ [COLCHA APROBADA] ' : '❌ [COLCHA RECHAZADA] ')) + opFormattedDict + ' • REF: ' + refDict + ' (' + telaDict + ')';
+          var driveFotoCalUrl = (savedCalPhoto && savedCalPhoto.driveUrl) ? savedCalPhoto.driveUrl : (calPhotoUrl || finalFoto2_13 || '');
+          var extraDict = {
+            rollos: rollosDict,
+            obsOperario: obsOperarioDict,
+            obsLavadero: obsLavaderoDict,
+            codigoMt: mtDict,
+            color: colorDict
+          };
+          var htmlDict = buildDictamenEmailHtml(opFormattedDict, refDict, telaDict, dictVal, pureObs, auditorName, appUrlDict, driveFotoCalUrl, extraDict);
 
+          try {
             MailApp.sendEmail({
               to: uniqueRecipientsDict.join(','),
               subject: subjectDict,
@@ -696,7 +755,19 @@ function doPost(e) {
               name: 'CALIDAD STF GROUP - SISTEMA OFICIAL'
             });
           } catch (mailErr) {
-            console.error('Error enviando correo de dictamen:', mailErr);
+            console.error('Error enviando correo de dictamen en lote, reintentando individualmente:', mailErr);
+            for (var mdi = 0; mdi < uniqueRecipientsDict.length; mdi++) {
+              try {
+                MailApp.sendEmail({
+                  to: uniqueRecipientsDict[mdi],
+                  subject: subjectDict,
+                  htmlBody: htmlDict,
+                  name: 'CALIDAD STF GROUP - SISTEMA OFICIAL'
+                });
+              } catch (indivErr) {
+                console.error('Fallo envío dictamen a ' + uniqueRecipientsDict[mdi] + ':', indivErr);
+              }
+            }
           }
         }
 
@@ -712,6 +783,9 @@ function doPost(e) {
 
       var fallbackCalPhoto = null;
       var dictPhotoBase64_fb = payload.imageBase64 || payload.fotoCalidad || payload.fotoCalidadUrl || '';
+      if (dictPhotoBase64_fb && dictPhotoBase64_fb.indexOf('/9j/') === 0) {
+        dictPhotoBase64_fb = 'data:image/jpeg;base64,' + dictPhotoBase64_fb;
+      }
       if (dictPhotoBase64_fb && dictPhotoBase64_fb.length > 50 && dictPhotoBase64_fb.indexOf('data:image/') === 0) {
         fallbackCalPhoto = saveImageToDriveHierarchical(dictPhotoBase64_fb, opFormattedDict + '_POST_LAVADO_CALIDAD.jpg', opFormattedDict, new Date());
       }
@@ -826,12 +900,19 @@ function doPost(e) {
       var folderColPhoto = (savedFoto2 && savedFoto2.folderUrl) || (savedFoto1 && savedFoto1.folderUrl) || disc.folderUrl || '';
       var finalFoto1_p = (savedFoto1 && savedFoto1.driveUrl) || disc.foto1 || '';
       var finalFoto2_p = (savedFoto2 && savedFoto2.driveUrl) || disc.foto2 || '';
+      if (finalFoto1_p && finalFoto2_p && finalFoto1_p === finalFoto2_p) {
+        finalFoto1_p = '';
+      }
       var primaryDriveUrl = (payload.isCalidad ? finalFoto2_p : finalFoto1_p) || finalFoto2_p || finalFoto1_p || '';
 
       // Si la OP existe en BASE_DE_DATOS, actualizar fila y Columna 13 (M) preservando AMBAS fotos
       if (foundRowPhoto !== -1 && sheetBdPhoto) {
         sheetBdPhoto.getRange(foundRowPhoto, 6).setValue(opFormattedPhoto);
-        var combinedColPhoto = [finalFoto1_p, finalFoto2_p, folderColPhoto].filter(Boolean).join(' | ');
+        var colPartsPhoto = [];
+        if (finalFoto1_p) colPartsPhoto.push('FOTO1: ' + finalFoto1_p);
+        if (finalFoto2_p) colPartsPhoto.push('FOTO2: ' + finalFoto2_p);
+        if (folderColPhoto) colPartsPhoto.push(folderColPhoto);
+        var combinedColPhoto = colPartsPhoto.join(' | ');
         if (combinedColPhoto) {
           sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(combinedColPhoto);
         }
@@ -945,7 +1026,14 @@ function doPost(e) {
               var rowOpPureP = rowOpStrP.replace(/^OP-?/, '');
               var rowOpDigitsP = rowOpStrP.replace(/\D/g, '');
               if (rowOpStrP === cleanOpP || rowOpPureP === targetPureP || (targetDigitsP && rowOpDigitsP === targetDigitsP)) {
-                var newColMP = [photosRes.foto1, photosRes.foto2, photosRes.folderUrl].filter(Boolean).join(' | ');
+                var f1P = photosRes.foto1 || '';
+                var f2P = photosRes.foto2 || '';
+                if (f1P && f2P && f1P === f2P) f1P = '';
+                var colPartsP = [];
+                if (f1P) colPartsP.push('FOTO1: ' + f1P);
+                if (f2P) colPartsP.push('FOTO2: ' + f2P);
+                if (photosRes.folderUrl) colPartsP.push(photosRes.folderUrl);
+                var newColMP = colPartsP.join(' | ');
                 if (newColMP) {
                   shBdP.getRange(bp + 2, 13).setValue(newColMP);
                 }
@@ -1367,11 +1455,14 @@ function getOpPhotosFromDrive(rawOp) {
         res.foto1 = fUrl;
       } else if (n.indexOf('POST_LAVADO') !== -1 || n.indexOf('CALIDAD') !== -1 || n.indexOf('FOTO2') !== -1) {
         res.foto2 = fUrl;
-      } else if (!res.foto1) {
+      } else if (!res.foto1 && !res.foto2) {
         res.foto1 = fUrl;
-      } else if (!res.foto2) {
+      } else if (!res.foto2 && res.foto1 !== fUrl) {
         res.foto2 = fUrl;
       }
+    }
+    if (res.foto1 && res.foto2 && res.foto1 === res.foto2) {
+      res.foto1 = '';
     }
     return res;
   } catch (e) {
@@ -1464,10 +1555,13 @@ function calcularDiasHabiles(fechaInicio, fechaFin) {
 }
 
 function mapAreaToTitle(estado) {
-  if (estado.indexOf('LAVAD') !== -1) return 'LAVANDERÍA COLFACTORY ZF';
-  if (estado.indexOf('SOLICIT') !== -1) return 'TRÁNSITO / DESPACHO';
-  if (estado.indexOf('PRE') !== -1) return 'CALIDAD 2F / ATELIER';
-  if (estado.indexOf('CALIDAD') !== -1) return 'CALIDAD STF LABORATORIO';
+  var st = String(estado || '').toUpperCase();
+  if (st.indexOf('EVALUAD') !== -1) return 'EVALUADO Y ENVIADO';
+  if (st.indexOf('LAVAD') !== -1) return 'LAVANDERÍA COLFACTORY ZF';
+  if (st.indexOf('SOLICIT') !== -1) return 'TRÁNSITO / DESPACHO';
+  if (st.indexOf('PRE') !== -1) return 'CALIDAD 2F / ATELIER';
+  if (st.indexOf('CALIDAD') !== -1 || st.indexOf('ENVIADO A STF') !== -1) return 'CALIDAD STF LABORATORIO';
+  if (st.indexOf('FINAL') !== -1) return 'CALIDAD PLANTA STF';
   return 'PLANTA STF';
 }
 
@@ -1573,9 +1667,15 @@ function getAllUserEmails(ss) {
 
         // Leer única y estrictamente la celda de la Columna E
         var colVal = String(row[emailColIdx] || '').trim().toLowerCase();
-        if (colVal && emailRegex.test(colVal)) {
-          if (emails.indexOf(colVal) === -1) {
-            emails.push(colVal);
+        if (colVal) {
+          var candidates = colVal.split(/[,;\s]+/);
+          for (var ci = 0; ci < candidates.length; ci++) {
+            var cand = candidates[ci].trim();
+            if (cand && emailRegex.test(cand)) {
+              if (emails.indexOf(cand) === -1) {
+                emails.push(cand);
+              }
+            }
           }
         }
       }
@@ -1721,11 +1821,19 @@ function buildDictamenEmailHtml(opVal, refVal, telaVal, dictVal, obsFinal, audit
 
   var rollosVal = (extraData && (extraData.rollos || extraData['ROLLOS'])) || '';
   var mtVal = (extraData && (extraData.codigoMt || extraData['CÓDIGO MT'])) || '';
+  var colorVal = (extraData && (extraData.color || extraData['COLOR'])) || '';
   var obsOperario = (extraData && (extraData.obsOperario || extraData['OBSERVACIÓN OPERARIO'] || extraData.observacionesOperario)) || '';
   var cleanObsFinal = obsFinal || 'Muestra evaluada y aprobada conforme a los estándares de calidad de STF Group S.A.';
 
   var mtHtml = mtVal
     ? ' <span style="display: inline-block; background: #e2e8f0; color: #475569; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; margin-left: 6px;">' + mtVal + '</span>'
+    : '';
+
+  var colorRow = colorVal
+    ? '<tr>' +
+        '<td style="padding: 4px 0; font-weight: 800; color: #000000; width: 36%; text-transform: uppercase; letter-spacing: 0.4px;">COLOR:</td>' +
+        '<td style="padding: 4px 0; font-weight: 700; color: #1e293b; text-transform: uppercase;">' + colorVal + '</td>' +
+      '</tr>'
     : '';
 
   var rollosRow = rollosVal
@@ -1742,6 +1850,12 @@ function buildDictamenEmailHtml(opVal, refVal, telaVal, dictVal, obsFinal, audit
       '</tr>'
     : '';
 
+  var rawObsLav = (extraData && (extraData.obsLavadero || extraData['OBSERVACIÓN COLFACTORY'] || extraData.observacionColfactory)) || '';
+  var obsLavadero = '';
+  if (rawObsLav && String(rawObsLav).toLowerCase().indexOf('colcha recibida') === -1 && String(rawObsLav).indexOf('[LAVANDERIA]') === -1) {
+    obsLavadero = String(rawObsLav).trim();
+  }
+
   var obsOperarioBlock = obsOperario
     ? '<div style="margin-top: 16px;">' +
         '<div style="font-size: 11px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">' +
@@ -1753,10 +1867,21 @@ function buildDictamenEmailHtml(opVal, refVal, telaVal, dictVal, obsFinal, audit
       '</div>'
     : '';
 
+  var obsLavaderoBlock = obsLavadero
+    ? '<div style="margin-top: 14px;">' +
+        '<div style="font-size: 11px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">' +
+          'OBSERVACIONES LAVANDERÍA (COLFACTORY):' +
+        '</div>' +
+        '<div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; font-size: 12px; color: #334155; line-height: 1.5; font-weight: 500; text-transform: uppercase;">' +
+          obsLavadero +
+        '</div>' +
+      '</div>'
+    : '';
+
   var imgBlock = driveFotoCalUrl
     ? '<div style="margin: 18px 0 6px; text-align: center;">' +
         '<a href="' + driveFotoCalUrl + '" target="_blank" style="display: inline-block; background: #0f172a; color: #ffffff; padding: 11px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 11.5px; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(15,23,42,0.25);">' +
-          '📸 Ver Foto de Auditoría en Google Drive (Calidad)' +
+          '📷 Ver Foto de Auditoría en Google Drive (Calidad)' +
         '</a>' +
       '</div>'
     : '';
@@ -1801,6 +1926,7 @@ function buildDictamenEmailHtml(opVal, refVal, telaVal, dictVal, obsFinal, audit
             '<td style="padding: 4px 0; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 0.4px;">TELA:</td>' +
             '<td style="padding: 4px 0; font-weight: 700; color: #1e293b;">' + telaVal + mtHtml + '</td>' +
           '</tr>' +
+          colorRow +
           rollosRow +
           auditorRow +
           '<tr>' +
@@ -1812,6 +1938,9 @@ function buildDictamenEmailHtml(opVal, refVal, telaVal, dictVal, obsFinal, audit
 
       // Observaciones del Operario (si existen)
       obsOperarioBlock +
+
+      // Observaciones Lavandería (si existen)
+      obsLavaderoBlock +
 
       // Observaciones Lavadero / Calidad (Concepto Final)
       '<div style="margin-top: 14px;">' +

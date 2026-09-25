@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { X, Search, Clock, ArrowRight, Eye, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { SolicitudColcha, SectorType } from '../../types';
+import { UsuarioSTF, isFactoryUser } from '../../services/authService';
 
 interface AreaOpsModalProps {
   areaKey: SectorType | 'TOTAL' | 'EN_PROCESO' | null;
   solicitudes: SolicitudColcha[];
+  currentUser?: UsuarioSTF | null;
   onClose: () => void;
   onViewDetail: (solicitud: SolicitudColcha) => void;
   onTransfer: (solicitud: SolicitudColcha) => void;
+  onFinalizar?: (solicitud: SolicitudColcha) => void;
 }
 
 const AREA_TITLES: Record<string, { title: string; subtitle: string; colorClass: string; badgeClass: string }> = {
@@ -64,9 +67,11 @@ const AREA_TITLES: Record<string, { title: string; subtitle: string; colorClass:
 export const AreaOpsModal: React.FC<AreaOpsModalProps> = ({
   areaKey,
   solicitudes,
+  currentUser,
   onClose,
   onViewDetail,
-  onTransfer
+  onTransfer,
+  onFinalizar
 }) => {
   const [search, setSearch] = useState('');
 
@@ -214,7 +219,22 @@ export const AreaOpsModal: React.FC<AreaOpsModalProps> = ({
                     <span>Ver Ficha</span>
                   </button>
 
-                  {item.estado !== 'FINALIZADO' && (
+                  {item.estado === 'EVALUADO' ? (
+                    isFactoryUser(currentUser) ? (
+                      <button
+                        onClick={() => onFinalizar ? onFinalizar(item) : onTransfer(item)}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md transition cursor-pointer font-mono"
+                        title="Finalizar OP (Exclusivo Factory)"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                        <span>Finalizar</span>
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-mono font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-2.5 py-1.5 rounded-xl border border-teal-200 dark:border-teal-800 flex items-center gap-1">
+                        🔒 Esperando Factory
+                      </span>
+                    )
+                  ) : item.estado !== 'FINALIZADO' ? (
                     <button
                       onClick={() => onTransfer(item)}
                       className="px-4 py-2 rounded-xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black flex items-center gap-1.5 shadow-sm transition cursor-pointer"
@@ -222,7 +242,7 @@ export const AreaOpsModal: React.FC<AreaOpsModalProps> = ({
                       <span>Transferir</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  ) : null}
                 </div>
 
               </div>

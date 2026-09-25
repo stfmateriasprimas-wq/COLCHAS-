@@ -4,7 +4,7 @@ import { Printer, X, Copy, ExternalLink, Check, ShieldCheck, User, Camera, Downl
 import { SolicitudColcha } from '../../types';
 import { generateColchaPdfTicket, printColchaDirectTicket, getCleanFinalQualityObservation, getCleanInitialObservation } from '../../services/exportService';
 import { generatePublicTrackingUrl, generatePublicTrackingUrlAsync } from '../../services/qrTrackingService';
-import { getOpPhotosFromCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
+import { getOpPhotosFromCache, fetchOpPhotosFromDrive, isSamePhoto } from '../../services/googleSheetsService';
 
 const STF_QR_LOGO_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23000000"/><rect x="4" y="4" width="92" height="92" rx="16" fill="%23000000" stroke="%23ffffff" stroke-width="4"/><text x="50" y="65" font-size="38" font-family="Arial, Helvetica, sans-serif" font-weight="900" fill="%23ffffff" text-anchor="middle" letter-spacing="-1">STF</text></svg>`;
 
@@ -19,7 +19,11 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
   const [dynamicPhoto, setDynamicPhoto] = useState<string | undefined>(colcha?.fotoMuestraUrl);
 
   const cachedPhotos = getOpPhotosFromCache(colcha?.op);
-  const effectiveFotoMuestra = colcha?.fotoMuestraUrl || dynamicPhoto || cachedPhotos?.foto1;
+  let effectiveFotoMuestra = colcha?.fotoMuestraUrl || dynamicPhoto || cachedPhotos?.foto1;
+  const effectiveFotoCalidad = colcha?.fotoCalidadUrl || cachedPhotos?.foto2;
+  if (effectiveFotoMuestra && effectiveFotoCalidad && isSamePhoto(effectiveFotoMuestra, effectiveFotoCalidad)) {
+    effectiveFotoMuestra = undefined;
+  }
   const colchaWithPhoto = colcha ? { ...colcha, fotoMuestraUrl: effectiveFotoMuestra } : null;
 
   useEffect(() => {

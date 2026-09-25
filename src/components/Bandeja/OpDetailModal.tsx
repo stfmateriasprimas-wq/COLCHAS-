@@ -9,7 +9,7 @@ import {
 import { SolicitudColcha } from '../../types';
 import { SafeQRCode } from '../Common/SafeQRCode';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, getOpPhotosFromCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
+import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, getOpPhotosFromCache, fetchOpPhotosFromDrive, isSamePhoto } from '../../services/googleSheetsService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 import { generatePublicTrackingUrl, generatePublicTrackingUrlAsync } from '../../services/qrTrackingService';
 import { UploadMissingPhotosModal } from './UploadMissingPhotosModal';
@@ -66,12 +66,26 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
       const cleanSol = solicitud.op.replace(/\D/g, '') || solicitud.op.trim().toUpperCase();
       const cleanEvent = (detail?.op || '').replace(/\D/g, '') || String(detail?.op || '').trim().toUpperCase();
       if (cleanSol === cleanEvent || solicitud.op === detail.op) {
-        setDrivePhotos(prev => ({ ...prev, ...detail }));
-        if (detail.foto1) {
-          setFotoInicialLocal(detail.foto1);
+        let d1 = detail.foto1;
+        let d2 = detail.foto2;
+        if (d1 && d2 && isSamePhoto(d1, d2)) {
+          d1 = undefined;
         }
-        if (detail.foto2) {
-          setFotoCalidadLocal(detail.foto2);
+        setDrivePhotos(prev => {
+          let p1 = d1 !== undefined ? d1 : prev?.foto1;
+          let p2 = d2 !== undefined ? d2 : prev?.foto2;
+          if (p1 && p2 && isSamePhoto(p1, p2)) {
+            p1 = undefined;
+          }
+          return { ...prev, ...detail, foto1: p1, foto2: p2 };
+        });
+        if (d1) {
+          setFotoInicialLocal(d1);
+        } else if (d2 && fotoInicialLocal && isSamePhoto(fotoInicialLocal, d2)) {
+          setFotoInicialLocal(null);
+        }
+        if (d2) {
+          setFotoCalidadLocal(d2);
         }
       }
     };
@@ -79,27 +93,42 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
     return () => {
       window.removeEventListener('stf_op_photos_updated', handlePhotosUpdated);
     };
-  }, [solicitud?.op]);
+  }, [solicitud?.op, fotoInicialLocal]);
 
   useEffect(() => {
     if (!solicitud?.op) return;
     const cached = getOpPhotosFromCache(solicitud.op);
     if (cached) {
-      setDrivePhotos(prev => ({ ...cached, ...prev }));
+      let p1 = cached.foto1;
+      let p2 = cached.foto2;
+      if (p1 && p2 && isSamePhoto(p1, p2)) {
+        p1 = undefined;
+      }
+      setDrivePhotos(prev => ({ ...cached, foto1: p1, foto2: p2, ...prev }));
     }
     if (!solicitud.fotoMuestraUrl || (!fotoCalidadLocal && !solicitud.fotoCalidadUrl)) {
       let isMounted = true;
       fetchOpPhotosFromDrive(solicitud.op).then((photos) => {
         if (isMounted && (photos.foto1 || photos.foto2 || photos.folderUrl)) {
-          setDrivePhotos(prev => ({ ...prev, ...photos }));
+          let p1 = photos.foto1;
+          let p2 = photos.foto2;
+          if (p1 && p2 && isSamePhoto(p1, p2)) {
+            p1 = undefined;
+          }
+          setDrivePhotos(prev => ({ ...prev, ...photos, foto1: p1, foto2: p2 }));
         }
       });
       return () => { isMounted = false; };
     }
   }, [solicitud?.op, solicitud?.fotoMuestraUrl, solicitud?.fotoCalidadUrl, fotoCalidadLocal]);
 
-  const fotoMuestraUrl = fotoInicialLocal || solicitud?.fotoMuestraUrl || drivePhotos?.foto1;
-  const fotoCalidadUrl = fotoCalidadLocal || solicitud?.fotoCalidadUrl || drivePhotos?.foto2;
+  let rawFoto1 = fotoInicialLocal || solicitud?.fotoMuestraUrl || drivePhotos?.foto1;
+  let rawFoto2 = fotoCalidadLocal || solicitud?.fotoCalidadUrl || drivePhotos?.foto2;
+  if (rawFoto1 && rawFoto2 && isSamePhoto(rawFoto1, rawFoto2)) {
+    rawFoto1 = undefined;
+  }
+  const fotoMuestraUrl = rawFoto1;
+  const fotoCalidadUrl = rawFoto2;
 
   useEffect(() => {
     if (!solicitud) return;
@@ -146,6 +175,9 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
       const compressed = await compressImageFile(file, 650, 0.55);
       // Visualización instantánea a 0 ms
       setFotoInicialLocal(compressed);
+      if (fotoCalidadLocal && isSamePhoto(fotoCalidadLocal, compressed)) {
+        setFotoCalidadLocal(null);
+      }
       
       updateLocalOpPhoto(solicitud.id, compressed, false);
       updateLocalOpPhoto(solicitud.op, compressed, false);
@@ -160,11 +192,20 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
         const driveUrl = res.driveUrl || res.foto1;
         if (driveUrl) {
           setFotoInicialLocal(driveUrl);
-          setDrivePhotos(prev => ({
-            ...prev,
-            foto1: driveUrl,
-            folderUrl: res.folderUrl || prev?.folderUrl
-          }));
+          if (fotoCalidadLocal && isSamePhoto(fotoCalidadLocal, driveUrl)) {
+            setFotoCalidadLocal(null);
+          }
+          setDrivePhotos(prev => {
+            let p1 = driveUrl;
+            let p2 = prev?.foto2;
+            if (p1 && p2 && isSamePhoto(p1, p2)) p2 = undefined;
+            return {
+              ...prev,
+              foto1: p1,
+              foto2: p2,
+              folderUrl: res.folderUrl || prev?.folderUrl
+            };
+          });
         }
       }
     } catch (err) {
@@ -187,6 +228,9 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
       const compressed = await compressImageFile(file, 650, 0.55);
       // Visualización instantánea a 0 ms
       setFotoCalidadLocal(compressed);
+      if (fotoInicialLocal && isSamePhoto(fotoInicialLocal, compressed)) {
+        setFotoInicialLocal(null);
+      }
       
       updateLocalOpPhoto(solicitud.id, compressed, true);
       updateLocalOpPhoto(solicitud.op, compressed, true);
@@ -201,11 +245,20 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
         const driveUrl = res.driveUrl || res.foto2;
         if (driveUrl) {
           setFotoCalidadLocal(driveUrl);
-          setDrivePhotos(prev => ({
-            ...prev,
-            foto2: driveUrl,
-            folderUrl: res.folderUrl || prev?.folderUrl
-          }));
+          if (fotoInicialLocal && isSamePhoto(fotoInicialLocal, driveUrl)) {
+            setFotoInicialLocal(null);
+          }
+          setDrivePhotos(prev => {
+            let p1 = prev?.foto1;
+            let p2 = driveUrl;
+            if (p1 && p2 && isSamePhoto(p1, p2)) p1 = undefined;
+            return {
+              ...prev,
+              foto1: p1,
+              foto2: p2,
+              folderUrl: res.folderUrl || prev?.folderUrl
+            };
+          });
         }
       }
     } catch (err) {

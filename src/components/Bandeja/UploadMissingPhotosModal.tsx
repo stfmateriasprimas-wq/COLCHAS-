@@ -13,7 +13,8 @@ import {
   normalizeImageUrl,
   formatOpCode,
   saveOpPhotosToCache,
-  updateLocalOpPhoto
+  updateLocalOpPhoto,
+  isSamePhoto
 } from '../../services/googleSheetsService';
 
 interface UploadMissingPhotosModalProps {
@@ -62,8 +63,12 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
     }
 
     const cached = getOpPhotosFromCache(solicitud.op);
-    const existingFoto1 = normalizeImageUrl(solicitud.fotoMuestraUrl || cached?.foto1);
-    const existingFoto2 = normalizeImageUrl(solicitud.fotoCalidadUrl || cached?.foto2);
+    let existingFoto1 = normalizeImageUrl(solicitud.fotoMuestraUrl || cached?.foto1);
+    let existingFoto2 = normalizeImageUrl(solicitud.fotoCalidadUrl || cached?.foto2);
+
+    if (existingFoto1 && existingFoto2 && isSamePhoto(existingFoto1, existingFoto2)) {
+      existingFoto1 = undefined;
+    }
 
     setFoto1Preview(existingFoto1 || null);
     setFoto2Preview(existingFoto2 || null);
@@ -76,8 +81,13 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
     // Si no estaban en caché, consultar a Drive
     if (!existingFoto1 && !existingFoto2) {
       fetchOpPhotosFromDrive(solicitud.op).then(res => {
-        if (res.foto1) setFoto1Preview(normalizeImageUrl(res.foto1) || null);
-        if (res.foto2) setFoto2Preview(normalizeImageUrl(res.foto2) || null);
+        let f1 = normalizeImageUrl(res.foto1) || null;
+        let f2 = normalizeImageUrl(res.foto2) || null;
+        if (f1 && f2 && isSamePhoto(f1, f2)) {
+          f1 = null;
+        }
+        if (f1) setFoto1Preview(f1);
+        if (f2) setFoto2Preview(f2);
       });
     }
   }, [solicitud, isOpen]);
@@ -156,8 +166,13 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
     try {
       // 1. Sincronización instantánea a 0 ms en caché local y eventos
       const prevCached = getOpPhotosFromCache(formattedOp);
-      const optFoto1 = f1 || prevCached?.foto1;
-      const optFoto2 = f2 || prevCached?.foto2;
+      let optFoto1 = f1 || prevCached?.foto1;
+      let optFoto2 = f2 || prevCached?.foto2;
+      if (optFoto1 && optFoto2 && isSamePhoto(optFoto1, optFoto2)) {
+        if (slot === 2) optFoto1 = undefined;
+        else if (slot === 1) optFoto2 = undefined;
+        else optFoto1 = undefined;
+      }
 
       saveOpPhotosToCache(formattedOp, {
         foto1: optFoto1,
@@ -192,8 +207,13 @@ export const UploadMissingPhotosModal: React.FC<UploadMissingPhotosModalProps> =
       }
 
       const finalFolder = res.folderUrl || prevCached?.folderUrl;
-      const finalFoto1 = res.foto1 || f1 || prevCached?.foto1;
-      const finalFoto2 = res.foto2 || f2 || prevCached?.foto2;
+      let finalFoto1 = res.foto1 || f1 || prevCached?.foto1;
+      let finalFoto2 = res.foto2 || f2 || prevCached?.foto2;
+      if (finalFoto1 && finalFoto2 && isSamePhoto(finalFoto1, finalFoto2)) {
+        if (slot === 2) finalFoto1 = undefined;
+        else if (slot === 1) finalFoto2 = undefined;
+        else finalFoto1 = undefined;
+      }
 
       setUploadStatus(
         slot === 1

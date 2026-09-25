@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
-import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp, isMatchingOp, fetchOpPhotosFromDrive, getOpPhotosFromCache } from '../../services/googleSheetsService';
+import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp, isMatchingOp, fetchOpPhotosFromDrive, getOpPhotosFromCache, isSamePhoto } from '../../services/googleSheetsService';
 import { getCleanFinalQualityObservation, getCleanInitialObservation } from '../../services/exportService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 import { parsePublicTrackingPayload } from '../../services/qrTrackingService';
@@ -192,8 +192,13 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
 
   // Normalized display photo URLs (priorizando fotos en alta resolución de Google Drive o locales)
   const fotoInicialUrl = useMemo(() => {
-    return normalizeImageUrl(remoteDrivePhotos?.foto1 || colcha?.fotoMuestraUrl);
-  }, [remoteDrivePhotos?.foto1, colcha?.fotoMuestraUrl]);
+    let f1 = normalizeImageUrl(remoteDrivePhotos?.foto1 || colcha?.fotoMuestraUrl);
+    let f2 = normalizeImageUrl(remoteDrivePhotos?.foto2 || colcha?.fotoCalidadUrl);
+    if (f1 && f2 && isSamePhoto(f1, f2)) {
+      return undefined;
+    }
+    return f1;
+  }, [remoteDrivePhotos?.foto1, remoteDrivePhotos?.foto2, colcha?.fotoMuestraUrl, colcha?.fotoCalidadUrl]);
 
   const fotoCalidadUrl = useMemo(() => {
     return normalizeImageUrl(remoteDrivePhotos?.foto2 || colcha?.fotoCalidadUrl);

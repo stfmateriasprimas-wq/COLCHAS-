@@ -36,7 +36,7 @@ interface SlaAlertsListProps {
   onSyncWithSheets?: () => Promise<void>;
 }
 
-type AreaFilterType = 'CONSOLIDADO' | 'SOLICITADOS' | 'LAVANDERIA' | 'PRE_SOLICITUD' | 'CALIDAD';
+type AreaFilterType = 'CONSOLIDADO' | 'SOLICITADOS' | 'LAVANDERIA' | 'PRE_SOLICITUD' | 'CALIDAD' | 'EVALUADO';
 
 export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
   solicitudes,
@@ -76,6 +76,7 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
   const countSol = allAlerts.filter(s => s.estado === 'SOLICITADO').length;
   const countLav = allAlerts.filter(s => s.estado === 'LAVANDERIA').length;
   const countCal = allAlerts.filter(s => s.estado === 'CALIDAD').length;
+  const countEval = allAlerts.filter(s => s.estado === 'EVALUADO').length;
 
   const googleSheetsUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit?usp=sharing`;
 
@@ -92,6 +93,7 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
     if (selectedAreaFilter === 'SOLICITADOS' && item.estado !== 'SOLICITADO') return false;
     if (selectedAreaFilter === 'LAVANDERIA' && item.estado !== 'LAVANDERIA') return false;
     if (selectedAreaFilter === 'CALIDAD' && item.estado !== 'CALIDAD') return false;
+    if (selectedAreaFilter === 'EVALUADO' && item.estado !== 'EVALUADO') return false;
 
     const q = searchTerm.toLowerCase().trim();
     if (!q) return true;
@@ -473,6 +475,25 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
                 {countCal}
               </span>
             </button>
+
+            {/* Evaluado */}
+            {countEval > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedAreaFilter('EVALUADO')}
+                className={`px-3 py-1.5 rounded-full font-black text-xs transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  selectedAreaFilter === 'EVALUADO'
+                    ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/40 ring-2 ring-teal-400/40'
+                    : 'bg-zinc-100 dark:bg-zinc-900/90 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 dark:text-teal-400" />
+                <span>Evaluado</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-teal-100 dark:bg-teal-500/30 text-teal-800 dark:text-teal-300 font-bold">
+                  {countEval}
+                </span>
+              </button>
+            )}
           </div>
 
           {/* Search box right aligned */}

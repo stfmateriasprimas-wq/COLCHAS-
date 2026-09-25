@@ -2,9 +2,11 @@ import React, { useState, useRef } from 'react';
 import { X, ArrowRight, CheckCircle2, Camera, Upload, ImageIcon } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { compressImageFile } from '../../services/googleSheetsService';
+import { UsuarioSTF, isFactoryUser } from '../../services/authService';
 
 interface TransferModalProps {
   solicitud: SolicitudColcha | null;
+  currentUser?: UsuarioSTF | null;
   onClose: () => void;
   onConfirmTransfer: (
     solicitudId: string,
@@ -26,6 +28,7 @@ const NEXT_SECTOR: Record<SectorType, { next: SectorType; label: string; area: s
 
 export const TransferModal: React.FC<TransferModalProps> = ({
   solicitud,
+  currentUser,
   onClose,
   onConfirmTransfer
 }) => {
@@ -66,6 +69,10 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   };
 
   const handleTransfer = () => {
+    if (nextStep.next === 'FINALIZADO' && currentUser && !isFactoryUser(currentUser)) {
+      alert('⚠️ Acción restringida: Únicamente el personal perteneciente a Factory (Colfactory / Lavandería / Admin) tiene autorización para finalizar órdenes.');
+      return;
+    }
     onConfirmTransfer(
       solicitud.id, 
       nextStep.next, 

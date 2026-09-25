@@ -15,7 +15,7 @@ interface AdminSlaAlertBannerProps {
   onViewDetail: (solicitud: SolicitudColcha) => void;
 }
 
-type AreaAlertFilter = 'CONSOLIDADO' | 'SOLICITADOS' | 'LAVANDERIA' | 'PRE_SOLICITUD' | 'CALIDAD';
+type AreaAlertFilter = 'CONSOLIDADO' | 'SOLICITADOS' | 'LAVANDERIA' | 'PRE_SOLICITUD' | 'CALIDAD' | 'EVALUADO';
 
 export const AdminSlaAlertBanner: React.FC<AdminSlaAlertBannerProps> = ({
   solicitudes,
@@ -58,6 +58,7 @@ export const AdminSlaAlertBanner: React.FC<AdminSlaAlertBannerProps> = ({
   const countSolicitados = allDelayedOps.filter(s => s.estado === 'SOLICITADO').length;
   const countLavanderia = allDelayedOps.filter(s => s.estado === 'LAVANDERIA').length;
   const countCalidad = allDelayedOps.filter(s => s.estado === 'CALIDAD').length;
+  const countEvaluado = allDelayedOps.filter(s => s.estado === 'EVALUADO').length;
 
   // Filtered list based on selected area pill
   const filteredDelayedOps = allDelayedOps.filter(item => {
@@ -66,6 +67,7 @@ export const AdminSlaAlertBanner: React.FC<AdminSlaAlertBannerProps> = ({
     if (activeAreaFilter === 'LAVANDERIA') return item.estado === 'LAVANDERIA';
     if (activeAreaFilter === 'PRE_SOLICITUD') return item.estado === 'PRE_SOLICITUD';
     if (activeAreaFilter === 'CALIDAD') return item.estado === 'CALIDAD';
+    if (activeAreaFilter === 'EVALUADO') return item.estado === 'EVALUADO';
     return true;
   });
 
@@ -75,6 +77,7 @@ export const AdminSlaAlertBanner: React.FC<AdminSlaAlertBannerProps> = ({
       case 'LAVANDERIA': return 'LAVANDERÍA (COLFACTORY ZF)';
       case 'PRE_SOLICITUD': return 'PRE-SOLICITUD (CALIDAD ZF / ATELIER)';
       case 'CALIDAD': return 'CALIDAD (LABORATORIO STF)';
+      case 'EVALUADO': return 'EVALUADO Y ENVIADO (ESPERA FACTORY)';
       default: return 'CONSOLIDADO PLANTA (PRE-SOLICITUD, SOLICITADOS, LAVANDERÍA)';
     }
   };
@@ -331,6 +334,28 @@ export const AdminSlaAlertBanner: React.FC<AdminSlaAlertBannerProps> = ({
               <span>Calidad</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-md font-mono font-black bg-emerald-950 text-emerald-300">
                 {countCalidad}
+              </span>
+            </button>
+          )}
+
+          {/* Pill 6: Evaluado (if any) */}
+          {countEvaluado > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveAreaFilter('EVALUADO');
+                setSelectedOpIds([]);
+                if (!isExpanded) setIsExpanded(true);
+              }}
+              className={`px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
+                activeAreaFilter === 'EVALUADO'
+                  ? 'bg-teal-600 text-white font-black shadow-[0_0_12px_rgba(13,148,136,0.5)]'
+                  : 'bg-[#1b0a10] text-zinc-300 hover:text-white border border-rose-950/80 hover:bg-[#250d17]'
+              }`}
+            >
+              <span>Evaluado</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-md font-mono font-black bg-teal-950 text-teal-300">
+                {countEvaluado}
               </span>
             </button>
           )}

@@ -2,12 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Eye, Printer, ArrowRight, Camera, Calendar, Clock, Trash2, 
   CheckCircle2, RotateCcw, Droplets, Upload, Check, X, Microscope, 
-  Lock, AlertCircle, AlertTriangle, Layers, Sparkles, Save, RefreshCw 
+  Lock, AlertCircle, AlertTriangle, Layers, Sparkles, Save, RefreshCw,
+  Search, Tag 
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser, isEdiazUser, isFactoryUser } from '../../services/authService';
-import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, pushColfactoryObservationToSheets, getOpPhotosFromCache, saveOpPhotosToCache, fetchOpPhotosFromDrive } from '../../services/googleSheetsService';
+import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, pushColfactoryObservationToSheets, getOpPhotosFromCache, saveOpPhotosToCache, fetchOpPhotosFromDrive, isSamePhoto } from '../../services/googleSheetsService';
 import { UploadMissingPhotosModal } from './UploadMissingPhotosModal';
 
 interface SolicitudCardProps {
@@ -130,6 +131,38 @@ const STAGE_CONFIG: Record<SectorType, {
   }
 };
 
+export const PROCESOS_LAVANDERIA: string[] = [
+  'DESENGOME',
+  'STONE',
+  'BLEACH',
+  'BLANCO OPTICO',
+  'NEUTRALIZADO',
+  'BLANQUEO',
+  'FIJADO',
+  'SUAVIZADO',
+  'BRILLOS',
+  'DESTROYED',
+  'DIRTY',
+  'SPRAY',
+  'SPRAY TOTAL',
+  'ESPONJA TOTAL',
+  'LIJA',
+  'BRILLOS LIJA',
+  'TOMBOLA',
+  'LASER',
+  'LASER TEXTURA',
+  'COSIDOS',
+  'ESMERIL',
+  'PIGMENTO',
+  'SILICONADO',
+  'ANTIPILLING',
+  'ATMOSFERIC',
+  'HORNO',
+  'ENMALLADO',
+  'TEÑIDO',
+  'PROCESO SOSTENIBLE'
+];
+
 export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   solicitud,
   onTransfer,
@@ -148,6 +181,46 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const [notasLavado, setNotasLavado] = useState(solicitud.observacionesLavanderia || '');
   const [isSavingLavado, setIsSavingLavado] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+  const [filtroProceso, setFiltroProceso] = useState('');
+  const [isExpandedProcesos, setIsExpandedProcesos] = useState(false);
+
+  // Verificar si un proceso está activo en las notas de lavado
+  const isProcesoActivo = (proceso: string, texto?: string) => {
+    const target = (texto !== undefined ? texto : notasLavado) || '';
+    if (!target) return false;
+    const tokens = target.split(/\s*•\s*/).map(t => t.trim().toUpperCase());
+    return tokens.includes(proceso.trim().toUpperCase());
+  };
+
+  // Alternar selección de proceso con auto-guardado en Columna L
+  const handleToggleProcesoLavado = (proceso: string) => {
+    const currentText = (notasLavado || '').trim();
+    const tokens = currentText ? currentText.split(/\s*•\s*/).map(t => t.trim()).filter(Boolean) : [];
+    const procesoUpper = proceso.trim().toUpperCase();
+    const existingIndex = tokens.findIndex(t => t.toUpperCase() === procesoUpper);
+
+    let nextVal = '';
+    if (existingIndex >= 0) {
+      const remaining = tokens.filter((_, idx) => idx !== existingIndex);
+      nextVal = remaining.join(' • ');
+    } else {
+      nextVal = currentText ? `${currentText} • ${proceso}` : proceso;
+    }
+
+    setNotasLavado(nextVal);
+    handleGuardarObservacionLavado(nextVal);
+  };
+
+  // Limpiar solo los procesos sugeridos sin borrar notas manuales adicionales
+  const handleLimpiarProcesosSeleccionados = () => {
+    const currentText = (notasLavado || '').trim();
+    if (!currentText) return;
+    const tokens = currentText.split(/\s*•\s*/).map(t => t.trim()).filter(Boolean);
+    const restantes = tokens.filter(t => !PROCESOS_LAVANDERIA.some(p => p.toUpperCase() === t.toUpperCase()));
+    const nextVal = restantes.join(' • ');
+    setNotasLavado(nextVal);
+    handleGuardarObservacionLavado(nextVal);
+  };
 
   useEffect(() => {
     if (solicitud.observacionesLavanderia !== undefined) {
@@ -177,7 +250,12 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
     return solicitud.fotoCalidadUrl || getOpPhotosFromCache(solicitud.op)?.foto2 || null;
   });
   const [fotoMuestraPreview, setFotoMuestraPreview] = useState<string | null>(() => {
-    return solicitud.fotoMuestraUrl || getOpPhotosFromCache(solicitud.op)?.foto1 || null;
+    const rawF1 = solicitud.fotoMuestraUrl || getOpPhotosFromCache(solicitud.op)?.foto1 || null;
+    const rawF2 = solicitud.fotoCalidadUrl || getOpPhotosFromCache(solicitud.op)?.foto2 || null;
+    if (rawF1 && rawF2 && isSamePhoto(rawF1, rawF2)) {
+      return null;
+    }
+    return rawF1;
   });
   const [isUploadingCalidadPhoto, setIsUploadingCalidadPhoto] = useState(false);
   const [isUploadingInicialPhoto, setIsUploadingInicialPhoto] = useState(false);
@@ -196,19 +274,14 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
   // Sincronizar fotoCalidadPreview y fotoMuestraPreview si cambia la solicitud externamente
   useEffect(() => {
-    if (solicitud.fotoCalidadUrl) {
-      setFotoCalidadPreview(solicitud.fotoCalidadUrl);
-    } else {
-      const cached = getOpPhotosFromCache(solicitud.op);
-      if (cached?.foto2) setFotoCalidadPreview(cached.foto2);
+    const cached = getOpPhotosFromCache(solicitud.op);
+    const f2 = solicitud.fotoCalidadUrl || cached?.foto2 || null;
+    let f1 = solicitud.fotoMuestraUrl || cached?.foto1 || null;
+    if (f1 && f2 && isSamePhoto(f1, f2)) {
+      f1 = null;
     }
-
-    if (solicitud.fotoMuestraUrl) {
-      setFotoMuestraPreview(solicitud.fotoMuestraUrl);
-    } else {
-      const cached = getOpPhotosFromCache(solicitud.op);
-      if (cached?.foto1) setFotoMuestraPreview(cached.foto1);
-    }
+    setFotoCalidadPreview(f2);
+    setFotoMuestraPreview(f1);
   }, [solicitud.fotoCalidadUrl, solicitud.fotoMuestraUrl, solicitud.op]);
 
   // Escuchar eventos globales de resolución de fotos de OP en tiempo real
@@ -219,12 +292,31 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
       const cleanSolOp = solicitud.op.replace(/\D/g, '') || solicitud.op.trim().toUpperCase();
       const cleanEventOp = (detail?.op || '').replace(/\D/g, '') || String(detail?.op || '').trim().toUpperCase();
       if (detail && (cleanSolOp === cleanEventOp || solicitud.op === detail.op)) {
-        setCachedOrDrivePhotos(prev => ({ ...prev, ...detail }));
-        if (detail.foto1) {
-          setFotoMuestraPreview(detail.foto1);
+        let detF1 = detail.foto1;
+        let detF2 = detail.foto2;
+        if (detF1 && detF2 && isSamePhoto(detF1, detF2)) {
+          detF1 = undefined;
         }
-        if (detail.foto2) {
-          setFotoCalidadPreview(detail.foto2);
+        setCachedOrDrivePhotos(prev => {
+          let prevF1 = detF1 !== undefined ? detF1 : prev?.foto1;
+          let prevF2 = detF2 !== undefined ? detF2 : prev?.foto2;
+          if (prevF1 && prevF2 && isSamePhoto(prevF1, prevF2)) {
+            prevF1 = undefined;
+          }
+          return {
+            ...prev,
+            ...detail,
+            foto1: prevF1,
+            foto2: prevF2
+          };
+        });
+        if (detF1) {
+          setFotoMuestraPreview(detF1);
+        } else if (detF2 && fotoMuestraPreview && isSamePhoto(fotoMuestraPreview, detF2)) {
+          setFotoMuestraPreview(null);
+        }
+        if (detF2) {
+          setFotoCalidadPreview(detF2);
         }
       }
     };
@@ -232,7 +324,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
     return () => {
       window.removeEventListener('stf_op_photos_updated', handlePhotosUpdated);
     };
-  }, [solicitud.op]);
+  }, [solicitud.op, fotoMuestraPreview]);
 
   useEffect(() => {
     const cached = getOpPhotosFromCache(solicitud.op);
@@ -245,20 +337,43 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
       let isMounted = true;
       fetchOpPhotosFromDrive(solicitud.op).then((res) => {
         if (isMounted && (res.foto1 || res.foto2 || res.folderUrl)) {
-          setCachedOrDrivePhotos(res);
-          if (res.foto1) setFotoMuestraPreview(res.foto1);
-          if (res.foto2) setFotoCalidadPreview(res.foto2);
+          let r1 = res.foto1;
+          let r2 = res.foto2;
+          if (r1 && r2 && isSamePhoto(r1, r2)) {
+            r1 = undefined;
+          }
+          setCachedOrDrivePhotos({
+            ...res,
+            foto1: r1,
+            foto2: r2
+          });
+          if (r1) setFotoMuestraPreview(r1);
+          if (r2) {
+            setFotoCalidadPreview(r2);
+            if (fotoMuestraPreview && isSamePhoto(fotoMuestraPreview, r2)) {
+              setFotoMuestraPreview(null);
+            }
+          }
         }
       });
       return () => {
         isMounted = false;
       };
     }
-  }, [solicitud.op, solicitud.fotoMuestraUrl, solicitud.estado, fotoCalidadUrlActual]);
+  }, [solicitud.op, solicitud.fotoMuestraUrl, solicitud.estado, fotoCalidadUrlActual, fotoMuestraPreview]);
 
   const cachedNow = getOpPhotosFromCache(solicitud.op);
-  const effectiveFotoMuestra = fotoMuestraPreview || solicitud.fotoMuestraUrl || cachedOrDrivePhotos?.foto1 || cachedNow?.foto1;
-  const effectiveFotoCalidad = fotoCalidadUrlActual || cachedOrDrivePhotos?.foto2 || cachedNow?.foto2;
+  let rawFoto1 = fotoMuestraPreview || solicitud.fotoMuestraUrl || cachedOrDrivePhotos?.foto1 || cachedNow?.foto1 || undefined;
+  let rawFoto2 = fotoCalidadUrlActual || cachedOrDrivePhotos?.foto2 || cachedNow?.foto2 || undefined;
+
+  // BLINDAJE INMUTABLE: Si la foto inicial es idéntica a la foto 2 de calidad,
+  // se anula foto 1 para que nunca se clone erróneamente en el slot 1 ('+ 1. Inicial')
+  if (rawFoto1 && rawFoto2 && isSamePhoto(rawFoto1, rawFoto2)) {
+    rawFoto1 = undefined;
+  }
+
+  const effectiveFotoMuestra = rawFoto1;
+  const effectiveFotoCalidad = rawFoto2;
 
   // Carga directa de fotografías con subida automática inmediata a Google Drive
   const handleDirectCardPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isCalidad: boolean) => {
@@ -272,8 +387,17 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
       const compressed = await compressImageFile(file, 650, 0.58);
       
       // 1. Visualización inmediata 0 ms
-      if (isCalidad) setFotoCalidadPreview(compressed);
-      else setFotoMuestraPreview(compressed);
+      if (isCalidad) {
+        setFotoCalidadPreview(compressed);
+        if (fotoMuestraPreview && isSamePhoto(fotoMuestraPreview, compressed)) {
+          setFotoMuestraPreview(null);
+        }
+      } else {
+        setFotoMuestraPreview(compressed);
+        if (fotoCalidadPreview && isSamePhoto(fotoCalidadPreview, compressed)) {
+          setFotoCalidadPreview(null);
+        }
+      }
 
       updateLocalOpPhoto(solicitud.id, compressed, isCalidad);
       updateLocalOpPhoto(solicitud.op, compressed, isCalidad);
@@ -283,18 +407,35 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
       const res = await pushOpPhotoToSheets(solicitud.op, compressed, isCalidad);
       const driveUrl = res.driveUrl || (isCalidad ? res.foto2 : res.foto1);
       if (driveUrl) {
-        if (isCalidad) setFotoCalidadPreview(driveUrl);
-        else setFotoMuestraPreview(driveUrl);
+        if (isCalidad) {
+          setFotoCalidadPreview(driveUrl);
+          if (fotoMuestraPreview && isSamePhoto(fotoMuestraPreview, driveUrl)) {
+            setFotoMuestraPreview(null);
+          }
+        } else {
+          setFotoMuestraPreview(driveUrl);
+          if (fotoCalidadPreview && isSamePhoto(fotoCalidadPreview, driveUrl)) {
+            setFotoCalidadPreview(null);
+          }
+        }
 
         updateLocalOpPhoto(solicitud.id, driveUrl, isCalidad);
         updateLocalOpPhoto(solicitud.op, driveUrl, isCalidad);
         saveOpPhotosToCache(solicitud.op, isCalidad ? { foto2: driveUrl } : { foto1: driveUrl });
-        setCachedOrDrivePhotos(prev => ({
-          ...prev,
-          foto1: !isCalidad ? driveUrl : prev?.foto1,
-          foto2: isCalidad ? driveUrl : prev?.foto2,
-          folderUrl: res.folderUrl || prev?.folderUrl
-        }));
+        setCachedOrDrivePhotos(prev => {
+          let f1 = !isCalidad ? driveUrl : prev?.foto1;
+          let f2 = isCalidad ? driveUrl : prev?.foto2;
+          if (f1 && f2 && isSamePhoto(f1, f2)) {
+            if (isCalidad) f1 = undefined;
+            else f2 = undefined;
+          }
+          return {
+            ...prev,
+            foto1: f1,
+            foto2: f2,
+            folderUrl: res.folderUrl || prev?.folderUrl
+          };
+        });
       }
     } catch (err) {
       console.error('Error al subir foto directamente desde la tarjeta:', err);
@@ -963,34 +1104,105 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             </div>
 
             {/* Observaciones Input with Smart Quick Tags */}
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-1.5">
+            <div className="space-y-2.5">
+              {/* Encabezado y Barra de Filtro / Control */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <label className="text-[10.5px] font-bold text-sky-800 dark:text-sky-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                   <span>OBSERVACIONES DE ENVÍO Y PROCESO</span>
+                  <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-300 border border-sky-300/60 dark:border-sky-700/50">
+                    {PROCESOS_LAVANDERIA.length} PROCESOS
+                  </span>
                 </label>
-                
-                {/* Quick tags con auto-guardado en Columna L */}
+
+                {/* Filtro Rápido y Acciones */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[9.5px] text-zinc-500 dark:text-zinc-400 font-mono">Sugeridos:</span>
-                  {[
-                    'Lavado estándar',
-                    'Desengomado + Suavizado',
-                    'Fijación de color',
-                    'Sin novedad'
-                  ].map((tag) => (
+                  {/* Buscador de procesos */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={filtroProceso}
+                      onChange={(e) => setFiltroProceso(e.target.value)}
+                      placeholder="Filtrar proceso..."
+                      className="w-28 sm:w-36 bg-white dark:bg-zinc-900 border border-sky-200 dark:border-zinc-700 rounded-xl pl-2.5 pr-6 py-1 text-[10px] font-mono text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-sky-500 transition shadow-2xs"
+                    />
+                    {filtroProceso ? (
+                      <button
+                        type="button"
+                        onClick={() => setFiltroProceso('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                        title="Borrar filtro"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    ) : (
+                      <Search className="w-2.5 h-2.5 text-zinc-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    )}
+                  </div>
+
+                  {/* Botón Ver todos / Contraer */}
+                  <button
+                    type="button"
+                    onClick={() => setIsExpandedProcesos(!isExpandedProcesos)}
+                    className="text-[9.5px] font-mono font-bold px-2 py-1 rounded-xl bg-white hover:bg-sky-100 text-sky-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-sky-300 border border-sky-200 dark:border-zinc-700 transition cursor-pointer shadow-2xs"
+                  >
+                    {isExpandedProcesos ? 'Contraer' : 'Ver todos'}
+                  </button>
+
+                  {/* Contador y botón limpiar si hay seleccionados */}
+                  {PROCESOS_LAVANDERIA.some(p => isProcesoActivo(p)) && (
                     <button
-                      key={tag}
                       type="button"
-                      onClick={() => {
-                        const nextVal = notasLavado ? `${notasLavado} • ${tag}` : tag;
-                        setNotasLavado(nextVal);
-                        handleGuardarObservacionLavado(nextVal);
-                      }}
-                      className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-lg bg-white hover:bg-sky-100 text-zinc-700 hover:text-sky-900 dark:bg-zinc-900/90 dark:hover:bg-sky-950 dark:text-zinc-300 dark:hover:text-sky-300 border border-zinc-300 dark:border-zinc-700/80 transition cursor-pointer shadow-xs"
+                      onClick={handleLimpiarProcesosSeleccionados}
+                      className="text-[9.5px] font-mono font-bold px-2 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:hover:bg-rose-900 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                      title="Quitar procesos seleccionados"
                     >
-                      + {tag}
+                      <RotateCcw className="w-2.5 h-2.5" />
+                      <span>Limpiar</span>
                     </button>
-                  ))}
+                  )}
+                </div>
+              </div>
+
+              {/* Panel de Etiquetas de Procesos (Área Verde organizada) */}
+              <div className="p-2 sm:p-2.5 rounded-2xl bg-white/70 dark:bg-zinc-900/70 border border-sky-200 dark:border-sky-900/50 shadow-xs backdrop-blur-xs">
+                <div
+                  className={`flex flex-wrap gap-1.5 transition-all duration-200 ${
+                    isExpandedProcesos ? 'max-h-none' : 'max-h-24 sm:max-h-28 overflow-y-auto pr-1'
+                  }`}
+                  style={{ scrollbarWidth: 'thin' }}
+                >
+                  {PROCESOS_LAVANDERIA
+                    .filter(proc => !filtroProceso || proc.toLowerCase().includes(filtroProceso.toLowerCase()))
+                    .map((tag) => {
+                      const activo = isProcesoActivo(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => handleToggleProcesoLavado(tag)}
+                          className={`text-[9.5px] sm:text-[10px] font-mono font-bold px-2.5 py-1 rounded-xl border transition-all duration-150 cursor-pointer select-none active:scale-95 flex items-center gap-1 shadow-2xs ${
+                            activo
+                              ? 'bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 text-white border-sky-400 shadow-sky-500/30 scale-[1.02]'
+                              : 'bg-white hover:bg-sky-50 text-zinc-700 hover:text-sky-900 dark:bg-zinc-900/90 dark:hover:bg-sky-950/80 dark:text-zinc-300 dark:hover:text-sky-200 border-zinc-200/90 dark:border-zinc-800 hover:border-sky-300 dark:hover:border-sky-600/60'
+                          }`}
+                          title={activo ? `Quitar ${tag} de la observación` : `Agregar ${tag} a la observación`}
+                        >
+                          {activo ? (
+                            <Check className="w-3 h-3 text-sky-200 stroke-[3]" />
+                          ) : (
+                            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-black leading-none">+</span>
+                          )}
+                          <span>{tag}</span>
+                        </button>
+                      );
+                    })}
+
+                  {PROCESOS_LAVANDERIA.filter(proc => !filtroProceso || proc.toLowerCase().includes(filtroProceso.toLowerCase())).length === 0 && (
+                    <div className="w-full text-center py-2 text-[10.5px] font-mono text-zinc-500 dark:text-zinc-400">
+                      No se encontraron procesos que coincidan con "{filtroProceso}"
+                    </div>
+                  )}
                 </div>
               </div>
 

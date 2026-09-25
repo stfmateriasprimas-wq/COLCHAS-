@@ -335,17 +335,34 @@ function doPost(e) {
               var existingFoto1 = "";
               var existingFoto2 = "";
               for (var pi = 0; pi < parts.length; pi++) {
-                if (parts[pi].indexOf("/folders/") !== -1) existingFolder = parts[pi];
-                else if (!existingFoto1) existingFoto1 = parts[pi];
-                else if (!existingFoto2) existingFoto2 = parts[pi];
+                var pLow = parts[pi].toLowerCase();
+                if (parts[pi].indexOf("/folders/") !== -1) {
+                  existingFolder = parts[pi];
+                } else if (pLow.indexOf("foto2:") !== -1 || pLow.indexOf("post_lavado") !== -1 || pLow.indexOf("calidad") !== -1) {
+                  existingFoto2 = parts[pi].replace(/^(foto2|calidad|post_lavado):\s*/i, "").trim();
+                } else if (pLow.indexOf("foto1:") !== -1 || pLow.indexOf("muestra_inicial") !== -1 || pLow.indexOf("inicial") !== -1) {
+                  existingFoto1 = parts[pi].replace(/^(foto1|inicial|muestra_inicial):\s*/i, "").trim();
+                } else if (!existingFoto1) {
+                  existingFoto1 = parts[pi];
+                } else if (!existingFoto2) {
+                  existingFoto2 = parts[pi];
+                }
               }
               if (payload.isCalidad) {
                 existingFoto2 = photoUrl;
               } else {
                 existingFoto1 = photoUrl;
               }
+              if (existingFoto1 && existingFoto2 && existingFoto1 === existingFoto2) {
+                if (payload.isCalidad) existingFoto1 = "";
+                else existingFoto2 = "";
+              }
               if (folderUrl) existingFolder = folderUrl;
-              var newCol13 = [existingFoto1, existingFoto2, existingFolder].filter(Boolean).join(" | ");
+              var col13Parts = [];
+              if (existingFoto1) col13Parts.push("FOTO1: " + existingFoto1);
+              if (existingFoto2) col13Parts.push("FOTO2: " + existingFoto2);
+              if (existingFolder) col13Parts.push(existingFolder);
+              var newCol13 = col13Parts.join(" | ");
               sh.getRange(i + 2, 13).setValue(newCol13);
               break;
             }
