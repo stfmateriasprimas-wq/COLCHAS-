@@ -895,22 +895,42 @@ function doPost(e) {
         savedFoto2 = saveImageToDriveHierarchical(foto2Input, opFormattedPhoto + '_POST_LAVADO_CALIDAD.jpg', opFormattedPhoto, targetDate, false);
       }
 
+      // Guardar Fotos de Prenda Terminada (1 y 2) si vienen en el payload
+      var savedFotoPrenda1 = null;
+      var savedFotoPrenda2 = null;
+
+      var fotoPrenda1Input = payload.fotoPrenda1Base64 || payload.fotoPrendaTerminada1Base64;
+      if (fotoPrenda1Input && fotoPrenda1Input.length > 50 && (fotoPrenda1Input.indexOf('data:image/') === 0 || fotoPrenda1Input.indexOf('/9j/') === 0)) {
+        if (fotoPrenda1Input.indexOf('data:image/') !== 0) fotoPrenda1Input = 'data:image/jpeg;base64,' + fotoPrenda1Input;
+        savedFotoPrenda1 = saveImageToDriveHierarchical(fotoPrenda1Input, opFormattedPhoto + '_PRENDA_TERMINADA_1.jpg', opFormattedPhoto, targetDate, false);
+      }
+
+      var fotoPrenda2Input = payload.fotoPrenda2Base64 || payload.fotoPrendaTerminada2Base64;
+      if (fotoPrenda2Input && fotoPrenda2Input.length > 50 && (fotoPrenda2Input.indexOf('data:image/') === 0 || fotoPrenda2Input.indexOf('/9j/') === 0)) {
+        if (fotoPrenda2Input.indexOf('data:image/') !== 0) fotoPrenda2Input = 'data:image/jpeg;base64,' + fotoPrenda2Input;
+        savedFotoPrenda2 = saveImageToDriveHierarchical(fotoPrenda2Input, opFormattedPhoto + '_PRENDA_TERMINADA_2.jpg', opFormattedPhoto, targetDate, false);
+      }
+
       // Descubrir enlaces de Drive vigentes
       var disc = getOpPhotosFromDrive(opFormattedPhoto);
-      var folderColPhoto = (savedFoto2 && savedFoto2.folderUrl) || (savedFoto1 && savedFoto1.folderUrl) || disc.folderUrl || '';
+      var folderColPhoto = (savedFoto2 && savedFoto2.folderUrl) || (savedFoto1 && savedFoto1.folderUrl) || (savedFotoPrenda1 && savedFotoPrenda1.folderUrl) || (savedFotoPrenda2 && savedFotoPrenda2.folderUrl) || disc.folderUrl || '';
       var finalFoto1_p = (savedFoto1 && savedFoto1.driveUrl) || disc.foto1 || '';
       var finalFoto2_p = (savedFoto2 && savedFoto2.driveUrl) || disc.foto2 || '';
+      var finalFotoPrenda1_p = (savedFotoPrenda1 && savedFotoPrenda1.driveUrl) || disc.fotoPrenda1 || '';
+      var finalFotoPrenda2_p = (savedFotoPrenda2 && savedFotoPrenda2.driveUrl) || disc.fotoPrenda2 || '';
       if (finalFoto1_p && finalFoto2_p && finalFoto1_p === finalFoto2_p) {
         finalFoto1_p = '';
       }
-      var primaryDriveUrl = (payload.isCalidad ? finalFoto2_p : finalFoto1_p) || finalFoto2_p || finalFoto1_p || '';
+      var primaryDriveUrl = (payload.isCalidad ? finalFoto2_p : finalFoto1_p) || finalFoto2_p || finalFoto1_p || finalFotoPrenda1_p || finalFotoPrenda2_p || '';
 
-      // Si la OP existe en BASE_DE_DATOS, actualizar fila y Columna 13 (M) preservando AMBAS fotos
+      // Si la OP existe en BASE_DE_DATOS, actualizar fila y Columna 13 (M) preservando fotos
       if (foundRowPhoto !== -1 && sheetBdPhoto) {
         sheetBdPhoto.getRange(foundRowPhoto, 6).setValue(opFormattedPhoto);
         var colPartsPhoto = [];
         if (finalFoto1_p) colPartsPhoto.push('FOTO1: ' + finalFoto1_p);
         if (finalFoto2_p) colPartsPhoto.push('FOTO2: ' + finalFoto2_p);
+        if (finalFotoPrenda1_p) colPartsPhoto.push('PRENDA1: ' + finalFotoPrenda1_p);
+        if (finalFotoPrenda2_p) colPartsPhoto.push('PRENDA2: ' + finalFotoPrenda2_p);
         if (folderColPhoto) colPartsPhoto.push(folderColPhoto);
         var combinedColPhoto = colPartsPhoto.join(' | ');
         if (combinedColPhoto) {
@@ -923,7 +943,10 @@ function doPost(e) {
             sheetBdPhoto.getRange(foundRowPhoto, 12).setValue(cleanColPh);
           }
         }
-        if (payload.obsOperarioFinal) sheetBdPhoto.getRange(foundRowPhoto, 15).setValue(payload.obsOperarioFinal);
+        if (payload.obsOperarioFinal || payload.observacionesCalidad) {
+          var cleanObsCalPh = String(payload.obsOperarioFinal || payload.observacionesCalidad).trim();
+          sheetBdPhoto.getRange(foundRowPhoto, 15).setValue(cleanObsCalPh);
+        }
       }
 
       return createJsonResponse({
@@ -933,6 +956,8 @@ function doPost(e) {
           : ('Fotografía de OP ' + opFormattedPhoto + ' archivada en Drive exitosamente'),
         foto1: finalFoto1_p,
         foto2: finalFoto2_p,
+        fotoPrenda1: finalFotoPrenda1_p,
+        fotoPrenda2: finalFotoPrenda2_p,
         driveUrl: primaryDriveUrl,
         folderUrl: folderColPhoto,
         rowUpdated: foundRowPhoto !== -1,
@@ -1270,6 +1295,26 @@ function saveImageToDriveHierarchical(base64Data, fileName, rawOp, dateInput, is
       }
     }
 
+    if (fileName.indexOf('PRENDA_TERMINADA_1') !== -1) {
+      var filesPt1 = opFolder.getFiles();
+      while (filesPt1.hasNext()) {
+        var fPt1 = filesPt1.next();
+        if (fPt1.getName().indexOf('PRENDA_TERMINADA_1') !== -1) {
+          try { fPt1.setTrashed(true); } catch (ePt1Trash) {}
+        }
+      }
+    }
+
+    if (fileName.indexOf('PRENDA_TERMINADA_2') !== -1) {
+      var filesPt2 = opFolder.getFiles();
+      while (filesPt2.hasNext()) {
+        var fPt2 = filesPt2.next();
+        if (fPt2.getName().indexOf('PRENDA_TERMINADA_2') !== -1) {
+          try { fPt2.setTrashed(true); } catch (ePt2Trash) {}
+        }
+      }
+    }
+
     // Por seguridad, eliminar cualquier archivo con el nombre exacto fileName
     var exactFiles = opFolder.getFilesByName(fileName);
     while (exactFiles.hasNext()) {
@@ -1455,6 +1500,10 @@ function getOpPhotosFromDrive(rawOp) {
         res.foto1 = fUrl;
       } else if (n.indexOf('POST_LAVADO') !== -1 || n.indexOf('CALIDAD') !== -1 || n.indexOf('FOTO2') !== -1) {
         res.foto2 = fUrl;
+      } else if (n.indexOf('PRENDA_TERMINADA_1') !== -1 || n.indexOf('TERMINADA_1') !== -1 || n.indexOf('PRENDA1') !== -1) {
+        res.fotoPrenda1 = fUrl;
+      } else if (n.indexOf('PRENDA_TERMINADA_2') !== -1 || n.indexOf('TERMINADA_2') !== -1 || n.indexOf('PRENDA2') !== -1) {
+        res.fotoPrenda2 = fUrl;
       } else if (!res.foto1 && !res.foto2) {
         res.foto1 = fUrl;
       } else if (!res.foto2 && res.foto1 !== fUrl) {

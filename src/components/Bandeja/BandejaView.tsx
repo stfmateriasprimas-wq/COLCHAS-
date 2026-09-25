@@ -26,6 +26,7 @@ interface BandejaViewProps {
   onPrint: (solicitud: SolicitudColcha) => void;
   onDelete?: (solicitud: SolicitudColcha) => void;
   onFinalizar?: (solicitud: SolicitudColcha) => void;
+  onUpdateOp?: (updated: SolicitudColcha) => void;
   onNavigateTab: (tab: TabType) => void;
 }
 
@@ -44,6 +45,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
   onPrint,
   onDelete,
   onFinalizar,
+  onUpdateOp,
   onNavigateTab
 }) => {
   const showEvaluado = canViewEvaluadoSection(currentUser);
@@ -687,6 +689,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
               onPrint={onPrint}
               onDelete={onDelete}
               onFinalizar={onFinalizar}
+              onUpdateOp={onUpdateOp}
               currentUser={currentUser}
             />
           ))

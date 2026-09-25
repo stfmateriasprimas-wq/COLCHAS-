@@ -597,7 +597,7 @@ function pumpPhotoFetchQueue() {
  * registradas en la carpeta de Google Drive para una OP determinada.
  * Protegido con control de concurrencia y caché negativo.
  */
-export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?: string; foto2?: string; folderUrl?: string }> {
+export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?: string; foto2?: string; fotoPrenda1?: string; fotoPrenda2?: string; folderUrl?: string }> {
   if (!opNumber) return {};
   const cleanOp = formatOpCode(opNumber);
 
@@ -612,7 +612,7 @@ export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?
     return inFlightPhotoRequests.get(cleanOp)!;
   }
 
-  const promise = new Promise<{ foto1?: string; foto2?: string; folderUrl?: string }>((resolve) => {
+  const promise = new Promise<{ foto1?: string; foto2?: string; fotoPrenda1?: string; fotoPrenda2?: string; folderUrl?: string }>((resolve) => {
     const executeFetch = async () => {
       try {
         const scriptUrl = getAppsScriptUrl();
@@ -623,10 +623,12 @@ export async function fetchOpPhotosFromDrive(opNumber: string): Promise<{ foto1?
         clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
-          if (data && (data.foto1 || data.foto2 || data.folderUrl)) {
+          if (data && (data.foto1 || data.foto2 || data.fotoPrenda1 || data.fotoPrenda2 || data.folderUrl)) {
             const resolved = {
               foto1: data.foto1 ? normalizeImageUrl(data.foto1) : undefined,
               foto2: data.foto2 ? normalizeImageUrl(data.foto2) : undefined,
+              fotoPrenda1: data.fotoPrenda1 ? normalizeImageUrl(data.fotoPrenda1) : undefined,
+              fotoPrenda2: data.fotoPrenda2 ? normalizeImageUrl(data.fotoPrenda2) : undefined,
               folderUrl: data.folderUrl || undefined
             };
             saveOpPhotosToCache(cleanOp, resolved);
@@ -666,6 +668,8 @@ export const OP_PHOTOS_CACHE_KEY = 'STF_OP_PHOTOS_CACHE_V2';
 export interface OpPhotosCacheItem {
   foto1?: string;
   foto2?: string;
+  fotoPrenda1?: string;
+  fotoPrenda2?: string;
   folderUrl?: string;
   updatedAt: number;
 }
@@ -720,7 +724,7 @@ export function getOpPhotosFromCache(opNumber?: string): OpPhotosCacheItem | und
 
 export function saveOpPhotosToCache(
   opNumber: string, 
-  photos: { foto1?: string; foto2?: string; folderUrl?: string }
+  photos: { foto1?: string; foto2?: string; fotoPrenda1?: string; fotoPrenda2?: string; folderUrl?: string }
 ): void {
   if (typeof window === 'undefined' || !opNumber) return;
   try {
@@ -735,6 +739,8 @@ export function saveOpPhotosToCache(
     
     let resolvedFoto1 = photos.foto1 !== undefined ? photos.foto1 : existing?.foto1;
     let resolvedFoto2 = photos.foto2 !== undefined ? photos.foto2 : existing?.foto2;
+    let resolvedFotoPrenda1 = photos.fotoPrenda1 !== undefined ? photos.fotoPrenda1 : existing?.fotoPrenda1;
+    let resolvedFotoPrenda2 = photos.fotoPrenda2 !== undefined ? photos.fotoPrenda2 : existing?.fotoPrenda2;
 
     // BLINDAJE INMUTABLE: Si foto1 y foto2 son la misma imagen, descartar la copia en foto1
     if (resolvedFoto1 && resolvedFoto2 && isSamePhoto(resolvedFoto1, resolvedFoto2)) {
@@ -744,6 +750,8 @@ export function saveOpPhotosToCache(
     const item: OpPhotosCacheItem = {
       foto1: resolvedFoto1,
       foto2: resolvedFoto2,
+      fotoPrenda1: resolvedFotoPrenda1,
+      fotoPrenda2: resolvedFotoPrenda2,
       folderUrl: photos.folderUrl || existing?.folderUrl,
       updatedAt: Date.now()
     };
@@ -2684,5 +2692,93 @@ export async function sendAutomatedAlertsEmail(
     success: res.success,
     count: payload.recipients.length,
     message: `Alerta oficial enviada automáticamente a ${payload.recipients.length} destinatario(s)`
+  };
+}
+
+export interface SaveOpFinalizadaEdicionPayload {
+  op: string;
+  referencia?: string;
+  tela?: string;
+  fechaCreacion?: string;
+  mes?: number;
+  observacionesLavanderia?: string;
+  observacionesCalidad?: string;
+  fotoPrenda1Base64?: string;
+  fotoPrenda2Base64?: string;
+  usuario?: string;
+}
+
+/**
+ * Guarda y archiva en Google Drive las fotografías de Prenda Terminada y actualiza
+ * las observaciones de la OP finalizada en Google Sheets y en caché local.
+ */
+export async function saveOpFinalizadaEdicion(
+  payload: SaveOpFinalizadaEdicionPayload
+): Promise<{
+  success: boolean;
+  message: string;
+  folderUrl?: string;
+  fotoPrenda1?: string;
+  fotoPrenda2?: string;
+}> {
+  const formattedOp = formatOpCode(payload.op);
+
+  // 1. Guardar de forma instantánea en memoria y caché local (0 ms)
+  const cached = getOpPhotosFromCache(formattedOp);
+  const nextPrenda1 = payload.fotoPrenda1Base64 || cached?.fotoPrenda1;
+  const nextPrenda2 = payload.fotoPrenda2Base64 || cached?.fotoPrenda2;
+
+  saveOpPhotosToCache(formattedOp, {
+    fotoPrenda1: nextPrenda1,
+    fotoPrenda2: nextPrenda2,
+    folderUrl: cached?.folderUrl
+  });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('stf_op_photos_updated', {
+      detail: {
+        op: formattedOp,
+        fotoPrenda1: nextPrenda1,
+        fotoPrenda2: nextPrenda2,
+        folderUrl: cached?.folderUrl
+      }
+    }));
+  }
+
+  // 2. Enviar a Google Apps Script para guardar en Drive en la misma carpeta y en Sheets
+  const res = await sendAppsScriptPost('UPDATE_OP_PHOTO', {
+    op: formattedOp,
+    fotoPrenda1Base64: payload.fotoPrenda1Base64,
+    fotoPrenda2Base64: payload.fotoPrenda2Base64,
+    fotoPrendaTerminada1Base64: payload.fotoPrenda1Base64,
+    fotoPrendaTerminada2Base64: payload.fotoPrenda2Base64,
+    observacionColfactory: payload.observacionesLavanderia,
+    observacionesLavanderia: payload.observacionesLavanderia,
+    obsOperarioFinal: payload.observacionesCalidad,
+    observacionesCalidad: payload.observacionesCalidad,
+    usuario: payload.usuario || 'OPERARIO STF',
+    fechaCreacion: payload.fechaCreacion,
+    mes: payload.mes,
+    referencia: payload.referencia,
+    tela: payload.tela,
+    isFinalizado: true
+  });
+
+  const folderUrl = res.data?.folderUrl || (res as any).folderUrl || cached?.folderUrl;
+  const fotoPrenda1 = res.data?.fotoPrenda1 || (res as any).fotoPrenda1 || nextPrenda1;
+  const fotoPrenda2 = res.data?.fotoPrenda2 || (res as any).fotoPrenda2 || nextPrenda2;
+
+  saveOpPhotosToCache(formattedOp, {
+    fotoPrenda1,
+    fotoPrenda2,
+    folderUrl
+  });
+
+  return {
+    success: res.success || Boolean(folderUrl || fotoPrenda1 || fotoPrenda2),
+    message: res.message || 'Fotografías de prenda terminada archivadas con éxito en Google Drive y observaciones actualizadas',
+    folderUrl,
+    fotoPrenda1,
+    fotoPrenda2
   };
 }

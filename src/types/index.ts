@@ -40,8 +40,11 @@ export interface SolicitudColcha {
   observacionesOperario?: string;
   observacionesLavanderia?: string;
   observacionesCalidad?: string;
+  observacionesPrendaTerminada?: string;
   fotoMuestraUrl?: string;
   fotoCalidadUrl?: string;
+  fotoPrendaTerminada1Url?: string;
+  fotoPrendaTerminada2Url?: string;
   fechaFotoCalidad?: string;
   driveFolderUrl?: string;
   areaActual: string;

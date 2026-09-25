@@ -949,6 +949,14 @@ export function App() {
     }
   };
 
+  // Manejador de actualización general de OP (edición de observaciones y fotos prenda terminada)
+  const handleUpdateOp = (updated: SolicitudColcha) => {
+    setSolicitudes(prev => prev.map(item => (item.id === updated.id || item.op === updated.op) ? { ...item, ...updated } : item));
+    if (selectedColchaDetail && (selectedColchaDetail.id === updated.id || selectedColchaDetail.op === updated.op)) {
+      setSelectedColchaDetail(prev => prev ? { ...prev, ...updated } : null);
+    }
+  };
+
   // COMPONENTE DE CARGA RÁPIDA (FALLBACK DE SUSPENSE)
   const ViewLoadingFallback = (
     <div className="flex flex-col items-center justify-center min-h-[50vh] py-16">
@@ -1108,6 +1116,7 @@ export function App() {
             onPrint={(item) => setSelectedColchaPrinter(item)}
             onDelete={handleDeleteOp}
             onFinalizar={handleFinalizarOp}
+            onUpdateOp={handleUpdateOp}
             onNavigateTab={(tab) => setActiveTab(tab)}
           />
         )}

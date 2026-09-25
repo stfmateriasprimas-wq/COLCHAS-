@@ -42,7 +42,7 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   const calidadFileInputRef = useRef<HTMLInputElement>(null);
   const inicialFileInputRef = useRef<HTMLInputElement>(null);
 
-  const [drivePhotos, setDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(() => {
+  const [drivePhotos, setDrivePhotos] = useState<{ foto1?: string; foto2?: string; fotoPrenda1?: string; fotoPrenda2?: string; folderUrl?: string } | null>(() => {
     return solicitud?.op ? getOpPhotosFromCache(solicitud.op) : null;
   });
 
@@ -129,6 +129,8 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
   }
   const fotoMuestraUrl = rawFoto1;
   const fotoCalidadUrl = rawFoto2;
+  const fotoPrenda1Url = solicitud?.fotoPrendaTerminada1Url || drivePhotos?.fotoPrenda1;
+  const fotoPrenda2Url = solicitud?.fotoPrendaTerminada2Url || drivePhotos?.fotoPrenda2;
 
   useEffect(() => {
     if (!solicitud) return;
@@ -677,6 +679,54 @@ export const OpDetailModal: React.FC<OpDetailModalProps> = ({
                           </button>
                         )}
                       </div>
+
+                      {/* CARD 3: FOTO PRENDA TERMINADA 1 (Si existe) */}
+                      {fotoPrenda1Url && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400">
+                            <span>3. Prenda Terminada 1</span>
+                            <span className="text-emerald-400">✓ Registrada</span>
+                          </div>
+                          <div className="relative">
+                            <SmartPhotoDisplay
+                              rawUrl={fotoPrenda1Url}
+                              alt={`Prenda terminada 1 ${solicitud.op}`}
+                              title={`Foto 3: Prenda Terminada 1 - OP ${solicitud.op}`}
+                              emptyTitle="Sin Foto Prenda 1"
+                              emptySubtitle="Prenda Confeccionada"
+                              accentColor="amber"
+                              onZoom={(url, title) => {
+                                setZoomedPhotoUrl(url);
+                                setZoomedPhotoTitle(title);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* CARD 4: FOTO PRENDA TERMINADA 2 (Si existe) */}
+                      {fotoPrenda2Url && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400">
+                            <span>4. Prenda Terminada 2</span>
+                            <span className="text-emerald-400">✓ Registrada</span>
+                          </div>
+                          <div className="relative">
+                            <SmartPhotoDisplay
+                              rawUrl={fotoPrenda2Url}
+                              alt={`Prenda terminada 2 ${solicitud.op}`}
+                              title={`Foto 4: Prenda Terminada 2 - OP ${solicitud.op}`}
+                              emptyTitle="Sin Foto Prenda 2"
+                              emptySubtitle="Prenda Confeccionada"
+                              accentColor="amber"
+                              onZoom={(url, title) => {
+                                setZoomedPhotoUrl(url);
+                                setZoomedPhotoTitle(title);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
 
                     </div>
 

@@ -3,13 +3,14 @@ import {
   Eye, Printer, ArrowRight, Camera, Calendar, Clock, Trash2, 
   CheckCircle2, RotateCcw, Droplets, Upload, Check, X, Microscope, 
   Lock, AlertCircle, AlertTriangle, Layers, Sparkles, Save, RefreshCw,
-  Search, Tag 
+  Search, Tag, Shirt, Edit3 
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { UsuarioSTF, isAdminUser, isLavanderiaUser, isCalidadUser, isEdiazUser, isFactoryUser } from '../../services/authService';
 import { compressImageFile, pushOpPhotoToSheets, updateLocalOpPhoto, pushColfactoryObservationToSheets, getOpPhotosFromCache, saveOpPhotosToCache, fetchOpPhotosFromDrive, isSamePhoto } from '../../services/googleSheetsService';
 import { UploadMissingPhotosModal } from './UploadMissingPhotosModal';
+import { EditarOpFinalizadaModal } from './EditarOpFinalizadaModal';
 
 interface SolicitudCardProps {
   solicitud: SolicitudColcha;
@@ -19,6 +20,7 @@ interface SolicitudCardProps {
   onPrint: (solicitud: SolicitudColcha) => void;
   onDelete?: (solicitud: SolicitudColcha) => void;
   onFinalizar?: (solicitud: SolicitudColcha) => void;
+  onUpdateOp?: (updated: SolicitudColcha) => void;
   currentUser?: UsuarioSTF | null;
 }
 
@@ -171,6 +173,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   onPrint,
   onDelete,
   onFinalizar,
+  onUpdateOp,
   currentUser
 }) => {
   const stageConfig = STAGE_CONFIG[solicitud.estado] || STAGE_CONFIG.SOLICITADO;
@@ -261,6 +264,11 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const [isUploadingInicialPhoto, setIsUploadingInicialPhoto] = useState(false);
   const [zoomedPhotoUrl, setZoomedPhotoUrl] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showEditarFinalizadaModal, setShowEditarFinalizadaModal] = useState(false);
+  const [fotoPrenda1Preview, setFotoPrenda1Preview] = useState<string | null>(solicitud.fotoPrendaTerminada1Url || null);
+  const [fotoPrenda2Preview, setFotoPrenda2Preview] = useState<string | null>(solicitud.fotoPrendaTerminada2Url || null);
+  const [observacionesLavanderiaLocal, setObservacionesLavanderiaLocal] = useState(solicitud.observacionesLavanderia || '');
+  const [observacionesCalidadLocal, setObservacionesCalidadLocal] = useState(solicitud.observacionesCalidad || '');
   const calidadFileInputRef = useRef<HTMLInputElement>(null);
   const directFileInputRef1 = useRef<HTMLInputElement>(null);
   const directFileInputRef2 = useRef<HTMLInputElement>(null);
@@ -268,11 +276,17 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const fotoCalidadUrlActual = fotoCalidadPreview || solicitud.fotoCalidadUrl;
 
   // Auto-descubrimiento y persistencia de fotos (Caché local + Google Drive)
-  const [cachedOrDrivePhotos, setCachedOrDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(() => {
+  const [cachedOrDrivePhotos, setCachedOrDrivePhotos] = useState<{ 
+    foto1?: string; 
+    foto2?: string; 
+    fotoPrenda1?: string; 
+    fotoPrenda2?: string; 
+    folderUrl?: string; 
+  } | null>(() => {
     return getOpPhotosFromCache(solicitud.op) || null;
   });
 
-  // Sincronizar fotoCalidadPreview y fotoMuestraPreview si cambia la solicitud externamente
+  // Sincronizar fotoCalidadPreview, fotoMuestraPreview y observaciones si cambia la solicitud externamente
   useEffect(() => {
     const cached = getOpPhotosFromCache(solicitud.op);
     const f2 = solicitud.fotoCalidadUrl || cached?.foto2 || null;
@@ -282,7 +296,11 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
     }
     setFotoCalidadPreview(f2);
     setFotoMuestraPreview(f1);
-  }, [solicitud.fotoCalidadUrl, solicitud.fotoMuestraUrl, solicitud.op]);
+    if (solicitud.fotoPrendaTerminada1Url) setFotoPrenda1Preview(solicitud.fotoPrendaTerminada1Url);
+    if (solicitud.fotoPrendaTerminada2Url) setFotoPrenda2Preview(solicitud.fotoPrendaTerminada2Url);
+    if (solicitud.observacionesLavanderia !== undefined) setObservacionesLavanderiaLocal(solicitud.observacionesLavanderia || '');
+    if (solicitud.observacionesCalidad !== undefined) setObservacionesCalidadLocal(solicitud.observacionesCalidad || '');
+  }, [solicitud.fotoCalidadUrl, solicitud.fotoMuestraUrl, solicitud.fotoPrendaTerminada1Url, solicitud.fotoPrendaTerminada2Url, solicitud.observacionesLavanderia, solicitud.observacionesCalidad, solicitud.op]);
 
   // Escuchar eventos globales de resolución de fotos de OP en tiempo real
   useEffect(() => {
@@ -294,12 +312,16 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
       if (detail && (cleanSolOp === cleanEventOp || solicitud.op === detail.op)) {
         let detF1 = detail.foto1;
         let detF2 = detail.foto2;
+        let detPt1 = detail.fotoPrenda1;
+        let detPt2 = detail.fotoPrenda2;
         if (detF1 && detF2 && isSamePhoto(detF1, detF2)) {
           detF1 = undefined;
         }
         setCachedOrDrivePhotos(prev => {
           let prevF1 = detF1 !== undefined ? detF1 : prev?.foto1;
           let prevF2 = detF2 !== undefined ? detF2 : prev?.foto2;
+          let prevPt1 = detPt1 !== undefined ? detPt1 : prev?.fotoPrenda1;
+          let prevPt2 = detPt2 !== undefined ? detPt2 : prev?.fotoPrenda2;
           if (prevF1 && prevF2 && isSamePhoto(prevF1, prevF2)) {
             prevF1 = undefined;
           }
@@ -307,7 +329,9 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             ...prev,
             ...detail,
             foto1: prevF1,
-            foto2: prevF2
+            foto2: prevF2,
+            fotoPrenda1: prevPt1,
+            fotoPrenda2: prevPt2
           };
         });
         if (detF1) {
@@ -318,6 +342,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
         if (detF2) {
           setFotoCalidadPreview(detF2);
         }
+        if (detPt1) setFotoPrenda1Preview(detPt1);
+        if (detPt2) setFotoPrenda2Preview(detPt2);
       }
     };
     window.addEventListener('stf_op_photos_updated', handlePhotosUpdated);
@@ -328,15 +354,16 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
   useEffect(() => {
     const cached = getOpPhotosFromCache(solicitud.op);
-    if (cached && (cached.foto1 || cached.foto2 || cached.folderUrl)) {
+    if (cached && (cached.foto1 || cached.foto2 || cached.fotoPrenda1 || cached.fotoPrenda2 || cached.folderUrl)) {
       setCachedOrDrivePhotos(cached);
     }
     const needsFoto1 = !solicitud.fotoMuestraUrl && !cached?.foto1;
     const needsFoto2 = solicitud.estado === 'FINALIZADO' && !fotoCalidadUrlActual && !cached?.foto2;
-    if (needsFoto1 || needsFoto2) {
+    const needsPrenda = solicitud.estado === 'FINALIZADO' && (!cached?.fotoPrenda1 || !cached?.fotoPrenda2);
+    if (needsFoto1 || needsFoto2 || needsPrenda) {
       let isMounted = true;
       fetchOpPhotosFromDrive(solicitud.op).then((res) => {
-        if (isMounted && (res.foto1 || res.foto2 || res.folderUrl)) {
+        if (isMounted && (res.foto1 || res.foto2 || res.fotoPrenda1 || res.fotoPrenda2 || res.folderUrl)) {
           let r1 = res.foto1;
           let r2 = res.foto2;
           if (r1 && r2 && isSamePhoto(r1, r2)) {
@@ -345,7 +372,9 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           setCachedOrDrivePhotos({
             ...res,
             foto1: r1,
-            foto2: r2
+            foto2: r2,
+            fotoPrenda1: res.fotoPrenda1,
+            fotoPrenda2: res.fotoPrenda2
           });
           if (r1) setFotoMuestraPreview(r1);
           if (r2) {
@@ -354,6 +383,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               setFotoMuestraPreview(null);
             }
           }
+          if (res.fotoPrenda1) setFotoPrenda1Preview(res.fotoPrenda1);
+          if (res.fotoPrenda2) setFotoPrenda2Preview(res.fotoPrenda2);
         }
       });
       return () => {
@@ -365,6 +396,8 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const cachedNow = getOpPhotosFromCache(solicitud.op);
   let rawFoto1 = fotoMuestraPreview || solicitud.fotoMuestraUrl || cachedOrDrivePhotos?.foto1 || cachedNow?.foto1 || undefined;
   let rawFoto2 = fotoCalidadUrlActual || cachedOrDrivePhotos?.foto2 || cachedNow?.foto2 || undefined;
+  let rawFotoPrenda1 = fotoPrenda1Preview || solicitud.fotoPrendaTerminada1Url || cachedOrDrivePhotos?.fotoPrenda1 || cachedNow?.fotoPrenda1 || undefined;
+  let rawFotoPrenda2 = fotoPrenda2Preview || solicitud.fotoPrendaTerminada2Url || cachedOrDrivePhotos?.fotoPrenda2 || cachedNow?.fotoPrenda2 || undefined;
 
   // BLINDAJE INMUTABLE: Si la foto inicial es idéntica a la foto 2 de calidad,
   // se anula foto 1 para que nunca se clone erróneamente en el slot 1 ('+ 1. Inicial')
@@ -374,6 +407,11 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
 
   const effectiveFotoMuestra = rawFoto1;
   const effectiveFotoCalidad = rawFoto2;
+  const effectiveFotoPrenda1 = rawFotoPrenda1;
+  const effectiveFotoPrenda2 = rawFotoPrenda2;
+
+  // Permiso de edición en FINALIZADOS: Lavandería, ediaz y Admin
+  const canEditFinalizada = solicitud.estado === 'FINALIZADO' && (isLavanderiaUser(currentUser) || isEdiazUser(currentUser) || isAdminUser(currentUser));
 
   // Carga directa de fotografías con subida automática inmediata a Google Drive
   const handleDirectCardPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isCalidad: boolean) => {
@@ -744,6 +782,42 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                         <span>{isUploadingCalidadPhoto ? 'Subiendo...' : '+ 2. Calidad'}</span>
                       </button>
                     )}
+
+                    {/* Botón Móvil Foto Prenda 1 */}
+                    {effectiveFotoPrenda1 && (
+                      <button
+                        type="button"
+                        onClick={() => setZoomedPhotoUrl(effectiveFotoPrenda1)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/80 border border-amber-500/60 text-amber-700 dark:text-amber-300 text-[10px] font-mono font-bold shadow-xs active:scale-95 transition"
+                        title="Toca para ver Foto Prenda Terminada 1"
+                      >
+                        <img
+                          src={effectiveFotoPrenda1}
+                          alt="Prenda 1"
+                          referrerPolicy="no-referrer"
+                          className="w-4 h-4 rounded-md object-cover border border-amber-500/40"
+                        />
+                        <span>3. PRENDA 1</span>
+                      </button>
+                    )}
+
+                    {/* Botón Móvil Foto Prenda 2 */}
+                    {effectiveFotoPrenda2 && (
+                      <button
+                        type="button"
+                        onClick={() => setZoomedPhotoUrl(effectiveFotoPrenda2)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/80 border border-amber-500/60 text-amber-700 dark:text-amber-300 text-[10px] font-mono font-bold shadow-xs active:scale-95 transition"
+                        title="Toca para ver Foto Prenda Terminada 2"
+                      >
+                        <img
+                          src={effectiveFotoPrenda2}
+                          alt="Prenda 2"
+                          referrerPolicy="no-referrer"
+                          className="w-4 h-4 rounded-md object-cover border border-amber-500/40"
+                        />
+                        <span>4. PRENDA 2</span>
+                      </button>
+                    )}
                   </>
                 ) : (
                   <>
@@ -907,6 +981,46 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                       {isUploadingCalidadPhoto ? 'Subiendo...' : '+ 2. Calidad'}
                     </span>
                     <span className="text-[6.5px] font-mono text-zinc-400 mt-0.5">Drive</span>
+                  </div>
+                )}
+
+                {/* SLOT 3: PRENDA TERMINADA 1 (Si existe) */}
+                {effectiveFotoPrenda1 && (
+                  <div
+                    onClick={() => setZoomedPhotoUrl(effectiveFotoPrenda1)}
+                    className="w-20 h-28 rounded-2xl p-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-500/50 flex flex-col items-center justify-between cursor-pointer hover:border-amber-400 group overflow-hidden shadow-sm transition relative"
+                    title="Clic para ampliar Foto Prenda Terminada 1"
+                  >
+                    <img
+                      src={effectiveFotoPrenda1}
+                      alt="Prenda 1"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
+                    />
+                    <span className="text-[7.5px] font-black font-mono text-amber-700 dark:text-amber-300 uppercase flex items-center gap-1">
+                      <Eye className="w-2.5 h-2.5 text-amber-500" />
+                      <span>3. PRENDA 1</span>
+                    </span>
+                  </div>
+                )}
+
+                {/* SLOT 4: PRENDA TERMINADA 2 (Si existe) */}
+                {effectiveFotoPrenda2 && (
+                  <div
+                    onClick={() => setZoomedPhotoUrl(effectiveFotoPrenda2)}
+                    className="w-20 h-28 rounded-2xl p-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-500/50 flex flex-col items-center justify-between cursor-pointer hover:border-amber-400 group overflow-hidden shadow-sm transition relative"
+                    title="Clic para ampliar Foto Prenda Terminada 2"
+                  >
+                    <img
+                      src={effectiveFotoPrenda2}
+                      alt="Prenda 2"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-18 object-cover rounded-xl group-hover:scale-105 transition"
+                    />
+                    <span className="text-[7.5px] font-black font-mono text-amber-700 dark:text-amber-300 uppercase flex items-center gap-1">
+                      <Eye className="w-2.5 h-2.5 text-amber-500" />
+                      <span>4. PRENDA 2</span>
+                    </span>
                   </div>
                 )}
               </div>
@@ -1531,6 +1645,22 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                 <span>FINALIZAR</span>
               </button>
             )}
+
+            {/* BOTÓN EDITAR INFORMACIÓN / FOTOS PRENDA TERMINADA EN FINALIZADOS */}
+            {canEditFinalizada && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowEditarFinalizadaModal(true);
+                }}
+                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-amber-500/15 hover:from-amber-500/25 hover:to-orange-500/25 text-amber-800 dark:text-amber-300 border-2 border-amber-400/60 dark:border-amber-500/50 text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 duration-150 font-mono"
+                title="Editar información de OP finalizada y agregar fotos de prenda terminada (Drive)"
+              >
+                <Shirt className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-pulse" />
+                <span>PRENDA TERMINADA / EDITAR</span>
+              </button>
+            )}
           </div>
 
           {solicitud.estado === 'FINALIZADO' ? (
@@ -1590,6 +1720,43 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
           }
         }}
       />
+
+      {/* MODAL PARA EDITAR INFORMACIÓN Y FOTOS PRENDA TERMINADA EN FINALIZADOS */}
+      {canEditFinalizada && (
+        <EditarOpFinalizadaModal
+          solicitud={{
+            ...solicitud,
+            observacionesLavanderia: observacionesLavanderiaLocal || solicitud.observacionesLavanderia,
+            observacionesCalidad: observacionesCalidadLocal || solicitud.observacionesCalidad,
+            fotoPrendaTerminada1Url: effectiveFotoPrenda1 || solicitud.fotoPrendaTerminada1Url,
+            fotoPrendaTerminada2Url: effectiveFotoPrenda2 || solicitud.fotoPrendaTerminada2Url
+          }}
+          isOpen={showEditarFinalizadaModal}
+          onClose={() => setShowEditarFinalizadaModal(false)}
+          currentUser={currentUser}
+          onSuccess={(updated) => {
+            if (updated.fotoPrenda1) setFotoPrenda1Preview(updated.fotoPrenda1);
+            if (updated.fotoPrenda2) setFotoPrenda2Preview(updated.fotoPrenda2);
+            setObservacionesLavanderiaLocal(updated.observacionesLavanderia);
+            setObservacionesCalidadLocal(updated.observacionesCalidad);
+            setCachedOrDrivePhotos(prev => ({
+              ...prev,
+              fotoPrenda1: updated.fotoPrenda1 || prev?.fotoPrenda1,
+              fotoPrenda2: updated.fotoPrenda2 || prev?.fotoPrenda2,
+              folderUrl: updated.folderUrl || prev?.folderUrl
+            }));
+            const updatedSol: SolicitudColcha = {
+              ...solicitud,
+              observacionesLavanderia: updated.observacionesLavanderia,
+              observacionesCalidad: updated.observacionesCalidad,
+              fotoPrendaTerminada1Url: updated.fotoPrenda1 || solicitud.fotoPrendaTerminada1Url,
+              fotoPrendaTerminada2Url: updated.fotoPrenda2 || solicitud.fotoPrendaTerminada2Url,
+              driveFolderUrl: updated.folderUrl || solicitud.driveFolderUrl
+            };
+            onUpdateOp?.(updatedSol);
+          }}
+        />
+      )}
 
       {/* Hidden file inputs for direct one-touch card photo upload to Google Drive */}
       <input
