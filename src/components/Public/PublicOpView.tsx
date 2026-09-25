@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   QrCode, RefreshCw, CheckCircle2, AlertTriangle, Clock, 
   Layers, User, Calendar, Sparkles, Image as ImageIcon,
-  X, LogIn, Sun, Moon, Maximize2, Camera, FolderOpen, ExternalLink, ArrowLeft
+  X, LogIn, Sun, Moon, Maximize2, Camera, FolderOpen, ExternalLink, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
+import { UsuarioSTF } from '../../services/authService';
 import { formatColombianDisplayDate } from '../../services/slaCalculator';
 import { normalizeImageUrl, getLocalCreatedOps, saveLocalCreatedOp, isMatchingOp, fetchOpPhotosFromDrive, getOpPhotosFromCache, isSamePhoto } from '../../services/googleSheetsService';
 import { getCleanFinalQualityObservation, getCleanInitialObservation } from '../../services/exportService';
@@ -22,6 +23,7 @@ interface PublicOpViewProps {
   isDarkMode: boolean;
   onToggleTheme: () => void;
   onBackToAlerts?: () => void;
+  onOpenInApp?: (op: string) => void;
 }
 
 export const PublicOpView: React.FC<PublicOpViewProps> = ({
@@ -32,12 +34,24 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
   onGoToLogin,
   isDarkMode,
   onToggleTheme,
-  onBackToAlerts
+  onBackToAlerts,
+  onOpenInApp
 }) => {
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
   const [remoteDrivePhotos, setRemoteDrivePhotos] = useState<{ foto1?: string; foto2?: string; folderUrl?: string } | null>(() => {
     return getOpPhotosFromCache(opNumber) || null;
   });
+
+  // Detección de sesión activa guardada en el dispositivo
+  const savedUser: UsuarioSTF | null = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = localStorage.getItem('stf_colchas_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   // Auto-cargar datos frescos al montar y cada 12 segundos para garantizar actualización en tiempo real en móviles
   useEffect(() => {
@@ -296,6 +310,39 @@ export const PublicOpView: React.FC<PublicOpViewProps> = ({
           </button>
         </div>
       </header>
+
+      {/* BANNER INTELIGENTE: SESIÓN ACTIVA DETECTADA EN DISPOSITIVO */}
+      {savedUser && (
+        <div className="bg-gradient-to-r from-emerald-950 via-[#03231a] to-emerald-950 border-b border-emerald-500/50 text-white px-3.5 sm:px-6 py-2.5 shadow-md flex items-center justify-between gap-2.5 text-xs font-mono animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+            </span>
+            <div className="truncate text-[11px] sm:text-xs">
+              <span className="text-zinc-300">Sesión activa de </span>
+              <strong className="text-emerald-300">{savedUser.nombre}</strong>
+              <span className="text-zinc-400 font-normal hidden sm:inline"> • {savedUser.area}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenInApp) {
+                onOpenInApp(colcha?.op || opNumber);
+              } else {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('view');
+                window.location.href = url.toString();
+              }
+            }}
+            className="shrink-0 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-black uppercase text-[10px] sm:text-[11px] tracking-wider transition-all duration-200 cursor-pointer shadow-md hover:scale-105 active:scale-95 flex items-center gap-1.5"
+          >
+            <span>GESTIONAR EN MI PANEL</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* 2. MAIN CONTENT CONTAINER */}
       <main className="max-w-4xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 flex-1">

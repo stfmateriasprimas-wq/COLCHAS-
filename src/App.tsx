@@ -25,6 +25,8 @@ const TimelineView = lazy(() => import('./components/Timeline/TimelineView').the
 const EstadisticasView = lazy(() => import('./components/Estadisticas/EstadisticasView').then(m => ({ default: m.EstadisticasView })));
 const WhatsAppChatView = lazy(() => import('./components/Chat/WhatsAppChatView').then(m => ({ default: m.WhatsAppChatView })));
 const SoporteAuditoriaView = lazy(() => import('./components/Soporte/SoporteAuditoriaView').then(m => ({ default: m.SoporteAuditoriaView })));
+const QrScannerModal = lazy(() => import('./components/Scanner/QrScannerModal').then(m => ({ default: m.QrScannerModal })));
+const EditarOpFinalizadaModal = lazy(() => import('./components/Bandeja/EditarOpFinalizadaModal').then(m => ({ default: m.EditarOpFinalizadaModal })));
 import { 
   fetchMonitoreoSheet, 
   fetchBaseDeDatosSheet, 
@@ -166,6 +168,25 @@ export function App() {
   const [isProfileDirectoryOpen, setIsProfileDirectoryOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState<SectorType | 'EN_PROCESO' | 'ALL' | undefined>(undefined);
   const [chatUnreadCount, setChatUnreadCount] = useState<number>(0);
+  const [showQrScanner, setShowQrScanner] = useState<boolean>(false);
+  const [editingOpFinalizada, setEditingOpFinalizada] = useState<SolicitudColcha | null>(null);
+
+  // Ubicar y resaltar una OP en la bandeja operativa con animación glow
+  const handleLocateInBandeja = (solicitud: SolicitudColcha) => {
+    setActiveTab('solicitudes');
+    setStageFilter(solicitud.estado);
+    setTimeout(() => {
+      const digits = solicitud.op.replace(/\D/g, '') || solicitud.op;
+      const el = document.getElementById(`op-card-${digits}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-4', 'ring-emerald-400', 'shadow-[0_0_30px_rgba(16,185,129,0.5)]');
+        setTimeout(() => {
+          el.classList.remove('ring-4', 'ring-emerald-400', 'shadow-[0_0_30px_rgba(16,185,129,0.5)]');
+        }, 3500);
+      }
+    }, 350);
+  };
 
   // Load from Sheets on mount, set up 15-second live polling & window focus auto-sync
   useEffect(() => {
@@ -987,6 +1008,20 @@ export function App() {
             isDarkMode={isDarkMode}
             onToggleTheme={() => setIsDarkMode(prev => !prev)}
             onBackToAlerts={() => setPublicOpNumber(null)}
+            onOpenInApp={(targetOp) => {
+              setPublicOpNumber(null);
+              setIsPublicAlertsView(false);
+              const url = new URL(window.location.href);
+              url.searchParams.delete('view');
+              url.searchParams.delete('tab');
+              url.searchParams.delete('op');
+              window.history.replaceState({}, '', url.pathname);
+              setActiveTab('solicitudes');
+              const found = solicitudes.find(s => isMatchingOp(s.op, targetOp));
+              if (found) {
+                handleLocateInBandeja(found);
+              }
+            }}
           />
         </Suspense>
       );
@@ -1032,6 +1067,18 @@ export function App() {
           }}
           isDarkMode={isDarkMode}
           onToggleTheme={() => setIsDarkMode(prev => !prev)}
+          onOpenInApp={(targetOp) => {
+            setPublicOpNumber(null);
+            const url = new URL(window.location.href);
+            url.searchParams.delete('view');
+            url.searchParams.delete('op');
+            window.history.replaceState({}, '', url.pathname);
+            setActiveTab('solicitudes');
+            const found = solicitudes.find(s => isMatchingOp(s.op, targetOp));
+            if (found) {
+              handleLocateInBandeja(found);
+            }
+          }}
         />
       </Suspense>
     );
@@ -1069,6 +1116,7 @@ export function App() {
         onOpenProfileDirectory={() => setIsProfileDirectoryOpen(true)}
         onOpenChat={() => setActiveTab('chat')}
         onOpenAuditoria={() => setActiveTab('soporte-auditoria')}
+        onOpenQrScanner={() => setShowQrScanner(true)}
         chatUnreadCount={chatUnreadCount}
         isSyncing={isSyncing}
         onManualSync={handleManualSync}
@@ -1117,6 +1165,7 @@ export function App() {
             onDelete={handleDeleteOp}
             onFinalizar={handleFinalizarOp}
             onUpdateOp={handleUpdateOp}
+            onOpenQrScanner={() => setShowQrScanner(true)}
             onNavigateTab={(tab) => setActiveTab(tab)}
           />
         )}
@@ -1396,6 +1445,46 @@ export function App() {
           title="Abrir Chat Corporativo STF"
           unreadCount={chatUnreadCount}
         />
+      )}
+
+      {/* 9. MODAL ESCÁNER QR DE PISO DE PLANTA Y RECEPCIÓN RÁPIDA */}
+      {showQrScanner && (
+        <Suspense fallback={null}>
+          <QrScannerModal
+            isOpen={showQrScanner}
+            onClose={() => setShowQrScanner(false)}
+            solicitudes={solicitudes}
+            currentUser={currentUser}
+            onDirectTransfer={handleConfirmTransfer}
+            onFinalizar={(colcha) => handleFinalizarOp(colcha)}
+            onViewDetail={(colcha) => setSelectedColchaDetail(colcha)}
+            onLocateInBandeja={(colcha) => handleLocateInBandeja(colcha)}
+            onOpenEditarFinalizada={(colcha) => setEditingOpFinalizada(colcha)}
+          />
+        </Suspense>
+      )}
+
+      {/* 10. MODAL EDICIÓN DE OP FINALIZADA Y PRENDA TERMINADA */}
+      {editingOpFinalizada && (
+        <Suspense fallback={null}>
+          <EditarOpFinalizadaModal
+            solicitud={editingOpFinalizada}
+            isOpen={Boolean(editingOpFinalizada)}
+            onClose={() => setEditingOpFinalizada(null)}
+            currentUser={currentUser}
+            onSuccess={(updated) => {
+              handleUpdateOp({
+                ...editingOpFinalizada,
+                observacionesLavanderia: updated.observacionesLavanderia,
+                observacionesCalidad: updated.observacionesCalidad,
+                fotoPrendaTerminada1Url: updated.fotoPrenda1 || editingOpFinalizada.fotoPrendaTerminada1Url,
+                fotoPrendaTerminada2Url: updated.fotoPrenda2 || editingOpFinalizada.fotoPrendaTerminada2Url,
+                driveFolderUrl: updated.folderUrl || editingOpFinalizada.driveFolderUrl
+              });
+              setEditingOpFinalizada(null);
+            }}
+          />
+        </Suspense>
       )}
 
     </div>

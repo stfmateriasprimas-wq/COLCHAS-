@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, LogOut, ArrowLeft, User, RefreshCw, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Sun, Moon, LogOut, ArrowLeft, User, RefreshCw, MessageSquare, ShieldCheck, QrCode } from 'lucide-react';
 import { UsuarioSTF, isSoporteUser } from '../services/authService';
 import { STFLogo } from './Common/STFLogo';
 
@@ -13,6 +13,7 @@ interface HeaderProps {
   onOpenProfileDirectory?: () => void;
   onOpenChat?: () => void;
   onOpenAuditoria?: () => void;
+  onOpenQrScanner?: () => void;
   chatUnreadCount?: number;
   isSyncing?: boolean;
   onManualSync?: () => void;
@@ -29,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfileDirectory,
   onOpenChat,
   onOpenAuditoria,
+  onOpenQrScanner,
   chatUnreadCount = 0,
   isSyncing = false,
   onManualSync,
@@ -123,6 +125,19 @@ export const Header: React.FC<HeaderProps> = ({
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></span>
                   </span>
+                </button>
+              )}
+
+              {/* BOTÓN RÁPIDO DE ESCÁNER QR EN NAVBAR */}
+              {onOpenQrScanner && (
+                <button
+                  type="button"
+                  onClick={onOpenQrScanner}
+                  className="relative group px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 dark:text-emerald-300 dark:border-emerald-500/40 text-[10px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1 sm:gap-2 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 shrink-0 font-mono"
+                  title="Escanear Código QR de OP física con la cámara del dispositivo"
+                >
+                  <QrCode className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 dark:text-emerald-400 animate-pulse" />
+                  <span className="hidden md:inline font-bold">ESCANEAR QR</span>
                 </button>
               )}
             </div>

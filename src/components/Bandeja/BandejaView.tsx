@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Search, ArrowUpDown, Clock, Zap, BarChart3, Send, Droplets, 
   Microscope, CheckCircle2, Sparkles, X, Tag, Calendar, Layers,
-  ChevronDown, ArrowUp, ArrowDown, AlertTriangle, ClipboardCheck
+  ChevronDown, ArrowUp, ArrowDown, AlertTriangle, ClipboardCheck, QrCode
 } from 'lucide-react';
 import { SolicitudColcha, SectorType, DictamenType, KpiMetrics } from '../../types';
 import { SolicitudCard } from './SolicitudCard';
@@ -27,6 +27,7 @@ interface BandejaViewProps {
   onDelete?: (solicitud: SolicitudColcha) => void;
   onFinalizar?: (solicitud: SolicitudColcha) => void;
   onUpdateOp?: (updated: SolicitudColcha) => void;
+  onOpenQrScanner?: () => void;
   onNavigateTab: (tab: TabType) => void;
 }
 
@@ -46,6 +47,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
   onDelete,
   onFinalizar,
   onUpdateOp,
+  onOpenQrScanner,
   onNavigateTab
 }) => {
   const showEvaluado = canViewEvaluadoSection(currentUser);
@@ -258,9 +260,9 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
       {/* 2. SEARCH BAR & SORT SELECTOR (BLOQUES 1 Y 2) */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 relative z-30" ref={searchContainerRef}>
         
-        {/* BLOQUE 1: INPUT DE BÚSQUEDA INTELIGENTE */}
-        <div className="relative flex-1">
-          <div className="relative">
+        {/* BLOQUE 1: INPUT DE BÚSQUEDA INTELIGENTE + BOTÓN ESCÁNER QR */}
+        <div className="relative flex-1 flex items-center gap-2">
+          <div className="relative flex-1">
             <input
               type="text"
               value={search}
@@ -288,6 +290,19 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
               </button>
             )}
           </div>
+
+          {/* BOTÓN RÁPIDO DE ESCÁNER QR EN LA BANDEJA */}
+          {onOpenQrScanner && (
+            <button
+              type="button"
+              onClick={onOpenQrScanner}
+              className="px-3 sm:px-4 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-mono font-bold text-xs flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(16,185,129,0.25)] hover:scale-105 active:scale-95 transition cursor-pointer shrink-0 border border-emerald-400/40"
+              title="Escanear Código QR de OP física con la cámara del dispositivo"
+            >
+              <QrCode className="w-4 h-4 text-emerald-100 animate-pulse" />
+              <span className="hidden xs:inline sm:inline">ESCANEAR QR</span>
+            </button>
+          )}
 
           {/* DROPDOWN DE SUGERENCIAS INTELIGENTES EN TIEMPO REAL */}
           {isSearchFocused && search.trim().length > 0 && (
