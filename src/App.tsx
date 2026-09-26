@@ -63,7 +63,6 @@ import {
   getDeletedOpNumbers 
 } from './services/deletedOpsService';
 import { Trash2, CheckCircle2 } from 'lucide-react';
-import { FuturisticFloatingChatButton } from './components/Chat/FuturisticFloatingChatButton';
 
 export function App() {
   // Theme state persisted in localStorage
@@ -1438,15 +1437,6 @@ export function App() {
           </div>
         </div>
       )}
-      {/* 8. BOTÓN FLOTANTE FUTURISTA VERTICAL Y ARRASTRABLE (DRAGGABLE CON MARGEN DE 5MM, DUAL WEB & MÓVIL) */}
-      {currentUser && activeTab !== 'chat' && (
-        <FuturisticFloatingChatButton
-          onClick={() => setActiveTab('chat')}
-          title="Abrir Chat Corporativo STF"
-          unreadCount={chatUnreadCount}
-        />
-      )}
-
       {/* 9. MODAL ESCÁNER QR DE PISO DE PLANTA Y RECEPCIÓN RÁPIDA */}
       {showQrScanner && (
         <Suspense fallback={null}>

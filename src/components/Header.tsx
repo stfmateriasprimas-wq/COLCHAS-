@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, LogOut, ArrowLeft, User, RefreshCw, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Sun, Moon, LogOut, ArrowLeft, User, MessageSquare, ShieldCheck } from 'lucide-react';
 import { UsuarioSTF, isSoporteUser } from '../services/authService';
 import { STFLogo } from './Common/STFLogo';
 
@@ -153,27 +153,8 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* RIGHT: Live Sync, Theme Switcher & Logout */}
-            <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
-              
-              {/* Real-time Google Sheets Sync Button */}
-              <button
-                type="button"
-                onClick={onManualSync}
-                disabled={isSyncing}
-                className="px-2 py-1.5 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 dark:text-white text-[11px] font-bold flex items-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-xs hover:border-emerald-500/50 group disabled:opacity-75 shrink-0"
-                title="Sincronización en tiempo real con la hoja BASE_DE_DATOS. Haz clic para actualizar ahora."
-              >
-                <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
-                <span className="hidden sm:inline font-mono text-[10.5px] text-zinc-700 dark:text-zinc-300">
-                  {isSyncing ? 'ACTUALIZANDO...' : 'EN VIVO'}
-                </span>
-                {totalOpsCount !== undefined && totalOpsCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-500/40 text-[9px] sm:text-[9.5px] font-mono font-bold leading-none">
-                    {totalOpsCount}
-                  </span>
-                )}
-              </button>
+            {/* RIGHT: Theme Switcher & Logout */}
+            <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 shrink-0">
 
               {/* Theme Toggle */}
               <button
