@@ -291,16 +291,16 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
             )}
           </div>
 
-          {/* BOTÓN RÁPIDO DE ESCÁNER QR EN LA BANDEJA */}
+          {/* BOTÓN RÁPIDO DE ESCÁNER QR EN LA BANDEJA (SOLO EN MÓVIL, OCULTO EN COMPUTADOR / PC) */}
           {onOpenQrScanner && (
             <button
               type="button"
               onClick={onOpenQrScanner}
-              className="px-3 sm:px-4 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-mono font-bold text-xs flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(16,185,129,0.25)] hover:scale-105 active:scale-95 transition cursor-pointer shrink-0 border border-emerald-400/40"
+              className="flex sm:hidden px-3.5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-mono font-bold text-xs items-center justify-center gap-2 shadow-[0_4px_16px_rgba(16,185,129,0.25)] hover:scale-105 active:scale-95 transition cursor-pointer shrink-0 border border-emerald-400/40"
               title="Escanear Código QR de OP física con la cámara del dispositivo"
             >
               <QrCode className="w-4 h-4 text-emerald-100 animate-pulse" />
-              <span className="hidden xs:inline sm:inline">ESCANEAR QR</span>
+              <span>ESCANEAR QR</span>
             </button>
           )}
 

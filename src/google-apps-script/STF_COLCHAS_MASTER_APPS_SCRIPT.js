@@ -74,6 +74,7 @@ function onOpen() {
     .addItem('⏰ Programar Envío Automático Diario (7:00 AM)', 'instalarActivadorDiario7AM')
     .addItem('🗑️ Auto-Eliminar OPs ya Realizadas de MONITOREO', 'cleanMonitoreoMenuAction')
     .addItem('🏷️ Normalizar Prefijos OP (OP-XXXX) en BASE_DE_DATOS', 'normalizeOpCodesMenuAction')
+    .addItem('🔗 Reparar y Activar Hipervínculos Drive (Columna M)', 'repararEnlacesDriveColumnaMMenuAction')
     .addItem('🔗 Unificar Links de Drive a Carpeta Única (Columna M)', 'unificarLinksDriveMenuAction')
     .addItem('✨ Depurar y Limpiar Columnas K, L, M y N', 'cleanColumnsKLMNMenuAction')
     .addItem('🧹 Dar Formato Profesional a Todas las Hojas', 'formatAllSheets')
@@ -85,7 +86,7 @@ function onOpen() {
   var ss = getTargetSpreadsheet();
   normalizeAllOpCodesInBaseDeDatos(ss);
   autoCleanMonitoreoFromBaseDeDatos(ss);
-  cleanColumnsKLMN(ss);
+  repararEnlacesDriveColumnaM(ss);
 }
 
 function unificarLinksDriveMenuAction() {
@@ -258,13 +259,21 @@ function doGet(e) {
                 var f1G = photosFound.foto1 || '';
                 var f2G = photosFound.foto2 || '';
                 if (f1G && f2G && f1G === f2G) f1G = '';
-                var colMParts = [];
-                if (f1G) colMParts.push('FOTO1: ' + f1G);
-                if (f2G) colMParts.push('FOTO2: ' + f2G);
-                if (photosFound.folderUrl) colMParts.push(photosFound.folderUrl);
-                var newColM = colMParts.join(' | ');
-                if (newColM) {
-                  shBdGet.getRange(b + 2, 13).setValue(newColM);
+                var targetFolderColM = photosFound.folderUrl || f1G || f2G || '';
+                if (targetFolderColM) {
+                  try {
+                    if (targetFolderColM.indexOf('http') === 0) {
+                      var richGet = SpreadsheetApp.newRichTextValue()
+                        .setText(targetFolderColM)
+                        .setLinkUrl(targetFolderColM)
+                        .build();
+                      shBdGet.getRange(b + 2, 13).setRichTextValue(richGet);
+                    } else {
+                      shBdGet.getRange(b + 2, 13).setValue(targetFolderColM);
+                    }
+                  } catch (eBdFix) {
+                    shBdGet.getRange(b + 2, 13).setValue(targetFolderColM);
+                  }
                 }
                 break;
               }
@@ -415,10 +424,10 @@ function doPost(e) {
         obsColVal = rawObsCol.indexOf(' | ') !== -1 ? rawObsCol.split(' | ')[0].trim() : rawObsCol;
       }
 
-      // Columna M (13 - EVIDENCIA): Guardar enlace directo de Foto 1 y enlace oficial clickeable de la carpeta de Drive de la OP (foto1 | folderUrl)
+      // Columna M (13 - EVIDENCIA): Guardar enlace oficial 100% clickeable de la carpeta de Drive de la OP
       var folderVal = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : '';
       var photo1Val = (savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (driveUrl || '');
-      var evidenciaVal = [photo1Val, folderVal].filter(Boolean).join(' | ');
+      var evidenciaVal = folderVal || photo1Val || '';
       
       // La Columna E de la hoja USUARIOS es la FUENTE MAESTRA DE LA VERDAD
       var recipientsList = getAllUserEmails(ss);
@@ -476,6 +485,18 @@ function doPost(e) {
       ];
 
       sheetBd.appendRow(newRow);
+      if (evidenciaVal && String(evidenciaVal).indexOf('http') === 0) {
+        try {
+          var lastRowAppended = sheetBd.getLastRow();
+          var richLinkNew = SpreadsheetApp.newRichTextValue()
+            .setText(evidenciaVal)
+            .setLinkUrl(evidenciaVal)
+            .build();
+          sheetBd.getRange(lastRowAppended, 13).setRichTextValue(richLinkNew);
+        } catch (eRichAppend) {
+          // Fallback seguro a texto directo
+        }
+      }
       normalizeAllOpCodesInBaseDeDatos(ss);
       if (opVal) removeOpFromMonitoreoSheet(ss, opVal);
       autoCleanMonitoreoFromBaseDeDatos(ss);
@@ -923,18 +944,24 @@ function doPost(e) {
       }
       var primaryDriveUrl = (payload.isCalidad ? finalFoto2_p : finalFoto1_p) || finalFoto2_p || finalFoto1_p || finalFotoPrenda1_p || finalFotoPrenda2_p || '';
 
-      // Si la OP existe en BASE_DE_DATOS, actualizar fila y Columna 13 (M) preservando fotos
+      // Si la OP existe en BASE_DE_DATOS, actualizar fila y Columna 13 (M) con hipervínculo oficial a Drive
       if (foundRowPhoto !== -1 && sheetBdPhoto) {
         sheetBdPhoto.getRange(foundRowPhoto, 6).setValue(opFormattedPhoto);
-        var colPartsPhoto = [];
-        if (finalFoto1_p) colPartsPhoto.push('FOTO1: ' + finalFoto1_p);
-        if (finalFoto2_p) colPartsPhoto.push('FOTO2: ' + finalFoto2_p);
-        if (finalFotoPrenda1_p) colPartsPhoto.push('PRENDA1: ' + finalFotoPrenda1_p);
-        if (finalFotoPrenda2_p) colPartsPhoto.push('PRENDA2: ' + finalFotoPrenda2_p);
-        if (folderColPhoto) colPartsPhoto.push(folderColPhoto);
-        var combinedColPhoto = colPartsPhoto.join(' | ');
-        if (combinedColPhoto) {
-          sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(combinedColPhoto);
+        var targetColPhotoUrl = folderColPhoto || primaryDriveUrl || '';
+        if (targetColPhotoUrl) {
+          try {
+            if (targetColPhotoUrl.indexOf('http') === 0) {
+              var richPhoto = SpreadsheetApp.newRichTextValue()
+                .setText(targetColPhotoUrl)
+                .setLinkUrl(targetColPhotoUrl)
+                .build();
+              sheetBdPhoto.getRange(foundRowPhoto, 13).setRichTextValue(richPhoto);
+            } else {
+              sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(targetColPhotoUrl);
+            }
+          } catch (eRichPh) {
+            sheetBdPhoto.getRange(foundRowPhoto, 13).setValue(targetColPhotoUrl);
+          }
         }
 
         if (payload.observacionColfactory || payload.observacionesLavanderia) {
@@ -1030,8 +1057,14 @@ function doPost(e) {
       return createJsonResponse({ status: 'success', cleanedCount: cleanedCount });
     }
 
-    // 14. CLEAN_DRIVE_DUPLICATES (Depurar fotos duplicadas en Drive dejando exactamente 2 por OP)
-    // 15. GET_OP_PHOTOS (Resolución en tiempo real de fotos de la OP desde Drive)
+    // 14. FIX_COLUMNA_M (Reparar y activar hipervínculos clickeables de Drive en Columna M)
+    if (action === 'FIX_COLUMNA_M') {
+      var fixedCount = repararEnlacesDriveColumnaM(ss);
+      return createJsonResponse({ status: 'success', fixedCount: fixedCount });
+    }
+
+    // 15. CLEAN_DRIVE_DUPLICATES (Depurar fotos duplicadas en Drive dejando exactamente 2 por OP)
+    // 16. GET_OP_PHOTOS (Resolución en tiempo real de fotos de la OP desde Drive)
     if (action === 'GET_OP_PHOTOS') {
       var targetOpPost = payload.op || payload.opNumber || data.op || data.opNumber || '';
       if (!targetOpPost) return createJsonResponse({ status: 'error', message: 'Falta parámetro op' });
@@ -1054,13 +1087,21 @@ function doPost(e) {
                 var f1P = photosRes.foto1 || '';
                 var f2P = photosRes.foto2 || '';
                 if (f1P && f2P && f1P === f2P) f1P = '';
-                var colPartsP = [];
-                if (f1P) colPartsP.push('FOTO1: ' + f1P);
-                if (f2P) colPartsP.push('FOTO2: ' + f2P);
-                if (photosRes.folderUrl) colPartsP.push(photosRes.folderUrl);
-                var newColMP = colPartsP.join(' | ');
+                var newColMP = photosRes.folderUrl || f1P || f2P || '';
                 if (newColMP) {
-                  shBdP.getRange(bp + 2, 13).setValue(newColMP);
+                  try {
+                    if (newColMP.indexOf('http') === 0) {
+                      var richPost = SpreadsheetApp.newRichTextValue()
+                        .setText(newColMP)
+                        .setLinkUrl(newColMP)
+                        .build();
+                      shBdP.getRange(bp + 2, 13).setRichTextValue(richPost);
+                    } else {
+                      shBdP.getRange(bp + 2, 13).setValue(newColMP);
+                    }
+                  } catch (eRichPost) {
+                    shBdP.getRange(bp + 2, 13).setValue(newColMP);
+                  }
                 }
                 break;
               }
@@ -2237,20 +2278,16 @@ function cleanColumnsKLMN(ss) {
     if (col.toLowerCase().indexOf('colcha recibida') !== -1 || col.indexOf('[LAVANDERIA]') !== -1) { col = ''; ch = true; }
 
     // 3. Normalización y resolución de Evidencias en Drive (Columna M: Link clickeable de la Carpeta de Drive de la OP)
-    if (ev.indexOf('/folders/') === -1 || ev.indexOf(' | ') !== -1 || ev.indexOf('data:') === 0 || ev === rawOp || ev === formattedOp || ev.indexOf('.jpg') !== -1 || !ev) {
-      try {
-        if (formattedOp && formattedOp.length > 3) {
-          var opPhotosFound = getOpPhotosFromDrive(formattedOp);
-          var resolvedColM = opPhotosFound.folderUrl || opPhotosFound.foto1 || opPhotosFound.foto2 || '';
-          if (resolvedColM && resolvedColM !== ev) {
-            ev = resolvedColM;
-            ch = true;
-          } else if (!resolvedColM && (ev.indexOf('data:') === 0 || ev === rawOp || ev === formattedOp || ev.indexOf('.jpg') !== -1)) {
-            ev = '';
-            ch = true;
-          }
-        }
-      } catch (errF) {}
+    // A. Si el valor ya contiene una URL de carpeta de Google Drive (/folders/), extraerla limpiamente (0 ms)
+    var matchFolder = ev.match(/https:\/\/drive\.google\.com\/drive\/folders\/[a-zA-Z0-9_-]+/);
+    if (matchFolder) {
+      if (ev !== matchFolder[0]) {
+        ev = matchFolder[0];
+        ch = true;
+      }
+    } else if (ev.indexOf('data:') === 0 || ev === rawOp || ev === formattedOp || ev.indexOf('.jpg') !== -1) {
+      ev = '';
+      ch = true;
     }
 
     // 4. Depuración de correos
@@ -2268,5 +2305,44 @@ function cleanColumnsKLMN(ss) {
     }
   }
   if (mod > 0) range.setValues(vals);
+  repararEnlacesDriveColumnaM(ss);
   return mod;
+}
+
+/**
+ * =========================================================================
+ * REPARACIÓN Y ACTIVACIÓN DE HIPERVÍNCULOS NATIVOS CLICKEABLES EN DRIVE (COLUMNA M)
+ * =========================================================================
+ * Extrae URLs limpias de carpetas de Drive en Columna M y las transforma en hipervínculos nativos clickeables.
+ */
+function repararEnlacesDriveColumnaM(ss) {
+  if (!ss) ss = getTargetSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  var lastRow = sheet.getLastRow();
+  var colRange = sheet.getRange(2, 13, lastRow - 1, 1);
+  var vals = colRange.getValues();
+  var richArray = [];
+  var updatedCount = 0;
+
+  for (var i = 0; i < vals.length; i++) {
+    var raw = String(vals[i][0] || '').trim();
+    var match = raw.match(/https:\/\/drive\.google\.com\/drive\/folders\/[a-zA-Z0-9_-]+/);
+    var cleanUrl = match ? match[0] : (raw.indexOf('http') === 0 && raw.indexOf(' | ') === -1 ? raw : '');
+    if (cleanUrl) {
+      richArray.push([SpreadsheetApp.newRichTextValue().setText(cleanUrl).setLinkUrl(cleanUrl).build()]);
+      if (cleanUrl !== raw) updatedCount++;
+    } else {
+      richArray.push([SpreadsheetApp.newRichTextValue().setText(raw).build()]);
+    }
+  }
+
+  colRange.setRichTextValues(richArray);
+  return updatedCount;
+}
+
+function repararEnlacesDriveColumnaMMenuAction() {
+  var ss = getTargetSpreadsheet();
+  var count = repararEnlacesDriveColumnaM(ss);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se repararon y activaron como hipervínculos clickeables los enlaces de Google Drive en Columna M (' + count + ' celdas actualizadas)', '🚀 STF GROUP', 6);
 }
