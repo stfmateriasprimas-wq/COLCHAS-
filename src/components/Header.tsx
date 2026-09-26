@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, LogOut, ArrowLeft, User, RefreshCw, MessageSquare, ShieldCheck, QrCode } from 'lucide-react';
+import { Sun, Moon, LogOut, ArrowLeft, User, RefreshCw, MessageSquare, ShieldCheck } from 'lucide-react';
 import { UsuarioSTF, isSoporteUser } from '../services/authService';
 import { STFLogo } from './Common/STFLogo';
 
@@ -57,8 +57,8 @@ export const Header: React.FC<HeaderProps> = ({
         */}
         <div className="flex flex-col gap-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center relative w-full">
           
-          {/* Top Row on Mobile / Direct grid slots on Desktop */}
-          <div className="flex items-center justify-between w-full sm:contents">
+          {/* Top Row on Mobile: Perfect 3-column symmetrical grid (1fr auto 1fr) / Direct grid slots on Desktop */}
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full sm:contents">
             
             {/* LEFT: Back Button & CHAT Button & AUDITORIA Button (SOPORTE) */}
             <div className="flex items-center justify-start gap-1 sm:gap-2.5 shrink-0">
@@ -73,12 +73,12 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {/* BOTÓN OFICIAL DE CHAT EN LA POSICIÓN SEÑALADA EN LA IMAGEN */}
+              {/* BOTÓN OFICIAL DE CHAT */}
               {onOpenChat && (
                 <button
                   type="button"
                   onClick={onOpenChat}
-                  className="relative group overflow-hidden px-2 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#002f23] via-[#014d38] to-[#00281e] border border-emerald-400/70 hover:border-emerald-300 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1 sm:gap-2.5 transition-all duration-300 cursor-pointer shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:shadow-[0_0_26px_rgba(16,185,129,0.65)] hover:scale-[1.04] active:scale-95 shrink-0 ring-1 ring-emerald-500/40"
+                  className="relative group overflow-hidden px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#002f23] via-[#014d38] to-[#00281e] border border-emerald-400/70 hover:border-emerald-300 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2.5 transition-all duration-300 cursor-pointer shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:shadow-[0_0_26px_rgba(16,185,129,0.65)] hover:scale-[1.04] active:scale-95 shrink-0 ring-1 ring-emerald-500/40"
                   title="Abrir Chat Corporativo STF en Tiempo Real"
                 >
                   {/* Reflejo Shimmer Holográfico Cybernetic */}
@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
 
                   {/* Texto Futurista de Alta Tecnología */}
-                  <span className="font-mono tracking-widest font-black text-[9.5px] sm:text-xs text-white drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]">
+                  <span className="font-mono tracking-wider font-black text-[9.5px] sm:text-xs text-white drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]">
                     CHAT
                   </span>
 
@@ -127,26 +127,13 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 </button>
               )}
-
-              {/* BOTÓN RÁPIDO DE ESCÁNER QR EN NAVBAR (SOLO EN MÓVIL, OCULTO EN COMPUTADOR / PC) */}
-              {onOpenQrScanner && (
-                <button
-                  type="button"
-                  onClick={onOpenQrScanner}
-                  className="flex sm:hidden relative group px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 dark:text-emerald-300 dark:border-emerald-500/40 text-[10px] font-bold uppercase tracking-wider items-center gap-1 transition cursor-pointer shadow-xs hover:scale-105 active:scale-95 shrink-0 font-mono"
-                  title="Escanear Código QR de OP física con la cámara del dispositivo"
-                >
-                  <QrCode className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 animate-pulse" />
-                  <span className="font-bold">QR</span>
-                </button>
-              )}
             </div>
 
             {/* CENTER: Centered STF GROUP Logo (with user badge on desktop) */}
-            <div className="flex flex-col items-center justify-center space-y-1 sm:space-y-1.5 py-0.5 justify-self-center text-center px-1 min-w-0 shrink">
+            <div className="flex flex-col items-center justify-center space-y-1 sm:space-y-1.5 py-0.5 justify-self-center text-center px-1.5 sm:px-2 shrink-0">
               <STFLogo
                 isWhite={isDarkMode}
-                className="h-6 sm:h-12 md:h-16 w-24 sm:w-60 md:w-80 max-w-[105px] sm:max-w-none transition-all duration-300"
+                className="h-7 sm:h-12 md:h-16 w-28 sm:w-60 md:w-80 max-w-[115px] sm:max-w-none transition-all duration-300"
               />
 
               {/* User badge on desktop (hidden on mobile row 1, rendered in row 2 below) */}
@@ -174,7 +161,7 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={onManualSync}
                 disabled={isSyncing}
-                className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 dark:text-white text-[11px] font-bold flex items-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-sm hover:border-emerald-500/50 group disabled:opacity-75 shrink-0"
+                className="px-2 py-1.5 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 dark:text-white text-[11px] font-bold flex items-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-xs hover:border-emerald-500/50 group disabled:opacity-75 shrink-0"
                 title="Sincronización en tiempo real con la hoja BASE_DE_DATOS. Haz clic para actualizar ahora."
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
@@ -182,7 +169,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {isSyncing ? 'ACTUALIZANDO...' : 'EN VIVO'}
                 </span>
                 {totalOpsCount !== undefined && totalOpsCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-500/40 text-[9px] sm:text-[9.5px] font-mono font-bold">
+                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-500/40 text-[9px] sm:text-[9.5px] font-mono font-bold leading-none">
                     {totalOpsCount}
                   </span>
                 )}
@@ -192,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onToggleTheme}
-                className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-white text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm shrink-0"
+                className="w-7 h-7 sm:w-auto sm:h-auto p-1.5 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
                 title={isDarkMode ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
               >
                 {isDarkMode ? (
@@ -212,7 +199,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onLogout}
-                className="p-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-2xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-sm shrink-0"
+                className="w-7 h-7 sm:w-auto sm:h-auto p-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-2xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 sm:gap-1.5 transition cursor-pointer shadow-xs shrink-0"
                 title="Cerrar sesión"
               >
                 <LogOut className="w-3.5 h-3.5" />
