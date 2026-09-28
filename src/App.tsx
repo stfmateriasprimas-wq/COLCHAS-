@@ -23,6 +23,7 @@ const PublicAlertsView = lazy(() => import('./components/Public/PublicAlertsView
 const MasterTable = lazy(() => import('./components/BaseDatos/MasterTable').then(m => ({ default: m.MasterTable })));
 const TimelineView = lazy(() => import('./components/Timeline/TimelineView').then(m => ({ default: m.TimelineView })));
 const EstadisticasView = lazy(() => import('./components/Estadisticas/EstadisticasView').then(m => ({ default: m.EstadisticasView })));
+const CumplimientoView = lazy(() => import('./components/Cumplimiento/CumplimientoView').then(m => ({ default: m.CumplimientoView })));
 const WhatsAppChatView = lazy(() => import('./components/Chat/WhatsAppChatView').then(m => ({ default: m.WhatsAppChatView })));
 const SoporteAuditoriaView = lazy(() => import('./components/Soporte/SoporteAuditoriaView').then(m => ({ default: m.SoporteAuditoriaView })));
 const QrScannerModal = lazy(() => import('./components/Scanner/QrScannerModal').then(m => ({ default: m.QrScannerModal })));
@@ -224,6 +225,7 @@ export function App() {
     'alertas': 'Alertas y Monitoreo SLA',
     'timeline': 'Línea de Tiempo Operativa',
     'estadisticas': 'Módulo de Estadísticas y KPI',
+    'cumplimiento': 'Indicador de Cumplimiento & Cobertura',
     'chat': 'Chat Colaborativo STF',
     'soporte-auditoria': 'Auditoría & Historial Forense'
   };
@@ -1225,6 +1227,19 @@ export function App() {
               onViewDetail={(item) => setSelectedColchaDetail(item)}
               onSyncSheets={() => loadAllLiveData(false)}
               isSyncing={isSyncing}
+            />
+          </Suspense>
+        )}
+
+        {/* VIEW: CUMPLIMIENTO & COBERTURA EN TIEMPO REAL */}
+        {activeTab === 'cumplimiento' && (
+          <Suspense fallback={ViewLoadingFallback}>
+            <CumplimientoView
+              solicitudes={solicitudes}
+              metrics={metrics}
+              currentUser={currentUser}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onViewDetail={(item) => setSelectedColchaDetail(item)}
             />
           </Suspense>
         )}

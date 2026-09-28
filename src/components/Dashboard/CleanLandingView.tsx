@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   PlusCircle, ClipboardList, BarChart3, Zap, 
-  Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity, ShieldCheck, ClipboardCheck 
+  Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity, ShieldCheck, ClipboardCheck, Target 
 } from 'lucide-react';
 import { TabType } from '../Navigation';
 import { KpiMetrics, SectorType, SolicitudColcha } from '../../types';
@@ -444,7 +444,7 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
       </div>
 
       {/* 4. FAST ACTION TILES TO REMAINING MODULES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         
         {/* Tile 1: Base de Datos Maestra */}
         <div
@@ -503,6 +503,21 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
           </div>
           <div className="w-8 h-8 rounded-full bg-zinc-100 text-zinc-700 group-hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:group-hover:bg-zinc-800 flex items-center justify-center shrink-0 transition-colors">
             <ChevronRight className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Tile 5: Cumplimiento & Cobertura */}
+        <div
+          onClick={() => onNavigate('cumplimiento')}
+          className="bg-white border border-zinc-200/90 hover:border-cyan-400 p-4 sm:p-5 rounded-2xl shadow-[0_4px_16px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_24px_rgba(6,182,212,0.15)] flex items-center justify-between cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 text-zinc-950 dark:bg-[#0c1017] dark:border-zinc-800 dark:text-white dark:shadow-[0_4px_20px_rgba(255,255,255,0.05)] hover:dark:shadow-[0_8px_25px_rgba(6,182,212,0.15)] hover:dark:border-cyan-500/50 group"
+        >
+          <div>
+            <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wide block">EFICIENCIA & SLA</span>
+            <h4 className="text-sm font-bold text-zinc-950 dark:text-white mt-0.5">Cumplimiento & Cobertura</h4>
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-1">SLA ≤ 3 días, calidad y flujo textil</span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-cyan-50 text-cyan-600 group-hover:bg-cyan-500 group-hover:text-black dark:bg-cyan-950/60 dark:text-cyan-300 dark:group-hover:bg-cyan-400 dark:group-hover:text-black flex items-center justify-center shrink-0 transition-colors">
+            <Target className="w-4 h-4" />
           </div>
         </div>
 

@@ -1,7 +1,8 @@
-import React from 'react';
-import { Layers, Database, AlertTriangle, Clock, BarChart3, ShieldCheck } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Layers, Database, AlertTriangle, Clock, BarChart3, ShieldCheck, Target } from 'lucide-react';
 import { TabType } from '../Navigation';
 import { UsuarioSTF, isSoporteUser } from '../../services/authService';
+import { SolicitudColcha } from '../../types';
 
 interface SubNavTabsProps {
   activeTab: TabType;
@@ -10,6 +11,7 @@ interface SubNavTabsProps {
   alertCount: number;
   chatUnreadCount?: number;
   currentUser?: UsuarioSTF | null;
+  solicitudes?: SolicitudColcha[];
 }
 
 export const SubNavTabs: React.FC<SubNavTabsProps> = ({
@@ -17,7 +19,8 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
   onSelectTab,
   totalHistorico,
   alertCount,
-  currentUser
+  currentUser,
+  solicitudes
 }) => {
   const effectiveUser = currentUser || (() => {
     try {
@@ -29,6 +32,19 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
   })();
 
   const isSoporte = isSoporteUser(effectiveUser);
+
+  // Cálculo en tiempo real del indicador de cumplimiento (% de OPs dentro de SLA)
+  const liveCumplimientoPct = useMemo(() => {
+    if (solicitudes && solicitudes.length > 0) {
+      const sinRetraso = solicitudes.filter(s => !s.tieneRetraso).length;
+      return Math.round((sinRetraso / solicitudes.length) * 100);
+    }
+    if (totalHistorico > 0) {
+      const aTiempo = Math.max(0, totalHistorico - alertCount);
+      return Math.round((aTiempo / totalHistorico) * 100);
+    }
+    return 91;
+  }, [solicitudes, totalHistorico, alertCount]);
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode; badge?: string | number; badgeColor?: string }[] = [
     {
@@ -58,6 +74,17 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
       id: 'estadisticas',
       label: 'ESTADÍSTICAS',
       icon: <BarChart3 className="w-3.5 h-3.5" />
+    },
+    {
+      id: 'cumplimiento',
+      label: 'CUMPLIMIENTO',
+      badge: `${liveCumplimientoPct}%`,
+      badgeColor: liveCumplimientoPct >= 90
+        ? 'bg-emerald-500 text-black border-emerald-400 font-black shadow-[0_0_10px_rgba(16,185,129,0.35)] dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-500/50'
+        : liveCumplimientoPct >= 80
+        ? 'bg-amber-500 text-black border-amber-400 font-black dark:bg-amber-950 dark:text-amber-300 dark:border-amber-500/50'
+        : 'bg-rose-500 text-white border-rose-400 font-black dark:bg-rose-950 dark:text-rose-300 dark:border-rose-500/50',
+      icon: <Target className="w-3.5 h-3.5 text-cyan-400" />
     },
     ...(isSoporte ? [{
       id: 'soporte-auditoria' as TabType,

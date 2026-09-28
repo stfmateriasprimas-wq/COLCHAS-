@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, PlusCircle, Inbox, Database, AlertTriangle, Clock, BarChart3, MessageSquare, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Inbox, Database, AlertTriangle, Clock, BarChart3, MessageSquare, ShieldCheck, Target } from 'lucide-react';
 
 import { UsuarioSTF, isLavanderiaUser, isSoporteUser } from '../services/authService';
 
@@ -11,6 +11,7 @@ export type TabType =
   | 'alertas'
   | 'timeline'
   | 'estadisticas'
+  | 'cumplimiento'
   | 'chat'
   | 'soporte-auditoria';
 
@@ -79,6 +80,11 @@ export const Navigation: React.FC<NavigationProps> = ({
       id: 'estadisticas' as TabType,
       label: 'Estadísticas',
       icon: BarChart3
+    },
+    {
+      id: 'cumplimiento' as TabType,
+      label: 'Cumplimiento & SLA',
+      icon: Target
     },
     ...(isSoporteUser(currentUser) ? [{
       id: 'soporte-auditoria' as TabType,

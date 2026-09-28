@@ -712,6 +712,7 @@ export const EstadisticasView: React.FC<EstadisticasViewProps> = ({
         totalHistorico={totalHistorico}
         alertCount={inRetrasoCount}
         currentUser={currentUser}
+        solicitudes={solicitudes}
       />
 
       {/* 2. TOP BANNER: MÉTRICAS E INDICADORES STF */}

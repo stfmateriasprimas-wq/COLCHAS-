@@ -60,6 +60,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         onSelectTab={onNavigateTab}
         totalHistorico={totalHistorico}
         alertCount={inRetrasoCount}
+        solicitudes={solicitudes}
       />
 
       {/* 2. TOP BANNER: LÍNEA DE TIEMPO Y EVALUACIÓN DE PROCESOS */}

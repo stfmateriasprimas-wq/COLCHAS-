@@ -254,6 +254,7 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         totalHistorico={metrics.totalHistorico}
         alertCount={alertCount}
         currentUser={currentUser}
+        solicitudes={solicitudes}
       />
 
 

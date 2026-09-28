@@ -143,6 +143,7 @@ export const MasterTable: React.FC<MasterTableProps> = ({
         totalHistorico={totalHistorico}
         alertCount={alertCount}
         currentUser={currentUser}
+        solicitudes={solicitudes}
       />
 
       {/* 2. CARD 1: BASE DE DATOS MAESTRA DE TRAZABILIDAD & MASTER KPIS */}

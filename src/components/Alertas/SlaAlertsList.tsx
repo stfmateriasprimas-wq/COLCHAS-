@@ -229,6 +229,7 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
         totalHistorico={totalHistorico}
         alertCount={allAlerts.length}
         currentUser={currentUser}
+        solicitudes={solicitudes}
       />
 
       {/* FEEDBACK BANNER FOR GOOGLE SHEETS ALERTAS SYNC (SIN BOTÓN COPIAR CSV) */}

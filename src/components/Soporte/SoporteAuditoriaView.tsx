@@ -286,6 +286,7 @@ export const SoporteAuditoriaView: React.FC<SoporteAuditoriaViewProps> = ({
           totalHistorico={kpiMetrics?.totalHistorico || solicitudes.length}
           alertCount={solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length}
           currentUser={currentUser}
+          solicitudes={solicitudes}
         />
       )}
 
