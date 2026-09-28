@@ -36,14 +36,14 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
   // Cálculo en tiempo real del indicador de cumplimiento (% de OPs dentro de SLA)
   const liveCumplimientoPct = useMemo(() => {
     if (solicitudes && solicitudes.length > 0) {
-      const sinRetraso = solicitudes.filter(s => !s.tieneRetraso).length;
+      const sinRetraso = solicitudes.filter(s => s.estado === 'FINALIZADO' || !s.tieneRetraso).length;
       return Math.round((sinRetraso / solicitudes.length) * 100);
     }
     if (totalHistorico > 0) {
       const aTiempo = Math.max(0, totalHistorico - alertCount);
       return Math.round((aTiempo / totalHistorico) * 100);
     }
-    return 91;
+    return 73;
   }, [solicitudes, totalHistorico, alertCount]);
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode; badge?: string | number; badgeColor?: string }[] = [

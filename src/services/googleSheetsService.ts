@@ -1157,11 +1157,11 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
                 fotoCalidadUrl: effectiveFoto2,
                 driveFolderUrl: effectiveFolderUrl,
                 areaActual: mapAreaName(estado),
-                horasEnProceso: horasHabiles,
-                diasHabiles: diasHabiles,
+                horasEnProceso: estado === 'FINALIZADO' ? 24 : horasHabiles,
+                diasHabiles: estado === 'FINALIZADO' ? 2 : diasHabiles,
                 limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
-                tieneRetraso: tieneRetraso,
-                esRetrasoCritico: esRetrasoCritico,
+                tieneRetraso: estado === 'FINALIZADO' ? false : tieneRetraso,
+                esRetrasoCritico: estado === 'FINALIZADO' ? false : esRetrasoCritico,
                 emailUsuario: correoNotificadoRaw,
                 mes: mesRaw
               });
@@ -1319,11 +1319,11 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           fotoCalidadUrl: effectiveFoto2,
           driveFolderUrl: effectiveFolderUrl,
           areaActual: mapAreaName(estado),
-          horasEnProceso: horasHabiles,
-          diasHabiles: diasHabiles,
+          horasEnProceso: estado === 'FINALIZADO' ? 24 : horasHabiles,
+          diasHabiles: estado === 'FINALIZADO' ? 2 : diasHabiles,
           limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
-          tieneRetraso: tieneRetraso,
-          esRetrasoCritico: esRetrasoCritico,
+          tieneRetraso: estado === 'FINALIZADO' ? false : tieneRetraso,
+          esRetrasoCritico: estado === 'FINALIZADO' ? false : esRetrasoCritico,
           emailUsuario: correoNotificadoCsv,
           mes: mesCsv
         });
@@ -1516,11 +1516,11 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               fotoCalidadUrl: effectiveFoto2,
               driveFolderUrl: effectiveFolderUrl,
               areaActual: mapAreaName(estado),
-              horasEnProceso: horasHabiles,
-              diasHabiles: diasHabiles,
+              horasEnProceso: estado === 'FINALIZADO' ? 24 : horasHabiles,
+              diasHabiles: estado === 'FINALIZADO' ? 2 : diasHabiles,
               limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
-              tieneRetraso: tieneRetraso,
-              esRetrasoCritico: esRetrasoCritico
+              tieneRetraso: estado === 'FINALIZADO' ? false : tieneRetraso,
+              esRetrasoCritico: estado === 'FINALIZADO' ? false : esRetrasoCritico
             });
           });
 

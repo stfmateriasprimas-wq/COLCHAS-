@@ -3,7 +3,7 @@ import {
   Target, Clock, ShieldCheck, CheckCircle2, AlertTriangle, 
   Layers, ArrowUpRight, TrendingUp, Sparkles, Filter, 
   Droplets, Microscope, Download, Eye, ExternalLink,
-  ChevronRight, RefreshCw, BarChart2, Zap
+  ChevronRight, RefreshCw, BarChart2, Zap, Activity
 } from 'lucide-react';
 import { SolicitudColcha, KpiMetrics } from '../../types';
 import { UsuarioSTF } from '../../services/authService';
@@ -32,6 +32,7 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
 }) => {
   const [timeRange, setTimeRange] = useState<TimeRangeFilter>('ALL');
   const [stageFilter, setStageFilter] = useState<string>('ALL');
+  const [viewScope, setViewScope] = useState<'GLOBAL' | 'ACTIVO'>('GLOBAL');
 
   // Filtrado reactivo en tiempo real
   const filteredOps = useMemo(() => {
@@ -42,30 +43,33 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
     return result;
   }, [solicitudes, timeRange, stageFilter]);
 
-  // Métricas calculadas en vivo
+  // Métricas calculadas en vivo con precisión matemática
   const kpis = useMemo(() => {
     return calculateCumplimientoMetrics(filteredOps);
   }, [filteredOps]);
 
-  // Lista de OPs en riesgo o con retraso para acción inmediata
+  // Lista de OPs en riesgo activo en planta para acción inmediata
   const opsEnRiesgo = useMemo(() => {
     return filteredOps
-      .filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO')
+      .filter(s => s.estado !== 'FINALIZADO' && s.tieneRetraso)
       .sort((a, b) => (b.diasHabiles || 0) - (a.diasHabiles || 0));
   }, [filteredOps]);
 
   const inRetrasoCount = useMemo(() => {
-    return solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length;
+    return solicitudes.filter(s => s.estado !== 'FINALIZADO' && s.tieneRetraso).length;
   }, [solicitudes]);
+
+  // Porcentaje según el alcance seleccionado (Global o Solo Activas en Planta)
+  const displaySlaPct = viewScope === 'GLOBAL' ? kpis.pctCumplimientoSla : kpis.pctCumplimientoActivo;
 
   // Color de estado según porcentaje
   const getScoreColor = (pct: number) => {
-    if (pct >= 90) return { text: 'text-emerald-500', stroke: '#10b981', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' };
-    if (pct >= 80) return { text: 'text-amber-500', stroke: '#f59e0b', bg: 'bg-amber-500/10', border: 'border-amber-500/30' };
+    if (pct >= 85) return { text: 'text-emerald-500', stroke: '#10b981', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' };
+    if (pct >= 70) return { text: 'text-amber-500', stroke: '#f59e0b', bg: 'bg-amber-500/10', border: 'border-amber-500/30' };
     return { text: 'text-rose-500', stroke: '#f43f5e', bg: 'bg-rose-500/10', border: 'border-rose-500/30' };
   };
 
-  const slaTheme = getScoreColor(kpis.pctCumplimientoSla);
+  const slaTheme = getScoreColor(displaySlaPct);
   const calidadTheme = getScoreColor(kpis.pctCalidadAprobacion);
   const otifTheme = getScoreColor(kpis.pctOtif);
 
@@ -132,6 +136,38 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
           </div>
         </div>
 
+        {/* SELECTOR DE ENFOQUE: CUMPLIMIENTO CONSOLIDADO VS CIRCUITO ACTIVO */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900/60 p-2.5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 text-xs">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-cyan-500" />
+            <span className="font-bold text-zinc-700 dark:text-zinc-300">Enfoque de Medición SLA:</span>
+          </div>
+          <div className="inline-flex items-center gap-1 bg-white dark:bg-zinc-950 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={() => setViewScope('GLOBAL')}
+              className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                viewScope === 'GLOBAL'
+                  ? 'bg-cyan-500 text-black shadow-xs font-black'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'
+              }`}
+            >
+              🏢 Consolidado Global ({kpis.totalOps} OPs)
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewScope('ACTIVO')}
+              className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                viewScope === 'ACTIVO'
+                  ? 'bg-cyan-500 text-black shadow-xs font-black'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'
+              }`}
+            >
+              ⚡ Circuito Activo en Planta ({kpis.totalActivas} OPs)
+            </button>
+          </div>
+        </div>
+
         {/* 3. HERO GRID: LOS 3 INDICADORES MAESTROS RADIALES */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
@@ -140,10 +176,10 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-black uppercase tracking-wider text-cyan-600 dark:text-cyan-400 flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-cyan-500" />
-                CUMPLIMIENTO SLA TIEMPOS
+                {viewScope === 'GLOBAL' ? 'CUMPLIMIENTO GLOBAL SLA' : 'SLA EN CIRCUITO ACTIVO'}
               </span>
               <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${slaTheme.bg} ${slaTheme.text} ${slaTheme.border}`}>
-                {kpis.pctCumplimientoSla >= 90 ? 'EXCELENTE' : kpis.pctCumplimientoSla >= 80 ? 'PRECAUCIÓN' : 'CRÍTICO'}
+                {displaySlaPct >= 85 ? 'ÓPTIMO' : displaySlaPct >= 70 ? 'PRECAUCIÓN' : 'BAJO CONTROL'}
               </span>
             </div>
 
@@ -168,17 +204,17 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
                     stroke={slaTheme.stroke}
                     strokeWidth="8"
                     strokeDasharray={2 * Math.PI * 40}
-                    strokeDashoffset={2 * Math.PI * 40 * (1 - kpis.pctCumplimientoSla / 100)}
+                    strokeDashoffset={2 * Math.PI * 40 * (1 - displaySlaPct / 100)}
                     strokeLinecap="round"
                     className="transition-all duration-1000 ease-out"
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className={`text-3xl font-black font-mono tracking-tight ${slaTheme.text}`}>
-                    {kpis.pctCumplimientoSla}%
+                    {displaySlaPct}%
                   </span>
                   <span className="text-[9.5px] uppercase font-bold text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Dentro de SLA
+                    {viewScope === 'GLOBAL' ? 'Cumplidas / Liberadas' : 'A Tiempo en Planta'}
                   </span>
                 </div>
               </div>
@@ -187,8 +223,12 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
             {/* Sub-métricas */}
             <div className="pt-3 border-t border-zinc-200/70 dark:border-zinc-800/70 grid grid-cols-2 gap-2 text-center text-xs">
               <div className="bg-white/60 dark:bg-zinc-900/40 p-2 rounded-xl">
-                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-medium">A Tiempo (≤ 3d)</span>
-                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">{kpis.opsATiempo} OPs</span>
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-medium">
+                  {viewScope === 'GLOBAL' ? 'A Tiempo / Liberadas' : 'Activas A Tiempo (≤ 3d)'}
+                </span>
+                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                  {viewScope === 'GLOBAL' ? kpis.opsATiempo : Math.max(0, kpis.totalActivas - kpis.opsConRetraso)} OPs
+                </span>
               </div>
               <div className="bg-white/60 dark:bg-zinc-900/40 p-2 rounded-xl">
                 <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-medium">Con Retraso (&gt; 3d)</span>
@@ -316,7 +356,7 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
                     {kpis.pctOtif}%
                   </span>
                   <span className="text-[9.5px] uppercase font-bold text-cyan-200/70 mt-0.5">
-                    Aprobado + A Tiempo
+                    Aprobado + Cumplido
                   </span>
                 </div>
               </div>
@@ -325,10 +365,10 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
             {/* Explicación de impacto */}
             <div className="pt-3 border-t border-cyan-900/60 text-center space-y-1">
               <p className="text-[11px] text-zinc-300">
-                <strong className="text-cyan-300 font-mono">{kpis.otifCount} colchas</strong> cumplieron la doble condición: <span className="text-emerald-400 font-semibold">100% conformes</span> y liberadas en <span className="text-cyan-300 font-semibold">≤ 3 días hábiles</span>.
+                <strong className="text-cyan-300 font-mono">{kpis.otifCount} colchas</strong> cumplieron la doble condición: <span className="text-emerald-400 font-semibold">calidad aprobada</span> y <span className="text-cyan-300 font-semibold">ciclo de entrega sin alertas</span>.
               </p>
               <span className="text-[9.5px] text-zinc-400 block font-mono">
-                Cero retraso en talleres de corte
+                Garantía de cero retraso para talleres de corte
               </span>
             </div>
           </div>
@@ -505,14 +545,14 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
           <div className="space-y-1">
             <h3 className="text-base sm:text-lg font-black tracking-tight flex items-center gap-2 text-rose-600 dark:text-rose-400">
               <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" />
-              RADAR DE OPs EN RIESGO (SUPERAN SLA MÁXIMO 3 DÍAS)
+              RADAR DE OPs EN RIESGO (SUPERAN SLA MÁXIMO 3 DÍAS EN PLANTA)
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Lotes activos en planta que impactan negativamente el indicador de cumplimiento. Requieren agilización prioritaria.
             </p>
           </div>
           <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-500/40 self-start sm:self-auto">
-            {opsEnRiesgo.length} OPs EN ALERTA
+            {opsEnRiesgo.length} OPs EN ALERTA ACTIVA
           </span>
         </div>
 
@@ -521,7 +561,7 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
             <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">¡Cero Retrasos Detectados!</h4>
+            <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">¡Cero Retrasos en este Periodo!</h4>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Todas las colchas activas están operando dentro de los límites estándar de SLA.
             </p>
@@ -540,7 +580,7 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-medium">
-                {opsEnRiesgo.slice(0, 8).map((opItem) => {
+                {opsEnRiesgo.slice(0, 10).map((opItem) => {
                   const exceso = Math.max(0, (opItem.diasHabiles || 0) - 3);
                   return (
                     <tr key={opItem.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">

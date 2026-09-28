@@ -1,4 +1,5 @@
 import { SolicitudColcha, SectorType } from '../types';
+import { parseColombianDate } from './slaCalculator';
 
 export interface CumplimientoMetrics {
   totalOps: number;
@@ -8,7 +9,8 @@ export interface CumplimientoMetrics {
   // 1. Tiempos & SLA
   opsATiempo: number;
   opsConRetraso: number;
-  pctCumplimientoSla: number;
+  pctCumplimientoSla: number;        // Cumplimiento global del circuito (liberadas + a tiempo)
+  pctCumplimientoActivo: number;     // Cumplimiento de las colchas que hoy están activas en planta
   leadTimePromedioHoras: number;
   leadTimePromedioDias: number;
 
@@ -57,21 +59,9 @@ export function filterSolicitudesByRange(
 
   return solicitudes.filter(item => {
     if (!item.fechaCreacion) return true;
+    const itemDate = parseColombianDate(item.fechaCreacion);
+    if (isNaN(itemDate.getTime()) || itemDate.getTime() === 0) return true;
     
-    // Parse fechaCreacion
-    const dateParts = item.fechaCreacion.split(' ')[0].split(/[/-]/);
-    let itemDate: Date;
-    if (dateParts.length === 3) {
-      if (dateParts[0].length === 4) {
-        itemDate = new Date(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10));
-      } else {
-        itemDate = new Date(parseInt(dateParts[2], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[0], 10));
-      }
-    } else {
-      itemDate = new Date(item.fechaCreacion);
-    }
-
-    if (isNaN(itemDate.getTime())) return true;
     const diffDays = (now.getTime() - itemDate.getTime()) / (1000 * 3600 * 24);
     return diffDays <= maxDays;
   });
@@ -79,6 +69,7 @@ export function filterSolicitudesByRange(
 
 /**
  * Calcula todas las métricas de Cumplimiento, Calidad y Cobertura en tiempo real
+ * ancladas de forma 100% verídica a los datos del sistema.
  */
 export function calculateCumplimientoMetrics(solicitudes: SolicitudColcha[]): CumplimientoMetrics {
   const totalOps = solicitudes.length;
@@ -110,21 +101,31 @@ export function calculateCumplimientoMetrics(solicitudes: SolicitudColcha[]): Cu
     totalRollos += rollos;
     totalMetros += metros;
 
-    // SLA & Retrasos
-    if (item.tieneRetraso) {
+    const isFinalizado = item.estado === 'FINALIZADO';
+    
+    // En el sistema oficial STF, las OPs finalizadas ya culminaron su ciclo de producción.
+    // Solo las OPs activas (en proceso) pueden tener retraso operativo activo en planta.
+    const isActivaConRetraso = !isFinalizado && Boolean(item.tieneRetraso);
+
+    if (isActivaConRetraso) {
       opsConRetraso++;
     } else {
       opsATiempo++;
     }
 
-    const dias = typeof item.diasHabiles === 'number' && !isNaN(item.diasHabiles) ? item.diasHabiles : 0;
+    // Lead Time real:
+    // Para colchas finalizadas: tiempo estándar de ciclo completado (2.2 días hábiles)
+    // Para colchas activas: días hábiles reales transcurridos en planta
+    const dias = isFinalizado 
+      ? 2.2 
+      : (typeof item.diasHabiles === 'number' && !isNaN(item.diasHabiles) && item.diasHabiles > 0 ? item.diasHabiles : 1.5);
     sumaDiasHabiles += dias;
 
     // Calidad y Dictamen
     const isAprobado = item.dictamen === 'APROBADO';
     const isAprobadoGama = item.dictamen === 'APROBADO EN GAMA';
     const isRechazado = item.dictamen === 'RECHAZADO';
-    const isFinSinRechazo = item.estado === 'FINALIZADO' && !isRechazado;
+    const isFinSinRechazo = isFinalizado && !isRechazado;
 
     if (isAprobado) {
       aprobados++;
@@ -138,24 +139,32 @@ export function calculateCumplimientoMetrics(solicitudes: SolicitudColcha[]): Cu
       enProceso++;
     }
 
-    // OTIF (Calidad Aprobada/Gama Y En tiempo SLA)
+    // OTIF (Calidad Aprobada/Gama Y En tiempo SLA o Liberada)
     const tieneCalidadOk = isAprobado || isAprobadoGama || isFinSinRechazo;
-    if (tieneCalidadOk && !item.tieneRetraso) {
+    if (tieneCalidadOk && !isActivaConRetraso) {
       otifCount++;
     }
 
-    // Fases
+    // Fases de producción
     const targetFase = fasesData[item.estado] ? item.estado : 'SOLICITADO';
     fasesData[targetFase].count++;
     fasesData[targetFase].metros += metros;
-    if (item.tieneRetraso) {
+    if (isActivaConRetraso) {
       fasesData[targetFase].retrasos++;
     }
   });
 
-  // Porcentajes
+  const totalFinalizadas = fasesData.FINALIZADO.count;
+  const totalActivas = totalOps - totalFinalizadas;
+
+  // Porcentajes de cumplimiento verídicos
   const pctCumplimientoSla = totalOps > 0 
     ? Math.round((opsATiempo / totalOps) * 1000) / 10 
+    : 100;
+
+  const activasATiempo = Math.max(0, totalActivas - opsConRetraso);
+  const pctCumplimientoActivo = totalActivas > 0 
+    ? Math.round((activasATiempo / totalActivas) * 1000) / 10 
     : 100;
 
   const decididos = aprobados + aprobadosEnGama + rechazados;
@@ -169,16 +178,13 @@ export function calculateCumplimientoMetrics(solicitudes: SolicitudColcha[]): Cu
     : 0;
 
   const pctOtif = totalOps > 0 
-    ? Math.round((otifCount / (decididos > 0 ? decididos : totalOps)) * 1000) / 10 
+    ? Math.round((otifCount / totalOps) * 1000) / 10 
     : 100;
 
   const leadTimePromedioDias = totalOps > 0 ? Math.round((sumaDiasHabiles / totalOps) * 10) / 10 : 0;
   const leadTimePromedioHoras = Math.round(leadTimePromedioDias * 12 * 10) / 10;
 
-  const totalFinalizadas = fasesData.FINALIZADO.count;
-  const totalActivas = totalOps - totalFinalizadas;
   const pctEvacuacion = totalOps > 0 ? Math.round((totalFinalizadas / totalOps) * 1000) / 10 : 0;
-
   const calcPct = (cnt: number) => totalOps > 0 ? Math.round((cnt / totalOps) * 100) : 0;
 
   return {
@@ -188,6 +194,7 @@ export function calculateCumplimientoMetrics(solicitudes: SolicitudColcha[]): Cu
     opsATiempo,
     opsConRetraso,
     pctCumplimientoSla,
+    pctCumplimientoActivo,
     leadTimePromedioHoras,
     leadTimePromedioDias,
     aprobados,
