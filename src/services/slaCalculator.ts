@@ -243,3 +243,75 @@ export function calculateWorkingDays(startDateStr: string | Date, maxDaysSla: nu
     severidad
   };
 }
+
+/**
+ * Calcula con exactitud el tiempo laboral transcurrido entre dos fechas cualesquiera
+ * respetando el turno oficial de STF Group (Lunes a Sábado, 6:00 a.m. a 6:00 p.m. - 12h/día).
+ */
+export function calculateWorkingTimeBetween(
+  startDateInput: string | Date,
+  endDateInput: string | Date = new Date()
+): {
+  diasHabiles: number;
+  horasHabiles: number;
+  minutosHabiles: number;
+  duracionTexto: string;
+} {
+  const start = parseColombianDate(startDateInput);
+  const end = parseColombianDate(endDateInput);
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) {
+    return { diasHabiles: 0, horasHabiles: 0, minutosHabiles: 0, duracionTexto: '0 min' };
+  }
+
+  let totalWorkingMinutes = 0;
+  let cur = new Date(start.getTime());
+
+  // Iteración optimizada por saltos horarios
+  while (cur < end) {
+    const day = cur.getDay(); // 0 = Domingo
+    const hour = cur.getHours();
+
+    // Dentro de jornada: Lunes a Sábado entre 6:00 y 18:00
+    if (day !== 0 && hour >= 6 && hour < 18) {
+      const nextHour = new Date(cur);
+      nextHour.setMinutes(0, 0, 0);
+      nextHour.setHours(hour + 1);
+
+      const chunkEnd = nextHour < end ? nextHour : end;
+      const diffMs = chunkEnd.getTime() - cur.getTime();
+      totalWorkingMinutes += Math.max(0, Math.floor(diffMs / 60000));
+      cur = chunkEnd;
+    } else {
+      // Avanzar al próximo inicio de jornada
+      if (hour < 6 && day !== 0) {
+        cur.setHours(6, 0, 0, 0);
+      } else {
+        cur.setDate(cur.getDate() + 1);
+        cur.setHours(6, 0, 0, 0);
+      }
+      if (cur > end) break;
+    }
+  }
+
+  const horasHabiles = Math.floor(totalWorkingMinutes / 60);
+  const minutosRestantes = totalWorkingMinutes % 60;
+  const diasHabiles = Math.floor(horasHabiles / 12);
+  const horasRestantes = horasHabiles % 12;
+
+  let duracionTexto = '';
+  if (diasHabiles > 0) {
+    duracionTexto = `${diasHabiles}d ${horasRestantes}h`;
+  } else if (horasHabiles > 0) {
+    duracionTexto = `${horasHabiles}h ${minutosRestantes}m`;
+  } else {
+    duracionTexto = `${Math.max(1, totalWorkingMinutes)}m`;
+  }
+
+  return {
+    diasHabiles,
+    horasHabiles,
+    minutosHabiles: totalWorkingMinutes,
+    duracionTexto
+  };
+}

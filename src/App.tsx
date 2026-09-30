@@ -63,6 +63,7 @@ import {
   unmarkOpAsDeleted,
   getDeletedOpNumbers 
 } from './services/deletedOpsService';
+import { opTimelineService } from './services/opTimelineService';
 import { Trash2, CheckCircle2 } from 'lucide-react';
 
 export function App() {
@@ -594,6 +595,21 @@ export function App() {
       { dictamen: finalDictamen, auditor: auditorName }
     );
 
+    // AUTOMATIZACIÓN DE LÍNEA DE TIEMPO: Registrar cierre final y cálculo de lead time oficial
+    if (opNumber) {
+      opTimelineService.recordStageTransition(
+        opNumber,
+        solicitud.estado || 'EVALUADO',
+        'FINALIZADO',
+        auditorName,
+        'CALIDAD PLANTA STF',
+        finalObs,
+        finalDictamen,
+        solicitud.referencia,
+        solicitud.tela
+      ).catch(err => console.warn('Aviso: Cierre de timeline registrado localmente:', err));
+    }
+
     // Sincronización en vivo hacia Google Sheets (Página BASE_DE_DATOS)
     if (opNumber) {
       try {
@@ -707,6 +723,18 @@ export function App() {
 
       // Save to persistent storage so it survives sync and reloads
       saveLocalCreatedOp(nueva);
+
+      // INICIO AUTOMÁTICO DE LÍNEA DE TIEMPO: Registro de fecha y hora exacta de apertura
+      opTimelineService.startTimelineForNewOp(
+        nueva.op,
+        nueva.referencia,
+        nueva.tela,
+        nueva.estado,
+        nueva.inspector || currentUser?.nombre || 'OPERARIO STF',
+        nueva.fechaCreacion,
+        nueva.observacionesOperario || nueva.observacionesLavanderia || ''
+      ).catch(err => console.warn('Aviso: Inicio de timeline registrado localmente:', err));
+
       const cleanTarget = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
       setSolicitudes(prev => {
         const nextList = [nueva, ...prev.filter(s => (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) !== cleanTarget)];
@@ -791,6 +819,21 @@ export function App() {
         tieneFotoCalidad: !!fotoCalidad
       }
     );
+
+    // AUTOMATIZACIÓN DE LÍNEA DE TIEMPO: Registrar entrada automática a la nueva área y medir permanencia previa
+    if (opNumber) {
+      opTimelineService.recordStageTransition(
+        opNumber,
+        targetItem?.estado || 'INICIAL',
+        nuevoEstado,
+        currentUser?.nombre || 'OPERARIO STF',
+        currentUser?.area || '',
+        nuevaObservacion,
+        dictamen,
+        targetItem?.referencia,
+        targetItem?.tela
+      ).catch(err => console.warn('Aviso: Transición de timeline registrada localmente:', err));
+    }
 
     setSolicitudes(prev => prev.map(item => {
       if (item.id === solicitudId) {

@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, Clock, Calendar, AlertTriangle, CheckCircle2, ChevronRight, 
   ExternalLink, User, Droplets, Microscope, Layers, Sparkles, Filter,
-  Check, Eye, X, ArrowRight, ShieldCheck, Tag, FileText, CheckCircle
+  Check, Eye, X, ArrowRight, ShieldCheck, Tag, FileText, CheckCircle,
+  Activity, Cpu, History
 } from 'lucide-react';
 import { SolicitudColcha, KpiMetrics, SectorType } from '../../types';
 import { SubNavTabs } from '../Navigation/SubNavTabs';
@@ -11,6 +12,7 @@ import { TabType } from '../Navigation';
 import { formatColombianDisplayDate, parseColombianDate } from '../../services/slaCalculator';
 import { calculateCumplimientoMetrics } from '../../services/cumplimientoService';
 import { auditService, AuditLogEntry } from '../../services/auditService';
+import { opTimelineService, OpTimelineRecord, StageTimeRecord } from '../../services/opTimelineService';
 import { SmartPhotoDisplay } from '../Common/SmartPhotoDisplay';
 
 interface TimelineViewProps {
@@ -46,6 +48,15 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   useEffect(() => {
     const unsub = auditService.subscribeToLogs((logs) => {
       setAuditLogs(logs);
+    });
+    return () => unsub();
+  }, []);
+
+  // 2. Trazabilidad automática de Línea de Tiempo en tiempo real por OP
+  const [timelinesMap, setTimelinesMap] = useState<Map<string, OpTimelineRecord>>(new Map());
+  useEffect(() => {
+    const unsub = opTimelineService.subscribe((map) => {
+      setTimelinesMap(map);
     });
     return () => unsub();
   }, []);
@@ -113,10 +124,68 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     }
   }, [selectedOp]);
 
+  // Obtener registro de línea de tiempo con medición automática por etapas
+  const selectedTimeline = useMemo(() => {
+    if (!selectedOp) return null;
+    const cleanOpKey = opTimelineService.cleanOpKey(selectedOp.op);
+    return timelinesMap.get(cleanOpKey) || opTimelineService.getTimelineForOp(selectedOp.op, selectedOp);
+  }, [selectedOp, timelinesMap]);
+
+  // Mediciones de tiempo automáticas por cada Lugar de Trabajo (4 estaciones principales)
+  const workAreaTimes = useMemo(() => {
+    if (!selectedOp) return null;
+
+    const stagesMap = selectedTimeline?.stages || {};
+    const createdDt = parseColombianDate(selectedOp.fechaCreacion);
+    const validCreatedDt = !isNaN(createdDt.getTime()) && createdDt.getTime() > 0 ? createdDt : new Date();
+    const createdFormatted = formatColombianDisplayDate(validCreatedDt);
+
+    // 1. ÁREA: TRÁNSITO / DESPACHO (PRE_SOLICITUD & SOLICITADO)
+    const stageTransito = stagesMap.SOLICITADO || stagesMap.PRE_SOLICITUD;
+    const ingresoTransito = stageTransito?.fechaIngresoFormatted || createdFormatted;
+    const salidaTransito = stageTransito?.fechaSalidaFormatted || stagesMap.LAVANDERIA?.fechaIngresoFormatted || (currentStageIndex > 1 ? 'Entregado a Lavandería' : 'En tránsito hacia Colfactory ZF');
+    const tiempoTransito = stageTransito?.duracionTexto || (currentStageIndex === 1 ? `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en tránsito` : 'Tránsito completado');
+    const respTransito = stageTransito?.responsableIngreso || selectedOp.inspector || 'Despacho STF';
+    const estadoTransito = currentStageIndex > 1 ? 'COMPLETADO' : currentStageIndex === 1 ? 'EN PROCESO' : 'PENDIENTE';
+
+    // 2. ÁREA: LAVANDERÍA COLFACTORY ZF
+    const stageLav = stagesMap.LAVANDERIA;
+    const ingresoLav = stageLav?.fechaIngresoFormatted || (currentStageIndex >= 2 ? 'Recibido en planta lavadero' : '— En espera de recepción');
+    const salidaLav = stageLav?.fechaSalidaFormatted || stagesMap.CALIDAD?.fechaIngresoFormatted || (currentStageIndex > 2 ? 'Enviado a Laboratorio STF' : currentStageIndex === 2 ? 'En ciclo de lavado (tambores)' : '— Pendiente');
+    const tiempoLav = stageLav?.duracionTexto || (currentStageIndex === 2 ? `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en lavado` : currentStageIndex > 2 ? 'Ciclo culminado' : '—');
+    const respLav = stageLav?.responsableIngreso || (currentStageIndex >= 2 ? 'Colfactory ZF / Lavandería' : '—');
+    const estadoLav = currentStageIndex > 2 ? 'COMPLETADO' : currentStageIndex === 2 ? 'EN PROCESO' : 'PENDIENTE';
+
+    // 3. ÁREA: CALIDAD LABORATORIO STF
+    const stageCal = stagesMap.CALIDAD;
+    const ingresoCal = stageCal?.fechaIngresoFormatted || (currentStageIndex >= 3 ? 'Recibido en Laboratorio STF' : '— En espera de lavado');
+    const salidaCal = stageCal?.fechaSalidaFormatted || stagesMap.EVALUADO?.fechaIngresoFormatted || (currentStageIndex > 3 ? `Dictamen emitido: ${selectedOp.dictamen || 'EVALUADO'}` : currentStageIndex === 3 ? 'En inspección técnica' : '— Pendiente');
+    const tiempoCal = stageCal?.duracionTexto || (currentStageIndex === 3 ? `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en laboratorio` : currentStageIndex > 3 ? 'Auditoría completada' : '—');
+    const respCal = stageCal?.responsableIngreso || selectedOp.inspector || (currentStageIndex >= 3 ? 'Auditor Calidad STF' : '—');
+    const estadoCal = currentStageIndex > 3 ? 'COMPLETADO' : currentStageIndex === 3 ? 'EN PROCESO' : 'PENDIENTE';
+
+    // 4. ÁREA: CONTROL FACTORY & LIBERACIÓN FINAL
+    const stageFinal = stagesMap.FINALIZADO;
+    const stageEval = stagesMap.EVALUADO;
+    const ingresoEval = stageEval?.fechaIngresoFormatted || (currentStageIndex >= 4 ? 'Enviado a Factory para cierre' : '— En espera de dictamen');
+    const salidaFinal = stageFinal?.fechaSalidaFormatted || (currentStageIndex === 5 ? 'Lote Liberado' : currentStageIndex === 4 ? 'En espera exclusiva de Factory' : '— Pendiente');
+    const leadTimeTotal = selectedTimeline?.leadTimeTotalTexto || (currentStageIndex === 5 ? `${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h)` : `En proceso (${selectedOp.diasHabiles}d acumulados)`);
+    const respFinal = stageFinal?.responsableIngreso || (currentStageIndex === 5 ? 'Factory / Administrador' : '—');
+    const estadoFinal = currentStageIndex === 5 ? 'COMPLETADO' : currentStageIndex === 4 ? 'EN PROCESO' : 'PENDIENTE';
+
+    return {
+      transito: { ingreso: ingresoTransito, salida: salidaTransito, tiempo: tiempoTransito, resp: respTransito, estado: estadoTransito },
+      lavanderia: { ingreso: ingresoLav, salida: salidaLav, tiempo: tiempoLav, resp: respLav, estado: estadoLav },
+      calidad: { ingreso: ingresoCal, salida: salidaCal, tiempo: tiempoCal, resp: respCal, estado: estadoCal },
+      factory: { ingreso: ingresoEval, salida: salidaFinal, tiempo: leadTimeTotal, resp: respFinal, estado: estadoFinal }
+    };
+  }, [selectedOp, selectedTimeline, currentStageIndex]);
+
   // Build the 6 official production timeline stages with 100% verified real data
   const stages = useMemo(() => {
     if (!selectedOp) return [];
 
+    const timelineStages = selectedTimeline?.stages || {};
     const createdDt = parseColombianDate(selectedOp.fechaCreacion);
     const validCreatedDt = !isNaN(createdDt.getTime()) && createdDt.getTime() > 0 ? createdDt : new Date();
 
@@ -135,20 +204,29 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
     // Helpers to resolve verified real timestamp and operator for each stage
     // Stage 1 (CREACIÓN / REGISTRO INICIAL)
-    const fechaEtapa1 = formatColombianDisplayDate(validCreatedDt);
-    const responsableEtapa1 = logCreation?.usuarioNombre || selectedOp.inspector || 'OPERARIO STF';
+    const recPre = timelineStages.PRE_SOLICITUD;
+    const fechaEtapa1 = recPre?.fechaIngresoFormatted || formatColombianDisplayDate(validCreatedDt);
+    const fechaSalidaEtapa1 = recPre?.fechaSalidaFormatted;
+    const responsableEtapa1 = recPre?.responsableIngreso || logCreation?.usuarioNombre || selectedOp.inspector || 'OPERARIO STF';
+    const tiempoEtapa1 = recPre?.duracionTexto || 'Punto de partida (Registro de solicitud en Base de Datos)';
+    const fuenteEtapa1 = recPre ? 'Motor Automático' : 'Base de Datos';
 
     // Stage 2 (DESPACHO / TRÁNSITO)
-    let fechaEtapa2 = '— En espera de despacho';
-    let responsableEtapa2 = selectedOp.inspector || 'Despacho STF';
-    let tiempoEtapa2 = 'Pendiente de despacho';
-    let fuenteEtapa2 = '';
+    const recSol = timelineStages.SOLICITADO;
+    let fechaEtapa2 = recSol?.fechaIngresoFormatted || (currentStageIndex >= 1 ? formatColombianDisplayDate(validCreatedDt) : '— En espera de despacho');
+    let fechaSalidaEtapa2 = recSol?.fechaSalidaFormatted;
+    let responsableEtapa2 = recSol?.responsableIngreso || selectedOp.inspector || 'Despacho STF';
+    let tiempoEtapa2 = recSol?.duracionTexto || 'Pendiente de despacho';
+    let fuenteEtapa2 = recSol ? 'Motor Automático' : '';
     if (currentStageIndex === 1) {
-      fechaEtapa2 = `En tránsito desde: ${formatColombianDisplayDate(validCreatedDt)}`;
-      tiempoEtapa2 = `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en espera de recepción`;
-      fuenteEtapa2 = 'En Proceso';
+      fechaEtapa2 = recSol?.fechaIngresoFormatted || `En tránsito desde: ${formatColombianDisplayDate(validCreatedDt)}`;
+      tiempoEtapa2 = recSol?.duracionTexto || `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en espera de recepción`;
+      fuenteEtapa2 = recSol ? 'Motor Automático' : 'En Proceso';
     } else if (currentStageIndex > 1) {
-      if (logTransferDespacho) {
+      if (recSol?.fechaIngresoFormatted) {
+        fechaEtapa2 = recSol.fechaIngresoFormatted;
+        fuenteEtapa2 = 'Motor Automático';
+      } else if (logTransferDespacho) {
         fechaEtapa2 = formatColombianDisplayDate(new Date(logTransferDespacho.timestamp));
         responsableEtapa2 = `${logTransferDespacho.usuarioNombre} (${logTransferDespacho.usuarioArea || 'DESPACHO'})`;
         fuenteEtapa2 = 'Auditoría en vivo';
@@ -156,20 +234,25 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         fechaEtapa2 = `Despachado en solicitud inicial (${formatColombianDisplayDate(validCreatedDt)})`;
         fuenteEtapa2 = 'Base de Datos';
       }
-      tiempoEtapa2 = 'Tránsito completado';
+      tiempoEtapa2 = recSol?.duracionTexto || 'Tránsito completado';
     }
 
     // Stage 3 (LAVANDERÍA COLFACTORY ZF)
-    let fechaEtapa3 = '— En espera de recepción en lavadero';
-    let responsableEtapa3 = 'Colfactory ZF / Operario de Lavandería';
-    let tiempoEtapa3 = 'Pendiente de ingreso a tambores de lavado';
-    let fuenteEtapa3 = '';
+    const recLav = timelineStages.LAVANDERIA;
+    let fechaEtapa3 = recLav?.fechaIngresoFormatted || '— En espera de recepción en lavadero';
+    let fechaSalidaEtapa3 = recLav?.fechaSalidaFormatted;
+    let responsableEtapa3 = recLav?.responsableIngreso || 'Colfactory ZF / Operario de Lavandería';
+    let tiempoEtapa3 = recLav?.duracionTexto || 'Pendiente de ingreso a tambores de lavado';
+    let fuenteEtapa3 = recLav ? 'Motor Automático' : '';
     if (currentStageIndex === 2) {
-      fechaEtapa3 = 'En proceso actual en Lavandería Colfactory';
-      tiempoEtapa3 = `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en tambor de lavado`;
-      fuenteEtapa3 = 'En Proceso';
+      fechaEtapa3 = recLav?.fechaIngresoFormatted || 'En proceso actual en Lavandería Colfactory';
+      tiempoEtapa3 = recLav?.duracionTexto || `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en tambor de lavado`;
+      fuenteEtapa3 = recLav ? 'Motor Automático' : 'En Proceso';
     } else if (currentStageIndex > 2) {
-      if (logTransferLav) {
+      if (recLav?.fechaIngresoFormatted) {
+        fechaEtapa3 = recLav.fechaIngresoFormatted;
+        fuenteEtapa3 = 'Motor Automático';
+      } else if (logTransferLav) {
         fechaEtapa3 = formatColombianDisplayDate(new Date(logTransferLav.timestamp));
         responsableEtapa3 = `${logTransferLav.usuarioNombre} (${logTransferLav.usuarioArea || 'LAVANDERÍA'})`;
         fuenteEtapa3 = 'Auditoría en vivo';
@@ -181,20 +264,25 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         fechaEtapa3 = 'Ciclo culminado en Lavandería Colfactory ZF';
         fuenteEtapa3 = 'Base de Datos';
       }
-      tiempoEtapa3 = 'Ciclo de lavado culminado (SLA: 2 días)';
+      tiempoEtapa3 = recLav?.duracionTexto || 'Ciclo de lavado culminado (SLA: 2 días)';
     }
 
     // Stage 4 (CALIDAD LABORATORIO STF)
-    let fechaEtapa4 = '— En espera de culminación de lavado';
-    let responsableEtapa4 = selectedOp.inspector || 'Auditor Técnico de Calidad STF';
-    let tiempoEtapa4 = 'Pendiente de recepción en Laboratorio';
-    let fuenteEtapa4 = '';
+    const recCal = timelineStages.CALIDAD;
+    let fechaEtapa4 = recCal?.fechaIngresoFormatted || '— En espera de culminación de lavado';
+    let fechaSalidaEtapa4 = recCal?.fechaSalidaFormatted;
+    let responsableEtapa4 = recCal?.responsableIngreso || selectedOp.inspector || 'Auditor Técnico de Calidad STF';
+    let tiempoEtapa4 = recCal?.duracionTexto || 'Pendiente de recepción en Laboratorio';
+    let fuenteEtapa4 = recCal ? 'Motor Automático' : '';
     if (currentStageIndex === 3) {
-      fechaEtapa4 = 'En auditoría técnica en Laboratorio de Calidad';
-      tiempoEtapa4 = `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en inspección de laboratorio`;
-      fuenteEtapa4 = 'En Proceso';
+      fechaEtapa4 = recCal?.fechaIngresoFormatted || 'En auditoría técnica en Laboratorio de Calidad';
+      tiempoEtapa4 = recCal?.duracionTexto || `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en inspección de laboratorio`;
+      fuenteEtapa4 = recCal ? 'Motor Automático' : 'En Proceso';
     } else if (currentStageIndex > 3) {
-      if (logTransferCal) {
+      if (recCal?.fechaIngresoFormatted) {
+        fechaEtapa4 = recCal.fechaIngresoFormatted;
+        fuenteEtapa4 = 'Motor Automático';
+      } else if (logTransferCal) {
         fechaEtapa4 = formatColombianDisplayDate(new Date(logTransferCal.timestamp));
         responsableEtapa4 = `${logTransferCal.usuarioNombre} (${logTransferCal.usuarioArea || 'CALIDAD'})`;
         fuenteEtapa4 = 'Auditoría en vivo';
@@ -206,20 +294,25 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         fechaEtapa4 = `Dictamen emitido: ${selectedOp.dictamen || 'EVALUADO'}`;
         fuenteEtapa4 = 'Base de Datos';
       }
-      tiempoEtapa4 = 'Auditoría técnica ejecutada (SLA: 1 día)';
+      tiempoEtapa4 = recCal?.duracionTexto || 'Auditoría técnica ejecutada (SLA: 1 día)';
     }
 
     // Stage 5 (EVALUADO Y ENVIADO A FACTORY)
-    let fechaEtapa5 = '— En espera de emisión de dictamen';
-    let responsableEtapa5 = 'Colfactory ZF / Jefe de Lavandería';
-    let tiempoEtapa5 = 'Pendiente de aprobación técnica de Calidad';
-    let fuenteEtapa5 = '';
+    const recEval = timelineStages.EVALUADO;
+    let fechaEtapa5 = recEval?.fechaIngresoFormatted || '— En espera de emisión de dictamen';
+    let fechaSalidaEtapa5 = recEval?.fechaSalidaFormatted;
+    let responsableEtapa5 = recEval?.responsableIngreso || 'Colfactory ZF / Jefe de Lavandería';
+    let tiempoEtapa5 = recEval?.duracionTexto || 'Pendiente de aprobación técnica de Calidad';
+    let fuenteEtapa5 = recEval ? 'Motor Automático' : '';
     if (currentStageIndex === 4) {
-      fechaEtapa5 = 'En espera exclusiva de validación y cierre por Factory';
-      tiempoEtapa5 = `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en espera de cierre`;
-      fuenteEtapa5 = 'En Proceso';
+      fechaEtapa5 = recEval?.fechaIngresoFormatted || 'En espera exclusiva de validación y cierre por Factory';
+      tiempoEtapa5 = recEval?.duracionTexto || `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en espera de cierre`;
+      fuenteEtapa5 = recEval ? 'Motor Automático' : 'En Proceso';
     } else if (currentStageIndex > 4) {
-      if (logDictamen) {
+      if (recEval?.fechaIngresoFormatted) {
+        fechaEtapa5 = recEval.fechaIngresoFormatted;
+        fuenteEtapa5 = 'Motor Automático';
+      } else if (logDictamen) {
         fechaEtapa5 = formatColombianDisplayDate(new Date(logDictamen.timestamp));
         responsableEtapa5 = `${logDictamen.usuarioNombre} (${logDictamen.usuarioArea || 'CALIDAD'})`;
         fuenteEtapa5 = 'Auditoría en vivo';
@@ -227,16 +320,21 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         fechaEtapa5 = 'Dictamen evaluado y enviado a Factory';
         fuenteEtapa5 = 'Base de Datos';
       }
-      tiempoEtapa5 = 'Control Factory avalado';
+      tiempoEtapa5 = recEval?.duracionTexto || 'Control Factory avalado';
     }
 
     // Stage 6 (FINALIZADO / LIBERACIÓN)
-    let fechaEtapa6 = '— Pendiente de liberación final';
-    let responsableEtapa6 = 'Colfactory ZF / Administrador STF';
-    let tiempoEtapa6 = 'En espera de liberación por Factory';
-    let fuenteEtapa6 = '';
+    const recFin = timelineStages.FINALIZADO;
+    let fechaEtapa6 = recFin?.fechaIngresoFormatted || '— Pendiente de liberación final';
+    let fechaSalidaEtapa6 = recFin?.fechaSalidaFormatted;
+    let responsableEtapa6 = recFin?.responsableIngreso || 'Colfactory ZF / Administrador STF';
+    let tiempoEtapa6 = recFin?.duracionTexto || 'En espera de liberación por Factory';
+    let fuenteEtapa6 = recFin ? 'Motor Automático' : '';
     if (currentStageIndex === 5) {
-      if (logFinalizado) {
+      if (recFin?.fechaIngresoFormatted) {
+        fechaEtapa6 = recFin.fechaIngresoFormatted;
+        fuenteEtapa6 = 'Motor Automático';
+      } else if (logFinalizado) {
         fechaEtapa6 = formatColombianDisplayDate(new Date(logFinalizado.timestamp));
         responsableEtapa6 = `${logFinalizado.usuarioNombre} (${logFinalizado.usuarioArea || 'COLFACTORY'})`;
         fuenteEtapa6 = 'Auditoría en vivo';
@@ -248,7 +346,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         fechaEtapa6 = `Orden Liberada y Registrada en Base de Datos`;
         fuenteEtapa6 = 'Base de Datos';
       }
-      tiempoEtapa6 = `Lead Time total: ${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h de jornada)`;
+      tiempoEtapa6 = selectedTimeline?.leadTimeTotalTexto || recFin?.duracionTexto || `Lead Time total: ${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h de jornada)`;
     }
 
     return [
@@ -260,10 +358,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'ATELIER ZF / PLANTA STF',
         subtitulo: 'Apertura de ficha técnica y fotografía de muestra inicial',
         estado: currentStageIndex >= 0 ? (currentStageIndex === 0 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
+        fechaIngreso: fechaEtapa1,
+        fechaSalida: fechaSalidaEtapa1,
         fechaDisplay: fechaEtapa1,
-        fuente: 'Base de Datos',
+        fuente: fuenteEtapa1 || 'Base de Datos',
         responsable: responsableEtapa1,
-        tiempoArea: 'Punto de partida (Registro de solicitud en Base de Datos)',
+        tiempoArea: tiempoEtapa1,
         tiempoAcumulado: '0 h laborales',
         icono: '⏱️',
         iconBg: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-400/40',
@@ -283,6 +383,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'TRÁNSITO / DESPACHO',
         subtitulo: 'Envío de muestra física hacia planta de lavado Colfactory ZF',
         estado: currentStageIndex >= 1 ? (currentStageIndex === 1 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
+        fechaIngreso: fechaEtapa2,
+        fechaSalida: fechaSalidaEtapa2,
         fechaDisplay: fechaEtapa2,
         fuente: fuenteEtapa2,
         responsable: responsableEtapa2,
@@ -308,6 +410,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'LAVANDERÍA COLFACTORY ZF',
         subtitulo: 'Llamado de OP, ingreso a tambor y ciclo de prueba de lavado',
         estado: currentStageIndex >= 2 ? (currentStageIndex === 2 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
+        fechaIngreso: fechaEtapa3,
+        fechaSalida: fechaSalidaEtapa3,
         fechaDisplay: fechaEtapa3,
         fuente: fuenteEtapa3,
         responsable: responsableEtapa3,
@@ -333,6 +437,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'CALIDAD STF LABORATORIO',
         subtitulo: 'Inspección técnica de encogimiento urdimbre/trama, revirado y tono',
         estado: currentStageIndex >= 3 ? (currentStageIndex === 3 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
+        fechaIngreso: fechaEtapa4,
+        fechaSalida: fechaSalidaEtapa4,
         fechaDisplay: fechaEtapa4,
         fuente: fuenteEtapa4,
         responsable: responsableEtapa4,
@@ -360,6 +466,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'CONTROL FACTORY ZF',
         subtitulo: 'Dictamen de calidad emitido; en espera exclusiva de revisión y cierre por Factory',
         estado: currentStageIndex >= 4 ? (currentStageIndex === 4 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
+        fechaIngreso: fechaEtapa5,
+        fechaSalida: fechaSalidaEtapa5,
         fechaDisplay: fechaEtapa5,
         fuente: fuenteEtapa5,
         responsable: responsableEtapa5,
@@ -387,6 +495,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'CALIDAD PLANTA STF (LIBERADA)',
         subtitulo: 'Orden finalizada formalmente, trazabilidad completada y liberación de lote',
         estado: currentStageIndex === 5 ? 'COMPLETADO' : 'PENDIENTE',
+        fechaIngreso: fechaEtapa6,
+        fechaSalida: fechaSalidaEtapa6,
         fechaDisplay: fechaEtapa6,
         fuente: fuenteEtapa6,
         responsable: responsableEtapa6,
@@ -408,7 +518,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         enAlerta: false
       }
     ];
-  }, [selectedOp, currentStageIndex, opAuditLogs]);
+  }, [selectedOp, currentStageIndex, opAuditLogs, selectedTimeline]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 select-none pb-12 relative font-sans">
@@ -707,6 +817,217 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
               </div>
 
+              {/* WIDGET: MEDICIÓN AUTOMÁTICA DE TIEMPOS POR LUGAR DE TRABAJO */}
+              {workAreaTimes && (
+                <div className="bg-white dark:bg-[#0c1017] border-2 border-amber-500/40 dark:border-amber-500/30 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-4 text-zinc-950 dark:text-white">
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-sm font-bold text-amber-600 dark:text-amber-400">
+                        ⏱️
+                      </div>
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-black text-zinc-950 dark:text-white font-mono uppercase tracking-wide flex items-center gap-2 flex-wrap">
+                          <span>MEDICIÓN AUTOMÁTICA DE TIEMPOS POR LUGAR DE TRABAJO</span>
+                          <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold">
+                            EN VIVO
+                          </span>
+                        </h3>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          Registro automatizado de fechas, horas de ingreso, salida y permanencia por estación de trabajo.
+                        </p>
+                      </div>
+                    </div>
+
+                    {selectedTimeline?.leadTimeTotalTexto && (
+                      <div className="bg-zinc-50 dark:bg-zinc-900 border border-amber-500/40 px-3 py-1.5 rounded-xl shadow-xs self-start sm:self-auto font-mono text-left sm:text-right">
+                        <span className="text-[9px] text-zinc-500 dark:text-zinc-400 block uppercase font-bold">LEAD TIME TOTAL</span>
+                        <span className="text-xs font-black text-amber-600 dark:text-amber-400 block">
+                          {selectedTimeline.leadTimeTotalTexto}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 4 Core Work Area Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    
+                    {/* 1. TRÁNSITO / DESPACHO */}
+                    <div className={`p-4 rounded-2xl border transition ${
+                      workAreaTimes.transito.estado === 'EN PROCESO'
+                        ? 'bg-amber-500/10 border-amber-500/50 shadow-md ring-1 ring-amber-500/20'
+                        : workAreaTimes.transito.estado === 'COMPLETADO'
+                        ? 'bg-zinc-50 dark:bg-zinc-900/80 border-emerald-500/30'
+                        : 'bg-zinc-100/50 dark:bg-zinc-950/30 border-dashed border-zinc-300 dark:border-zinc-800 opacity-60'
+                    }`}>
+                      <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+                        <div className="flex items-center gap-1.5 font-bold text-xs">
+                          <span>📦</span>
+                          <span className="text-zinc-950 dark:text-white font-mono text-[11px]">1. TRÁNSITO</span>
+                        </div>
+                        <span className={`text-[9px] font-mono font-black px-2 py-0.5 rounded-full uppercase ${
+                          workAreaTimes.transito.estado === 'COMPLETADO'
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                            : workAreaTimes.transito.estado === 'EN PROCESO'
+                            ? 'bg-amber-500 text-black animate-pulse'
+                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'
+                        }`}>
+                          {workAreaTimes.transito.estado}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 text-[10.5px] font-mono">
+                        <div>
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 uppercase font-sans font-bold block">▶ ENTRADA / DESPACHO</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-bold block truncate">{workAreaTimes.transito.ingreso}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 uppercase font-sans font-bold block">⏹ SALIDA / RECEPCIÓN</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-bold block truncate">{workAreaTimes.transito.salida}</span>
+                        </div>
+                        <div className="pt-1 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-sans font-bold">PERMANENCIA:</span>
+                          <span className="text-amber-600 dark:text-amber-400 font-black">{workAreaTimes.transito.tiempo}</span>
+                        </div>
+                        <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 truncate">
+                          Por: {workAreaTimes.transito.resp}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. LAVANDERÍA COLFACTORY */}
+                    <div className={`p-4 rounded-2xl border transition ${
+                      workAreaTimes.lavanderia.estado === 'EN PROCESO'
+                        ? 'bg-amber-500/10 border-amber-500/50 shadow-md ring-1 ring-amber-500/20'
+                        : workAreaTimes.lavanderia.estado === 'COMPLETADO'
+                        ? 'bg-zinc-50 dark:bg-zinc-900/80 border-emerald-500/30'
+                        : 'bg-zinc-100/50 dark:bg-zinc-950/30 border-dashed border-zinc-300 dark:border-zinc-800 opacity-60'
+                    }`}>
+                      <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+                        <div className="flex items-center gap-1.5 font-bold text-xs">
+                          <span>💧</span>
+                          <span className="text-zinc-950 dark:text-white font-mono text-[11px]">2. LAVANDERÍA</span>
+                        </div>
+                        <span className={`text-[9px] font-mono font-black px-2 py-0.5 rounded-full uppercase ${
+                          workAreaTimes.lavanderia.estado === 'COMPLETADO'
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                            : workAreaTimes.lavanderia.estado === 'EN PROCESO'
+                            ? 'bg-amber-500 text-black animate-pulse'
+                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'
+                        }`}>
+                          {workAreaTimes.lavanderia.estado}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 text-[10.5px] font-mono">
+                        <div>
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 uppercase font-sans font-bold block">▶ ENTRADA / TAMBOR</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-bold block truncate">{workAreaTimes.lavanderia.ingreso}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 uppercase font-sans font-bold block">⏹ SALIDA / ENVÍO</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-bold block truncate">{workAreaTimes.lavanderia.salida}</span>
+                        </div>
+                        <div className="pt-1 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-sans font-bold">PERMANENCIA:</span>
+                          <span className="text-amber-600 dark:text-amber-400 font-black">{workAreaTimes.lavanderia.tiempo}</span>
+                        </div>
+                        <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 truncate">
+                          Por: {workAreaTimes.lavanderia.resp}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. CALIDAD LABORATORIO */}
+                    <div className={`p-4 rounded-2xl border transition ${
+                      workAreaTimes.calidad.estado === 'EN PROCESO'
+                        ? 'bg-amber-500/10 border-amber-500/50 shadow-md ring-1 ring-amber-500/20'
+                        : workAreaTimes.calidad.estado === 'COMPLETADO'
+                        ? 'bg-zinc-50 dark:bg-zinc-900/80 border-emerald-500/30'
+                        : 'bg-zinc-100/50 dark:bg-zinc-950/30 border-dashed border-zinc-300 dark:border-zinc-800 opacity-60'
+                    }`}>
+                      <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+                        <div className="flex items-center gap-1.5 font-bold text-xs">
+                          <span>🔬</span>
+                          <span className="text-zinc-950 dark:text-white font-mono text-[11px]">3. CALIDAD LAB</span>
+                        </div>
+                        <span className={`text-[9px] font-mono font-black px-2 py-0.5 rounded-full uppercase ${
+                          workAreaTimes.calidad.estado === 'COMPLETADO'
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                            : workAreaTimes.calidad.estado === 'EN PROCESO'
+                            ? 'bg-amber-500 text-black animate-pulse'
+                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'
+                        }`}>
+                          {workAreaTimes.calidad.estado}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 text-[10.5px] font-mono">
+                        <div>
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 uppercase font-sans font-bold block">▶ ENTRADA / INSPECCIÓN</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-bold block truncate">{workAreaTimes.calidad.ingreso}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 uppercase font-sans font-bold block">⏹ SALIDA / DICTAMEN</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-bold block truncate">{workAreaTimes.calidad.salida}</span>
+                        </div>
+                        <div className="pt-1 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-sans font-bold">PERMANENCIA:</span>
+                          <span className="text-amber-600 dark:text-amber-400 font-black">{workAreaTimes.calidad.tiempo}</span>
+                        </div>
+                        <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 truncate">
+                          Por: {workAreaTimes.calidad.resp}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. FACTORY & LIBERACIÓN */}
+                    <div className={`p-4 rounded-2xl border transition ${
+                      workAreaTimes.factory.estado === 'EN PROCESO'
+                        ? 'bg-amber-500/10 border-amber-500/50 shadow-md ring-1 ring-amber-500/20'
+                        : workAreaTimes.factory.estado === 'COMPLETADO'
+                        ? 'bg-zinc-50 dark:bg-zinc-900/80 border-emerald-500/30'
+                        : 'bg-zinc-100/50 dark:bg-zinc-950/30 border-dashed border-zinc-300 dark:border-zinc-800 opacity-60'
+                    }`}>
+                      <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+                        <div className="flex items-center gap-1.5 font-bold text-xs">
+                          <span>🛡️</span>
+                          <span className="text-zinc-950 dark:text-white font-mono text-[11px]">4. FACTORY / LIBERADA</span>
+                        </div>
+                        <span className={`text-[9px] font-mono font-black px-2 py-0.5 rounded-full uppercase ${
+                          workAreaTimes.factory.estado === 'COMPLETADO'
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                            : workAreaTimes.factory.estado === 'EN PROCESO'
+                            ? 'bg-amber-500 text-black animate-pulse'
+                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'
+                        }`}>
+                          {workAreaTimes.factory.estado}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 text-[10.5px] font-mono">
+                        <div>
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 uppercase font-sans font-bold block">▶ ENTRADA / EVALUADO</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-bold block truncate">{workAreaTimes.factory.ingreso}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 uppercase font-sans font-bold block">⏹ CIERRE OFICIAL</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-bold block truncate">{workAreaTimes.factory.salida}</span>
+                        </div>
+                        <div className="pt-1 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                          <span className="text-[9px] text-zinc-500 dark:text-zinc-400 font-sans font-bold">LEAD TIME:</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-black">{workAreaTimes.factory.tiempo}</span>
+                        </div>
+                        <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 truncate">
+                          Por: {workAreaTimes.factory.resp}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
               {/* TIMELINE AUDIT CONTAINER */}
               <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-6 text-zinc-950 dark:text-white">
                 
@@ -828,23 +1149,46 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Permanencia & Tiempo */}
-                        <div className="flex items-center justify-between text-[11px] flex-wrap gap-2">
-                          <span className={`px-2.5 py-0.5 rounded font-bold text-[10.5px] ${
-                            stg.enAlerta
-                              ? 'bg-rose-500 text-white'
-                              : isActive
-                              ? 'bg-amber-500 text-black'
-                              : isCompleted
-                              ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
-                              : 'bg-transparent text-zinc-400'
-                          }`}>
-                            ● {stg.tiempoArea}
-                          </span>
+                        {/* Telemetría Automática de Tiempos en la Estación */}
+                        <div className="bg-zinc-100/80 dark:bg-zinc-950/80 rounded-xl p-3 border border-zinc-200 dark:border-zinc-800 space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10.5px] font-mono">
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-black">▶</span>
+                              <span className="text-zinc-500 dark:text-zinc-400 font-sans font-bold text-[9.5px] uppercase">ENTRADA:</span>
+                              <span className="text-zinc-900 dark:text-zinc-100 font-bold truncate">
+                                {stg.fechaIngreso || stg.fechaDisplay}
+                              </span>
+                            </div>
 
-                          <span className="text-zinc-500 dark:text-zinc-400 font-mono text-[10px]">
-                            {stg.tiempoAcumulado}
-                          </span>
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="text-rose-500 font-black">⏹</span>
+                              <span className="text-zinc-500 dark:text-zinc-400 font-sans font-bold text-[9.5px] uppercase">SALIDA / ESTADO:</span>
+                              <span className="text-zinc-900 dark:text-zinc-100 font-bold truncate">
+                                {stg.fechaSalida || (isActive ? 'En proceso en esta estación' : isCompleted ? 'Completado' : 'Pendiente de inicio')}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80 text-[10.5px]">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-zinc-500 dark:text-zinc-400 font-sans font-bold text-[9.5px] uppercase">PERMANENCIA:</span>
+                              <span className={`px-2 py-0.5 rounded font-black font-mono text-[10px] ${
+                                stg.enAlerta
+                                  ? 'bg-rose-500 text-white'
+                                  : isActive
+                                  ? 'bg-amber-500 text-black'
+                                  : isCompleted
+                                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                  : 'text-zinc-400'
+                              }`}>
+                                ● {stg.tiempoArea}
+                              </span>
+                            </div>
+
+                            <span className="text-zinc-500 dark:text-zinc-400 font-mono text-[9.5px]">
+                              {stg.tiempoAcumulado}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Meta Info */}
@@ -881,6 +1225,46 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                     );
                   })}
                 </div>
+
+                {/* BITÁCORA FORENSE AUTOMÁTICA DE MOVIMIENTOS */}
+                {selectedTimeline?.historial && selectedTimeline.historial.length > 0 && (
+                  <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <History className="w-4 h-4 text-amber-500" />
+                        <h4 className="text-xs font-black uppercase tracking-wider text-zinc-950 dark:text-white font-mono">
+                          BITÁCORA DE MOVIMIENTOS AUTOMÁTICOS ({selectedTimeline.historial.length})
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+                        Registrado en hoja TRAZABILIDAD_TIEMPOS
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 max-h-48 overflow-y-auto custom-scroll pr-1">
+                      {selectedTimeline.historial.slice().reverse().map((ev) => (
+                        <div 
+                          key={ev.id}
+                          className="bg-zinc-50 dark:bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-[10.5px] font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-1.5"
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-zinc-500 dark:text-zinc-400">📅 {ev.fechaFormatted}</span>
+                            <span className="bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded font-bold">
+                              {ev.deEstado} ➔ {ev.aEstado}
+                            </span>
+                            <span className="text-zinc-600 dark:text-zinc-300">👤 {ev.usuario}</span>
+                          </div>
+
+                          {ev.tiempoEnEtapaPrevia && (
+                            <div className="text-amber-600 dark:text-amber-400 font-bold shrink-0">
+                              ⏱️ Permanencia previa: {ev.tiempoEnEtapaPrevia}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
               </div>
             </>

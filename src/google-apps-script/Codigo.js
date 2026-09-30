@@ -17,6 +17,7 @@ var SPREADSHEET_ID = "1jTM8OG2u3bO9Cyrlyn3DJSnGcyLOzA8EWwxwOyWgXdc";
 var SHEET_BASE_DATOS = "BASE_DE_DATOS";
 var SHEET_ALERTAS = "ALERTAS";
 var SHEET_MONITOREO = "MONITOREO";
+var SHEET_TRAZABILIDAD = "TRAZABILIDAD_TIEMPOS";
 var DRIVE_FOLDER_NAME = "STF_COLCHAS_EVIDENCIAS";
 var TARGET_DRIVE_FOLDER_ID = ""; // Opcional: ID de carpeta específica en Drive
 var TARGET_DRIVE_SPREADSHEET_OR_FOLDER_ID = "";
@@ -33,6 +34,11 @@ var BASE_DATOS_HEADERS = [
   "REFERENCIA", "ROLLOS", "LOTE", "ESTADO", "OBSERVACIÓN OPERARIO",
   "OBSERVACIÓN COLFACTORY", "EVIDENCIA (LINK DRIVE)", "CORREO NOTIFICADO",
   "OBS.OPERARIO FINAL", "DICTAMEN FINAL", "MES"
+];
+
+var TRAZABILIDAD_HEADERS = [
+  "OP", "REFERENCIA", "TELA", "DE ETAPA", "A ETAPA / ÁREA",
+  "FECHA Y HORA MOVIMIENTO", "TIEMPO EN ETAPA PREVIA", "RESPONSABLE", "OBSERVACIÓN", "MES"
 ];
 
 /**
@@ -358,6 +364,46 @@ function doGet(e) {
 }
 
 /**
+ * Registra automáticamente el evento cronológico de movimiento en la hoja TRAZABILIDAD_TIEMPOS
+ */
+function recordTimelineEventInSheet(ss, op, ref, tela, deEstado, aEstado, fechaHora, tiempoPrevio, responsable, observacion) {
+  try {
+    var sheet = ss.getSheetByName(SHEET_TRAZABILIDAD);
+    if (!sheet) {
+      sheet = ss.insertSheet(SHEET_TRAZABILIDAD);
+      sheet.getRange(1, 1, 1, TRAZABILIDAD_HEADERS.length).setValues([TRAZABILIDAD_HEADERS]);
+      sheet.getRange(1, 1, 1, TRAZABILIDAD_HEADERS.length)
+        .setBackground('#000000')
+        .setFontColor('#FFFFFF')
+        .setFontWeight('bold')
+        .setFontFamily('Roboto')
+        .setFontSize(10);
+      sheet.setFrozenRows(1);
+    }
+
+    var mes = (new Date()).getMonth() + 1;
+    var row = [
+      String(op || '').trim(),
+      String(ref || '').trim(),
+      String(tela || '').trim(),
+      String(deEstado || '').trim(),
+      String(aEstado || '').trim(),
+      String(fechaHora || '').trim(),
+      String(tiempoPrevio || '').trim(),
+      String(responsable || '').trim(),
+      String(observacion || '').trim(),
+      mes
+    ];
+
+    sheet.appendRow(row);
+    return true;
+  } catch (e) {
+    Logger.log('Error registrando evento de trazabilidad: ' + e.toString());
+    return false;
+  }
+}
+
+/**
  * =========================================================================
  * ENDPOINT POST (Escritura, Transferencias, Dictámenes y Fotos en Drive)
  * =========================================================================
@@ -368,6 +414,23 @@ function doPost(e) {
     var action = data.action;
     var payload = data.payload || {};
     var ss = getTargetSpreadsheet();
+
+    // 0. RECORD_TIMELINE_EVENT (Trazabilidad automática de movimientos por área)
+    if (action === 'RECORD_TIMELINE_EVENT') {
+      recordTimelineEventInSheet(
+        ss,
+        payload.op,
+        payload.referencia,
+        payload.tela,
+        payload.deEstado,
+        payload.aEstado,
+        payload.fechaHora,
+        payload.tiempoPrevio,
+        payload.responsable,
+        payload.observacion
+      );
+      return createJsonResponse({ status: 'success', message: 'Trazabilidad de tiempo registrada' });
+    }
 
     // 1. SYNC_ALERTAS
     if (action === 'SYNC_ALERTAS') {
