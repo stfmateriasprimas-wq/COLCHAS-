@@ -77,6 +77,7 @@ function onOpen() {
     .addItem('🔗 Reparar y Activar Hipervínculos Drive (Columna M)', 'repararEnlacesDriveColumnaMMenuAction')
     .addItem('🔗 Unificar Links de Drive a Carpeta Única (Columna M)', 'unificarLinksDriveMenuAction')
     .addItem('✨ Depurar y Limpiar Columnas K, L, M y N', 'cleanColumnsKLMNMenuAction')
+    .addItem('🧹 Eliminar Filas Vacías / Compactar BASE_DE_DATOS', 'cleanEmptyRowsMenuAction')
     .addItem('🧹 Dar Formato Profesional a Todas las Hojas', 'formatAllSheets')
     .addItem('🖼️ Depurar Fotos Duplicadas en Drive (Dejar estrictamente 2 fotos por OP)', 'cleanDuplicatesDriveMenuAction')
     .addItem('📁 Crear / Verificar Estructura en Google Drive (Mes y OPs)', 'verifyAndBuildDriveStructureMenuAction')
@@ -84,9 +85,68 @@ function onOpen() {
     .addToUi();
 
   var ss = getTargetSpreadsheet();
+  cleanEmptyRowsInBaseDeDatos(ss);
   normalizeAllOpCodesInBaseDeDatos(ss);
   autoCleanMonitoreoFromBaseDeDatos(ss);
   repararEnlacesDriveColumnaM(ss);
+}
+
+function cleanEmptyRowsMenuAction() {
+  var ss = getTargetSpreadsheet();
+  var count = cleanEmptyRowsInBaseDeDatos(ss);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se eliminaron ' + count + ' filas vacías intermedias y se compactó BASE_DE_DATOS.', '🚀 STF GROUP', 6);
+}
+
+/**
+ * Localiza la última fila física que contiene datos reales operativos
+ * en BASE_DE_DATOS evaluando Columnas A (FECHA), C (TELA) y F (OP).
+ */
+function getRealLastDataRowInBaseDeDatos(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 1;
+
+  var rangeVals = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+  for (var i = rangeVals.length - 1; i >= 0; i--) {
+    var fecha = String(rangeVals[i][0] || '').trim();
+    var tela = String(rangeVals[i][2] || '').trim();
+    var op = String(rangeVals[i][5] || '').trim();
+    if (fecha || tela || op) {
+      return i + 2;
+    }
+  }
+  return 1;
+}
+
+/**
+ * Elimina filas vacías intermedias o fantasma en BASE_DE_DATOS (por ejemplo, filas
+ * sin fecha, sin tela y sin OP dejadas por celdas borradas, espacios o formateo de tabla),
+ * garantizando una secuencia contigua y ordenada.
+ */
+function cleanEmptyRowsInBaseDeDatos(ss) {
+  try {
+    if (!ss) ss = getTargetSpreadsheet();
+    var sheet = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
+    if (!sheet || sheet.getLastRow() < 3) return 0;
+
+    var lastRow = sheet.getLastRow();
+    var values = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+    var deletedCount = 0;
+
+    for (var r = values.length - 1; r >= 0; r--) {
+      var fecha = String(values[r][0] || '').trim();
+      var tela = String(values[r][2] || '').trim();
+      var op = String(values[r][5] || '').trim();
+
+      if (!fecha && !tela && !op) {
+        sheet.deleteRow(r + 2);
+        deletedCount++;
+      }
+    }
+    return deletedCount;
+  } catch (errCleanEmpty) {
+    console.error('Error depurando filas vacías en BASE_DE_DATOS:', errCleanEmpty);
+    return 0;
+  }
 }
 
 function unificarLinksDriveMenuAction() {
@@ -380,6 +440,12 @@ function doPost(e) {
       return createJsonResponse({ status: 'success', normalizedCount: normCount });
     }
 
+    // 4.1 CLEAN_EMPTY_ROWS (Depuración y compactación de filas vacías en BASE_DE_DATOS)
+    if (action === 'CLEAN_EMPTY_ROWS' || action === 'CLEAN_BLANK_ROWS') {
+      var cleanedEmpty = cleanEmptyRowsInBaseDeDatos(ss);
+      return createJsonResponse({ status: 'success', message: 'Se eliminaron ' + cleanedEmpty + ' filas vacías intermedias', deletedCount: cleanedEmpty });
+    }
+
     // -----------------------------------------------------------------------
     // ACCIÓN 5: CREATE_OP (FLUJO A: Notificación Automática de Nueva Colcha)
     // -----------------------------------------------------------------------
@@ -484,17 +550,30 @@ function doPost(e) {
         evidenciaVal, correoNotificadoStr, obsFinalVal, dictVal, mesNumero
       ];
 
-      sheetBd.appendRow(newRow);
+      // 1. Depurar filas vacías intermedias previas (compactación automática de la base de datos)
+      cleanEmptyRowsInBaseDeDatos(ss);
+
+      // 2. Localizar con precisión quirúrgica la verdadera última fila con datos (evita saltos por formatos, tablas o espacios)
+      var targetRow = getRealLastDataRowInBaseDeDatos(sheetBd) + 1;
+
+      // 3. Garantizar que la hoja disponga de filas físicas suficientes
+      if (targetRow > sheetBd.getMaxRows()) {
+        sheetBd.insertRowAfter(sheetBd.getMaxRows());
+      }
+
+      // 4. Escribir directamente en targetRow (inserción contigua garantizada)
+      sheetBd.getRange(targetRow, 1, 1, newRow.length).setValues([newRow]);
+
+      // 5. Aplicar hipervínculo nativo clickeable en Columna M (13) exactamente en targetRow
       if (evidenciaVal && String(evidenciaVal).indexOf('http') === 0) {
         try {
-          var lastRowAppended = sheetBd.getLastRow();
           var richLinkNew = SpreadsheetApp.newRichTextValue()
             .setText(evidenciaVal)
             .setLinkUrl(evidenciaVal)
             .build();
-          sheetBd.getRange(lastRowAppended, 13).setRichTextValue(richLinkNew);
+          sheetBd.getRange(targetRow, 13).setRichTextValue(richLinkNew);
         } catch (eRichAppend) {
-          // Fallback seguro a texto directo
+          // Fallback seguro a texto plano ya insertado
         }
       }
       normalizeAllOpCodesInBaseDeDatos(ss);

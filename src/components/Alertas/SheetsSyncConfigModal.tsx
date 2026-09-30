@@ -206,7 +206,18 @@ function doPost(e) {
         mes
       ];
 
-      sh.appendRow(row);
+      var targetRow = Math.max(1, sh.getLastRow());
+      var rangeVals = sh.getRange(1, 1, targetRow, 6).getValues();
+      var realLast = 1;
+      for (var rIdx = rangeVals.length - 1; rIdx >= 1; rIdx--) {
+        if (String(rangeVals[rIdx][0] || '').trim() || String(rangeVals[rIdx][2] || '').trim() || String(rangeVals[rIdx][5] || '').trim()) {
+          realLast = rIdx + 1;
+          break;
+        }
+      }
+      var finalTargetRow = realLast + 1;
+      if (finalTargetRow > sh.getMaxRows()) sh.insertRowAfter(sh.getMaxRows());
+      sh.getRange(finalTargetRow, 1, 1, row.length).setValues([row]);
 
       if (payload.op) {
         deleteOpFromMonitoreo(ss, payload.op);

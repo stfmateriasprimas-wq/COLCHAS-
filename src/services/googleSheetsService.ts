@@ -2782,3 +2782,23 @@ export async function saveOpFinalizadaEdicion(
     fotoPrenda2
   };
 }
+
+/**
+ * Solicita a Google Apps Script depurar y compactar filas vacías intermedias o fantasma en BASE_DE_DATOS
+ */
+export async function cleanEmptyRowsInSheets(): Promise<{ success: boolean; message: string; deletedCount?: number }> {
+  try {
+    const res = await sendAppsScriptPost('CLEAN_EMPTY_ROWS', {});
+    return {
+      success: res.success,
+      message: res.message || 'Filas vacías depuradas con éxito en BASE_DE_DATOS',
+      deletedCount: (res.data as any)?.deletedCount
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || 'Error al depurar filas vacías en Google Sheets'
+    };
+  }
+}
+
