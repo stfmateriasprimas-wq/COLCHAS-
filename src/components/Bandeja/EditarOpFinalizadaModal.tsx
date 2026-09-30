@@ -15,6 +15,7 @@ import {
   formatOpCode 
 } from '../../services/googleSheetsService';
 import { notificationService } from '../../services/notificationService';
+import { auditService } from '../../services/auditService';
 
 interface EditarOpFinalizadaModalProps {
   solicitud: SolicitudColcha | null;
@@ -170,6 +171,27 @@ export const EditarOpFinalizadaModal: React.FC<EditarOpFinalizadaModalProps> = (
         fotoPrenda2Base64: fotoPrenda2NewBase64 || undefined,
         usuario: currentUser?.nombre || 'LAVANDERÍA'
       });
+
+      // Registrar acción en auditoría forense para Línea de Tiempo y trazabilidad
+      const auditUser: UsuarioSTF = currentUser || { 
+        id: 'lavanderia', 
+        nombre: 'LAVANDERÍA', 
+        rol: 'OPERARIO', 
+        area: 'LAVANDERÍA', 
+        email: '' 
+      };
+      auditService.logAction(
+        auditUser,
+        'ACTUALIZACION_FOTO',
+        `Edición de prenda terminada y observaciones en OP ${solicitud.op}`,
+        solicitud.op,
+        {
+          obsLavanderia: obsLavanderia.trim(),
+          obsCalidad: obsCalidad.trim(),
+          tienePrenda1: !!(fotoPrenda1NewBase64 || fotoPrenda1Preview),
+          tienePrenda2: !!(fotoPrenda2NewBase64 || fotoPrenda2Preview)
+        }
+      ).catch(e => console.warn('Error registrando auditoría de edición:', e));
 
       try {
         notificationService.playAlertSound('EXITO');

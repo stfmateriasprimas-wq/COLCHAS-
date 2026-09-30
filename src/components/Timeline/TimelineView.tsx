@@ -20,21 +20,14 @@ interface TimelineViewProps {
   onNavigateTab: (tab: TabType) => void;
 }
 
-// Helper to sum business hours respecting STF Group shift (Mon-Sat 6am - 6pm)
-function addBusinessHours(startDate: Date, hoursToAdd: number): Date {
-  const result = new Date(startDate.getTime());
-  let added = 0;
-  let safety = 0;
-  while (added < hoursToAdd && safety < 1000) {
-    safety++;
-    result.setHours(result.getHours() + 1);
-    const day = result.getDay();
-    const hr = result.getHours();
-    if (day !== 0 && hr >= 6 && hr < 18) {
-      added++;
-    }
+// Helper to extract signed date and operator from observation text if available (e.g. [PRENDA TERMINADA - dd/mm/aaaa hh:mm por Usuario])
+function extractSignedDate(text?: string): { dateStr: string; userStr: string } | null {
+  if (!text) return null;
+  const match = text.match(/\[(?:PRENDA TERMINADA|DICTAMEN|CALIDAD|LAVANDERÍA|MODIFICACIÓN)?\s*[-:]?\s*(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]\.?\s*m\.?)?)?)(?:\s+por\s+([^\]]+))?\]/i);
+  if (match) {
+    return { dateStr: match[1].trim(), userStr: match[2]?.trim() || '' };
   }
-  return result;
+  return null;
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({
@@ -127,19 +120,136 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     const createdDt = parseColombianDate(selectedOp.fechaCreacion);
     const validCreatedDt = !isNaN(createdDt.getTime()) && createdDt.getTime() > 0 ? createdDt : new Date();
 
-    // Look for exact transition timestamps from audit logs if available
-    const logTransferLav = opAuditLogs.find(l => l.tipoAccion === 'TRANSFERENCIA' && l.detalles?.estadoNuevo?.includes('LAVAD'));
-    const logTransferCal = opAuditLogs.find(l => l.tipoAccion === 'TRANSFERENCIA' && (l.detalles?.estadoNuevo?.includes('CALIDAD') || l.detalles?.estadoNuevo?.includes('ENVIADO A STF')));
+    // 1. Audit logs matching this OP (Real-time forensic events from work areas)
+    const logCreation = opAuditLogs.find(l => l.tipoAccion === 'CREACION_OP');
+    const logTransferDespacho = opAuditLogs.find(l => l.tipoAccion === 'TRANSFERENCIA' && (l.detalles?.estadoNuevo?.includes('SOLICIT') || l.detalles?.estadoNuevo === 'SOLICITADO'));
+    const logTransferLav = opAuditLogs.find(l => (l.tipoAccion === 'TRANSFERENCIA' && l.detalles?.estadoNuevo?.includes('LAVAD')) || l.descripcion?.toLowerCase().includes('lavander'));
+    const logTransferCal = opAuditLogs.find(l => (l.tipoAccion === 'TRANSFERENCIA' && (l.detalles?.estadoNuevo?.includes('CALIDAD') || l.detalles?.estadoNuevo?.includes('ENVIADO A STF'))));
     const logDictamen = opAuditLogs.find(l => l.tipoAccion === 'DICTAMEN_CALIDAD' || (l.tipoAccion === 'TRANSFERENCIA' && l.detalles?.estadoNuevo?.includes('EVALUAD')));
-    const logFinalizado = opAuditLogs.find(l => l.tipoAccion === 'TRANSFERENCIA' && l.detalles?.estadoNuevo?.includes('FINAL'));
+    const logFinalizado = opAuditLogs.find(l => (l.tipoAccion === 'TRANSFERENCIA' && l.detalles?.estadoNuevo?.includes('FINAL')) || (l.tipoAccion === 'DICTAMEN_CALIDAD' && l.descripcion?.toLowerCase().includes('finaliz')));
 
-    // Estimated sequential times based on Colombian business calendar if audit logs don't have older records
-    const dateStep1 = validCreatedDt;
-    const dateStep2 = addBusinessHours(validCreatedDt, 1);
-    const dateStep3 = logTransferLav ? new Date(logTransferLav.timestamp) : addBusinessHours(validCreatedDt, 4);
-    const dateStep4 = logTransferCal ? new Date(logTransferCal.timestamp) : addBusinessHours(dateStep3, 14);
-    const dateStep5 = logDictamen ? new Date(logDictamen.timestamp) : addBusinessHours(dateStep4, 10);
-    const dateStep6 = logFinalizado ? new Date(logFinalizado.timestamp) : addBusinessHours(dateStep5, 3);
+    // 2. Observations signed with date/user
+    const signedPrenda = extractSignedDate(selectedOp.observacionesPrendaTerminada);
+    const signedCalidad = extractSignedDate(selectedOp.observacionesCalidad);
+    const signedLavanderia = extractSignedDate(selectedOp.observacionesLavanderia);
+
+    // Helpers to resolve verified real timestamp and operator for each stage
+    // Stage 1 (CREACIÓN / REGISTRO INICIAL)
+    const fechaEtapa1 = formatColombianDisplayDate(validCreatedDt);
+    const responsableEtapa1 = logCreation?.usuarioNombre || selectedOp.inspector || 'OPERARIO STF';
+
+    // Stage 2 (DESPACHO / TRÁNSITO)
+    let fechaEtapa2 = '— En espera de despacho';
+    let responsableEtapa2 = selectedOp.inspector || 'Despacho STF';
+    let tiempoEtapa2 = 'Pendiente de despacho';
+    let fuenteEtapa2 = '';
+    if (currentStageIndex === 1) {
+      fechaEtapa2 = `En tránsito desde: ${formatColombianDisplayDate(validCreatedDt)}`;
+      tiempoEtapa2 = `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en espera de recepción`;
+      fuenteEtapa2 = 'En Proceso';
+    } else if (currentStageIndex > 1) {
+      if (logTransferDespacho) {
+        fechaEtapa2 = formatColombianDisplayDate(new Date(logTransferDespacho.timestamp));
+        responsableEtapa2 = `${logTransferDespacho.usuarioNombre} (${logTransferDespacho.usuarioArea || 'DESPACHO'})`;
+        fuenteEtapa2 = 'Auditoría en vivo';
+      } else {
+        fechaEtapa2 = `Despachado en solicitud inicial (${formatColombianDisplayDate(validCreatedDt)})`;
+        fuenteEtapa2 = 'Base de Datos';
+      }
+      tiempoEtapa2 = 'Tránsito completado';
+    }
+
+    // Stage 3 (LAVANDERÍA COLFACTORY ZF)
+    let fechaEtapa3 = '— En espera de recepción en lavadero';
+    let responsableEtapa3 = 'Colfactory ZF / Operario de Lavandería';
+    let tiempoEtapa3 = 'Pendiente de ingreso a tambores de lavado';
+    let fuenteEtapa3 = '';
+    if (currentStageIndex === 2) {
+      fechaEtapa3 = 'En proceso actual en Lavandería Colfactory';
+      tiempoEtapa3 = `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en tambor de lavado`;
+      fuenteEtapa3 = 'En Proceso';
+    } else if (currentStageIndex > 2) {
+      if (logTransferLav) {
+        fechaEtapa3 = formatColombianDisplayDate(new Date(logTransferLav.timestamp));
+        responsableEtapa3 = `${logTransferLav.usuarioNombre} (${logTransferLav.usuarioArea || 'LAVANDERÍA'})`;
+        fuenteEtapa3 = 'Auditoría en vivo';
+      } else if (signedLavanderia) {
+        fechaEtapa3 = signedLavanderia.dateStr;
+        if (signedLavanderia.userStr) responsableEtapa3 = signedLavanderia.userStr;
+        fuenteEtapa3 = 'Registro Lavandería';
+      } else {
+        fechaEtapa3 = 'Ciclo culminado en Lavandería Colfactory ZF';
+        fuenteEtapa3 = 'Base de Datos';
+      }
+      tiempoEtapa3 = 'Ciclo de lavado culminado (SLA: 2 días)';
+    }
+
+    // Stage 4 (CALIDAD LABORATORIO STF)
+    let fechaEtapa4 = '— En espera de culminación de lavado';
+    let responsableEtapa4 = selectedOp.inspector || 'Auditor Técnico de Calidad STF';
+    let tiempoEtapa4 = 'Pendiente de recepción en Laboratorio';
+    let fuenteEtapa4 = '';
+    if (currentStageIndex === 3) {
+      fechaEtapa4 = 'En auditoría técnica en Laboratorio de Calidad';
+      tiempoEtapa4 = `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en inspección de laboratorio`;
+      fuenteEtapa4 = 'En Proceso';
+    } else if (currentStageIndex > 3) {
+      if (logTransferCal) {
+        fechaEtapa4 = formatColombianDisplayDate(new Date(logTransferCal.timestamp));
+        responsableEtapa4 = `${logTransferCal.usuarioNombre} (${logTransferCal.usuarioArea || 'CALIDAD'})`;
+        fuenteEtapa4 = 'Auditoría en vivo';
+      } else if (signedCalidad) {
+        fechaEtapa4 = signedCalidad.dateStr;
+        if (signedCalidad.userStr) responsableEtapa4 = signedCalidad.userStr;
+        fuenteEtapa4 = 'Reporte Técnico';
+      } else {
+        fechaEtapa4 = `Dictamen emitido: ${selectedOp.dictamen || 'EVALUADO'}`;
+        fuenteEtapa4 = 'Base de Datos';
+      }
+      tiempoEtapa4 = 'Auditoría técnica ejecutada (SLA: 1 día)';
+    }
+
+    // Stage 5 (EVALUADO Y ENVIADO A FACTORY)
+    let fechaEtapa5 = '— En espera de emisión de dictamen';
+    let responsableEtapa5 = 'Colfactory ZF / Jefe de Lavandería';
+    let tiempoEtapa5 = 'Pendiente de aprobación técnica de Calidad';
+    let fuenteEtapa5 = '';
+    if (currentStageIndex === 4) {
+      fechaEtapa5 = 'En espera exclusiva de validación y cierre por Factory';
+      tiempoEtapa5 = `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en espera de cierre`;
+      fuenteEtapa5 = 'En Proceso';
+    } else if (currentStageIndex > 4) {
+      if (logDictamen) {
+        fechaEtapa5 = formatColombianDisplayDate(new Date(logDictamen.timestamp));
+        responsableEtapa5 = `${logDictamen.usuarioNombre} (${logDictamen.usuarioArea || 'CALIDAD'})`;
+        fuenteEtapa5 = 'Auditoría en vivo';
+      } else {
+        fechaEtapa5 = 'Dictamen evaluado y enviado a Factory';
+        fuenteEtapa5 = 'Base de Datos';
+      }
+      tiempoEtapa5 = 'Control Factory avalado';
+    }
+
+    // Stage 6 (FINALIZADO / LIBERACIÓN)
+    let fechaEtapa6 = '— Pendiente de liberación final';
+    let responsableEtapa6 = 'Colfactory ZF / Administrador STF';
+    let tiempoEtapa6 = 'En espera de liberación por Factory';
+    let fuenteEtapa6 = '';
+    if (currentStageIndex === 5) {
+      if (logFinalizado) {
+        fechaEtapa6 = formatColombianDisplayDate(new Date(logFinalizado.timestamp));
+        responsableEtapa6 = `${logFinalizado.usuarioNombre} (${logFinalizado.usuarioArea || 'COLFACTORY'})`;
+        fuenteEtapa6 = 'Auditoría en vivo';
+      } else if (signedPrenda) {
+        fechaEtapa6 = `${signedPrenda.dateStr} (Prenda Terminada)`;
+        if (signedPrenda.userStr) responsableEtapa6 = signedPrenda.userStr;
+        fuenteEtapa6 = 'Prenda Terminada';
+      } else {
+        fechaEtapa6 = `Orden Liberada y Registrada en Base de Datos`;
+        fuenteEtapa6 = 'Base de Datos';
+      }
+      tiempoEtapa6 = `Lead Time total: ${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h de jornada)`;
+    }
 
     return [
       // ETAPA 1: REGISTRO INICIAL (ATELIER ZF / PLANTA PRINCIPAL)
@@ -150,9 +260,10 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'ATELIER ZF / PLANTA STF',
         subtitulo: 'Apertura de ficha técnica y fotografía de muestra inicial',
         estado: currentStageIndex >= 0 ? (currentStageIndex === 0 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
-        fechaDisplay: formatColombianDisplayDate(dateStep1),
-        responsable: selectedOp.inspector || 'OPERARIO STF',
-        tiempoArea: 'Punto de partida (Registro de solicitud)',
+        fechaDisplay: fechaEtapa1,
+        fuente: 'Base de Datos',
+        responsable: responsableEtapa1,
+        tiempoArea: 'Punto de partida (Registro de solicitud en Base de Datos)',
         tiempoAcumulado: '0 h laborales',
         icono: '⏱️',
         iconBg: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-400/40',
@@ -172,14 +283,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'TRÁNSITO / DESPACHO',
         subtitulo: 'Envío de muestra física hacia planta de lavado Colfactory ZF',
         estado: currentStageIndex >= 1 ? (currentStageIndex === 1 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
-        fechaDisplay: currentStageIndex >= 1 ? formatColombianDisplayDate(dateStep2) : '— En espera de despacho',
-        responsable: selectedOp.inspector || 'Despacho STF',
-        tiempoArea: currentStageIndex === 1 
-          ? `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en espera de recepción` 
-          : 'Tránsito estándar (~1 hora)',
+        fechaDisplay: fechaEtapa2,
+        fuente: fuenteEtapa2,
+        responsable: responsableEtapa2,
+        tiempoArea: tiempoEtapa2,
         tiempoAcumulado: currentStageIndex === 1 
           ? `${selectedOp.diasHabiles} días hábiles acumulados`
-          : '1 hora acumulada',
+          : (currentStageIndex > 1 ? 'Tránsito completado' : 'Pendiente'),
         icono: '📦',
         iconBg: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-400/40',
         dotColor: 'bg-amber-500',
@@ -198,11 +308,10 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'LAVANDERÍA COLFACTORY ZF',
         subtitulo: 'Llamado de OP, ingreso a tambor y ciclo de prueba de lavado',
         estado: currentStageIndex >= 2 ? (currentStageIndex === 2 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
-        fechaDisplay: currentStageIndex >= 2 ? formatColombianDisplayDate(dateStep3) : '— En espera de recepción en lavadero',
-        responsable: 'Colfactory ZF / Operario de Lavandería',
-        tiempoArea: currentStageIndex === 2 
-          ? `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en tambor de lavado`
-          : (currentStageIndex > 2 ? 'Ciclo de lavado culminado (SLA: 2 días)' : 'SLA asignado: Máximo 2 días hábiles (24h)'),
+        fechaDisplay: fechaEtapa3,
+        fuente: fuenteEtapa3,
+        responsable: responsableEtapa3,
+        tiempoArea: tiempoEtapa3,
         tiempoAcumulado: currentStageIndex === 2 
           ? `${selectedOp.diasHabiles} días hábiles transcurridos`
           : (currentStageIndex > 2 ? 'Ciclo lavado completado' : 'Pendiente'),
@@ -224,11 +333,10 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'CALIDAD STF LABORATORIO',
         subtitulo: 'Inspección técnica de encogimiento urdimbre/trama, revirado y tono',
         estado: currentStageIndex >= 3 ? (currentStageIndex === 3 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
-        fechaDisplay: currentStageIndex >= 3 ? formatColombianDisplayDate(dateStep4) : '— En espera de culminación de lavado',
-        responsable: selectedOp.inspector || 'Auditor Técnico de Calidad STF',
-        tiempoArea: currentStageIndex === 3 
-          ? `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en inspección de laboratorio`
-          : (currentStageIndex > 3 ? 'Auditoría técnica ejecutada (SLA: 1 día)' : 'SLA asignado: Máximo 1 día hábil (12h)'),
+        fechaDisplay: fechaEtapa4,
+        fuente: fuenteEtapa4,
+        responsable: responsableEtapa4,
+        tiempoArea: tiempoEtapa4,
         tiempoAcumulado: currentStageIndex === 3 
           ? `${selectedOp.diasHabiles} días hábiles acumulados`
           : (currentStageIndex > 3 ? 'Auditoría completada' : 'Pendiente'),
@@ -252,11 +360,10 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'CONTROL FACTORY ZF',
         subtitulo: 'Dictamen de calidad emitido; en espera exclusiva de revisión y cierre por Factory',
         estado: currentStageIndex >= 4 ? (currentStageIndex === 4 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
-        fechaDisplay: currentStageIndex >= 4 ? formatColombianDisplayDate(dateStep5) : '— En espera de emisión de dictamen',
-        responsable: 'Colfactory ZF / Jefe de Lavandería',
-        tiempoArea: currentStageIndex === 4 
-          ? `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en espera de clic Finalizar`
-          : (currentStageIndex > 4 ? 'Aprobado y avalado por Factory' : 'Pendiente de aprobación técnica'),
+        fechaDisplay: fechaEtapa5,
+        fuente: fuenteEtapa5,
+        responsable: responsableEtapa5,
+        tiempoArea: tiempoEtapa5,
         tiempoAcumulado: currentStageIndex === 4 
           ? `${selectedOp.diasHabiles} días totales en planta`
           : (currentStageIndex > 4 ? 'Dictamen validado' : 'Pendiente'),
@@ -280,11 +387,10 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         sector: 'CALIDAD PLANTA STF (LIBERADA)',
         subtitulo: 'Orden finalizada formalmente, trazabilidad completada y liberación de lote',
         estado: currentStageIndex === 5 ? 'COMPLETADO' : 'PENDIENTE',
-        fechaDisplay: currentStageIndex === 5 ? formatColombianDisplayDate(dateStep6) : '— Pendiente de liberación final',
-        responsable: 'Colfactory ZF / Administrador STF',
-        tiempoArea: currentStageIndex === 5 
-          ? `Lead Time total: ${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h de jornada)`
-          : 'En espera de liberación',
+        fechaDisplay: fechaEtapa6,
+        fuente: fuenteEtapa6,
+        responsable: responsableEtapa6,
+        tiempoArea: tiempoEtapa6,
         tiempoAcumulado: currentStageIndex === 5 
           ? `${selectedOp.diasHabiles} días hábiles (Circuito Cerrado)`
           : 'Pendiente de cierre',
@@ -692,7 +798,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                             <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase ${
                               isActive
                                 ? 'bg-amber-500 text-black animate-pulse'
@@ -703,8 +809,20 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                               {isActive ? '⚡ EN PROCESO (ACTUAL)' : isCompleted ? '✓ COMPLETADO' : '⏳ PENDIENTE'}
                             </span>
 
-                            <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
+                            {stg.fuente && (
+                              <span className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-md border ${
+                                stg.fuente === 'Auditoría en vivo'
+                                  ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30'
+                                  : stg.fuente === 'En Proceso'
+                                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700'
+                              }`}>
+                                {stg.fuente}
+                              </span>
+                            )}
+
+                            <span className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300 flex items-center gap-1 font-semibold">
+                              <Calendar className="w-3 h-3 text-amber-500 shrink-0" />
                               {stg.fechaDisplay}
                             </span>
                           </div>
