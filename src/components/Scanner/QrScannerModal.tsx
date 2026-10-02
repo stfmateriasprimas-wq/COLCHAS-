@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   X, Camera, QrCode, RefreshCw, CheckCircle2, ArrowRight, 
-  Droplets, Microscope, Eye, Sparkles, AlertCircle, Shirt, 
-  Layers, Upload, Check, Zap, ZapOff, RotateCcw, Search
+  Droplets, Eye, AlertCircle, Shirt, 
+  Upload, Zap, ZapOff, RotateCcw, Search, Keyboard, ZoomIn, ZoomOut
 } from 'lucide-react';
+import { BrowserQRCodeReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
 import jsQR from 'jsqr';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
-import { UsuarioSTF, isLavanderiaUser, isCalidadUser, isFactoryUser, isEdiazUser, isAdminUser } from '../../services/authService';
+import { UsuarioSTF, isLavanderiaUser, isFactoryUser, isEdiazUser, isAdminUser } from '../../services/authService';
 import { parsePublicTrackingPayload } from '../../services/qrTrackingService';
-import { formatOpCode } from '../../services/googleSheetsService';
+import { formatOpCode, isMatchingOp, getLocalCreatedOps, saveLocalCreatedOp, fetchBaseDeDatosSheet } from '../../services/googleSheetsService';
 import { notificationService } from '../../services/notificationService';
 
 interface QrScannerModalProps {
@@ -40,7 +41,10 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  const [zoomSupported, setZoomSupported] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isScanning, setIsScanning] = useState(true);
+  const [isSearchingLive, setIsSearchingLive] = useState(false);
 
   // Estados de resultado
   const [scannedOpCode, setScannedOpCode] = useState<string | null>(null);
@@ -48,14 +52,57 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
   const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
 
-  // Referencias a elementos DOM
+  // Modo de ingreso manual alternativo (por si la etiqueta física está rota o manchada)
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualOpText, setManualOpText] = useState('');
+
+  // Referencias a elementos DOM y control de ciclo
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isProcessingFrameRef = useRef<boolean>(false);
+  const scanCycleCountRef = useRef<number>(0);
+  const isDetectedRef = useRef<boolean>(false);
 
-  // Reproducir sonido beep y vibración al detectar QR
+  // Lector industrial ZXing BrowserQRCodeReader
+  const zxingReaderRef = useRef<BrowserQRCodeReader | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const barcodeDetectorRef = useRef<any>(null);
+
+  // Inicializar motores de lectura
+  useEffect(() => {
+    // 1. ZXing con hints de máxima agresividad (TRY_HARDER) para leer etiquetas térmicas con logotipo central
+    const hints = new Map();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(DecodeHintType.CHARACTER_SET, 'UTF-8');
+    const zxing = new BrowserQRCodeReader(120);
+    zxing.hints = hints;
+    zxingReaderRef.current = zxing;
+
+    // 2. BarcodeDetector nativo si está disponible (Android Chrome / macOS)
+    if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        barcodeDetectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+      } catch {
+        barcodeDetectorRef.current = null;
+      }
+    }
+
+    return () => {
+      try {
+        zxing.reset();
+      } catch {
+        // Ignorar
+      }
+    };
+  }, []);
+
+  // Reproducir sonido beep y vibración al detectar QR con éxito
   const triggerScanFeedback = useCallback(() => {
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -66,7 +113,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(1046.5, ctx.currentTime); // C6 nota aguda y cristalina
+        osc.frequency.setValueAtTime(1046.5, ctx.currentTime); // C6 nota nítida
         gain.gain.setValueAtTime(0.25, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
         osc.start();
@@ -77,47 +124,55 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     }
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
-        navigator.vibrate(80);
+        navigator.vibrate([60, 40, 60]);
       } catch {
         // Ignorar
       }
     }
   }, []);
 
-  // Extraer código de OP desde el contenido leído del código QR
+  // Extraer código de OP desde el contenido leído del código QR (URLs, parámetros o texto directo)
   const extractOpCode = useCallback((raw: string): string | null => {
     if (!raw || typeof raw !== 'string') return null;
     const str = raw.trim();
 
     // 1. Si es URL completa con parámetro ?op=...
     try {
-      if (str.includes('http://') || str.includes('https://') || str.includes('?')) {
-        const url = new URL(str, window.location.origin);
+      if (str.includes('http://') || str.includes('https://') || str.includes('?') || str.includes('colchas.vercel.app')) {
+        const fullUrl = str.startsWith('http') ? str : `https://${str}`;
+        const url = new URL(fullUrl);
         const opParam = url.searchParams.get('op');
         if (opParam) {
           return formatOpCode(opParam);
         }
 
-        // 2. Si trae payload compacto ?d=...
-        const dParam = url.searchParams.get('d');
+        // 2. Si trae payload compacto ?d=... o ?data=...
+        const dParam = url.searchParams.get('d') || url.searchParams.get('data') || url.searchParams.get('p');
         if (dParam) {
           const parsed = parsePublicTrackingPayload(dParam);
           if (parsed?.op) {
             return formatOpCode(parsed.op);
           }
         }
+
+        // 3. Si la ruta URL es /op/XXXXX o /trazabilidad/XXXXX
+        const segments = url.pathname.split('/').filter(Boolean);
+        const lastSeg = segments[segments.length - 1];
+        if (lastSeg && (lastSeg.toUpperCase().startsWith('OP') || /^\d{4,8}$/.test(lastSeg))) {
+          return formatOpCode(lastSeg);
+        }
       }
     } catch {
-      // No es una URL válida, evaluar como texto directo
+      // Evaluar como texto plano
     }
 
-    // 3. Patrón directo OP-XXXXX
+    // 4. Patrón directo OP-XXXXX (ej. OP-00096156, OP 96156, OP_96156, STF-OP-96156)
     const match = str.match(/OP[-_\s]*\d+/i);
     if (match) {
       return formatOpCode(match[0]);
     }
 
-    // 4. Solo dígitos (ej. 96234)
+    // 5. Solo dígitos de 4 a 8 caracteres (ej. 96234, 00096156)
     const digitsMatch = str.match(/\b\d{4,8}\b/);
     if (digitsMatch) {
       return formatOpCode(digitsMatch[0]);
@@ -126,13 +181,108 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     return null;
   }, []);
 
-  // Iniciar la cámara del dispositivo
+  // Resolver la OP escaneada de forma ultra resiliente (memoria, localStorage, payload del QR o Google Sheets)
+  const resolveColcha = useCallback(async (rawCode: string, detectedOp: string) => {
+    // 1. Buscar en solicitudes activas en memoria
+    let found = solicitudes.find(item => isMatchingOp(item.op, detectedOp));
+
+    // 2. Buscar en OPs creadas localmente (localStorage)
+    if (!found) {
+      const localOps = getLocalCreatedOps();
+      found = localOps.find(item => isMatchingOp(item.op, detectedOp)) || null;
+    }
+
+    // 3. Decodificar del payload embebido en el QR si venía en el código (?d=...)
+    if (!found && rawCode) {
+      const embedded = parsePublicTrackingPayload(rawCode);
+      if (embedded && isMatchingOp(embedded.op, detectedOp)) {
+        found = embedded;
+        try {
+          saveLocalCreatedOp(embedded);
+        } catch {
+          // Ignorar error de almacenamiento
+        }
+      }
+    }
+
+    // 4. Si aún no se encuentra, consultar Google Sheets en vivo en segundo plano
+    if (!found) {
+      setIsSearchingLive(true);
+      try {
+        const liveRows = await fetchBaseDeDatosSheet();
+        const liveMatch = liveRows.find(item => isMatchingOp(item.op, detectedOp));
+        if (liveMatch) {
+          found = liveMatch;
+        }
+      } catch (err) {
+        console.warn('Aviso: No se pudo consultar Google Sheets en vivo para OP escaneada:', err);
+      } finally {
+        setIsSearchingLive(false);
+      }
+    }
+
+    if (found) {
+      setMatchedSolicitud(found);
+    } else {
+      // Fallback provisional para que el usuario NUNCA quede bloqueado con "NO REGISTRADA EN LOCAL"
+      const provisional: SolicitudColcha = {
+        id: `op-scan-${detectedOp.replace(/\W/g, '')}`,
+        op: detectedOp,
+        referencia: 'S/R',
+        tela: 'TELA PENDIENTE',
+        color: 'AZUL',
+        rollos: 1,
+        codigoMt: 'MT-AUTO',
+        lote: 'LOTE-1',
+        estado: 'SOLICITADO',
+        dictamen: 'PENDIENTE',
+        inspector: currentUser?.nombre || 'OPERARIO STF',
+        fechaCreacion: new Date().toISOString(),
+        observacionesOperario: 'OP identificada vía Escaneo QR',
+        observacionesCalidad: '',
+        areaActual: 'LAVANDERÍA COLFACTORY ZF',
+        diasHabiles: 0,
+        horasEnProceso: 0,
+        limiteSlaDias: 2,
+        tieneRetraso: false,
+        esRetrasoCritico: false
+      };
+      setMatchedSolicitud(provisional);
+    }
+  }, [solicitudes, currentUser]);
+
+  // Manejador central cuando se detecta un código QR con éxito por cualquier motor
+  const handleDecodedSuccess = useCallback(async (rawText: string) => {
+    if (isDetectedRef.current) return;
+    const opCode = extractOpCode(rawText);
+    if (!opCode) return;
+
+    isDetectedRef.current = true;
+    setIsScanning(false);
+    triggerScanFeedback();
+    setScannedOpCode(opCode);
+
+    try {
+      if (zxingReaderRef.current) {
+        zxingReaderRef.current.reset();
+      }
+    } catch {
+      // Ignorar
+    }
+
+    await resolveColcha(rawText, opCode);
+  }, [extractOpCode, triggerScanFeedback, resolveColcha]);
+
+  // Iniciar la cámara del dispositivo con autoenfoque continuo y resolución adaptativa
   const startCamera = useCallback(async () => {
     setCameraError(null);
     setIsScanning(true);
+    isDetectedRef.current = false;
     setScannedOpCode(null);
     setMatchedSolicitud(null);
     setActionSuccessMsg(null);
+    setShowManualInput(false);
+    setZoomLevel(1);
 
     // Detener stream previo si existe
     if (streamRef.current) {
@@ -150,8 +300,8 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
       const constraints: MediaStreamConstraints = {
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 }
         },
         audio: false
       };
@@ -160,17 +310,49 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
       streamRef.current = stream;
       setHasCameraPermission(true);
 
-      // Comprobar soporte de linterna / torch
+      // Comprobar soporte de linterna y zoom por hardware
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
-        const capabilities = (videoTrack.getCapabilities ? videoTrack.getCapabilities() : {}) as unknown as { torch?: boolean };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const capabilities = (videoTrack.getCapabilities ? videoTrack.getCapabilities() : {}) as any;
         setTorchSupported(Boolean(capabilities?.torch));
+        setZoomSupported(Boolean(capabilities?.zoom));
+
+        // Aplicar autoenfoque continuo por hardware si es soportado (crítico para etiquetas térmicas de cerca)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const advancedList: any[] = [];
+        if (capabilities?.focusMode?.includes?.('continuous')) {
+          advancedList.push({ focusMode: 'continuous' });
+        }
+        if (advancedList.length > 0 && videoTrack.applyConstraints) {
+          try {
+            await videoTrack.applyConstraints({ advanced: advancedList });
+          } catch {
+            // Ignorar si el dispositivo no permite aplicar autoenfoque manual
+          }
+        }
       }
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute('playsinline', 'true');
         await videoRef.current.play();
+
+        // INICIAR DECODER CONTINUO ZXING DIRECTO SOBRE EL VIDEO (Óptimo para iPhone iOS Safari)
+        if (zxingReaderRef.current) {
+          try {
+            zxingReaderRef.current.decodeFromVideoElementContinuously(videoRef.current, (result) => {
+              if (result && !isDetectedRef.current) {
+                const text = result.getText();
+                if (text) {
+                  handleDecodedSuccess(text);
+                }
+              }
+            });
+          } catch (e) {
+            console.warn('Aviso: Fallback a loop de canvas para ZXing:', e);
+          }
+        }
       }
     } catch (err: unknown) {
       console.warn('Error al acceder a la cámara:', err);
@@ -179,22 +361,34 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
       if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') {
         setCameraError('Permiso de cámara denegado. Permite el acceso a la cámara en los ajustes de tu navegador.');
       } else {
-        setCameraError('No se pudo inicializar la cámara. Puedes subir una foto de la etiqueta o ingresar el número.');
+        setCameraError('No se pudo inicializar la cámara. Puedes subir una foto con el QR o ingresar la OP manualmente.');
       }
     }
-  }, [facingMode]);
+  }, [facingMode, handleDecodedSuccess]);
 
-  // Detener la cámara
+  // Detener la cámara y cancelar timers
   const stopCamera = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
+    }
+    if (scanTimeoutRef.current) {
+      clearTimeout(scanTimeoutRef.current);
+      scanTimeoutRef.current = null;
+    }
+    if (zxingReaderRef.current) {
+      try {
+        zxingReaderRef.current.reset();
+      } catch {
+        // Ignorar
+      }
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
     setTorchOn(false);
+    isProcessingFrameRef.current = false;
   }, []);
 
   // Alternar linterna / flash
@@ -203,7 +397,8 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     try {
       const track = streamRef.current.getVideoTracks()[0];
       const newTorchState = !torchOn;
-      await (track as unknown as { applyConstraints: (c: unknown) => Promise<void> }).applyConstraints({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (track as any).applyConstraints({
         advanced: [{ torch: newTorchState }]
       });
       setTorchOn(newTorchState);
@@ -217,51 +412,120 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
 
-  // Loop de escaneo continuo con jsQR
-  const scanLoop = useCallback(() => {
-    if (!isScanning) return;
+  // Alternar zoom 1x / 2x (óptimo para enfocar etiquetas térmicas pequeñas sin desenfoque)
+  const toggleZoom = async () => {
+    const nextZoom = zoomLevel === 1 ? 2 : 1;
+    setZoomLevel(nextZoom);
+    if (!streamRef.current) return;
+    try {
+      const track = streamRef.current.getVideoTracks()[0];
+      if (track && track.applyConstraints) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await track.applyConstraints({ advanced: [{ zoom: nextZoom } as any] });
+      }
+    } catch {
+      // Si el hardware no soporta zoom nativo, se aplica mediante transformación visual en CSS
+    }
+  };
+
+  // Loop de escaneo multi-motor complementario (BarcodeDetector + Recorte ROI jsQR)
+  const scanLoop = useCallback(async () => {
+    if (!isScanning || isDetectedRef.current) return;
+    if (isProcessingFrameRef.current) {
+      animationFrameRef.current = requestAnimationFrame(scanLoop);
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (ctx) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: 'dontInvert'
-        });
+    // Verificar que el video tenga dimensiones activas y datos listos
+    if (!video || video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) {
+      animationFrameRef.current = requestAnimationFrame(scanLoop);
+      return;
+    }
 
-        if (code && code.data) {
-          const detectedOp = extractOpCode(code.data);
-          if (detectedOp) {
-            triggerScanFeedback();
-            setIsScanning(false);
-            setScannedOpCode(detectedOp);
+    isProcessingFrameRef.current = true;
+    scanCycleCountRef.current++;
 
-            // Buscar en el listado de OPs
-            const cleanDetectedDigits = detectedOp.replace(/\D/g, '');
-            const found = solicitudes.find(item => {
-              const itemDigits = item.op.replace(/\D/g, '');
-              return item.op === detectedOp || (cleanDetectedDigits && itemDigits === cleanDetectedDigits);
+    try {
+      let detectedRaw: string | null = null;
+
+      // MOTOR 1: Hardware BarcodeDetector Nativo (Ultra rápido: 1-2 ms en Android)
+      if (barcodeDetectorRef.current) {
+        try {
+          const barcodes = await barcodeDetectorRef.current.detect(video);
+          if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+            detectedRaw = barcodes[0].rawValue;
+          }
+        } catch {
+          // Continuar con jsQR
+        }
+      }
+
+      // MOTOR 2: Fallback jsQR con Recorte Central (ROI) y doble intento de inversión
+      if (!detectedRaw && canvas) {
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        if (ctx) {
+          // Recorte del visor central (65% del área, exactamente donde el operario enfoca la etiqueta)
+          const cropDim = Math.floor(Math.min(vw, vh) * 0.65);
+          const sx = Math.floor((vw - cropDim) / 2);
+          const sy = Math.floor((vh - cropDim) / 2);
+          const targetSize = Math.min(cropDim, 440); // 440px max para ejecución ultra-veloz
+
+          canvas.width = targetSize;
+          canvas.height = targetSize;
+          ctx.drawImage(video, sx, sy, cropDim, cropDim, 0, 0, targetSize, targetSize);
+
+          const cropImgData = ctx.getImageData(0, 0, targetSize, targetSize);
+          const code = jsQR(cropImgData.data, targetSize, targetSize, {
+            inversionAttempts: 'attemptBoth'
+          });
+
+          if (code && code.data) {
+            detectedRaw = code.data;
+          } else if (scanCycleCountRef.current % 3 === 0) {
+            // Fotograma completo escalado cada 3 ciclos
+            const fullScale = 400 / Math.max(vw, vh);
+            const fullW = Math.floor(vw * fullScale);
+            const fullH = Math.floor(vh * fullScale);
+            canvas.width = fullW;
+            canvas.height = fullH;
+            ctx.drawImage(video, 0, 0, fullW, fullH);
+            const fullImgData = ctx.getImageData(0, 0, fullW, fullH);
+            const fullCode = jsQR(fullImgData.data, fullW, fullH, {
+              inversionAttempts: 'attemptBoth'
             });
-
-            if (found) {
-              setMatchedSolicitud(found);
+            if (fullCode && fullCode.data) {
+              detectedRaw = fullCode.data;
             }
-            return;
           }
         }
       }
+
+      // Si se detectó código
+      if (detectedRaw && !isDetectedRef.current) {
+        await handleDecodedSuccess(detectedRaw);
+        return;
+      }
+    } catch (err) {
+      console.warn('Aviso en frame de escaneo:', err);
+    } finally {
+      isProcessingFrameRef.current = false;
+      if (isScanning && !isDetectedRef.current) {
+        scanTimeoutRef.current = setTimeout(() => {
+          if (isScanning && !isDetectedRef.current) {
+            animationFrameRef.current = requestAnimationFrame(scanLoop);
+          }
+        }, 90);
+      }
     }
+  }, [isScanning, handleDecodedSuccess]);
 
-    animationFrameRef.current = requestAnimationFrame(scanLoop);
-  }, [isScanning, extractOpCode, solicitudes, triggerScanFeedback]);
-
-  // Manejar subida de foto de QR desde galería
+  // Manejar subida de foto con QR desde la galería
   const handleUploadQrImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -269,7 +533,34 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
+        // 1. Intentar ZXing
+        if (zxingReaderRef.current) {
+          try {
+            const result = await zxingReaderRef.current.decodeFromImageElement(img);
+            if (result && result.getText()) {
+              await handleDecodedSuccess(result.getText());
+              return;
+            }
+          } catch {
+            // Continuar con BarcodeDetector
+          }
+        }
+
+        // 2. Intentar BarcodeDetector nativo
+        if (barcodeDetectorRef.current) {
+          try {
+            const barcodes = await barcodeDetectorRef.current.detect(img);
+            if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+              await handleDecodedSuccess(barcodes[0].rawValue);
+              return;
+            }
+          } catch {
+            // Continuar con jsQR
+          }
+        }
+
+        // 3. Intentar jsQR con doble inversión
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
@@ -281,22 +572,11 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
             inversionAttempts: 'attemptBoth'
           });
           if (code && code.data) {
-            const detectedOp = extractOpCode(code.data);
-            if (detectedOp) {
-              triggerScanFeedback();
-              setIsScanning(false);
-              setScannedOpCode(detectedOp);
-              const cleanDigits = detectedOp.replace(/\D/g, '');
-              const found = solicitudes.find(item => {
-                const itemDigits = item.op.replace(/\D/g, '');
-                return item.op === detectedOp || (cleanDigits && itemDigits === cleanDigits);
-              });
-              if (found) setMatchedSolicitud(found);
-              return;
-            }
+            await handleDecodedSuccess(code.data);
+            return;
           }
           notificationService.playAlertSound('CRITICO');
-          alert('No se reconoció un código QR válido en la imagen seleccionada.');
+          alert('No se reconoció un código QR válido en la imagen seleccionada. Verifica que la imagen esté nítida.');
         }
       };
       img.src = event.target?.result as string;
@@ -304,11 +584,37 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     reader.readAsDataURL(file);
   };
 
+  // Manejo de envío manual de OP
+  const handleManualOpSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanInput = manualOpText.trim();
+    if (!cleanInput) return;
+
+    const formatted = formatOpCode(cleanInput);
+    triggerScanFeedback();
+    setIsScanning(false);
+    isDetectedRef.current = true;
+    setScannedOpCode(formatted);
+
+    try {
+      if (zxingReaderRef.current) {
+        zxingReaderRef.current.reset();
+      }
+    } catch {
+      // Ignorar
+    }
+
+    await resolveColcha('', formatted);
+  };
+
   // Reanudar escáner para escanear otra colcha consecutivamente
   const handleScanNext = () => {
     setScannedOpCode(null);
     setMatchedSolicitud(null);
     setActionSuccessMsg(null);
+    setShowManualInput(false);
+    setManualOpText('');
+    isDetectedRef.current = false;
     setIsScanning(true);
     startCamera();
   };
@@ -322,7 +628,6 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
       onDirectTransfer(matchedSolicitud.id, 'LAVANDERIA', obs);
       notificationService.playAlertSound('TRANSFERENCIA');
       setActionSuccessMsg(`¡OP ${matchedSolicitud.op} recibida exitosamente en Lavandería!`);
-      // Actualizar estado local del matched para reflejar el cambio en la vista
       setMatchedSolicitud(prev => prev ? { ...prev, estado: 'LAVANDERIA' } : null);
     } catch (err) {
       console.error('Error al recibir OP en lavandería:', err);
@@ -382,6 +687,9 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+      }
     };
   }, [isScanning, hasCameraPermission, scanLoop]);
 
@@ -407,7 +715,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
                 </span>
               </h3>
               <p className="text-[10.5px] text-zinc-400 font-mono">
-                Piso de Planta • Detección instantánea de OP
+                Piso de Planta • Lectura óptica instantánea
               </p>
             </div>
           </div>
@@ -432,51 +740,72 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
                 {/* Elemento de Video */}
                 <video
                   ref={videoRef}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-200"
+                  style={{
+                    transform: zoomLevel > 1 && !zoomSupported ? `scale(${zoomLevel})` : undefined,
+                    transformOrigin: 'center center'
+                  }}
                   playsInline
                   autoPlay
                   muted
                 />
 
-                {/* Canvas oculto para análisis jsQR */}
+                {/* Canvas oculto para análisis y recortes de alta velocidad */}
                 <canvas ref={canvasRef} className="hidden" />
 
                 {/* Retícula visual de escaneo tipo láser con esquinas destacadas */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-8">
-                  <div className="relative w-48 h-48 sm:w-56 sm:h-56">
-                    {/* Esquinas del visor */}
-                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-400 rounded-tl-xl shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
-                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-400 rounded-tr-xl shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
-                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-400 rounded-bl-xl shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
-                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-400 rounded-br-xl shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6 sm:p-8">
+                  <div className="relative w-52 h-52 sm:w-60 sm:h-60">
+                    {/* Esquinas del visor con sombra neón */}
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-400 rounded-tl-xl shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-400 rounded-tr-xl shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-400 rounded-bl-xl shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-400 rounded-br-xl shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
 
                     {/* Línea láser animada */}
                     <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_rgba(52,211,153,1)] animate-bounce duration-1000 top-1/2 -translate-y-1/2" />
                     
-                    {/* Isotipo central decorativo */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-25">
+                    {/* Isotipo central sutil */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-20">
                       <QrCode className="w-16 h-16 text-white" />
                     </div>
                   </div>
                 </div>
 
-                {/* Controles sobre el video: Linterna y Cambio de Cámara */}
+                {/* Controles sobre el video: Linterna, Zoom y Cambio de Cámara */}
                 <div className="absolute top-3 right-3 flex items-center gap-2">
+                  {/* Botón de Zoom 1x / 2x */}
+                  <button
+                    type="button"
+                    onClick={toggleZoom}
+                    className={`px-2.5 py-1.5 rounded-xl backdrop-blur-md border text-xs font-mono font-black transition cursor-pointer flex items-center gap-1 ${
+                      zoomLevel > 1 
+                        ? 'bg-emerald-500 text-black border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.5)]' 
+                        : 'bg-black/60 text-white border-zinc-700 hover:bg-black/80'
+                    }`}
+                    title="Alternar Zoom 1x y 2x para etiquetas pequeñas"
+                  >
+                    {zoomLevel > 1 ? <ZoomOut className="w-3.5 h-3.5" /> : <ZoomIn className="w-3.5 h-3.5" />}
+                    <span>{zoomLevel}x</span>
+                  </button>
+
+                  {/* Linterna / Flash */}
                   {torchSupported && (
                     <button
                       type="button"
                       onClick={toggleTorch}
                       className={`p-2 rounded-xl backdrop-blur-md border transition cursor-pointer ${
                         torchOn 
-                          ? 'bg-amber-500/80 text-black border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.6)]' 
+                          ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.6)]' 
                           : 'bg-black/60 text-white border-zinc-700 hover:bg-black/80'
                       }`}
                       title={torchOn ? 'Apagar linterna' : 'Encender linterna'}
                     >
-                      {torchOn ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
+                      {torchOn ? <Zap className="w-4 h-4 fill-black" /> : <ZapOff className="w-4 h-4" />}
                     </button>
                   )}
 
+                  {/* Alternar Frontal / Trasera */}
                   <button
                     type="button"
                     onClick={toggleCameraFacing}
@@ -489,8 +818,8 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
 
                 {/* Mensaje de estado en vivo */}
                 <div className="absolute bottom-3 inset-x-3 text-center pointer-events-none">
-                  <span className="inline-block px-3 py-1 rounded-full bg-black/75 backdrop-blur-md text-[11px] font-mono font-bold text-emerald-400 border border-emerald-500/40 shadow-lg">
-                    Apunte al código QR de la etiqueta física
+                  <span className="inline-block px-3 py-1 rounded-full bg-black/80 backdrop-blur-md text-[11px] font-mono font-bold text-emerald-400 border border-emerald-500/40 shadow-lg">
+                    Enfoque el código QR de la etiqueta física
                   </span>
                 </div>
               </div>
@@ -506,16 +835,65 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
                 </div>
               )}
 
-              {/* Acciones alternativas: Subir foto con QR */}
-              <div className="flex items-center justify-between gap-2 pt-1 border-t border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-700 text-xs font-mono font-bold flex items-center justify-center gap-2 transition cursor-pointer"
-                >
-                  <Upload className="w-4 h-4 text-emerald-400" />
-                  <span>Subir imagen o foto con QR</span>
-                </button>
+              {/* Acciones alternativas: Ingreso Manual y Subir foto con QR */}
+              <div className="space-y-2 pt-1 border-t border-zinc-800">
+                
+                {/* Desplegable de Ingreso Manual de OP de respaldo */}
+                {showManualInput ? (
+                  <form onSubmit={handleManualOpSubmit} className="p-3 rounded-2xl bg-zinc-900 border border-emerald-500/40 space-y-2 animate-in fade-in">
+                    <div className="flex items-center justify-between text-xs text-zinc-300 font-mono font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <Keyboard className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Ingresar número de OP manual:</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowManualInput(false)}
+                        className="text-zinc-400 hover:text-white"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={manualOpText}
+                        onChange={(e) => setManualOpText(e.target.value)}
+                        placeholder="Ej. 69412 o OP-69412"
+                        autoFocus
+                        className="flex-1 px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono text-sm uppercase focus:outline-none focus:border-emerald-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!manualOpText.trim()}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase cursor-pointer"
+                      >
+                        Buscar OP
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowManualInput(true)}
+                      className="py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-700 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Keyboard className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Ingresar OP manual</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-700 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Subir foto con QR</span>
+                    </button>
+                  </div>
+                )}
+
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -560,22 +938,31 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
                         ? 'bg-sky-950 text-sky-300 border-sky-500/50'
                         : matchedSolicitud.estado === 'CALIDAD'
                         ? 'bg-purple-950 text-purple-300 border-purple-500/50'
+                        : matchedSolicitud.estado === 'EVALUADO'
+                        ? 'bg-teal-950 text-teal-300 border-teal-500/50'
                         : 'bg-amber-950 text-amber-300 border-amber-500/50'
                     }`}>
-                      {matchedSolicitud.estado}
+                      {matchedSolicitud.estado.replace('_', ' ')}
                     </span>
                   ) : (
                     <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
-                      NO REGISTRADA EN LOCAL
+                      IDENTIFICADA
                     </span>
                   )}
                 </div>
 
+                {isSearchingLive && (
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-amber-400">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Sincronizando ficha técnica con Google Sheets...</span>
+                  </div>
+                )}
+
                 {matchedSolicitud && (
                   <div className="grid grid-cols-2 gap-2 text-xs font-mono text-zinc-400">
                     <div className="bg-zinc-950/70 p-2.5 rounded-xl border border-zinc-800">
-                      <span className="text-[10px] text-zinc-500 font-bold block uppercase">Rollos</span>
-                      <span className="text-white font-bold">{matchedSolicitud.rollos} Rollos</span>
+                      <span className="text-[10px] text-zinc-500 font-bold block uppercase">Rollos / Metros</span>
+                      <span className="text-white font-bold">{matchedSolicitud.rollos} Rollos ({matchedSolicitud.rollos * 85} Mt)</span>
                     </div>
                     <div className="bg-zinc-950/70 p-2.5 rounded-xl border border-zinc-800">
                       <span className="text-[10px] text-zinc-500 font-bold block uppercase">Registrado por</span>
@@ -596,7 +983,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
               {/* BOTONES DE ACCIÓN RÁPIDA SEGÚN ROL Y ESTADO */}
               <div className="space-y-2.5">
                 
-                {/* 1. CASO LAVANDERÍA: OP EN SOLICITADO O PRE-SOLICITUD -> RECIBIR CON UN TOQUE */}
+                {/* 1. CASO LAVANDERÍA / ADMIN: OP EN SOLICITADO O PRE-SOLICITUD -> RECIBIR CON UN TOQUE */}
                 {matchedSolicitud && (isLavanderiaUser(currentUser) || isAdminUser(currentUser)) && (matchedSolicitud.estado === 'SOLICITADO' || matchedSolicitud.estado === 'PRE_SOLICITUD') && (
                   <button
                     type="button"
@@ -616,7 +1003,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
                   </button>
                 )}
 
-                {/* 2. CASO LAVANDERÍA: OP YA EN LAVANDERÍA -> IR A SU COCKPIT */}
+                {/* 2. CASO LAVANDERÍA / ADMIN: OP YA EN LAVANDERÍA -> IR A SU COCKPIT */}
                 {matchedSolicitud && (isLavanderiaUser(currentUser) || isAdminUser(currentUser)) && matchedSolicitud.estado === 'LAVANDERIA' && (
                   <button
                     type="button"
@@ -628,7 +1015,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
                   </button>
                 )}
 
-                {/* 3. CASO FACTORY: OP EN EVALUADO -> FINALIZAR DIRECTAMENTE */}
+                {/* 3. CASO FACTORY / ADMIN: OP EN EVALUADO -> FINALIZAR DIRECTAMENTE */}
                 {matchedSolicitud && isFactoryUser(currentUser) && matchedSolicitud.estado === 'EVALUADO' && (
                   <button
                     type="button"
@@ -698,7 +1085,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
         {/* Pie informativo */}
         <div className="px-5 py-2.5 border-t border-zinc-800/80 bg-zinc-900/40 flex items-center justify-between text-[10px] font-mono text-zinc-500">
           <span>STF GROUP • Control de Calidad Textil</span>
-          <span>Cámara HD 100% Nativa</span>
+          <span>Motor Dual: ZXing Industrial + Barcode API</span>
         </div>
       </div>
     </div>

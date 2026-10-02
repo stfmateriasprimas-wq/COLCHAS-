@@ -71,13 +71,17 @@ export const SafeQRCode: React.FC<SafeQRCodeProps> = ({
     safeValue = fallbackUrl;
   }
 
+  // Si tiene imagen central embebida y el nivel solicitado es 'M' o 'L',
+  // elevar automáticamente a 'Q' (25% redundancia) para que la lectura por cámara sea 100% confiable
+  const effectiveLevel = imageSettings && (level === 'M' || level === 'L') ? 'Q' : level;
+
   return (
     <QRCodeErrorBoundary fallbackValue={fallbackUrl} size={size}>
       <QRCodeSVG
         id={id}
         value={safeValue || fallbackUrl}
         size={size}
-        level={level}
+        level={effectiveLevel}
         includeMargin={includeMargin}
         className={className}
         imageSettings={imageSettings}

@@ -255,8 +255,20 @@ export function parsePublicTrackingPayload(searchOrUrl?: string): SolicitudColch
 
   try {
     const rawSearch = searchOrUrl || window.location.search;
-    const urlParams = new URLSearchParams(rawSearch.startsWith('http') ? new URL(rawSearch).search : rawSearch);
-    const encodedPayload = urlParams.get('d') || urlParams.get('data') || urlParams.get('p');
+    let encodedPayload: string | null = null;
+
+    if (rawSearch.startsWith('http') || rawSearch.includes('?') || rawSearch.includes('&') || rawSearch.includes('=')) {
+      const urlParams = new URLSearchParams(rawSearch.startsWith('http') ? new URL(rawSearch).search : (rawSearch.startsWith('?') ? rawSearch : `?${rawSearch}`));
+      encodedPayload = urlParams.get('d') || urlParams.get('data') || urlParams.get('p');
+    }
+
+    // Si no se extrajo por parámetro o vino directamente el string base64
+    if (!encodedPayload) {
+      const trimmed = (rawSearch || '').trim();
+      if (trimmed.startsWith('eyJ') || (!trimmed.includes(' ') && trimmed.length > 20)) {
+        encodedPayload = trimmed;
+      }
+    }
 
     if (!encodedPayload) return null;
 
