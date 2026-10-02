@@ -63,8 +63,8 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
 
   if (!colcha) return null;
 
-  // Enlace oficial de trazabilidad pública con carga de datos completa codificada (resiliente para móviles)
-  const publicLink = asyncTrackingUrl || generatePublicTrackingUrl(colchaWithPhoto || colcha);
+  // Enlace oficial de trazabilidad pública limpio (51 caracteres): genera módulos 3.5x más grandes para lectura instantánea
+  const publicLink = generatePublicTrackingUrl(colcha);
 
   const isFinalizado = colcha.estado === 'FINALIZADO';
   const cleanFinalObs = getCleanFinalQualityObservation(colcha);
@@ -225,13 +225,13 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                         <SafeQRCode
                           id="thermal-label-qr-svg"
                           value={publicLink}
-                          size={76}
+                          size={82}
                           level="Q"
-                          includeMargin={false}
+                          includeMargin={true}
                           imageSettings={{
                             src: STF_QR_LOGO_SVG,
-                            height: 16,
-                            width: 16,
+                            height: 18,
+                            width: 18,
                             excavate: true,
                           }}
                         />
