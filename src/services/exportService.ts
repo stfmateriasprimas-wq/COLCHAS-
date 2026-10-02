@@ -330,7 +330,7 @@ export function printColchaDirectTicket(colcha: SolicitudColcha, qrDataUrl?: str
 
   const qrImgTag = qrDataUrl 
     ? `<img src="${qrDataUrl}" class="qr-img" alt="QR Trazabilidad" />`
-    : `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=Q&data=${encodeURIComponent(trackingUrl)}" class="qr-img" alt="QR Trazabilidad" />`;
+    : `<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=0&ecc=Q&data=${encodeURIComponent(trackingUrl)}" class="qr-img" alt="QR Trazabilidad" />`;
 
   const cleanFinalObs = getCleanFinalQualityObservation(colcha);
   const cleanInitialObs = getCleanInitialObservation(colcha);

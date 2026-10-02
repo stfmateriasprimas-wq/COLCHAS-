@@ -92,7 +92,10 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
     let qrDataUrl = '';
     if (svgElem) {
       try {
-        const svgXml = new XMLSerializer().serializeToString(svgElem);
+        let svgXml = new XMLSerializer().serializeToString(svgElem);
+        if (!svgXml.includes('xmlns=')) {
+          svgXml = svgXml.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+        }
         qrDataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgXml)));
       } catch (e) {
         console.warn('Could not serialize SVG QR, fallback to URL API', e);
@@ -227,7 +230,7 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                           value={publicLink}
                           size={82}
                           level="Q"
-                          includeMargin={true}
+                          includeMargin={false}
                           imageSettings={{
                             src: STF_QR_LOGO_SVG,
                             height: 18,
