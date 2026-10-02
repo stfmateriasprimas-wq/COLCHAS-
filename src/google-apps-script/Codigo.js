@@ -409,7 +409,14 @@ function recordTimelineEventInSheet(ss, op, ref, tela, deEstado, aEstado, fechaH
  * =========================================================================
  */
 function doPost(e) {
+  var lock = LockService.getScriptLock();
+  var hasLock = false;
   try {
+    hasLock = lock.tryLock(30000);
+    if (!hasLock) {
+      return createJsonResponse({ status: 'error', message: 'Servidor ocupado procesando otra transacción. Por favor reintente en unos segundos.' });
+    }
+
     var data = JSON.parse(e.postData ? e.postData.contents : '{}');
     var action = data.action;
     var payload = data.payload || {};
@@ -529,21 +536,6 @@ function doPost(e) {
       var loteVal = opData['LOTE'] || opData.lote || '1';
       var estadoVal = opData['ESTADO'] || opData.estado || 'SOLICITADO';
 
-      // Guardar Foto 1 en Google Drive (Mes / OP)
-      var driveUrl = '';
-      var savedPhotoRes = null;
-      var photoRaw = opData.fotoMuestraUrl || opData.imageBase64 || opData['EVIDENCIA (LINK DRIVE)'] || '';
-      var fileNameInitial = opVal + '_MUESTRA_INICIAL.jpg';
-      if (photoRaw && photoRaw.indexOf('/9j/') === 0) {
-        photoRaw = 'data:image/jpeg;base64,' + photoRaw;
-      }
-      if (photoRaw && photoRaw.length > 50 && photoRaw.indexOf('data:image/') === 0) {
-        savedPhotoRes = saveImageToDriveHierarchical(photoRaw, fileNameInitial, opVal, now);
-        if (savedPhotoRes && savedPhotoRes.driveUrl) driveUrl = savedPhotoRes.driveUrl;
-      } else if (photoRaw && photoRaw.indexOf('http') === 0) {
-        driveUrl = photoRaw;
-      }
-
       var rawObsOp = String(opData['OBSERVACIÓN OPERARIO'] || opData.observacionesOperario || opData.observacionOperario || '').trim();
       var obsOpVal = (rawObsOp.indexOf(' | ') !== -1 ? rawObsOp.split(' | ')[0].trim() : rawObsOp).replace(/^\[[^\]]+\]:\s*/, '').trim();
 
@@ -553,11 +545,6 @@ function doPost(e) {
         obsColVal = rawObsCol.indexOf(' | ') !== -1 ? rawObsCol.split(' | ')[0].trim() : rawObsCol;
       }
 
-      // Columna M (13 - EVIDENCIA): Guardar enlace oficial 100% clickeable de la carpeta de Drive de la OP
-      var folderVal = (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : '';
-      var photo1Val = (savedPhotoRes && savedPhotoRes.driveUrl) ? savedPhotoRes.driveUrl : (driveUrl || '');
-      var evidenciaVal = folderVal || photo1Val || '';
-      
       // La Columna E de la hoja USUARIOS es la FUENTE MAESTRA DE LA VERDAD
       var recipientsList = getAllUserEmails(ss);
       if (!recipientsList || recipientsList.length === 0) {
@@ -571,15 +558,100 @@ function doPost(e) {
       }
       var correoNotificadoStr = uniqueEmails.join(', ');
 
-      // FLUJO A: Envío automático inmediato por correo de la nueva OP
-      if (uniqueEmails.length > 0) {
-        var appUrl = payload.appUrl || ('https://colchas.vercel.app/?op=' + encodeURIComponent(opVal) + '&view=public');
-        if (appUrl.indexOf('localhost') !== -1 || appUrl.indexOf('127.0.0.1') !== -1) {
-          appUrl = 'https://colchas.vercel.app/?op=' + encodeURIComponent(opVal) + '&view=public';
+      var obsFinalVal = opData['OBS.OPERARIO FINAL'] || opData.obsOperarioFinal || opData.observacionesCalidad || '';
+      var mesNumero = Number(opData['MES'] || opData.mes || (now.getMonth() + 1));
+      var dictVal = payload.dictamenFinal || payload.dictamen || payload.veredicto || '';
+      var evidenciaVal = (opData.fotoMuestraUrl && String(opData.fotoMuestraUrl).indexOf('http') === 0) ? opData.fotoMuestraUrl : '';
+
+      var newRow = [
+        fechaFormatted, inspectorVal, telaVal, mtVal, colorVal, opVal,
+        refVal, rollosVal, loteVal, estadoVal, obsOpVal, obsColVal,
+        evidenciaVal, correoNotificadoStr, obsFinalVal, dictVal, mesNumero
+      ];
+
+      // 1. Depurar filas vacías intermedias previas (compactación automática de la base de datos)
+      cleanEmptyRowsInBaseDeDatos(ss);
+
+      // 2. BLINDAJE CONTRA DUPLICADOS: Verificar si la OP ya existe en BASE_DE_DATOS
+      var existingRowIndex = -1;
+      var lastRowBd = sheetBd.getLastRow();
+      if (lastRowBd > 1) {
+        var opValsCheck = sheetBd.getRange(2, 6, lastRowBd - 1, 1).getValues();
+        var targetDigitsCheck = opVal.replace(/\D/g, '');
+        for (var cIdx = 0; cIdx < opValsCheck.length; cIdx++) {
+          var rowOpStr = String(opValsCheck[cIdx][0] || '').trim().toUpperCase();
+          var rowDigitsCheck = rowOpStr.replace(/\D/g, '');
+          if (rowOpStr === opVal.toUpperCase() || (targetDigitsCheck && rowDigitsCheck && targetDigitsCheck === rowDigitsCheck)) {
+            existingRowIndex = cIdx + 2;
+            break;
+          }
         }
-        var mailSubject = '🧵 [NUEVA COLCHA CREADA] ' + opVal + ' • ' + (refVal || 'S/R') + ' (' + telaVal + ')';
-        var mailHtml = buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl);
+      }
+
+      var targetRow = existingRowIndex !== -1 ? existingRowIndex : (getRealLastDataRowInBaseDeDatos(sheetBd) + 1);
+
+      // 3. Garantizar que la hoja disponga de filas físicas suficientes
+      if (targetRow > sheetBd.getMaxRows()) {
+        sheetBd.insertRowAfter(sheetBd.getMaxRows());
+      }
+
+      // 4. Inserción atómica y prioritaria de los datos en BASE_DE_DATOS
+      sheetBd.getRange(targetRow, 1, 1, newRow.length).setValues([newRow]);
+
+      // 5. Inmediatamente depurar y eliminar la OP de la hoja MONITOREO
+      normalizeAllOpCodesInBaseDeDatos(ss);
+      if (opVal) removeOpFromMonitoreoSheet(ss, opVal);
+      autoCleanMonitoreoFromBaseDeDatos(ss);
+
+      // 6. Registrar evento inicial en TRAZABILIDAD_TIEMPOS
+      try {
+        recordTimelineEventInSheet(ss, opVal, refVal, telaVal, 'CREACIÓN', estadoVal, fechaFormatted, '0 min', inspectorVal, obsOpVal || 'Creación inicial');
+      } catch (eTime) {}
+
+      // 7. Guardar Foto 1 en Google Drive (Mes / OP) en bloque resiliente
+      var driveUrl = '';
+      var folderUrl = '';
+      var photoRaw = opData.fotoMuestraUrl || opData.imageBase64 || opData['EVIDENCIA (LINK DRIVE)'] || '';
+      var fileNameInitial = opVal + '_MUESTRA_INICIAL.jpg';
+      if (photoRaw && photoRaw.indexOf('/9j/') === 0) {
+        photoRaw = 'data:image/jpeg;base64,' + photoRaw;
+      }
+
+      if (photoRaw && photoRaw.length > 50 && photoRaw.indexOf('data:image/') === 0) {
         try {
+          var savedPhotoRes = saveImageToDriveHierarchical(photoRaw, fileNameInitial, opVal, now);
+          if (savedPhotoRes) {
+            driveUrl = savedPhotoRes.driveUrl || '';
+            folderUrl = savedPhotoRes.folderUrl || '';
+            var finalEvidencia = folderUrl || driveUrl || '';
+            if (finalEvidencia && String(finalEvidencia).indexOf('http') === 0) {
+              try {
+                var richLinkNew = SpreadsheetApp.newRichTextValue()
+                  .setText(finalEvidencia)
+                  .setLinkUrl(finalEvidencia)
+                  .build();
+                sheetBd.getRange(targetRow, 13).setRichTextValue(richLinkNew);
+              } catch (eRichAppend) {
+                sheetBd.getRange(targetRow, 13).setValue(finalEvidencia);
+              }
+            }
+          }
+        } catch (eDrive) {
+          console.error('Error guardando imagen en Drive:', eDrive);
+        }
+      } else if (photoRaw && photoRaw.indexOf('http') === 0) {
+        driveUrl = photoRaw;
+      }
+
+      // 8. FLUJO A: Envío automático por correo en bloque seguro
+      if (uniqueEmails.length > 0) {
+        try {
+          var appUrl = payload.appUrl || ('https://colchas.vercel.app/?op=' + encodeURIComponent(opVal) + '&view=public');
+          if (appUrl.indexOf('localhost') !== -1 || appUrl.indexOf('127.0.0.1') !== -1) {
+            appUrl = 'https://colchas.vercel.app/?op=' + encodeURIComponent(opVal) + '&view=public';
+          }
+          var mailSubject = '🧵 [NUEVA COLCHA CREADA] ' + opVal + ' • ' + (refVal || 'S/R') + ' (' + telaVal + ')';
+          var mailHtml = buildNewOpEmailHtml(opData, opVal, fechaFormatted, appUrl, driveUrl);
           MailApp.sendEmail({
             to: uniqueEmails.join(','),
             subject: mailSubject,
@@ -603,51 +675,13 @@ function doPost(e) {
         }
       }
 
-      var obsFinalVal = opData['OBS.OPERARIO FINAL'] || opData.obsOperarioFinal || opData.observacionesCalidad || '';
-      var mesNumero = Number(opData['MES'] || opData.mes || (now.getMonth() + 1));
-      var dictVal = payload.dictamenFinal || payload.dictamen || payload.veredicto || '';
-
-      var newRow = [
-        fechaFormatted, inspectorVal, telaVal, mtVal, colorVal, opVal,
-        refVal, rollosVal, loteVal, estadoVal, obsOpVal, obsColVal,
-        evidenciaVal, correoNotificadoStr, obsFinalVal, dictVal, mesNumero
-      ];
-
-      // 1. Depurar filas vacías intermedias previas (compactación automática de la base de datos)
-      cleanEmptyRowsInBaseDeDatos(ss);
-
-      // 2. Localizar con precisión quirúrgica la verdadera última fila con datos (evita saltos por formatos, tablas o espacios)
-      var targetRow = getRealLastDataRowInBaseDeDatos(sheetBd) + 1;
-
-      // 3. Garantizar que la hoja disponga de filas físicas suficientes
-      if (targetRow > sheetBd.getMaxRows()) {
-        sheetBd.insertRowAfter(sheetBd.getMaxRows());
-      }
-
-      // 4. Escribir directamente en targetRow (inserción contigua garantizada)
-      sheetBd.getRange(targetRow, 1, 1, newRow.length).setValues([newRow]);
-
-      // 5. Aplicar hipervínculo nativo clickeable en Columna M (13) exactamente en targetRow
-      if (evidenciaVal && String(evidenciaVal).indexOf('http') === 0) {
-        try {
-          var richLinkNew = SpreadsheetApp.newRichTextValue()
-            .setText(evidenciaVal)
-            .setLinkUrl(evidenciaVal)
-            .build();
-          sheetBd.getRange(targetRow, 13).setRichTextValue(richLinkNew);
-        } catch (eRichAppend) {
-          // Fallback seguro a texto plano ya insertado
-        }
-      }
-      normalizeAllOpCodesInBaseDeDatos(ss);
-      if (opVal) removeOpFromMonitoreoSheet(ss, opVal);
-      autoCleanMonitoreoFromBaseDeDatos(ss);
+      SpreadsheetApp.flush();
 
       return createJsonResponse({
         status: 'success',
         message: 'Solicitud ' + opVal + ' ingresada correctamente en BASE_DE_DATOS y archivada en Drive',
         driveUrl: driveUrl,
-        folderUrl: (savedPhotoRes && savedPhotoRes.folderUrl) ? savedPhotoRes.folderUrl : '',
+        folderUrl: folderUrl,
         correoNotificado: correoNotificadoStr
       });
     }
@@ -685,11 +719,20 @@ function doPost(e) {
     if (action === 'TRANSFER_OP') {
       var sheetBdTrans = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
       var targetOpTrans = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
+      var targetDigitsTrans = targetOpTrans.replace(/\D/g, '');
+      var targetIntTrans = targetDigitsTrans ? parseInt(targetDigitsTrans, 10) : null;
       var valuesBdTrans = sheetBdTrans.getDataRange().getValues();
       var foundRowTrans = -1;
 
       for (var t = 1; t < valuesBdTrans.length; t++) {
-        if (String(valuesBdTrans[t][5] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpTrans) {
+        var cellOpTrans = String(valuesBdTrans[t][5] || '').trim().toUpperCase().replace(/^OP-?/, '');
+        var cellDigitsTrans = cellOpTrans.replace(/\D/g, '');
+        var cellIntTrans = cellDigitsTrans ? parseInt(cellDigitsTrans, 10) : null;
+        if (
+          cellOpTrans === targetOpTrans ||
+          (targetDigitsTrans && cellDigitsTrans && targetDigitsTrans === cellDigitsTrans) ||
+          (targetIntTrans !== null && cellIntTrans !== null && targetIntTrans === cellIntTrans)
+        ) {
           foundRowTrans = t + 1;
           break;
         }
@@ -791,11 +834,20 @@ function doPost(e) {
       var sheetBdDict = ss.getSheetByName(SHEET_BASE_DATOS) || ss.getSheetByName('01_BASE_DE_DATOS') || ss.getSheets()[0];
       var targetOpDict = String(payload.op || '').trim().toUpperCase().replace(/^OP-?/, '');
       var opFormattedDict = 'OP-' + targetOpDict;
+      var targetDigitsDict = targetOpDict.replace(/\D/g, '');
+      var targetIntDict = targetDigitsDict ? parseInt(targetDigitsDict, 10) : null;
       var valuesBdDict = sheetBdDict.getDataRange().getValues();
       var foundRowDict = -1;
 
       for (var d = 1; d < valuesBdDict.length; d++) {
-        if (String(valuesBdDict[d][5] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpDict) {
+        var cellOpDict = String(valuesBdDict[d][5] || '').trim().toUpperCase().replace(/^OP-?/, '');
+        var cellDigitsDict = cellOpDict.replace(/\D/g, '');
+        var cellIntDict = cellDigitsDict ? parseInt(cellDigitsDict, 10) : null;
+        if (
+          cellOpDict === targetOpDict ||
+          (targetDigitsDict && cellDigitsDict && targetDigitsDict === cellDigitsDict) ||
+          (targetIntDict !== null && cellIntDict !== null && targetIntDict === cellIntDict)
+        ) {
           foundRowDict = d + 1;
           break;
         }
@@ -855,12 +907,19 @@ function doPost(e) {
         var dictVal = payload.dictamenFinal || payload.dictamen || payload.veredicto || 'APROBADO';
         sheetBdDict.getRange(foundRowDict, 16).setValue(dictVal);
 
-        // Depurar de hoja ALERTAS
+        // Depurar de hoja ALERTAS con coincidencia numérica robusta
         var shAl = ss.getSheetByName(SHEET_ALERTAS);
         if (shAl && shAl.getLastRow() > 1) {
           var vAl = shAl.getRange(2, 1, shAl.getLastRow() - 1, 1).getValues();
           for (var a = vAl.length - 1; a >= 0; a--) {
-            if (String(vAl[a][0] || '').trim().toUpperCase().replace(/^OP-?/, '') === targetOpDict) shAl.deleteRow(a + 2);
+            var cellOpAl = String(vAl[a][0] || '').trim().toUpperCase().replace(/^OP-?/, '');
+            var cellDigitsAl = cellOpAl.replace(/\D/g, '');
+            if (
+              cellOpAl === targetOpDict ||
+              (targetDigitsDict && cellDigitsAl && targetDigitsDict === cellDigitsAl)
+            ) {
+              shAl.deleteRow(a + 2);
+            }
           }
         }
 
@@ -1264,6 +1323,11 @@ function doPost(e) {
     return createJsonResponse({ status: 'error', message: 'Acción POST no reconocida: ' + action });
   } catch (err) {
     return createJsonResponse({ status: 'error', message: err.toString() });
+  } finally {
+    if (hasLock) {
+      try { SpreadsheetApp.flush(); } catch (flushErr) {}
+      try { lock.releaseLock(); } catch (releaseErr) {}
+    }
   }
 }
 
@@ -1298,13 +1362,28 @@ function removeOpFromMonitoreoSheet(ss, op) {
   if (!sheetMon || sheetMon.getLastRow() <= 1) return;
   var cleanTarget = String(op).trim().toUpperCase();
   var cleanNoPrefix = cleanTarget.replace(/^OP-?/, '');
+  var targetDigits = cleanNoPrefix.replace(/\D/g, '');
+  var targetInt = targetDigits ? parseInt(targetDigits, 10) : null;
   var vals = sheetMon.getRange(2, 1, sheetMon.getLastRow() - 1, Math.max(5, sheetMon.getLastColumn())).getValues();
 
   for (var i = vals.length - 1; i >= 0; i--) {
     var match = false;
     for (var c = 0; c < vals[i].length; c++) {
       var cv = String(vals[i][c] || '').trim().toUpperCase();
-      if (cv && (cv === cleanTarget || cv.replace(/^OP-?/, '') === cleanNoPrefix)) { match = true; break; }
+      if (!cv) continue;
+      var cellNoPrefix = cv.replace(/^OP-?/, '');
+      var cellDigits = cellNoPrefix.replace(/\D/g, '');
+      var cellInt = cellDigits ? parseInt(cellDigits, 10) : null;
+
+      if (
+        cv === cleanTarget ||
+        cellNoPrefix === cleanNoPrefix ||
+        (targetDigits && cellDigits && targetDigits === cellDigits) ||
+        (targetInt !== null && cellInt !== null && targetInt === cellInt)
+      ) {
+        match = true;
+        break;
+      }
     }
     if (match) sheetMon.deleteRow(i + 2);
   }
@@ -1322,7 +1401,13 @@ function autoCleanMonitoreoFromBaseDeDatos(ss) {
       var opVal = String(bdValues[b][0] || '').trim().toUpperCase();
       if (opVal) {
         registeredMap[opVal] = true;
-        registeredMap[opVal.replace(/^OP-?/, '')] = true;
+        var cleanNoP = opVal.replace(/^OP-?/, '');
+        registeredMap[cleanNoP] = true;
+        var digits = cleanNoP.replace(/\D/g, '');
+        if (digits) {
+          registeredMap[digits] = true;
+          registeredMap[parseInt(digits, 10).toString()] = true;
+        }
       }
     }
 
@@ -1332,7 +1417,17 @@ function autoCleanMonitoreoFromBaseDeDatos(ss) {
       var isMatch = false;
       for (var c = 0; c < monValues[m].length; c++) {
         var cellVal = String(monValues[m][c] || '').trim().toUpperCase();
-        if (cellVal && (registeredMap[cellVal] || registeredMap[cellVal.replace(/^OP-?/, '')])) {
+        if (!cellVal) continue;
+        var cellClean = cellVal.replace(/^OP-?/, '');
+        var cellDigits = cellClean.replace(/\D/g, '');
+        var cellNum = cellDigits ? parseInt(cellDigits, 10).toString() : '';
+
+        if (
+          registeredMap[cellVal] || 
+          registeredMap[cellClean] || 
+          (cellDigits && registeredMap[cellDigits]) ||
+          (cellNum && registeredMap[cellNum])
+        ) {
           isMatch = true;
           break;
         }

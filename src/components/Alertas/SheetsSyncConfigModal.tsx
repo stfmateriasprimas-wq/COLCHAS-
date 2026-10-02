@@ -203,6 +203,7 @@ function doPost(e) {
         evidenciaVal,
         payload.correoNotificado || Utilities.formatDate(now, "America/Bogota", "d/M/yyyy HH:mm"),
         payload.obsOperarioFinal || payload.observacionesCalidad || "",
+        payload.dictamenFinal || payload.dictamen || "",
         mes
       ];
 

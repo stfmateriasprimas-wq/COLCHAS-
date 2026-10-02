@@ -31,6 +31,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   const [lote, setLote] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Determinación estricta del origen y estado inicial inmutable según reglas maestras STF Colchas:
   // - Perfil Calidad / Planta Principal -> SOLICITADO (En Tránsito a Lavandería ZF)
@@ -191,6 +192,8 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       e.stopPropagation();
     }
 
+    if (isSubmitting) return;
+
     if (!op || !op.trim()) {
       alert("⚠️ Por favor ingresa el número de Orden de Producción (OP).");
       return;
@@ -201,6 +204,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     const finalRollos = typeof rollos === 'number' && rollos > 0 ? rollos : 1;
 
     try {
+      setIsSubmitting(true);
       const colcha = buildCurrentColchaData();
       colcha.op = finalOp;
       colcha.tela = finalTela;
@@ -213,6 +217,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
 
       onSubmit(colcha);
     } catch (err) {
+      setIsSubmitting(false);
       console.error("Error al registrar solicitud:", err);
       alert("Error al procesar la solicitud.");
     }
@@ -602,12 +607,13 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
           {/* BOTÓN REGISTRAR CON ELEVACIÓN EN HOVER */}
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={handleDirectSubmit}
-            className="px-9 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-black text-xs flex items-center gap-2.5 shadow-xl transition-all duration-200 transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/30 active:translate-y-0 active:scale-95 cursor-pointer font-mono uppercase tracking-wider"
+            className={`px-9 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-black text-xs flex items-center gap-2.5 shadow-xl transition-all duration-200 transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/30 active:translate-y-0 active:scale-95 font-mono uppercase tracking-wider ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
             title="Registrar nueva solicitud de OP"
           >
-            <CheckCircle2 className="w-5 h-5 text-black" />
-            <span>REGISTRAR SOLICITUD</span>
+            <CheckCircle2 className={`w-5 h-5 text-black ${isSubmitting ? 'animate-spin' : ''}`} />
+            <span>{isSubmitting ? 'REGISTRANDO...' : 'REGISTRAR SOLICITUD'}</span>
           </button>
         </div>
 

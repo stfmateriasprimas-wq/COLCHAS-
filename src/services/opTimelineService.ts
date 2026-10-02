@@ -478,8 +478,13 @@ class OpTimelineService {
         area: AREA_LABELS.FINALIZADO,
         fechaIngreso: startIso,
         fechaIngresoFormatted: startFormatted,
+        fechaSalida: startIso,
+        fechaSalidaFormatted: startFormatted,
         responsableIngreso: inspectorSol,
         dictamen: solicitudFallback?.dictamen,
+        duracionDias: solicitudFallback?.diasHabiles || 2,
+        duracionHoras: solicitudFallback?.horasEnProceso || 24,
+        duracionTexto: `${solicitudFallback?.diasHabiles || 2} días hábiles (~${solicitudFallback?.horasEnProceso || 24}h)`,
         completado: true,
         activo: false
       };

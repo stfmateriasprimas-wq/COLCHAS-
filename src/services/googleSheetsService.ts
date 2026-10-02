@@ -191,12 +191,14 @@ export function getConsumedMonitoreoOps(): string[] {
 
 export function markMonitoreoOpAsConsumed(op: string): void {
   if (typeof window !== 'undefined' && op) {
-    const clean = op.replace(/\D/g, '') || op.trim().toUpperCase();
+    const rawClean = op.trim().toUpperCase();
+    const cleanNoP = rawClean.replace(/^OP-?/, '');
+    const cleanDigits = op.replace(/\D/g, '');
+    const numClean = cleanDigits ? parseInt(cleanDigits, 10).toString() : '';
     const current = getConsumedMonitoreoOps();
-    if (!current.includes(clean)) {
-      const updated = [...current, clean];
-      localStorage.setItem(CONSUMED_MONITOREO_OPS_KEY, JSON.stringify(updated));
-    }
+    const toAdd = [rawClean, cleanNoP, cleanDigits, numClean].filter(Boolean);
+    const updated = Array.from(new Set([...current, ...toAdd]));
+    localStorage.setItem(CONSUMED_MONITOREO_OPS_KEY, JSON.stringify(updated));
   }
 }
 
@@ -257,9 +259,10 @@ export async function sendAppsScriptPost(action: string, payload: any): Promise<
     if (res.ok) {
       try {
         const json = await res.json();
+        const isSuccess = json.status === 'success' || (json.status !== 'error' && !json.error && json.error !== false);
         return {
-          success: json.status === 'success' || !json.error,
-          message: json.message || 'Datos sincronizados correctamente con Google Sheets',
+          success: isSuccess,
+          message: json.message || (isSuccess ? 'Datos sincronizados correctamente con Google Sheets' : 'Error en respuesta de Google Apps Script'),
           data: json
         };
       } catch (jsonErr) {
@@ -1583,6 +1586,21 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
  */
 export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
   const consumed = getConsumedMonitoreoOps();
+  const isConsumedOp = (opCandidate?: string): boolean => {
+    if (!opCandidate) return false;
+    const cleanOp = opCandidate.replace(/\D/g, '') || opCandidate.trim().toUpperCase();
+    const cleanDigits = opCandidate.replace(/\D/g, '');
+    const numDigits = cleanDigits ? parseInt(cleanDigits, 10).toString() : '';
+    const cleanNoP = opCandidate.trim().toUpperCase().replace(/^OP-?/, '');
+    const rawClean = opCandidate.trim().toUpperCase();
+    return (
+      (cleanOp !== '' && consumed.includes(cleanOp)) ||
+      (cleanDigits !== '' && consumed.includes(cleanDigits)) ||
+      (numDigits !== '' && consumed.includes(numDigits)) ||
+      (cleanNoP !== '' && consumed.includes(cleanNoP)) ||
+      consumed.includes(rawClean)
+    );
+  };
   const timestamp = Date.now();
 
   // 1. ENDPOINTS DIRECTOS GVIZ JSON (TIEMPO DE RESPUESTA < 0.8s)
@@ -1648,8 +1666,7 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
               if (isHeader) return;
               if (!tela && !op) return;
 
-              const cleanOp = (op || '').replace(/\D/g, '') || (op || '').trim().toUpperCase();
-              if (cleanOp && consumed.includes(cleanOp)) return;
+              if (isConsumedOp(op)) return;
 
               list.push({
                 tela: tela || 'TELA INDIGO',
@@ -1686,8 +1703,7 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
           const opRaw = (r[3] || '').trim();
           const refRaw = (r[4] || 'S/R').trim();
 
-          const cleanOp = opRaw.replace(/\D/g, '') || opRaw.trim().toUpperCase();
-          if (consumed.includes(cleanOp)) continue;
+          if (isConsumedOp(opRaw)) continue;
 
           if (!opRaw && !telaRaw) continue;
           if (telaRaw.toUpperCase() === 'TELA' && (opRaw.toUpperCase() === 'OP' || mtRaw.toUpperCase() === 'MT')) continue;
@@ -1719,8 +1735,7 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
           const list: MonitoreoItem[] = [];
           data.data.forEach((item: any) => {
             const opVal = item.op || '';
-            const cleanOp = opVal.replace(/\D/g, '') || opVal.trim().toUpperCase();
-            if (consumed.includes(cleanOp)) return;
+            if (isConsumedOp(opVal)) return;
             list.push({
               tela: item.tela || 'TELA INDIGO',
               mt: item.mt || 'MT-AUTO',
@@ -1737,10 +1752,7 @@ export async function fetchMonitoreoSheet(): Promise<MonitoreoItem[]> {
     }
   }
 
-  return INITIAL_MONITOREO_DATA.filter(item => {
-    const cleanOp = (item.op || '').replace(/\D/g, '') || (item.op || '').trim().toUpperCase();
-    return !consumed.includes(cleanOp);
-  });
+  return INITIAL_MONITOREO_DATA.filter(item => !isConsumedOp(item.op));
 }
 
 export async function deleteOrConsumeMonitoreoOp(op: string): Promise<void> {

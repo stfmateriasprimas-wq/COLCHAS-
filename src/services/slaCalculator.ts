@@ -112,15 +112,44 @@ export function formatColombianDisplayDate(dateVal?: string | Date): string {
   const str = String(dateVal).trim();
   if (!str) return 'Hoy';
 
-  // 1. Si ya viene en formato D/M/YYYY o DD/MM/YYYY con o sin hora
+  // 0. Formato Google Sheets GViz JSON: Date(yyyy, m, d, h, mi, s) o Date(yyyy, m, d)
+  if (str.startsWith('Date(')) {
+    const gvizMatch = str.match(/Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)/);
+    if (gvizMatch) {
+      const year = parseInt(gvizMatch[1], 10);
+      const month = parseInt(gvizMatch[2], 10) + 1; // 0-indexed en GViz
+      const day = parseInt(gvizMatch[3], 10);
+      const hour = gvizMatch[4] !== undefined ? parseInt(gvizMatch[4], 10) : 0;
+      const min = gvizMatch[5] !== undefined ? parseInt(gvizMatch[5], 10) : 0;
+
+      // Si no tiene hora o es exactamente 0:00:00 (fecha pura sin hora en Base de Datos)
+      if (hour === 0 && min === 0) {
+        return `${day}/${month}/${year}`;
+      }
+
+      let ampm = hour >= 12 ? 'p. m.' : 'a. m.';
+      let h12 = hour % 12;
+      if (h12 === 0) h12 = 12;
+      const minFormatted = String(min).padStart(2, '0');
+      return `${day}/${month}/${year} ${h12}:${minFormatted} ${ampm}`;
+    }
+  }
+
+  // 1. Si viene en formato D/M/YYYY o DD/MM/YYYY con o sin hora
   const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
   if (match) {
     const day = parseInt(match[1], 10);
     const month = parseInt(match[2], 10);
     const year = parseInt(match[3], 10);
-    let hour = match[4] !== undefined ? parseInt(match[4], 10) : 0;
+    const hasHourMatch = match[4] !== undefined;
+    let hour = hasHourMatch ? parseInt(match[4], 10) : 0;
     const min = match[5] ? match[5].padStart(2, '0') : '00';
     
+    // Si no tiene hora especificada o la hora es exactamente 0:00:00 (fecha pura sin hora en Base de Datos)
+    if (!hasHourMatch || (hour === 0 && parseInt(min, 10) === 0)) {
+      return `${day}/${month}/${year}`;
+    }
+
     const lower = str.toLowerCase();
     let ampm = 'a. m.';
     if (lower.includes('p. m.') || lower.includes('pm')) {
@@ -150,7 +179,28 @@ export function formatColombianDisplayDate(dateVal?: string | Date): string {
     const dt = dateVal instanceof Date ? dateVal : new Date(str);
     if (!isNaN(dt.getTime())) {
       try {
-        const formatter = new Intl.DateTimeFormat('es-CO', {
+        const bogotaHours = new Intl.DateTimeFormat('es-CO', {
+          timeZone: 'America/Bogota',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: false
+        }).format(dt);
+        
+        // Si la hora en Bogotá es 00:00 (o 24:00) y minutos 00, es fecha pura sin hora registrada
+        const isMidnight = bogotaHours === '00:00' || bogotaHours === '0:00' || bogotaHours === '24:00';
+        
+        const dateOnlyFormatter = new Intl.DateTimeFormat('es-CO', {
+          timeZone: 'America/Bogota',
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric'
+        });
+
+        if (isMidnight) {
+          return dateOnlyFormatter.format(dt);
+        }
+
+        const dateTimeFormatter = new Intl.DateTimeFormat('es-CO', {
           timeZone: 'America/Bogota',
           year: 'numeric',
           month: 'numeric',
@@ -159,13 +209,17 @@ export function formatColombianDisplayDate(dateVal?: string | Date): string {
           minute: '2-digit',
           hour12: true
         });
-        return formatter.format(dt);
+        return dateTimeFormatter.format(dt);
       } catch {
         const day = dt.getDate();
         const month = dt.getMonth() + 1;
         const year = dt.getFullYear();
         let hour = dt.getHours();
-        const min = String(dt.getMinutes()).padStart(2, '0');
+        const minNum = dt.getMinutes();
+        if (hour === 0 && minNum === 0) {
+          return `${day}/${month}/${year}`;
+        }
+        const min = String(minNum).padStart(2, '0');
         let ampm = hour >= 12 ? 'p. m.' : 'a. m.';
         if (hour > 12) hour -= 12;
         if (hour === 0) hour = 12;

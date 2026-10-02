@@ -9,7 +9,7 @@ import { SolicitudColcha, KpiMetrics, SectorType } from '../../types';
 import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { FloatingScrollPill } from '../Common/FloatingScrollPill';
 import { TabType } from '../Navigation';
-import { formatColombianDisplayDate, parseColombianDate } from '../../services/slaCalculator';
+import { formatColombianDisplayDate, parseColombianDate, calculateWorkingTimeBetween } from '../../services/slaCalculator';
 import { calculateCumplimientoMetrics } from '../../services/cumplimientoService';
 import { auditService, AuditLogEntry } from '../../services/auditService';
 import { opTimelineService, OpTimelineRecord, StageTimeRecord } from '../../services/opTimelineService';
@@ -59,6 +59,15 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       setTimelinesMap(map);
     });
     return () => unsub();
+  }, []);
+
+  // 3. Heartbeat en tiempo real para actualización dinámica de tiempos en estaciones de trabajo
+  const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 15000);
+    return () => clearInterval(timer);
   }, []);
 
   // 2. Real metrics calculation using official business engine
@@ -142,34 +151,68 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
     // 1. ÁREA: TRÁNSITO / DESPACHO (PRE_SOLICITUD & SOLICITADO)
     const stageTransito = stagesMap.SOLICITADO || stagesMap.PRE_SOLICITUD;
-    const ingresoTransito = stageTransito?.fechaIngresoFormatted || createdFormatted;
-    const salidaTransito = stageTransito?.fechaSalidaFormatted || stagesMap.LAVANDERIA?.fechaIngresoFormatted || (currentStageIndex > 1 ? 'Entregado a Lavandería' : 'En tránsito hacia Colfactory ZF');
-    const tiempoTransito = stageTransito?.duracionTexto || (currentStageIndex === 1 ? `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en tránsito` : 'Tránsito completado');
+    const ingresoTransito = `Creación (${createdFormatted})`;
+    const salidaTransito = currentStageIndex > 1 
+      ? 'Entregado a Lavandería' 
+      : currentStageIndex === 1 
+      ? 'En tránsito hacia Colfactory ZF' 
+      : 'Pendiente de despacho';
+    const tiempoTransito = currentStageIndex === 1 
+      ? `${calculateWorkingTimeBetween(validCreatedDt, currentTime).duracionTexto} en tránsito`
+      : currentStageIndex > 1 
+      ? (stageTransito?.duracionTexto || 'Tránsito completado')
+      : '—';
     const respTransito = stageTransito?.responsableIngreso || selectedOp.inspector || 'Despacho STF';
     const estadoTransito = currentStageIndex > 1 ? 'COMPLETADO' : currentStageIndex === 1 ? 'EN PROCESO' : 'PENDIENTE';
 
     // 2. ÁREA: LAVANDERÍA COLFACTORY ZF
     const stageLav = stagesMap.LAVANDERIA;
-    const ingresoLav = stageLav?.fechaIngresoFormatted || (currentStageIndex >= 2 ? 'Recibido en planta lavadero' : '— En espera de recepción');
-    const salidaLav = stageLav?.fechaSalidaFormatted || stagesMap.CALIDAD?.fechaIngresoFormatted || (currentStageIndex > 2 ? 'Enviado a Laboratorio STF' : currentStageIndex === 2 ? 'En ciclo de lavado (tambores)' : '— Pendiente');
-    const tiempoLav = stageLav?.duracionTexto || (currentStageIndex === 2 ? `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en lavado` : currentStageIndex > 2 ? 'Ciclo culminado' : '—');
-    const respLav = stageLav?.responsableIngreso || (currentStageIndex >= 2 ? 'Colfactory ZF / Lavandería' : '—');
+    const ingresoLav = currentStageIndex >= 2 
+      ? (stageLav?.fechaIngresoFormatted || 'Recibido en planta lavadero (Tambores)') 
+      : '— En espera de recepción';
+    const salidaLav = currentStageIndex > 2 
+      ? 'Enviado a Laboratorio STF' 
+      : currentStageIndex === 2 
+      ? 'En ciclo de lavado (tambores)' 
+      : '— Pendiente';
+    const tiempoLav = currentStageIndex === 2 
+      ? `${calculateWorkingTimeBetween(stageLav?.fechaIngreso || validCreatedDt, currentTime).duracionTexto} en lavado`
+      : currentStageIndex > 2 
+      ? (stageLav?.duracionTexto || 'Ciclo culminado')
+      : '—';
+    const respLav = currentStageIndex >= 2 ? (stageLav?.responsableIngreso || 'Colfactory ZF / Lavandería') : '—';
     const estadoLav = currentStageIndex > 2 ? 'COMPLETADO' : currentStageIndex === 2 ? 'EN PROCESO' : 'PENDIENTE';
 
     // 3. ÁREA: CALIDAD LABORATORIO STF
     const stageCal = stagesMap.CALIDAD;
-    const ingresoCal = stageCal?.fechaIngresoFormatted || (currentStageIndex >= 3 ? 'Recibido en Laboratorio STF' : '— En espera de lavado');
-    const salidaCal = stageCal?.fechaSalidaFormatted || stagesMap.EVALUADO?.fechaIngresoFormatted || (currentStageIndex > 3 ? `Dictamen emitido: ${selectedOp.dictamen || 'EVALUADO'}` : currentStageIndex === 3 ? 'En inspección técnica' : '— Pendiente');
-    const tiempoCal = stageCal?.duracionTexto || (currentStageIndex === 3 ? `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en laboratorio` : currentStageIndex > 3 ? 'Auditoría completada' : '—');
+    const ingresoCal = currentStageIndex >= 3 
+      ? (stageCal?.fechaIngresoFormatted || 'Recibido en Laboratorio STF') 
+      : '— En espera de lavado';
+    const salidaCal = currentStageIndex > 3 
+      ? `Dictamen emitido: ${selectedOp.dictamen || 'EVALUADO'}` 
+      : currentStageIndex === 3 
+      ? 'En inspección técnica' 
+      : '— Pendiente';
+    const tiempoCal = currentStageIndex === 3 
+      ? `${calculateWorkingTimeBetween(stageCal?.fechaIngreso || validCreatedDt, currentTime).duracionTexto} en laboratorio`
+      : currentStageIndex > 3 
+      ? (stageCal?.duracionTexto || 'Auditoría completada')
+      : '—';
     const respCal = stageCal?.responsableIngreso || selectedOp.inspector || (currentStageIndex >= 3 ? 'Auditor Calidad STF' : '—');
     const estadoCal = currentStageIndex > 3 ? 'COMPLETADO' : currentStageIndex === 3 ? 'EN PROCESO' : 'PENDIENTE';
 
     // 4. ÁREA: CONTROL FACTORY & LIBERACIÓN FINAL
     const stageFinal = stagesMap.FINALIZADO;
     const stageEval = stagesMap.EVALUADO;
-    const ingresoEval = stageEval?.fechaIngresoFormatted || (currentStageIndex >= 4 ? 'Enviado a Factory para cierre' : '— En espera de dictamen');
+    const ingresoEval = currentStageIndex >= 4 
+      ? (stageEval?.fechaIngresoFormatted || 'Enviado a Factory para cierre') 
+      : '— En espera de dictamen';
     const salidaFinal = stageFinal?.fechaSalidaFormatted || (currentStageIndex === 5 ? 'Lote Liberado' : currentStageIndex === 4 ? 'En espera exclusiva de Factory' : '— Pendiente');
-    const leadTimeTotal = selectedTimeline?.leadTimeTotalTexto || (currentStageIndex === 5 ? `${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h)` : `En proceso (${selectedOp.diasHabiles}d acumulados)`);
+    const leadTimeTotal = currentStageIndex === 5 
+      ? (selectedTimeline?.leadTimeTotalTexto || `${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h)`) 
+      : currentStageIndex === 4
+      ? `${calculateWorkingTimeBetween(stageEval?.fechaIngreso || validCreatedDt, currentTime).duracionTexto} en espera Factory`
+      : `En proceso (${selectedOp.diasHabiles}d acumulados)`;
     const respFinal = stageFinal?.responsableIngreso || (currentStageIndex === 5 ? 'Factory / Administrador' : '—');
     const estadoFinal = currentStageIndex === 5 ? 'COMPLETADO' : currentStageIndex === 4 ? 'EN PROCESO' : 'PENDIENTE';
 
@@ -179,7 +222,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       calidad: { ingreso: ingresoCal, salida: salidaCal, tiempo: tiempoCal, resp: respCal, estado: estadoCal },
       factory: { ingreso: ingresoEval, salida: salidaFinal, tiempo: leadTimeTotal, resp: respFinal, estado: estadoFinal }
     };
-  }, [selectedOp, selectedTimeline, currentStageIndex]);
+  }, [selectedOp, selectedTimeline, currentStageIndex, currentTime]);
 
   // Build the 6 official production timeline stages with 100% verified real data
   const stages = useMemo(() => {
@@ -205,148 +248,155 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     // Helpers to resolve verified real timestamp and operator for each stage
     // Stage 1 (CREACIÓN / REGISTRO INICIAL)
     const recPre = timelineStages.PRE_SOLICITUD;
-    const fechaEtapa1 = recPre?.fechaIngresoFormatted || formatColombianDisplayDate(validCreatedDt);
-    const fechaSalidaEtapa1 = recPre?.fechaSalidaFormatted;
-    const responsableEtapa1 = recPre?.responsableIngreso || logCreation?.usuarioNombre || selectedOp.inspector || 'OPERARIO STF';
-    const tiempoEtapa1 = recPre?.duracionTexto || 'Punto de partida (Registro de solicitud en Base de Datos)';
-    const fuenteEtapa1 = recPre ? 'Motor Automático' : 'Base de Datos';
+    const fechaEtapa1 = formatColombianDisplayDate(validCreatedDt);
+    const fechaSalidaEtapa1 = 'Registrado en Base de Datos';
+    const responsableEtapa1 = selectedOp.inspector || logCreation?.usuarioNombre || 'OPERARIO STF';
+    const tiempoEtapa1 = 'Punto de partida (Registro de solicitud en Base de Datos)';
+    const fuenteEtapa1 = 'Base de Datos';
 
     // Stage 2 (DESPACHO / TRÁNSITO)
     const recSol = timelineStages.SOLICITADO;
-    let fechaEtapa2 = recSol?.fechaIngresoFormatted || (currentStageIndex >= 1 ? formatColombianDisplayDate(validCreatedDt) : '— En espera de despacho');
-    let fechaSalidaEtapa2 = recSol?.fechaSalidaFormatted;
-    let responsableEtapa2 = recSol?.responsableIngreso || selectedOp.inspector || 'Despacho STF';
-    let tiempoEtapa2 = recSol?.duracionTexto || 'Pendiente de despacho';
-    let fuenteEtapa2 = recSol ? 'Motor Automático' : '';
-    if (currentStageIndex === 1) {
-      fechaEtapa2 = recSol?.fechaIngresoFormatted || `En tránsito desde: ${formatColombianDisplayDate(validCreatedDt)}`;
-      tiempoEtapa2 = recSol?.duracionTexto || `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en espera de recepción`;
-      fuenteEtapa2 = recSol ? 'Motor Automático' : 'En Proceso';
-    } else if (currentStageIndex > 1) {
-      if (recSol?.fechaIngresoFormatted) {
-        fechaEtapa2 = recSol.fechaIngresoFormatted;
-        fuenteEtapa2 = 'Motor Automático';
-      } else if (logTransferDespacho) {
-        fechaEtapa2 = formatColombianDisplayDate(new Date(logTransferDespacho.timestamp));
-        responsableEtapa2 = `${logTransferDespacho.usuarioNombre} (${logTransferDespacho.usuarioArea || 'DESPACHO'})`;
-        fuenteEtapa2 = 'Auditoría en vivo';
-      } else {
-        fechaEtapa2 = `Despachado en solicitud inicial (${formatColombianDisplayDate(validCreatedDt)})`;
-        fuenteEtapa2 = 'Base de Datos';
-      }
-      tiempoEtapa2 = recSol?.duracionTexto || 'Tránsito completado';
+    let fechaEtapa2 = '';
+    let fechaSalidaEtapa2 = '';
+    let fechaDisplayEtapa2 = '';
+    let responsableEtapa2 = selectedOp.inspector || 'Despacho STF';
+    let tiempoEtapa2 = '';
+    let fuenteEtapa2 = '';
+
+    if (currentStageIndex === 0) {
+      fechaEtapa2 = '— En espera de despacho';
+      fechaSalidaEtapa2 = 'Pendiente de inicio';
+      fechaDisplayEtapa2 = '⏳ En espera de despacho';
+      tiempoEtapa2 = 'Pendiente de despacho a lavandería';
+      fuenteEtapa2 = '';
+    } else if (currentStageIndex === 1) {
+      const liveTransito = calculateWorkingTimeBetween(validCreatedDt, currentTime);
+      fechaEtapa2 = 'Despachado en tránsito a Colfactory ZF';
+      fechaSalidaEtapa2 = 'En tránsito actual hacia lavadero';
+      fechaDisplayEtapa2 = '⚡ En tránsito (Medición en vivo)';
+      tiempoEtapa2 = `${liveTransito.duracionTexto} transcurridos en tránsito`;
+      fuenteEtapa2 = 'Medición en tiempo real';
+    } else {
+      fechaEtapa2 = 'Despachado hacia lavandería Colfactory ZF';
+      fechaSalidaEtapa2 = 'Recibido en planta lavadero Colfactory ZF';
+      fechaDisplayEtapa2 = logTransferDespacho 
+        ? formatColombianDisplayDate(new Date(logTransferDespacho.timestamp)) 
+        : '✓ Tránsito completado';
+      tiempoEtapa2 = recSol?.duracionTexto || 'Tránsito completado (SLA: Menor a 24 horas)';
+      fuenteEtapa2 = logTransferDespacho ? 'Auditoría en vivo' : 'Completado';
     }
 
     // Stage 3 (LAVANDERÍA COLFACTORY ZF)
     const recLav = timelineStages.LAVANDERIA;
-    let fechaEtapa3 = recLav?.fechaIngresoFormatted || '— En espera de recepción en lavadero';
-    let fechaSalidaEtapa3 = recLav?.fechaSalidaFormatted;
-    let responsableEtapa3 = recLav?.responsableIngreso || 'Colfactory ZF / Operario de Lavandería';
-    let tiempoEtapa3 = recLav?.duracionTexto || 'Pendiente de ingreso a tambores de lavado';
-    let fuenteEtapa3 = recLav ? 'Motor Automático' : '';
-    if (currentStageIndex === 2) {
-      fechaEtapa3 = recLav?.fechaIngresoFormatted || 'En proceso actual en Lavandería Colfactory';
-      tiempoEtapa3 = recLav?.duracionTexto || `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en tambor de lavado`;
-      fuenteEtapa3 = recLav ? 'Motor Automático' : 'En Proceso';
-    } else if (currentStageIndex > 2) {
-      if (recLav?.fechaIngresoFormatted) {
-        fechaEtapa3 = recLav.fechaIngresoFormatted;
-        fuenteEtapa3 = 'Motor Automático';
-      } else if (logTransferLav) {
-        fechaEtapa3 = formatColombianDisplayDate(new Date(logTransferLav.timestamp));
-        responsableEtapa3 = `${logTransferLav.usuarioNombre} (${logTransferLav.usuarioArea || 'LAVANDERÍA'})`;
-        fuenteEtapa3 = 'Auditoría en vivo';
-      } else if (signedLavanderia) {
-        fechaEtapa3 = signedLavanderia.dateStr;
-        if (signedLavanderia.userStr) responsableEtapa3 = signedLavanderia.userStr;
-        fuenteEtapa3 = 'Registro Lavandería';
-      } else {
-        fechaEtapa3 = 'Ciclo culminado en Lavandería Colfactory ZF';
-        fuenteEtapa3 = 'Base de Datos';
-      }
-      tiempoEtapa3 = recLav?.duracionTexto || 'Ciclo de lavado culminado (SLA: 2 días)';
+    let fechaEtapa3 = '';
+    let fechaSalidaEtapa3 = '';
+    let fechaDisplayEtapa3 = '';
+    let responsableEtapa3 = 'Colfactory ZF / Operario de Lavandería';
+    let tiempoEtapa3 = '';
+    let fuenteEtapa3 = '';
+
+    if (currentStageIndex < 2) {
+      fechaEtapa3 = '— En espera de recepción en lavadero';
+      fechaSalidaEtapa3 = 'Pendiente de inicio';
+      fechaDisplayEtapa3 = '⏳ En espera de recepción';
+      tiempoEtapa3 = 'Pendiente de ingreso a tambores de lavado';
+      fuenteEtapa3 = '';
+    } else if (currentStageIndex === 2) {
+      const liveLav = calculateWorkingTimeBetween(recLav?.fechaIngreso || validCreatedDt, currentTime);
+      fechaEtapa3 = recLav?.fechaIngresoFormatted || 'Recibido en planta lavadero (Tambores)';
+      fechaSalidaEtapa3 = 'En proceso actual en tambores de lavado';
+      fechaDisplayEtapa3 = '⚡ En ciclo de lavado (Medición en vivo)';
+      tiempoEtapa3 = `${liveLav.duracionTexto} en ciclo de lavado`;
+      fuenteEtapa3 = 'Medición en tiempo real';
+    } else {
+      fechaEtapa3 = recLav?.fechaIngresoFormatted || (logTransferLav ? formatColombianDisplayDate(new Date(logTransferLav.timestamp)) : (signedLavanderia?.dateStr || 'Recibido en planta lavadero Colfactory ZF'));
+      fechaSalidaEtapa3 = 'Ciclo culminado y enviado a Laboratorio STF';
+      fechaDisplayEtapa3 = recLav?.fechaIngresoFormatted || (logTransferLav ? formatColombianDisplayDate(new Date(logTransferLav.timestamp)) : (signedLavanderia?.dateStr || '✓ Ciclo lavado completado'));
+      tiempoEtapa3 = recLav?.duracionTexto || 'Ciclo de lavado culminado (SLA: 2 días hábiles)';
+      fuenteEtapa3 = recLav ? 'Motor Automático' : (logTransferLav ? 'Auditoría en vivo' : (signedLavanderia ? 'Registro Lavandería' : 'Completado'));
     }
 
     // Stage 4 (CALIDAD LABORATORIO STF)
     const recCal = timelineStages.CALIDAD;
-    let fechaEtapa4 = recCal?.fechaIngresoFormatted || '— En espera de culminación de lavado';
-    let fechaSalidaEtapa4 = recCal?.fechaSalidaFormatted;
-    let responsableEtapa4 = recCal?.responsableIngreso || selectedOp.inspector || 'Auditor Técnico de Calidad STF';
-    let tiempoEtapa4 = recCal?.duracionTexto || 'Pendiente de recepción en Laboratorio';
-    let fuenteEtapa4 = recCal ? 'Motor Automático' : '';
-    if (currentStageIndex === 3) {
-      fechaEtapa4 = recCal?.fechaIngresoFormatted || 'En auditoría técnica en Laboratorio de Calidad';
-      tiempoEtapa4 = recCal?.duracionTexto || `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en inspección de laboratorio`;
-      fuenteEtapa4 = recCal ? 'Motor Automático' : 'En Proceso';
-    } else if (currentStageIndex > 3) {
-      if (recCal?.fechaIngresoFormatted) {
-        fechaEtapa4 = recCal.fechaIngresoFormatted;
-        fuenteEtapa4 = 'Motor Automático';
-      } else if (logTransferCal) {
-        fechaEtapa4 = formatColombianDisplayDate(new Date(logTransferCal.timestamp));
-        responsableEtapa4 = `${logTransferCal.usuarioNombre} (${logTransferCal.usuarioArea || 'CALIDAD'})`;
-        fuenteEtapa4 = 'Auditoría en vivo';
-      } else if (signedCalidad) {
-        fechaEtapa4 = signedCalidad.dateStr;
-        if (signedCalidad.userStr) responsableEtapa4 = signedCalidad.userStr;
-        fuenteEtapa4 = 'Reporte Técnico';
-      } else {
-        fechaEtapa4 = `Dictamen emitido: ${selectedOp.dictamen || 'EVALUADO'}`;
-        fuenteEtapa4 = 'Base de Datos';
-      }
-      tiempoEtapa4 = recCal?.duracionTexto || 'Auditoría técnica ejecutada (SLA: 1 día)';
+    let fechaEtapa4 = '';
+    let fechaSalidaEtapa4 = '';
+    let fechaDisplayEtapa4 = '';
+    let responsableEtapa4 = selectedOp.inspector || 'Auditor Técnico de Calidad STF';
+    let tiempoEtapa4 = '';
+    let fuenteEtapa4 = '';
+
+    if (currentStageIndex < 3) {
+      fechaEtapa4 = '— En espera de culminación de lavado';
+      fechaSalidaEtapa4 = 'Pendiente de recepción en Laboratorio';
+      fechaDisplayEtapa4 = '⏳ En espera de culminación de lavado';
+      tiempoEtapa4 = 'Pendiente de recepción en Laboratorio';
+      fuenteEtapa4 = '';
+    } else if (currentStageIndex === 3) {
+      const liveCal = calculateWorkingTimeBetween(recCal?.fechaIngreso || validCreatedDt, currentTime);
+      fechaEtapa4 = recCal?.fechaIngresoFormatted || 'Recibido en Laboratorio de Calidad STF';
+      fechaSalidaEtapa4 = 'En inspección metrológica y espectro de tono';
+      fechaDisplayEtapa4 = '⚡ En inspección (Medición en vivo)';
+      tiempoEtapa4 = `${liveCal.duracionTexto} en inspección de laboratorio`;
+      fuenteEtapa4 = 'Medición en tiempo real';
+    } else {
+      fechaEtapa4 = recCal?.fechaIngresoFormatted || (logTransferCal ? formatColombianDisplayDate(new Date(logTransferCal.timestamp)) : (signedCalidad?.dateStr || 'Recibido en Laboratorio STF'));
+      fechaSalidaEtapa4 = `Dictamen técnico emitido: ${selectedOp.dictamen || 'EVALUADO'}`;
+      fechaDisplayEtapa4 = recCal?.fechaIngresoFormatted || (logTransferCal ? formatColombianDisplayDate(new Date(logTransferCal.timestamp)) : (signedCalidad?.dateStr || '✓ Auditoría completada'));
+      tiempoEtapa4 = recCal?.duracionTexto || 'Auditoría técnica ejecutada (SLA: 1 día hábil)';
+      fuenteEtapa4 = recCal ? 'Motor Automático' : (logTransferCal ? 'Auditoría en vivo' : (signedCalidad ? 'Reporte Técnico' : 'Completado'));
     }
 
     // Stage 5 (EVALUADO Y ENVIADO A FACTORY)
     const recEval = timelineStages.EVALUADO;
-    let fechaEtapa5 = recEval?.fechaIngresoFormatted || '— En espera de emisión de dictamen';
-    let fechaSalidaEtapa5 = recEval?.fechaSalidaFormatted;
-    let responsableEtapa5 = recEval?.responsableIngreso || 'Colfactory ZF / Jefe de Lavandería';
-    let tiempoEtapa5 = recEval?.duracionTexto || 'Pendiente de aprobación técnica de Calidad';
-    let fuenteEtapa5 = recEval ? 'Motor Automático' : '';
-    if (currentStageIndex === 4) {
-      fechaEtapa5 = recEval?.fechaIngresoFormatted || 'En espera exclusiva de validación y cierre por Factory';
-      tiempoEtapa5 = recEval?.duracionTexto || `${selectedOp.diasHabiles}d (${selectedOp.horasEnProceso}h) en espera de cierre`;
-      fuenteEtapa5 = recEval ? 'Motor Automático' : 'En Proceso';
-    } else if (currentStageIndex > 4) {
-      if (recEval?.fechaIngresoFormatted) {
-        fechaEtapa5 = recEval.fechaIngresoFormatted;
-        fuenteEtapa5 = 'Motor Automático';
-      } else if (logDictamen) {
-        fechaEtapa5 = formatColombianDisplayDate(new Date(logDictamen.timestamp));
-        responsableEtapa5 = `${logDictamen.usuarioNombre} (${logDictamen.usuarioArea || 'CALIDAD'})`;
-        fuenteEtapa5 = 'Auditoría en vivo';
-      } else {
-        fechaEtapa5 = 'Dictamen evaluado y enviado a Factory';
-        fuenteEtapa5 = 'Base de Datos';
-      }
+    let fechaEtapa5 = '';
+    let fechaSalidaEtapa5 = '';
+    let fechaDisplayEtapa5 = '';
+    let responsableEtapa5 = 'Colfactory ZF / Jefe de Lavandería';
+    let tiempoEtapa5 = '';
+    let fuenteEtapa5 = '';
+
+    if (currentStageIndex < 4) {
+      fechaEtapa5 = '— En espera de emisión de dictamen';
+      fechaSalidaEtapa5 = 'Pendiente de aprobación técnica de Calidad';
+      fechaDisplayEtapa5 = '⏳ En espera de dictamen';
+      tiempoEtapa5 = 'Pendiente de aprobación técnica de Calidad';
+      fuenteEtapa5 = '';
+    } else if (currentStageIndex === 4) {
+      const liveEval = calculateWorkingTimeBetween(recEval?.fechaIngreso || validCreatedDt, currentTime);
+      fechaEtapa5 = recEval?.fechaIngresoFormatted || 'Enviado a Factory con dictamen emitido';
+      fechaSalidaEtapa5 = 'En espera exclusiva de validación y cierre por Factory';
+      fechaDisplayEtapa5 = '⚡ En espera de cierre Factory (Medición en vivo)';
+      tiempoEtapa5 = `${liveEval.duracionTexto} en espera de cierre Factory`;
+      fuenteEtapa5 = 'Medición en tiempo real';
+    } else {
+      fechaEtapa5 = recEval?.fechaIngresoFormatted || (logDictamen ? formatColombianDisplayDate(new Date(logDictamen.timestamp)) : 'Enviado a Factory con dictamen emitido');
+      fechaSalidaEtapa5 = 'Control Factory avalado y orden liberada';
+      fechaDisplayEtapa5 = recEval?.fechaIngresoFormatted || (logDictamen ? formatColombianDisplayDate(new Date(logDictamen.timestamp)) : '✓ Validado por Factory');
       tiempoEtapa5 = recEval?.duracionTexto || 'Control Factory avalado';
+      fuenteEtapa5 = recEval ? 'Motor Automático' : (logDictamen ? 'Auditoría en vivo' : 'Completado');
     }
 
     // Stage 6 (FINALIZADO / LIBERACIÓN)
     const recFin = timelineStages.FINALIZADO;
-    let fechaEtapa6 = recFin?.fechaIngresoFormatted || '— Pendiente de liberación final';
-    let fechaSalidaEtapa6 = recFin?.fechaSalidaFormatted;
-    let responsableEtapa6 = recFin?.responsableIngreso || 'Colfactory ZF / Administrador STF';
-    let tiempoEtapa6 = recFin?.duracionTexto || 'En espera de liberación por Factory';
-    let fuenteEtapa6 = recFin ? 'Motor Automático' : '';
-    if (currentStageIndex === 5) {
-      if (recFin?.fechaIngresoFormatted) {
-        fechaEtapa6 = recFin.fechaIngresoFormatted;
-        fuenteEtapa6 = 'Motor Automático';
-      } else if (logFinalizado) {
-        fechaEtapa6 = formatColombianDisplayDate(new Date(logFinalizado.timestamp));
-        responsableEtapa6 = `${logFinalizado.usuarioNombre} (${logFinalizado.usuarioArea || 'COLFACTORY'})`;
-        fuenteEtapa6 = 'Auditoría en vivo';
-      } else if (signedPrenda) {
-        fechaEtapa6 = `${signedPrenda.dateStr} (Prenda Terminada)`;
-        if (signedPrenda.userStr) responsableEtapa6 = signedPrenda.userStr;
-        fuenteEtapa6 = 'Prenda Terminada';
-      } else {
-        fechaEtapa6 = `Orden Liberada y Registrada en Base de Datos`;
-        fuenteEtapa6 = 'Base de Datos';
-      }
+    let fechaEtapa6 = '';
+    let fechaSalidaEtapa6 = '';
+    let fechaDisplayEtapa6 = '';
+    let responsableEtapa6 = 'Colfactory ZF / Administrador STF';
+    let tiempoEtapa6 = '';
+    let fuenteEtapa6 = '';
+
+    if (currentStageIndex < 5) {
+      fechaEtapa6 = '— Pendiente de liberación final';
+      fechaSalidaEtapa6 = 'Pendiente de liberación por Factory';
+      fechaDisplayEtapa6 = '⏳ Pendiente de cierre';
+      tiempoEtapa6 = 'En espera de liberación por Factory';
+      fuenteEtapa6 = '';
+    } else {
+      fechaEtapa6 = recFin?.fechaIngresoFormatted || (logFinalizado ? formatColombianDisplayDate(new Date(logFinalizado.timestamp)) : (signedPrenda ? `${signedPrenda.dateStr} (Prenda Terminada)` : 'Orden liberada formalmente en Base de Datos'));
+      fechaSalidaEtapa6 = 'Circuito completo (6 de 6 etapas liberadas)';
+      fechaDisplayEtapa6 = recFin?.fechaIngresoFormatted || (logFinalizado ? formatColombianDisplayDate(new Date(logFinalizado.timestamp)) : (signedPrenda ? signedPrenda.dateStr : '✓ Circuito Liberado y Cerrado'));
       tiempoEtapa6 = selectedTimeline?.leadTimeTotalTexto || recFin?.duracionTexto || `Lead Time total: ${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h de jornada)`;
+      fuenteEtapa6 = recFin ? 'Motor Automático' : (logFinalizado ? 'Auditoría en vivo' : (signedPrenda ? 'Prenda Terminada' : 'Base de Datos'));
     }
 
     return [
@@ -385,12 +435,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         estado: currentStageIndex >= 1 ? (currentStageIndex === 1 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
         fechaIngreso: fechaEtapa2,
         fechaSalida: fechaSalidaEtapa2,
-        fechaDisplay: fechaEtapa2,
+        fechaDisplay: fechaDisplayEtapa2,
         fuente: fuenteEtapa2,
         responsable: responsableEtapa2,
         tiempoArea: tiempoEtapa2,
         tiempoAcumulado: currentStageIndex === 1 
-          ? `${selectedOp.diasHabiles} días hábiles acumulados`
+          ? `${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h) acumulados`
           : (currentStageIndex > 1 ? 'Tránsito completado' : 'Pendiente'),
         icono: '📦',
         iconBg: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-400/40',
@@ -412,12 +462,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         estado: currentStageIndex >= 2 ? (currentStageIndex === 2 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
         fechaIngreso: fechaEtapa3,
         fechaSalida: fechaSalidaEtapa3,
-        fechaDisplay: fechaEtapa3,
+        fechaDisplay: fechaDisplayEtapa3,
         fuente: fuenteEtapa3,
         responsable: responsableEtapa3,
         tiempoArea: tiempoEtapa3,
         tiempoAcumulado: currentStageIndex === 2 
-          ? `${selectedOp.diasHabiles} días hábiles transcurridos`
+          ? `${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h) transcurridos`
           : (currentStageIndex > 2 ? 'Ciclo lavado completado' : 'Pendiente'),
         icono: '💧',
         iconBg: 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border-sky-400/40',
@@ -439,12 +489,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         estado: currentStageIndex >= 3 ? (currentStageIndex === 3 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
         fechaIngreso: fechaEtapa4,
         fechaSalida: fechaSalidaEtapa4,
-        fechaDisplay: fechaEtapa4,
+        fechaDisplay: fechaDisplayEtapa4,
         fuente: fuenteEtapa4,
         responsable: responsableEtapa4,
         tiempoArea: tiempoEtapa4,
         tiempoAcumulado: currentStageIndex === 3 
-          ? `${selectedOp.diasHabiles} días hábiles acumulados`
+          ? `${selectedOp.diasHabiles} días hábiles (~${selectedOp.horasEnProceso}h) acumulados`
           : (currentStageIndex > 3 ? 'Auditoría completada' : 'Pendiente'),
         icono: '🔬',
         iconBg: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-400/40',
@@ -468,7 +518,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         estado: currentStageIndex >= 4 ? (currentStageIndex === 4 ? 'ACTIVO' : 'COMPLETADO') : 'PENDIENTE',
         fechaIngreso: fechaEtapa5,
         fechaSalida: fechaSalidaEtapa5,
-        fechaDisplay: fechaEtapa5,
+        fechaDisplay: fechaDisplayEtapa5,
         fuente: fuenteEtapa5,
         responsable: responsableEtapa5,
         tiempoArea: tiempoEtapa5,
@@ -497,7 +547,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         estado: currentStageIndex === 5 ? 'COMPLETADO' : 'PENDIENTE',
         fechaIngreso: fechaEtapa6,
         fechaSalida: fechaSalidaEtapa6,
-        fechaDisplay: fechaEtapa6,
+        fechaDisplay: fechaDisplayEtapa6,
         fuente: fuenteEtapa6,
         responsable: responsableEtapa6,
         tiempoArea: tiempoEtapa6,
@@ -518,7 +568,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         enAlerta: false
       }
     ];
-  }, [selectedOp, currentStageIndex, opAuditLogs, selectedTimeline]);
+  }, [selectedOp, currentStageIndex, opAuditLogs, selectedTimeline, currentTime]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 select-none pb-12 relative font-sans">

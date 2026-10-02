@@ -41,7 +41,6 @@ import {
   updateLocalOpStatus,
   updateLocalOpPhoto,
   markMonitoreoOpAsConsumed,
-  deleteOrConsumeMonitoreoOpFromSheets,
   syncAllAlertasToSheets,
   removeOpFromAlertasSheet,
   deleteOpFromGoogleSheets,
@@ -385,13 +384,63 @@ export function App() {
         syncUsuariosFromSheets()
       ]);
 
-      if (monitoreoData.length > 0) setMonitoreoList(monitoreoData);
+      // Blindaje contra condición de carrera: asegurar que cualquier OP creada localmente nunca se pierda
+      const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
+
+      // BLINDAJE INDUSTRIAL: Filtrar de Monitoreo cualquier OP que ya esté en BASE_DE_DATOS o en cola local
+      const registeredOpCodes = new Set<string>();
+      baseDatosData.forEach(b => {
+        const opVal = (b.op || '').trim().toUpperCase();
+        if (opVal) {
+          registeredOpCodes.add(opVal);
+          registeredOpCodes.add(opVal.replace(/^OP-?/, ''));
+          const digits = opVal.replace(/\D/g, '');
+          if (digits) {
+            registeredOpCodes.add(digits);
+            registeredOpCodes.add(parseInt(digits, 10).toString());
+          }
+        }
+      });
+      localOps.forEach(l => {
+        const opVal = (l.op || '').trim().toUpperCase();
+        if (opVal) {
+          registeredOpCodes.add(opVal);
+          registeredOpCodes.add(opVal.replace(/^OP-?/, ''));
+          const digits = opVal.replace(/\D/g, '');
+          if (digits) {
+            registeredOpCodes.add(digits);
+            registeredOpCodes.add(parseInt(digits, 10).toString());
+          }
+        }
+      });
+
+      const cleanMonitoreo = monitoreoData.filter(item => {
+        const opVal = (item.op || '').trim().toUpperCase();
+        if (!opVal) return false;
+        const noPrefix = opVal.replace(/^OP-?/, '');
+        const digits = opVal.replace(/\D/g, '');
+        const intVal = digits ? parseInt(digits, 10).toString() : '';
+        return (
+          !registeredOpCodes.has(opVal) &&
+          !registeredOpCodes.has(noPrefix) &&
+          (!digits || !registeredOpCodes.has(digits)) &&
+          (!intVal || !registeredOpCodes.has(intVal))
+        );
+      });
+      setMonitoreoList(cleanMonitoreo);
+
       if (baseDatosData.length > 0) {
         // Exclude OPs that have been deleted by Edwin into history
         const activeOnly = baseDatosData.filter(item => !isOpDeleted(item.op));
 
-        // Blindaje contra condición de carrera: asegurar que cualquier OP creada localmente nunca se pierda
-        const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
+        // Limpiar de localStorage localOps que ya están 100% confirmadas en Sheets
+        localOps.forEach(loc => {
+          const cleanLoc = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
+          const isConfirmed = activeOnly.some(rem => ((rem.op || '').replace(/\D/g, '') || rem.op.trim().toUpperCase()) === cleanLoc);
+          if (isConfirmed) {
+            removeLocalCreatedOp(loc.op);
+          }
+        });
 
         // Enriquecer todas las OPs remotas con fotos cacheadas en memoria/disco para que el polling de Sheets no las borre
         const enrichedRemote = activeOnly.map(remote => {
@@ -442,6 +491,18 @@ export function App() {
             };
           }
         });
+
+        // Reintento resiliente automático en segundo plano para OPs locales aún no reflejadas en Sheets
+        const unconfirmedLocalOps = localOps.filter(loc => {
+          const cleanLoc = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
+          return !activeOnly.some(rem => ((rem.op || '').replace(/\D/g, '') || rem.op.trim().toUpperCase()) === cleanLoc);
+        });
+
+        if (unconfirmedLocalOps.length > 0) {
+          unconfirmedLocalOps.forEach(pendingOp => {
+            pushSolicitudToSheets(pendingOp).catch(() => {});
+          });
+        }
 
         setSolicitudes(mergedLive);
         saveCachedSolicitudes(mergedLive);
@@ -749,21 +810,24 @@ export function App() {
         return cleanItemOp !== cleanOpNumber;
       }));
       markMonitoreoOpAsConsumed(nueva.op);
-      deleteOrConsumeMonitoreoOpFromSheets(nueva.op).catch(() => {});
 
-      // Sincronización en vivo hacia Google Sheets & Drive (Página BASE_DE_DATOS) en segundo plano
+      // Sincronización atómica hacia Google Sheets & Drive (BASE_DE_DATOS) en segundo plano
       pushSolicitudToSheets(nueva).then(res => {
-        if (res && res.driveUrl) {
-          updateLocalOpPhoto(nueva.op, res.driveUrl, false);
-          setSolicitudes(prev => prev.map(s => {
-            if ((s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) === cleanTarget) {
-              return { ...s, fotoMuestraUrl: res.driveUrl };
-            }
-            return s;
-          }));
+        if (res && res.success) {
+          if (res.driveUrl) {
+            updateLocalOpPhoto(nueva.op, res.driveUrl, false);
+            setSolicitudes(prev => prev.map(s => {
+              if ((s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) === cleanTarget) {
+                return { ...s, fotoMuestraUrl: res.driveUrl, driveFolderUrl: res.folderUrl };
+              }
+              return s;
+            }));
+          }
+        } else {
+          console.warn('Advertencia al registrar en Google Sheets:', res?.message);
         }
       }).catch(err => {
-        console.warn('Error sincronizando nueva solicitud con Google Sheets:', err);
+        console.error('Error sincronizando nueva solicitud con Google Sheets:', err);
       });
 
       // Navegación inmediata a Bandeja, activación del filtro de etapa y apertura de etiqueta térmica
