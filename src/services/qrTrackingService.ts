@@ -144,14 +144,15 @@ export function generatePublicTrackingUrl(colcha: SolicitudColcha): string {
     // Codificación segura UTF-8 Base64
     const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
     
-    // Si la cadena codificada excede 950 caracteres, usar el fallback limpio para garantizar que el QR nunca exceda el límite físico
-    if (base64Data.length > 950) {
+    // Si la cadena codificada excede 280 caracteres, optimizar quitando fotos y observaciones extensas
+    // para mantener los módulos del código QR grandes, gruesos y legibles por cualquier celular en la etiqueta térmica física
+    if (base64Data.length > 280) {
       delete compact.f1;
       delete compact.f2;
       delete compact.obs;
       delete compact.obsC;
       const strippedData = btoa(unescape(encodeURIComponent(JSON.stringify(compact))));
-      if (strippedData.length > 950) {
+      if (strippedData.length > 280) {
         return fallbackUrl;
       }
       return `${origin}/?op=${encodeURIComponent(cleanOp)}&view=public&d=${encodeURIComponent(strippedData)}`;

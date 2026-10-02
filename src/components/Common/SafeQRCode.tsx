@@ -66,13 +66,16 @@ export const SafeQRCode: React.FC<SafeQRCodeProps> = ({
     fallbackUrl = 'https://colchas.vercel.app';
   }
 
-  // Si el valor excede 950 caracteres, usar de inmediato el enlace limpio para garantizar nitidez y 0 errores
-  if (value && value.length > 950) {
+  // Si el valor excede 280 caracteres cuando hay un logotipo central (etiquetas térmicas),
+  // usar el enlace limpio (?op=...&view=public) para garantizar que los módulos del QR sean grandes,
+  // gruesos y 100% legibles por cámaras móviles en etiquetas térmicas de 100x100mm
+  if (value && imageSettings && value.length > 280) {
+    safeValue = fallbackUrl;
+  } else if (value && value.length > 750) {
     safeValue = fallbackUrl;
   }
 
-  // Si tiene imagen central embebida y el nivel solicitado es 'M' o 'L',
-  // elevar automáticamente a 'Q' (25% redundancia) para que la lectura por cámara sea 100% confiable
+  // Si tiene imagen central embebida (isotipo STF), garantizar nivel 'Q' (25% redundancia)
   const effectiveLevel = imageSettings && (level === 'M' || level === 'L') ? 'Q' : level;
 
   return (

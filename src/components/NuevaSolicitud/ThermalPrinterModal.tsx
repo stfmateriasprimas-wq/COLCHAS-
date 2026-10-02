@@ -226,12 +226,12 @@ export const ThermalPrinterModal: React.FC<ThermalPrinterModalProps> = ({ colcha
                           id="thermal-label-qr-svg"
                           value={publicLink}
                           size={76}
-                          level="M"
+                          level="Q"
                           includeMargin={false}
                           imageSettings={{
                             src: STF_QR_LOGO_SVG,
-                            height: 20,
-                            width: 20,
+                            height: 16,
+                            width: 16,
                             excavate: true,
                           }}
                         />

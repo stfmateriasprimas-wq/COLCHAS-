@@ -4,13 +4,60 @@ import {
   Droplets, Eye, AlertCircle, Shirt, 
   Upload, Zap, ZapOff, RotateCcw, Search, Keyboard, ZoomIn, ZoomOut
 } from 'lucide-react';
-import { BrowserQRCodeReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
+import { 
+  QRCodeReader, 
+  RGBLuminanceSource, 
+  HybridBinarizer, 
+  GlobalHistogramBinarizer, 
+  BinaryBitmap, 
+  DecodeHintType, 
+  BarcodeFormat 
+} from '@zxing/library';
 import jsQR from 'jsqr';
 import { SolicitudColcha, SectorType, DictamenType } from '../../types';
 import { UsuarioSTF, isLavanderiaUser, isFactoryUser, isEdiazUser, isAdminUser } from '../../services/authService';
 import { parsePublicTrackingPayload } from '../../services/qrTrackingService';
 import { formatOpCode, isMatchingOp, getLocalCreatedOps, saveLocalCreatedOp, fetchBaseDeDatosSheet } from '../../services/googleSheetsService';
 import { notificationService } from '../../services/notificationService';
+
+/**
+ * Normaliza y realza el contraste de imagen para etiquetas térmicas impresas en papel.
+ * Elimina reflejos de luces de planta, sombras y el fondo grisáceo del papel térmico,
+ * convirtiendo los puntos impresos en negro puro y el fondo en blanco nítido.
+ */
+function enhanceThermalQrImage(data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
+  const len = width * height;
+  const out = new Uint8ClampedArray(len * 4);
+  
+  let minLum = 255;
+  let maxLum = 0;
+  for (let i = 0; i < len; i++) {
+    const idx = i * 4;
+    const lum = (data[idx] * 299 + data[idx + 1] * 587 + data[idx + 2] * 114) / 1000;
+    if (lum < minLum) minLum = lum;
+    if (lum > maxLum) maxLum = lum;
+  }
+  
+  const range = maxLum - minLum;
+  if (range < 25) {
+    return data;
+  }
+  
+  for (let i = 0; i < len; i++) {
+    const idx = i * 4;
+    const lum = (data[idx] * 299 + data[idx + 1] * 587 + data[idx + 2] * 114) / 1000;
+    let norm = (lum - minLum) / range;
+    // Curva S para forzar negros profundos y blancos limpios
+    norm = norm < 0.5 ? 2 * norm * norm : 1 - 2 * (1 - norm) * (1 - norm);
+    const val = Math.min(255, Math.max(0, Math.round(norm * 255)));
+    out[idx] = val;
+    out[idx + 1] = val;
+    out[idx + 2] = val;
+    out[idx + 3] = 255;
+  }
+  
+  return out;
+}
 
 interface QrScannerModalProps {
   isOpen: boolean;
@@ -67,23 +114,24 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
   const scanCycleCountRef = useRef<number>(0);
   const isDetectedRef = useRef<boolean>(false);
 
-  // Lector industrial ZXing BrowserQRCodeReader
-  const zxingReaderRef = useRef<BrowserQRCodeReader | null>(null);
+  // Motor industrial ZXing QRCodeReader con hints TRY_HARDER
+  const zxingQrReaderRef = useRef<QRCodeReader | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const zxingHintsRef = useRef<Map<any, any> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const barcodeDetectorRef = useRef<any>(null);
 
   // Inicializar motores de lectura
   useEffect(() => {
-    // 1. ZXing con hints de máxima agresividad (TRY_HARDER) para leer etiquetas térmicas con logotipo central
+    // 1. ZXing QRCodeReader con TRY_HARDER activado (recuperación de módulos con logo STF central)
     const hints = new Map();
     hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
     hints.set(DecodeHintType.TRY_HARDER, true);
     hints.set(DecodeHintType.CHARACTER_SET, 'UTF-8');
-    const zxing = new BrowserQRCodeReader(120);
-    zxing.hints = hints;
-    zxingReaderRef.current = zxing;
+    zxingHintsRef.current = hints;
+    zxingQrReaderRef.current = new QRCodeReader();
 
-    // 2. BarcodeDetector nativo si está disponible (Android Chrome / macOS)
+    // 2. BarcodeDetector nativo si está disponible en el hardware
     if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,14 +140,6 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
         barcodeDetectorRef.current = null;
       }
     }
-
-    return () => {
-      try {
-        zxing.reset();
-      } catch {
-        // Ignorar
-      }
-    };
   }, []);
 
   // Reproducir sonido beep y vibración al detectar QR con éxito
@@ -262,18 +302,60 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     triggerScanFeedback();
     setScannedOpCode(opCode);
 
-    try {
-      if (zxingReaderRef.current) {
-        zxingReaderRef.current.reset();
-      }
-    } catch {
-      // Ignorar
-    }
-
     await resolveColcha(rawText, opCode);
   }, [extractOpCode, triggerScanFeedback, resolveColcha]);
 
-  // Iniciar la cámara del dispositivo con autoenfoque continuo y resolución adaptativa
+  // Decodificador universal multi-motor (jsQR + Filtro Térmico + ZXing Industrial Dual Binarizer)
+  const tryDecodeImageData = useCallback((imageData: ImageData, width: number, height: number): string | null => {
+    const data = imageData.data;
+
+    // 1. Decodificación directa ultra-rápida con jsQR (ambas polaridades)
+    try {
+      const codeDirect = jsQR(data, width, height, { inversionAttempts: 'attemptBoth' });
+      if (codeDirect && codeDirect.data) return codeDirect.data;
+    } catch {}
+
+    // 2. Realce adaptativo de luminancia / contraste para etiquetas térmicas
+    let enhanced: Uint8ClampedArray | null = null;
+    try {
+      enhanced = enhanceThermalQrImage(data, width, height);
+      if (enhanced && enhanced !== data) {
+        const codeEnhanced = jsQR(enhanced, width, height, { inversionAttempts: 'attemptBoth' });
+        if (codeEnhanced && codeEnhanced.data) return codeEnhanced.data;
+      }
+    } catch {}
+
+    // 3. Motor Industrial ZXing QRCodeReader con corrección Reed-Solomon profunda
+    if (zxingQrReaderRef.current && zxingHintsRef.current) {
+      try {
+        const targetData = enhanced || data;
+        const rgb = new Int32Array(width * height);
+        for (let i = 0; i < width * height; i++) {
+          const idx = i * 4;
+          rgb[i] = (targetData[idx] << 16) | (targetData[idx + 1] << 8) | targetData[idx + 2];
+        }
+        const lumSource = new RGBLuminanceSource(rgb, width, height);
+
+        // 3A. Binarizador híbrido ZXing (bordes geométricos nítidos)
+        try {
+          const bmpHybrid = new BinaryBitmap(new HybridBinarizer(lumSource));
+          const resHybrid = zxingQrReaderRef.current.decode(bmpHybrid, zxingHintsRef.current);
+          if (resHybrid && resHybrid.getText()) return resHybrid.getText();
+        } catch {}
+
+        // 3B. Binarizador por histograma global ZXing (vital para reflejos de luz y brillo en papel térmico)
+        try {
+          const bmpGlobal = new BinaryBitmap(new GlobalHistogramBinarizer(lumSource));
+          const resGlobal = zxingQrReaderRef.current.decode(bmpGlobal, zxingHintsRef.current);
+          if (resGlobal && resGlobal.getText()) return resGlobal.getText();
+        } catch {}
+      } catch {}
+    }
+
+    return null;
+  }, []);
+
+  // Iniciar la cámara del dispositivo con resolución HD 1080p y autoenfoque continuo
   const startCamera = useCallback(async () => {
     setCameraError(null);
     setIsScanning(true);
@@ -300,8 +382,8 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
       const constraints: MediaStreamConstraints = {
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 }
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 }
         },
         audio: false
       };
@@ -318,7 +400,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
         setTorchSupported(Boolean(capabilities?.torch));
         setZoomSupported(Boolean(capabilities?.zoom));
 
-        // Aplicar autoenfoque continuo por hardware si es soportado (crítico para etiquetas térmicas de cerca)
+        // Aplicar autoenfoque continuo por hardware si es soportado
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const advancedList: any[] = [];
         if (capabilities?.focusMode?.includes?.('continuous')) {
@@ -337,22 +419,6 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute('playsinline', 'true');
         await videoRef.current.play();
-
-        // INICIAR DECODER CONTINUO ZXING DIRECTO SOBRE EL VIDEO (Óptimo para iPhone iOS Safari)
-        if (zxingReaderRef.current) {
-          try {
-            zxingReaderRef.current.decodeFromVideoElementContinuously(videoRef.current, (result) => {
-              if (result && !isDetectedRef.current) {
-                const text = result.getText();
-                if (text) {
-                  handleDecodedSuccess(text);
-                }
-              }
-            });
-          } catch (e) {
-            console.warn('Aviso: Fallback a loop de canvas para ZXing:', e);
-          }
-        }
       }
     } catch (err: unknown) {
       console.warn('Error al acceder a la cámara:', err);
@@ -364,7 +430,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
         setCameraError('No se pudo inicializar la cámara. Puedes subir una foto con el QR o ingresar la OP manualmente.');
       }
     }
-  }, [facingMode, handleDecodedSuccess]);
+  }, [facingMode]);
 
   // Detener la cámara y cancelar timers
   const stopCamera = useCallback(() => {
@@ -375,13 +441,6 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     if (scanTimeoutRef.current) {
       clearTimeout(scanTimeoutRef.current);
       scanTimeoutRef.current = null;
-    }
-    if (zxingReaderRef.current) {
-      try {
-        zxingReaderRef.current.reset();
-      } catch {
-        // Ignorar
-      }
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
@@ -412,9 +471,9 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
 
-  // Alternar zoom 1x / 2x (óptimo para enfocar etiquetas térmicas pequeñas sin desenfoque)
+  // Alternar zoom 1x / 1.5x / 2x (óptimo para enfocar etiquetas térmicas pequeñas sin desenfoque)
   const toggleZoom = async () => {
-    const nextZoom = zoomLevel === 1 ? 2 : 1;
+    const nextZoom = zoomLevel === 1 ? 1.5 : (zoomLevel === 1.5 ? 2 : 1);
     setZoomLevel(nextZoom);
     if (!streamRef.current) return;
     try {
@@ -424,11 +483,11 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
         await track.applyConstraints({ advanced: [{ zoom: nextZoom } as any] });
       }
     } catch {
-      // Si el hardware no soporta zoom nativo, se aplica mediante transformación visual en CSS
+      // Si el hardware no soporta zoom nativo, se aplica mediante transformación en el canvas de escaneo
     }
   };
 
-  // Loop de escaneo multi-motor complementario (BarcodeDetector + Recorte ROI jsQR)
+  // Loop de escaneo coordinado multi-motor (BarcodeDetector + jsQR Nativo + Realce Térmico + ZXing Dual)
   const scanLoop = useCallback(async () => {
     if (!isScanning || isDetectedRef.current) return;
     if (isProcessingFrameRef.current) {
@@ -447,61 +506,71 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
 
     isProcessingFrameRef.current = true;
     scanCycleCountRef.current++;
+    const cycle = scanCycleCountRef.current;
 
     try {
       let detectedRaw: string | null = null;
 
-      // MOTOR 1: Hardware BarcodeDetector Nativo (Ultra rápido: 1-2 ms en Android)
+      // MOTOR 1: Hardware BarcodeDetector Nativo (Ultra rápido: 1-2 ms en Android Chrome / macOS)
       if (barcodeDetectorRef.current) {
         try {
           const barcodes = await barcodeDetectorRef.current.detect(video);
           if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
             detectedRaw = barcodes[0].rawValue;
           }
-        } catch {
-          // Continuar con jsQR
-        }
+        } catch {}
       }
 
-      // MOTOR 2: Fallback jsQR con Recorte Central (ROI) y doble intento de inversión
+      // MOTORES 2, 3 Y 4 EN CANVAS DE ALTA PRECISIÓN (Sin compresión destructiva)
       if (!detectedRaw && canvas) {
         const vw = video.videoWidth;
         const vh = video.videoHeight;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
         if (ctx) {
-          // Recorte del visor central (65% del área, exactamente donde el operario enfoca la etiqueta)
-          const cropDim = Math.floor(Math.min(vw, vh) * 0.65);
+          // MOTOR 2: Recorte ROI central a resolución 100% nativa de sensor
+          // Si el hardware no hace zoom nativo, recortamos un área más concentrada para coincidir con la vista del usuario
+          const effectiveZoom = !zoomSupported && zoomLevel > 1 ? zoomLevel : 1;
+          const baseRatio = effectiveZoom === 1 ? 0.70 : (0.70 / effectiveZoom);
+          const cropDim = Math.floor(Math.min(vw, vh) * baseRatio);
           const sx = Math.floor((vw - cropDim) / 2);
           const sy = Math.floor((vh - cropDim) / 2);
-          const targetSize = Math.min(cropDim, 440); // 440px max para ejecución ultra-veloz
 
-          canvas.width = targetSize;
-          canvas.height = targetSize;
-          ctx.drawImage(video, sx, sy, cropDim, cropDim, 0, 0, targetSize, targetSize);
+          canvas.width = cropDim;
+          canvas.height = cropDim;
+          ctx.drawImage(video, sx, sy, cropDim, cropDim, 0, 0, cropDim, cropDim);
+          const roiImgData = ctx.getImageData(0, 0, cropDim, cropDim);
 
-          const cropImgData = ctx.getImageData(0, 0, targetSize, targetSize);
-          const code = jsQR(cropImgData.data, targetSize, targetSize, {
-            inversionAttempts: 'attemptBoth'
-          });
+          detectedRaw = tryDecodeImageData(roiImgData, cropDim, cropDim);
 
-          if (code && code.data) {
-            detectedRaw = code.data;
-          } else if (scanCycleCountRef.current % 3 === 0) {
-            // Fotograma completo escalado cada 3 ciclos
-            const fullScale = 400 / Math.max(vw, vh);
-            const fullW = Math.floor(vw * fullScale);
-            const fullH = Math.floor(vh * fullScale);
+          // MOTOR 3: Macro-zoom de alta precisión (área central 40% a píxeles nativos del sensor)
+          // Ideal cuando el operario sostiene el celular a 15-22 cm donde la cámara enfoca nítidamente
+          if (!detectedRaw && cycle % 2 === 0) {
+            const macroDim = Math.floor(Math.min(vw, vh) * 0.40);
+            const msx = Math.floor((vw - macroDim) / 2);
+            const msy = Math.floor((vh - macroDim) / 2);
+
+            canvas.width = macroDim;
+            canvas.height = macroDim;
+            ctx.drawImage(video, msx, msy, macroDim, macroDim, 0, 0, macroDim, macroDim);
+            const macroImgData = ctx.getImageData(0, 0, macroDim, macroDim);
+
+            detectedRaw = tryDecodeImageData(macroImgData, macroDim, macroDim);
+          }
+
+          // MOTOR 4: Fotograma completo a alta resolución (cada 3 ciclos, por si la etiqueta física está descentrada)
+          if (!detectedRaw && cycle % 3 === 0) {
+            const maxDim = 960; // 960px conserva intactos los módulos finos de etiquetas térmicas
+            const scale = Math.min(1, maxDim / Math.max(vw, vh));
+            const fullW = Math.floor(vw * scale);
+            const fullH = Math.floor(vh * scale);
+
             canvas.width = fullW;
             canvas.height = fullH;
             ctx.drawImage(video, 0, 0, fullW, fullH);
             const fullImgData = ctx.getImageData(0, 0, fullW, fullH);
-            const fullCode = jsQR(fullImgData.data, fullW, fullH, {
-              inversionAttempts: 'attemptBoth'
-            });
-            if (fullCode && fullCode.data) {
-              detectedRaw = fullCode.data;
-            }
+
+            detectedRaw = tryDecodeImageData(fullImgData, fullW, fullH);
           }
         }
       }
@@ -520,12 +589,12 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
           if (isScanning && !isDetectedRef.current) {
             animationFrameRef.current = requestAnimationFrame(scanLoop);
           }
-        }, 90);
+        }, 75); // 75ms = ~13 fps estables sin sobrecargar la batería ni la CPU móvil
       }
     }
-  }, [isScanning, handleDecodedSuccess]);
+  }, [isScanning, zoomLevel, zoomSupported, tryDecodeImageData, handleDecodedSuccess]);
 
-  // Manejar subida de foto con QR desde la galería
+  // Manejar subida de foto con QR desde la galería o captura de cámara
   const handleUploadQrImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -534,20 +603,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     reader.onload = (event) => {
       const img = new Image();
       img.onload = async () => {
-        // 1. Intentar ZXing
-        if (zxingReaderRef.current) {
-          try {
-            const result = await zxingReaderRef.current.decodeFromImageElement(img);
-            if (result && result.getText()) {
-              await handleDecodedSuccess(result.getText());
-              return;
-            }
-          } catch {
-            // Continuar con BarcodeDetector
-          }
-        }
-
-        // 2. Intentar BarcodeDetector nativo
+        // 1. Intentar BarcodeDetector si está disponible
         if (barcodeDetectorRef.current) {
           try {
             const barcodes = await barcodeDetectorRef.current.detect(img);
@@ -555,28 +611,42 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
               await handleDecodedSuccess(barcodes[0].rawValue);
               return;
             }
-          } catch {
-            // Continuar con jsQR
-          }
+          } catch {}
         }
 
-        // 3. Intentar jsQR con doble inversión
+        // 2. Analizar imagen a resolución completa con motor multi-binarizador
         const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (ctx) {
           ctx.drawImage(img, 0, 0);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: 'attemptBoth'
-          });
-          if (code && code.data) {
-            await handleDecodedSuccess(code.data);
+          const fullImgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          let detected = tryDecodeImageData(fullImgData, canvas.width, canvas.height);
+
+          // Si no detectó en la imagen completa, probar recorte central de 60%
+          if (!detected) {
+            const cDim = Math.floor(Math.min(canvas.width, canvas.height) * 0.60);
+            const sx = Math.floor((canvas.width - cDim) / 2);
+            const sy = Math.floor((canvas.height - cDim) / 2);
+            const cropCanvas = document.createElement('canvas');
+            cropCanvas.width = cDim;
+            cropCanvas.height = cDim;
+            const cropCtx = cropCanvas.getContext('2d');
+            if (cropCtx) {
+              cropCtx.drawImage(canvas, sx, sy, cDim, cDim, 0, 0, cDim, cDim);
+              const cropImgData = cropCtx.getImageData(0, 0, cDim, cDim);
+              detected = tryDecodeImageData(cropImgData, cDim, cDim);
+            }
+          }
+
+          if (detected) {
+            await handleDecodedSuccess(detected);
             return;
           }
+
           notificationService.playAlertSound('CRITICO');
-          alert('No se reconoció un código QR válido en la imagen seleccionada. Verifica que la imagen esté nítida.');
+          alert('No se reconoció un código QR válido en la imagen seleccionada. Verifique que la foto esté nítida y bien iluminada.');
         }
       };
       img.src = event.target?.result as string;
@@ -595,15 +665,6 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
     setIsScanning(false);
     isDetectedRef.current = true;
     setScannedOpCode(formatted);
-
-    try {
-      if (zxingReaderRef.current) {
-        zxingReaderRef.current.reset();
-      }
-    } catch {
-      // Ignorar
-    }
-
     await resolveColcha('', formatted);
   };
 
@@ -774,7 +835,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
 
                 {/* Controles sobre el video: Linterna, Zoom y Cambio de Cámara */}
                 <div className="absolute top-3 right-3 flex items-center gap-2">
-                  {/* Botón de Zoom 1x / 2x */}
+                  {/* Botón de Zoom 1x / 1.5x / 2x */}
                   <button
                     type="button"
                     onClick={toggleZoom}
@@ -783,7 +844,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
                         ? 'bg-emerald-500 text-black border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.5)]' 
                         : 'bg-black/60 text-white border-zinc-700 hover:bg-black/80'
                     }`}
-                    title="Alternar Zoom 1x y 2x para etiquetas pequeñas"
+                    title="Alternar Zoom 1x, 1.5x y 2x para etiquetas pequeñas"
                   >
                     {zoomLevel > 1 ? <ZoomOut className="w-3.5 h-3.5" /> : <ZoomIn className="w-3.5 h-3.5" />}
                     <span>{zoomLevel}x</span>
@@ -816,11 +877,14 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
                   </button>
                 </div>
 
-                {/* Mensaje de estado en vivo */}
-                <div className="absolute bottom-3 inset-x-3 text-center pointer-events-none">
-                  <span className="inline-block px-3 py-1 rounded-full bg-black/80 backdrop-blur-md text-[11px] font-mono font-bold text-emerald-400 border border-emerald-500/40 shadow-lg">
+                {/* Mensaje de estado en vivo y consejo para operarios */}
+                <div className="absolute bottom-2.5 inset-x-3 text-center pointer-events-none space-y-1">
+                  <span className="inline-block px-3 py-1 rounded-full bg-black/85 backdrop-blur-md text-[11px] font-mono font-bold text-emerald-400 border border-emerald-500/40 shadow-lg">
                     Enfoque el código QR de la etiqueta física
                   </span>
+                  <div className="inline-block px-2.5 py-0.5 rounded-full bg-black/75 backdrop-blur-sm text-[9.5px] font-mono text-zinc-300 border border-zinc-700/60 shadow">
+                    💡 Mantén el celular a 15-20 cm y activa 1.5x o 2x si la etiqueta es pequeña
+                  </div>
                 </div>
               </div>
 
