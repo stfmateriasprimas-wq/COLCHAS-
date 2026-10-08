@@ -114,6 +114,20 @@ function safeNullableIsoString(rawDate?: string | Date | null): string | null {
 }
 
 /**
+ * Elimina duplicados de un lote para evitar el error de Postgres:
+ * 'ON CONFLICT DO UPDATE command cannot affect row a second time'
+ */
+function deduplicateByOpCodigo<T extends { op_codigo: string }>(items: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const item of items) {
+    if (item.op_codigo) {
+      map.set(item.op_codigo, item);
+    }
+  }
+  return Array.from(map.values());
+}
+
+/**
  * Mapea una SolicitudColcha del frontend al registro relacional de stf_colchas_ops
  */
 function mapOpToSqlRecord(op: SolicitudColcha) {
@@ -121,26 +135,26 @@ function mapOpToSqlRecord(op: SolicitudColcha) {
   return {
     op_codigo: opCodigo,
     fecha_registro: safeToIsoString(op.fechaCreacion),
-    fecha_texto: op.fechaCreacion || '',
-    inspector: op.inspector || 'OPERARIO STF',
-    tela: op.tela || '',
-    codigo_mt: op.codigoMt || '',
-    color: op.color || 'AZUL',
-    referencia: op.referencia || '',
+    fecha_texto: String(op.fechaCreacion || '').substring(0, 60),
+    inspector: String(op.inspector || 'OPERARIO STF').trim().substring(0, 120),
+    tela: String(op.tela || '').trim().substring(0, 180),
+    codigo_mt: String(op.codigoMt || '').trim().substring(0, 100),
+    color: String(op.color || 'AZUL').trim().substring(0, 100),
+    referencia: String(op.referencia || '').trim().substring(0, 150),
     rollos: Number(op.rollos) || 1,
-    lote: String(op.lote || '1'),
-    estado: op.estado || 'SOLICITADO',
+    lote: String(op.lote || '1').trim().substring(0, 80),
+    estado: String(op.estado || 'SOLICITADO').trim().substring(0, 60),
     observacion_operario: op.observacionesOperario || '',
     observacion_lavanderia: op.observacionesLavanderia || '',
-    dictamen: op.dictamen || 'PENDIENTE',
+    dictamen: String(op.dictamen || 'PENDIENTE').trim().substring(0, 60),
     observacion_calidad: op.observacionesCalidad || '',
     observacion_prenda_terminada: op.observacionesPrendaTerminada || '',
     sla_dias: Number(op.diasHabiles) || 0,
     horas_en_proceso: Number(op.horasEnProceso) || 0,
     tiene_retraso: Boolean(op.tieneRetraso),
     es_retraso_critico: Boolean(op.esRetrasoCritico),
-    area_actual: op.areaActual || op.estado || 'SOLICITADO',
-    email_usuario: op.emailUsuario || '',
+    area_actual: String(op.areaActual || op.estado || 'SOLICITADO').trim().substring(0, 100),
+    email_usuario: String(op.emailUsuario || '').trim().substring(0, 180),
     origen_sync: 'GOOGLE_SHEETS',
     updated_at: new Date().toISOString(),
   };
@@ -253,8 +267,8 @@ export async function bulkSyncOpsToSql(
 
   for (let i = 0; i < ops.length; i += BATCH_SIZE) {
     const batch = ops.slice(i, i + BATCH_SIZE);
-    const opRecords = batch.map(mapOpToSqlRecord);
-    const fotosRecords = batch.map(mapFotosToSqlRecord);
+    const opRecords = deduplicateByOpCodigo(batch.map(mapOpToSqlRecord));
+    const fotosRecords = deduplicateByOpCodigo(batch.map(mapFotosToSqlRecord));
 
     try {
       // 1. Guardar lote de OPs
@@ -263,9 +277,9 @@ export async function bulkSyncOpsToSql(
         .upsert(opRecords, { onConflict: 'op_codigo' });
 
       if (batchOpError) {
-        errors.push(`Error en lote ${i / BATCH_SIZE + 1} (OPs): ${batchOpError.message}`);
+        errors.push(`Error en lote ${Math.floor(i / BATCH_SIZE) + 1} (OPs): ${batchOpError.message}`);
       } else {
-        successfulOps += batch.length;
+        successfulOps += opRecords.length;
       }
 
       // 2. Guardar lote de Fotos
@@ -274,10 +288,10 @@ export async function bulkSyncOpsToSql(
         .upsert(fotosRecords, { onConflict: 'op_codigo' });
 
       if (batchFotosError) {
-        errors.push(`Error en lote ${i / BATCH_SIZE + 1} (Fotos): ${batchFotosError.message}`);
+        errors.push(`Error en lote ${Math.floor(i / BATCH_SIZE) + 1} (Fotos): ${batchFotosError.message}`);
       }
     } catch (batchErr: any) {
-      errors.push(`Excepción en lote ${i / BATCH_SIZE + 1}: ${batchErr?.message || batchErr}`);
+      errors.push(`Excepción en lote ${Math.floor(i / BATCH_SIZE) + 1}: ${batchErr?.message || batchErr}`);
     }
   }
 
