@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { SolicitudColcha } from '../types';
+import { parseColombianDate } from './slaCalculator';
 
 export interface SqlHealthStatus {
   ok: boolean;
@@ -84,13 +85,42 @@ export async function checkSqlDatabaseHealth(): Promise<SqlHealthStatus> {
 }
 
 /**
+ * Convierte de forma resiliente cualquier formato de fecha de Sheets a ISO String sin arrojar jamás Invalid Date
+ */
+function safeToIsoString(rawDate?: string | Date | null): string {
+  if (!rawDate) return new Date().toISOString();
+  try {
+    const d = parseColombianDate(rawDate);
+    if (d && !isNaN(d.getTime()) && d.getTime() > 0) {
+      return d.toISOString();
+    }
+  } catch (e) {
+    // fallback
+  }
+  return new Date().toISOString();
+}
+
+function safeNullableIsoString(rawDate?: string | Date | null): string | null {
+  if (!rawDate) return null;
+  try {
+    const d = parseColombianDate(rawDate);
+    if (d && !isNaN(d.getTime()) && d.getTime() > 0) {
+      return d.toISOString();
+    }
+  } catch (e) {
+    // fallback
+  }
+  return null;
+}
+
+/**
  * Mapea una SolicitudColcha del frontend al registro relacional de stf_colchas_ops
  */
 function mapOpToSqlRecord(op: SolicitudColcha) {
   const opCodigo = normalizeOpCode(op.op);
   return {
     op_codigo: opCodigo,
-    fecha_registro: op.fechaCreacion ? new Date(op.fechaCreacion).toISOString() : new Date().toISOString(),
+    fecha_registro: safeToIsoString(op.fechaCreacion),
     fecha_texto: op.fechaCreacion || '',
     inspector: op.inspector || 'OPERARIO STF',
     tela: op.tela || '',
@@ -128,7 +158,7 @@ function mapFotosToSqlRecord(op: SolicitudColcha) {
     foto_calidad_url: op.fotoCalidadUrl || null,
     foto_prenda_terminada_1_url: op.fotoPrendaTerminada1Url || null,
     foto_prenda_terminada_2_url: op.fotoPrendaTerminada2Url || null,
-    fecha_foto_calidad: op.fechaFotoCalidad ? new Date(op.fechaFotoCalidad).toISOString() : null,
+    fecha_foto_calidad: safeNullableIsoString(op.fechaFotoCalidad),
     updated_at: new Date().toISOString(),
   };
 }
