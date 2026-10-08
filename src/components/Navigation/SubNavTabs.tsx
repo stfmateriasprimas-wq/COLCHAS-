@@ -86,71 +86,82 @@ export const SubNavTabs: React.FC<SubNavTabsProps> = ({
         : 'bg-rose-500 text-white border-rose-400 font-black dark:bg-rose-950 dark:text-rose-300 dark:border-rose-500/50',
       icon: <Target className="w-3.5 h-3.5 text-cyan-400" />
     },
-    ...(isSoporte ? [{
-      id: 'soporte-auditoria' as TabType,
-      label: 'AUDITORÍA & HISTORIAL',
-      badge: 'SOPORTE',
-      badgeColor: 'bg-cyan-500 text-black border-cyan-400 font-black',
-      icon: <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-    }] : [])
+    ...(isSoporte ? [
+      {
+        id: 'sql-backup' as TabType,
+        label: 'RESPALDO SQL',
+        badge: 'POSTGRES',
+        badgeColor: 'bg-emerald-500 text-black border-emerald-400 font-black shadow-sm',
+        icon: <Database className="w-3.5 h-3.5 text-emerald-400" />
+      },
+      {
+        id: 'soporte-auditoria' as TabType,
+        label: 'AUDITORÍA',
+        badge: 'SOPORTE',
+        badgeColor: 'bg-cyan-500 text-black border-cyan-400 font-black',
+        icon: <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+      }
+    ] : [])
   ];
 
   return (
-    <div className="w-full flex sm:justify-center overflow-x-auto no-scrollbar py-1 px-1 select-none">
-      <nav 
-        aria-label="Pestañas de Navegación Principal"
-        className="inline-flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-[#0c1017]/95 backdrop-blur-xl border border-zinc-200/90 dark:border-zinc-800/90 shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.04)] ring-1 ring-black/5 dark:ring-white/5 mx-auto sm:mx-0 shrink-0"
-      >
-        {tabs.map(tab => {
-          const isActive = activeTab === tab.id;
+    <div className="w-full max-w-full overflow-x-auto custom-scroll py-2 px-1 select-none">
+      <div className="w-max min-w-full flex items-center justify-start xl:justify-center px-1">
+        <nav 
+          aria-label="Pestañas de Navegación Principal"
+          className="inline-flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-[#0c1017]/95 backdrop-blur-xl border border-zinc-200/90 dark:border-zinc-800/90 shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.04)] ring-1 ring-black/5 dark:ring-white/5 shrink-0"
+        >
+          {tabs.map(tab => {
+            const isActive = activeTab === tab.id;
 
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onSelectTab(tab.id)}
-              className={`relative px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-[11px] sm:text-xs font-bold flex items-center gap-1.5 sm:gap-2 transition-all duration-200 cursor-pointer shrink-0 group ${
-                isActive
-                  ? 'bg-zinc-950 text-white border border-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.2)] dark:bg-zinc-900/95 dark:text-white dark:border-emerald-500/50 dark:shadow-[0_0_20px_rgba(16,185,129,0.25)] font-black'
-                  : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 border border-transparent dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60'
-              }`}
-            >
-              {/* Active Ambient Glow Background */}
-              {isActive && (
-                <span className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10 pointer-events-none" />
-              )}
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onSelectTab(tab.id)}
+                className={`relative px-2.5 sm:px-3.5 lg:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-[10.5px] sm:text-xs font-bold flex items-center gap-1.5 sm:gap-2 transition-all duration-200 cursor-pointer shrink-0 group ${
+                  isActive
+                    ? 'bg-zinc-950 text-white border border-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.2)] dark:bg-zinc-900/95 dark:text-white dark:border-emerald-500/50 dark:shadow-[0_0_20px_rgba(16,185,129,0.25)] font-black'
+                    : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 border border-transparent dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60'
+                }`}
+              >
+                {/* Active Ambient Glow Background */}
+                {isActive && (
+                  <span className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10 pointer-events-none" />
+                )}
 
-              {/* Icon with Futuristic Color Indicator */}
-              <span className={`relative z-10 transition-transform duration-200 group-hover:scale-110 ${
-                isActive ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-200'
-              }`}>
-                {tab.icon}
-              </span>
-
-              {/* Label */}
-              <span className="relative z-10 tracking-wider text-[10.5px] sm:text-xs">
-                {tab.label}
-              </span>
-
-              {/* Active Pulse Dot */}
-              {isActive && (
-                <span className="relative z-10 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-              )}
-
-              {/* High-Tech Badge */}
-              {tab.badge !== undefined && (
-                <span className={`relative z-10 text-[9px] sm:text-[9.5px] px-1.5 sm:px-2 py-0.5 rounded-full font-mono font-black border transition-all duration-200 ${
-                  tab.badgeColor || (isActive 
-                    ? 'bg-emerald-500 text-black border-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.3)] dark:bg-emerald-950/90 dark:text-emerald-300 dark:border-emerald-500/50' 
-                    : 'bg-zinc-100 text-zinc-700 border-zinc-300 group-hover:border-zinc-400 dark:bg-zinc-800/90 dark:text-zinc-300 dark:border-zinc-700 dark:group-hover:border-zinc-500')
+                {/* Icon with Futuristic Color Indicator */}
+                <span className={`relative z-10 transition-transform duration-200 group-hover:scale-110 ${
+                  isActive ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-200'
                 }`}>
-                  {tab.badge}
+                  {tab.icon}
                 </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
+
+                {/* Label */}
+                <span className="relative z-10 tracking-wider text-[10.5px] sm:text-xs">
+                  {tab.label}
+                </span>
+
+                {/* Active Pulse Dot */}
+                {isActive && (
+                  <span className="relative z-10 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                )}
+
+                {/* High-Tech Badge */}
+                {tab.badge !== undefined && (
+                  <span className={`relative z-10 text-[9px] sm:text-[9.5px] px-1.5 sm:px-2 py-0.5 rounded-full font-mono font-black border transition-all duration-200 ${
+                    tab.badgeColor || (isActive 
+                      ? 'bg-emerald-500 text-black border-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.3)] dark:bg-emerald-950/90 dark:text-emerald-300 dark:border-emerald-500/50' 
+                      : 'bg-zinc-100 text-zinc-700 border-zinc-300 group-hover:border-zinc-400 dark:bg-zinc-800/90 dark:text-zinc-300 dark:border-zinc-700 dark:group-hover:border-zinc-500')
+                  }`}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
     </div>
   );
 };

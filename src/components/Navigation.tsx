@@ -13,7 +13,8 @@ export type TabType =
   | 'estadisticas'
   | 'cumplimiento'
   | 'chat'
-  | 'soporte-auditoria';
+  | 'soporte-auditoria'
+  | 'sql-backup';
 
 interface NavigationProps {
   activeTab: TabType;
@@ -86,13 +87,22 @@ export const Navigation: React.FC<NavigationProps> = ({
       label: 'Cumplimiento & SLA',
       icon: Target
     },
-    ...(isSoporteUser(currentUser) ? [{
-      id: 'soporte-auditoria' as TabType,
-      label: 'Auditoría & Historial',
-      icon: ShieldCheck,
-      badge: 'SOPORTE',
-      badgeColor: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border-cyan-500/40'
-    }] : [])
+    ...(isSoporteUser(currentUser) ? [
+      {
+        id: 'sql-backup' as TabType,
+        label: 'Respaldo SQL',
+        icon: Database,
+        badge: 'POSTGRES',
+        badgeColor: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/40'
+      },
+      {
+        id: 'soporte-auditoria' as TabType,
+        label: 'Auditoría & Historial',
+        icon: ShieldCheck,
+        badge: 'SOPORTE',
+        badgeColor: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border-cyan-500/40'
+      }
+    ] : [])
   ];
 
   return (

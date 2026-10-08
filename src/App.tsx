@@ -26,8 +26,10 @@ const EstadisticasView = lazy(() => import('./components/Estadisticas/Estadistic
 const CumplimientoView = lazy(() => import('./components/Cumplimiento/CumplimientoView').then(m => ({ default: m.CumplimientoView })));
 const WhatsAppChatView = lazy(() => import('./components/Chat/WhatsAppChatView').then(m => ({ default: m.WhatsAppChatView })));
 const SoporteAuditoriaView = lazy(() => import('./components/Soporte/SoporteAuditoriaView').then(m => ({ default: m.SoporteAuditoriaView })));
+const SqlBackupPanel = lazy(() => import('./components/Soporte/SqlBackupPanel').then(m => ({ default: m.SqlBackupPanel })));
 const QrScannerModal = lazy(() => import('./components/Scanner/QrScannerModal').then(m => ({ default: m.QrScannerModal })));
 const EditarOpFinalizadaModal = lazy(() => import('./components/Bandeja/EditarOpFinalizadaModal').then(m => ({ default: m.EditarOpFinalizadaModal })));
+import { SubNavTabs } from './components/Navigation/SubNavTabs';
 import { 
   fetchMonitoreoSheet, 
   fetchBaseDeDatosSheet, 
@@ -227,7 +229,8 @@ export function App() {
     'estadisticas': 'Módulo de Estadísticas y KPI',
     'cumplimiento': 'Indicador de Cumplimiento & Cobertura',
     'chat': 'Chat Colaborativo STF',
-    'soporte-auditoria': 'Auditoría & Historial Forense'
+    'soporte-auditoria': 'Auditoría & Historial Forense',
+    'sql-backup': 'Respaldo SQL (Supabase PostgreSQL)'
   };
 
   // Auditoría forense en tiempo real: registro silencioso del recorrido y áreas de trabajo visitadas
@@ -1382,6 +1385,27 @@ export function App() {
                 kpiMetrics={metrics}
                 onNavigateTab={(tab) => setActiveTab(tab)}
                 onViewOpDetail={(item) => setSelectedColchaDetail(item)}
+                isDarkMode={isDarkMode}
+              />
+            </Suspense>
+          </div>
+        )}
+
+        {/* VIEW 10: RESPALDO PROFESIONAL SQL POSTGRESQL (EXCLUSIVO PERFIL SOPORTE TÉCNICO) */}
+        {activeTab === 'sql-backup' && isSoporteUser(currentUser) && (
+          <div className="animate-in fade-in duration-200 space-y-5">
+            <SubNavTabs
+              activeTab="sql-backup"
+              onSelectTab={(tab) => setActiveTab(tab)}
+              totalHistorico={metrics.totalHistorico}
+              alertCount={solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length}
+              currentUser={currentUser}
+              solicitudes={solicitudes}
+            />
+            <Suspense fallback={ViewLoadingFallback}>
+              <SqlBackupPanel
+                currentUser={currentUser}
+                solicitudes={solicitudes}
                 isDarkMode={isDarkMode}
               />
             </Suspense>

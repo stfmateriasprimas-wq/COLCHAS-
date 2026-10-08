@@ -178,5 +178,26 @@
   animation: shake-horizontal 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
+/* Scrollbar sutil y moderno para navegación horizontal */
+.custom-scroll::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 9999px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.6);
+}
 
-
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

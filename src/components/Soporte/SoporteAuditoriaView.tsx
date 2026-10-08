@@ -26,7 +26,8 @@ import {
   Radio,
   SlidersHorizontal,
   ChevronDown,
-  Compass
+  Compass,
+  Database
 } from 'lucide-react';
 import { UsuarioSTF, getUsuariosList } from '../../services/authService';
 import { auditService, AuditLogEntry, UserLoginSummary, AuditActionType } from '../../services/auditService';
@@ -34,6 +35,7 @@ import { SolicitudColcha, KpiMetrics } from '../../types';
 import { SubNavTabs } from '../Navigation/SubNavTabs';
 import { TabType } from '../Navigation';
 import { UserAuditHistoryModal } from './UserAuditHistoryModal';
+import { SqlBackupPanel } from './SqlBackupPanel';
 
 interface SoporteAuditoriaViewProps {
   currentUser: UsuarioSTF;
@@ -57,8 +59,8 @@ export const SoporteAuditoriaView: React.FC<SoporteAuditoriaViewProps> = ({
   const [isLiveSyncing, setIsLiveSyncing] = useState<boolean>(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
   
-  // Vistas internas: 'ingresos' | 'historial' | 'hoy'
-  const [activeSubTab, setActiveSubTab] = useState<'historial' | 'ingresos' | 'hoy'>('historial');
+  // Vistas internas: 'ingresos' | 'historial' | 'hoy' | 'sql-backup'
+  const [activeSubTab, setActiveSubTab] = useState<'historial' | 'ingresos' | 'hoy' | 'sql-backup'>('historial');
 
   // Filtros de búsqueda para Historial
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -446,6 +448,22 @@ export const SoporteAuditoriaView: React.FC<SoporteAuditoriaViewProps> = ({
           <span>Trazabilidad de Hoy</span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
             {metrics.todayModificationsCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('sql-backup')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold font-mono uppercase tracking-wider transition cursor-pointer shrink-0 ${
+            activeSubTab === 'sql-backup'
+              ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-md'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800'
+          }`}
+        >
+          <Database className="w-4 h-4 text-cyan-400" />
+          <span>Respaldo SQL (Supabase)</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
+            POSTGRES
           </span>
         </button>
       </div>
@@ -866,6 +884,17 @@ export const SoporteAuditoriaView: React.FC<SoporteAuditoriaViewProps> = ({
           )}
 
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VISTA 4: RESPALDO PROFESIONAL SQL POSTGRESQL (SUPABASE)                   */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'sql-backup' && (
+        <SqlBackupPanel
+          currentUser={currentUser}
+          solicitudes={solicitudes}
+          isDarkMode={isDarkMode}
+        />
       )}
 
       {/* 4. MODAL FORENSE DETALLADO DEL COLABORADOR (RANGO DE MEDICIÓN Y RECORRIDO) */}
