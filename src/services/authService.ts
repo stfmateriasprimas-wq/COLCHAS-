@@ -97,6 +97,16 @@ export function userRequiresPassword(user?: UsuarioSTF | null): boolean {
  */
 export function verifyUserPassword(user: UsuarioSTF, password: string): boolean {
   const cleanPass = password.trim();
+
+  // 1. Revisar si el usuario tiene contraseña personalizada actualizada
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem(`stf_sec_pass_${user.id.trim().toLowerCase()}`);
+    if (custom && custom.trim()) {
+      return cleanPass === custom.trim();
+    }
+  }
+
+  // 2. Si no ha cambiado su clave, validar contraseña por defecto según rol
   if (isSoporteUser(user)) {
     return cleanPass === SOPORTE_PASSWORD;
   }

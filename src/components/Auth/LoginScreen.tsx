@@ -11,7 +11,10 @@ import {
   Eye, 
   EyeOff, 
   CheckCircle2, 
-  Shield 
+  Shield,
+  Clock,
+  ShieldAlert,
+  RefreshCw
 } from 'lucide-react';
 import { 
   UsuarioSTF, 
@@ -23,6 +26,12 @@ import {
   isSoporteUser,
   isEdiazUser
 } from '../../services/authService';
+import { 
+  verifyUserCredentials, 
+  checkUserLockoutStatus, 
+  LockoutStatus 
+} from '../../services/securityAuthService';
+import { RecuperarPasswordModal } from './RecuperarPasswordModal';
 import { auditService } from '../../services/auditService';
 import { STFLogo } from '../Common/STFLogo';
 import { stopIntroSoundImmediately, allowReplayIntroSound } from '../Common/SplashScreen';
@@ -48,6 +57,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
   const [isAdminShaking, setIsAdminShaking] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
+  // Estados del sistema de ciberseguridad (Bloqueo progresivo y Recuperación OTP)
+  const [lockoutStatus, setLockoutStatus] = useState<LockoutStatus | null>(null);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [resetSuccessMsg, setResetSuccessMsg] = useState('');
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+
   // Subscribe to live user updates & fetch latest from Sheets
   useEffect(() => {
     const unsub = subscribeUsuariosList((latestUsers) => {
@@ -58,6 +73,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
   }, []);
 
   const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+
+  // Monitoreo en tiempo real del estado de bloqueo y cuenta regresiva (1 seg)
+  useEffect(() => {
+    if (!pendingAdminUser) return;
+
+    // Lectura inicial inmediata
+    const initialStatus = checkUserLockoutStatus(pendingAdminUser.id);
+    setLockoutStatus(initialStatus);
+
+    const timer = setInterval(() => {
+      const updated = checkUserLockoutStatus(pendingAdminUser.id);
+      setLockoutStatus(updated);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [pendingAdminUser]);
 
   // Autofocus password input after card flips to 180 degrees (solo en pantallas de escritorio)
   useEffect(() => {
@@ -97,8 +128,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       setErrorMsg('');
       if (userRequiresPassword(foundUser)) {
         setPendingAdminUser(foundUser);
+        setLockoutStatus(checkUserLockoutStatus(foundUser.id));
         setAdminPassword('');
         setAdminErrorMsg('');
+        setResetSuccessMsg('');
         setIsFlipped(true);
       } else {
         stopIntroSoundImmediately();
@@ -116,8 +149,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
     setShowDirectoryModal(false);
     if (userRequiresPassword(user)) {
       setPendingAdminUser(user);
+      setLockoutStatus(checkUserLockoutStatus(user.id));
       setAdminPassword('');
       setAdminErrorMsg('');
+      setResetSuccessMsg('');
       setIsFlipped(true);
     } else {
       stopIntroSoundImmediately();
@@ -130,10 +165,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
     setIsFlipped(false);
     setAdminPassword('');
     setAdminErrorMsg('');
+    setPendingAdminUser(null);
+    setLockoutStatus(null);
   };
 
-  const handleAdminPasswordSubmit = (e: React.FormEvent) => {
+  const handleAdminPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!pendingAdminUser || isVerifyingPassword) return;
+
+    // 1. Verificar si la cuenta está actualmente bloqueada
+    const currentStatus = checkUserLockoutStatus(pendingAdminUser.id);
+    if (currentStatus.isLocked) {
+      setLockoutStatus(currentStatus);
+      setAdminErrorMsg(`Cuenta bloqueada temporalmente por seguridad (${currentStatus.remainingFormatted}). Por favor espere.`);
+      setIsAdminShaking(true);
+      setTimeout(() => setIsAdminShaking(false), 500);
+      return;
+    }
+
+    // 2. Validar que no esté vacía
     if (!adminPassword.trim()) {
       const isSoporte = isSoporteUser(pendingAdminUser);
       setAdminErrorMsg(isSoporte 
@@ -144,15 +194,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       return;
     }
 
-    if (pendingAdminUser && verifyUserPassword(pendingAdminUser, adminPassword)) {
-      setAdminErrorMsg('');
-      stopIntroSoundImmediately();
-      auditService.recordLogin(pendingAdminUser).catch(() => {});
-      onLoginSuccess(pendingAdminUser);
-    } else {
-      setAdminErrorMsg('Contraseña incorrecta. Verifique sus credenciales.');
-      setIsAdminShaking(true);
-      setTimeout(() => setIsAdminShaking(false), 500);
+    setIsVerifyingPassword(true);
+    try {
+      const result = await verifyUserCredentials(pendingAdminUser, adminPassword);
+      setLockoutStatus(result.lockoutStatus);
+
+      if (result.success) {
+        setAdminErrorMsg('');
+        stopIntroSoundImmediately();
+        auditService.recordLogin(pendingAdminUser).catch(() => {});
+        onLoginSuccess(pendingAdminUser);
+      } else {
+        setAdminErrorMsg(result.errorMessage || 'Contraseña incorrecta. Verifique sus credenciales.');
+        setIsAdminShaking(true);
+        setTimeout(() => setIsAdminShaking(false), 500);
+      }
+    } catch (err: any) {
+      setAdminErrorMsg(err?.message || 'Error validando credenciales de seguridad.');
+    } finally {
+      setIsVerifyingPassword(false);
     }
   };
 
@@ -302,16 +362,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
               {/* Submit Button */}
               <button
                 type="submit"
-                className="relative overflow-hidden group/btn w-full bg-white hover:bg-zinc-100 text-zinc-950 py-3.5 sm:py-4 px-6 rounded-2xl font-black uppercase text-xs tracking-wider transition-all duration-300 ease-out flex items-center justify-center gap-2 cursor-pointer shadow-[0_10px_25px_rgba(255,255,255,0.18)] hover:shadow-[0_18px_40px_rgba(255,255,255,0.35)] hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] font-mono select-none"
+                className="relative overflow-hidden group/btn w-full bg-white hover:bg-zinc-100 text-zinc-950 py-3.5 sm:py-4 px-6 rounded-2xl font-black uppercase text-xs tracking-wider transition-all duration-300 ease-out flex items-center justify-center gap-2 cursor-pointer shadow-[0_10px_25px_rgba(255,255,255,0.18)] hover:shadow-[0_18px_40px_rgba(255,255,255,0.32)] hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] font-mono select-none"
               >
                 <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-black/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 pointer-events-none" />
                 <span className="font-extrabold tracking-wider">INGRESAR AL SISTEMA</span>
                 <ArrowRight className="w-4 h-4 text-zinc-950 group-hover/btn:translate-x-1.5 transition-transform duration-200" />
               </button>
+
+              {/* Enlace Recuperar Contraseña Cara 1 */}
+              <div className="flex items-center justify-center pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowRecoveryModal(true)}
+                  className="text-[11px] text-zinc-400 hover:text-amber-300 hover:underline flex items-center gap-1.5 transition font-mono font-medium py-1 px-2.5 rounded-xl hover:bg-white/5 cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-amber-400/80" />
+                  <span>¿Olvidaste o perdiste tu contraseña?</span>
+                </button>
+              </div>
             </form>
 
             {/* Bottom Security Info */}
-            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-zinc-400 relative z-10">
+            <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-zinc-400 relative z-10">
               <span className="flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>CONEXIÓN SEGURA ENCRIPTADA (TLS)</span>
@@ -324,7 +396,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
           {/* ===================================================================== */}
           {/* CARA 2: RESPALDO - CONTRASEÑA DE ADMINISTRADOR / SOPORTE (180 GRADOS) */}
           {/* ===================================================================== */}
-          <div className={`absolute inset-0 w-full h-full backface-hidden rotate-y-180 bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border rounded-[32px] sm:rounded-[38px] p-6 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] text-white overflow-hidden flex flex-col justify-between group ${
+          <div className={`absolute inset-0 w-full h-full backface-hidden rotate-y-180 bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border rounded-[32px] sm:rounded-[38px] p-5 sm:p-7 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] text-white overflow-y-auto custom-scroll flex flex-col justify-between group ${
             isSoporteUser(pendingAdminUser)
               ? 'border-cyan-500/40 hover:border-cyan-400/70 shadow-[0_0_40px_rgba(6,182,212,0.12)]'
               : 'border-white/20 hover:border-amber-500/40'
@@ -371,10 +443,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
             </button>
 
             {/* Header Back Face */}
-            <div className="text-center space-y-2 mb-4 relative z-10">
+            <div className="text-center space-y-1.5 mb-2.5 relative z-10">
               
               {/* Cyber Status Badge */}
-              <div className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md ${
+              <div className={`inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md ${
                 isSoporteUser(pendingAdminUser)
                   ? 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-300'
                   : 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
@@ -387,19 +459,46 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
                 <span>{isSoporteUser(pendingAdminUser) ? 'SOPORTE TÉCNICO OFICIAL' : 'ACCESO PROTEGIDO'}</span>
               </div>
 
-              <h2 className="text-2xl sm:text-3xl stf-studio-f-font py-1 select-none tracking-wide text-white drop-shadow-sm">
+              <h2 className="text-xl sm:text-2xl stf-studio-f-font select-none tracking-wide text-white drop-shadow-sm">
                 {isSoporteUser(pendingAdminUser) ? 'SOPORTE TÉCNICO' : 'ADMINISTRADOR'}
               </h2>
-              <p className="text-xs text-zinc-300/80 font-medium">
+              <p className="text-[11px] text-zinc-300/80 font-medium">
                 Perfil: <strong className={isSoporteUser(pendingAdminUser) ? 'text-cyan-300 font-bold' : 'text-amber-400 font-bold'}>{pendingAdminUser?.nombre}</strong> • {pendingAdminUser?.rol} (<span className="font-mono text-zinc-300">{pendingAdminUser?.id}</span>)
               </p>
             </div>
 
             {/* Form Back Face */}
-            <form onSubmit={handleAdminPasswordSubmit} className={`space-y-4 relative z-10 ${isAdminShaking ? 'animate-shake' : ''}`}>
+            <form onSubmit={handleAdminPasswordSubmit} className={`space-y-3 relative z-10 ${isAdminShaking ? 'animate-shake' : ''}`}>
               
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[10.5px] font-mono font-bold uppercase tracking-wider text-zinc-300">
+              {/* ALERTA DE BLOQUEO ACTIVO CON TEMPORIZADOR MM:SS */}
+              {lockoutStatus?.isLocked && (
+                <div className="bg-rose-950/90 border border-rose-500/80 rounded-2xl p-3 shadow-lg animate-in fade-in flex flex-col gap-1.5 backdrop-blur-md">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-rose-300 font-mono font-bold text-xs">
+                      <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
+                      <span>BLOQUEADO ({lockoutStatus.level === 2 ? 'NIVEL 2' : 'NIVEL 1'})</span>
+                    </div>
+                    <span className="bg-rose-900/90 border border-rose-400/60 text-rose-100 font-mono font-black text-xs px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-inner">
+                      <Clock className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '4s' }} />
+                      {lockoutStatus.remainingFormatted}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-rose-200/90 leading-tight">
+                    Superaste los intentos permitidos ({lockoutStatus.failedAttempts}). Bloqueo temporal por {lockoutStatus.level === 2 ? '15 min' : '5 min'}. Se envió aviso por correo.
+                  </p>
+                </div>
+              )}
+
+              {/* AVISO DE CONTRASEÑA RESTABLECIDA CON ÉXITO */}
+              {resetSuccessMsg && (
+                <div className="bg-emerald-950/85 border border-emerald-500 text-emerald-200 text-xs p-3 rounded-2xl animate-in fade-in font-medium shadow-md flex items-start gap-2 backdrop-blur-md">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>{resetSuccessMsg}</span>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-300">
                   <label className="flex items-center gap-1.5 text-zinc-300">
                     <KeyRound className={`w-3.5 h-3.5 ${isSoporteUser(pendingAdminUser) ? 'text-cyan-400' : 'text-amber-400'}`} />
                     <span>{isSoporteUser(pendingAdminUser) ? 'CONTRASEÑA DE SOPORTE' : 'CONTRASEÑA DE ADMINISTRADOR'}</span>
@@ -413,38 +512,49 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
                   </span>
                 </div>
 
-                <div className={`relative flex items-center bg-zinc-950/80 border border-zinc-700/80 rounded-2xl transition duration-200 shadow-inner group/input ${
-                  isSoporteUser(pendingAdminUser)
-                    ? 'focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/25'
-                    : 'focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/25'
+                <div className={`relative flex items-center bg-zinc-950/80 border rounded-2xl transition duration-200 shadow-inner group/input ${
+                  lockoutStatus?.isLocked 
+                    ? 'border-rose-800/80 opacity-60' 
+                    : isSoporteUser(pendingAdminUser)
+                    ? 'border-zinc-700/80 focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/25'
+                    : 'border-zinc-700/80 focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/25'
                 }`}>
-                  <Lock className={`w-4 h-4 text-zinc-500 transition ml-4 shrink-0 ${
-                    isSoporteUser(pendingAdminUser) ? 'group-focus-within/input:text-cyan-400' : 'group-focus-within/input:text-amber-400'
+                  <Lock className={`w-4 h-4 transition ml-4 shrink-0 ${
+                    lockoutStatus?.isLocked 
+                      ? 'text-rose-400' 
+                      : isSoporteUser(pendingAdminUser) 
+                      ? 'text-zinc-500 group-focus-within/input:text-cyan-400' 
+                      : 'text-zinc-500 group-focus-within/input:text-amber-400'
                   }`} />
                   <input
                     ref={passwordInputRef}
                     type={showAdminPassword ? 'text' : 'password'}
                     value={adminPassword}
+                    disabled={lockoutStatus?.isLocked}
                     onChange={(e) => {
                       setAdminPassword(e.target.value);
                       setAdminErrorMsg('');
                     }}
-                    placeholder=""
-                    className="w-full bg-transparent px-3.5 py-4 text-base sm:text-sm text-white placeholder-transparent font-mono font-bold focus:outline-none"
+                    placeholder={lockoutStatus?.isLocked ? 'ACCESO TEMPORALMENTE BLOQUEADO' : ''}
+                    className={`w-full bg-transparent px-3.5 py-3.5 text-base sm:text-sm text-white font-mono font-bold focus:outline-none ${
+                      lockoutStatus?.isLocked ? 'cursor-not-allowed placeholder-rose-400/60 text-xs' : 'placeholder-transparent'
+                    }`}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowAdminPassword(!showAdminPassword)}
-                    className="mr-3 p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition cursor-pointer"
-                    title={showAdminPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
-                  >
-                    {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  {!lockoutStatus?.isLocked && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPassword(!showAdminPassword)}
+                      className="mr-3 p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition cursor-pointer"
+                      title={showAdminPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                    >
+                      {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Error message */}
-              {adminErrorMsg && (
+              {/* Error message si no está bloqueado */}
+              {adminErrorMsg && !lockoutStatus?.isLocked && (
                 <div className="flex items-start gap-2 bg-rose-950/80 border border-rose-500 text-rose-200 text-xs p-3 rounded-2xl animate-in fade-in font-medium shadow-md">
                   <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                   <span>{adminErrorMsg}</span>
@@ -456,24 +566,57 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
                 <button
                   type="button"
                   onClick={handleFlipBack}
-                  className="py-3.5 px-4 rounded-2xl border border-white/20 bg-white/[0.06] hover:bg-white/[0.12] text-zinc-300 hover:text-white font-bold text-xs uppercase tracking-wider transition cursor-pointer font-mono active:scale-[0.98]"
+                  className="py-3 px-4 rounded-2xl border border-white/20 bg-white/[0.06] hover:bg-white/[0.12] text-zinc-300 hover:text-white font-bold text-xs uppercase tracking-wider transition cursor-pointer font-mono active:scale-[0.98]"
                 >
                   CANCELAR
                 </button>
 
+                {lockoutStatus?.isLocked ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="py-3 px-3 rounded-2xl bg-rose-950/60 border border-rose-800/80 text-rose-300 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-not-allowed font-mono opacity-80"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-rose-400 animate-spin" style={{ animationDuration: '4s' }} />
+                    <span>{lockoutStatus.remainingFormatted}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isVerifyingPassword}
+                    className="relative overflow-hidden group/btn py-3 px-4 rounded-2xl bg-white hover:bg-zinc-100 active:scale-[0.98] text-zinc-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300 ease-out cursor-pointer shadow-[0_8px_20px_rgba(255,255,255,0.18)] hover:shadow-[0_14px_30px_rgba(255,255,255,0.32)] hover:-translate-y-0.5 active:translate-y-0 font-mono select-none disabled:opacity-60 disabled:cursor-wait"
+                  >
+                    <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-black/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 pointer-events-none" />
+                    {isVerifyingPassword ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-zinc-950" />
+                        <span className="font-extrabold tracking-wider">VALIDANDO...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-zinc-950" />
+                        <span className="font-extrabold tracking-wider">INGRESAR</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Botón ¿Olvidaste tu contraseña? */}
+              <div className="flex items-center justify-center pt-1">
                 <button
-                  type="submit"
-                  className="relative overflow-hidden group/btn py-3.5 px-4 rounded-2xl bg-white hover:bg-zinc-100 active:scale-[0.98] text-zinc-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300 ease-out cursor-pointer shadow-[0_8px_20px_rgba(255,255,255,0.18)] hover:shadow-[0_14px_30px_rgba(255,255,255,0.32)] hover:-translate-y-0.5 active:translate-y-0 font-mono select-none"
+                  type="button"
+                  onClick={() => setShowRecoveryModal(true)}
+                  className="text-xs text-amber-300 hover:text-amber-200 hover:underline flex items-center gap-1.5 transition font-mono font-bold py-1 px-2.5 rounded-xl hover:bg-white/5 cursor-pointer active:scale-95"
                 >
-                  <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-black/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 pointer-events-none" />
-                  <CheckCircle2 className="w-4 h-4 text-zinc-950" />
-                  <span className="font-extrabold tracking-wider">INGRESAR</span>
+                  <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                  <span>¿Olvidaste tu contraseña? Recupérala aquí</span>
                 </button>
               </div>
             </form>
 
             {/* Bottom Security Info Back Face */}
-            <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-zinc-400 relative z-10">
+            <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-zinc-400 relative z-10">
               <span className="flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5 text-emerald-400" />
                 <span>MÓDULO DE SEGURIDAD TLS</span>
@@ -608,6 +751,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
 
           </div>
         </div>
+      )}
+
+      {/* MODAL: RECUPERACIÓN AUTOMÁTICA DE CONTRASEÑA POR CORREO (OTP) */}
+      {showRecoveryModal && (
+        <RecuperarPasswordModal
+          initialUserId={pendingAdminUser?.id || userIdInput}
+          initialUser={pendingAdminUser}
+          onClose={() => setShowRecoveryModal(false)}
+          onSuccessReset={(recoveredUserId) => {
+            setShowRecoveryModal(false);
+            if (pendingAdminUser) {
+              setLockoutStatus(checkUserLockoutStatus(pendingAdminUser.id));
+            }
+            setAdminPassword('');
+            setAdminErrorMsg('');
+            setResetSuccessMsg('¡Contraseña restablecida exitosamente! Ingresa tu nueva contraseña para acceder.');
+            setTimeout(() => setResetSuccessMsg(''), 8000);
+          }}
+        />
       )}
 
     </div>

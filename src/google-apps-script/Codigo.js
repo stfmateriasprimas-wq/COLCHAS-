@@ -1320,6 +1320,73 @@ function doPost(e) {
       });
     }
 
+    // -----------------------------------------------------------------------
+    // ACCIÓN 13: SEND_SECURITY_LOCKOUT_ALERT (Alerta Automática de Bloqueo)
+    // -----------------------------------------------------------------------
+    if (action === 'SEND_SECURITY_LOCKOUT_ALERT') {
+      var secRecipients = payload.recipients || [];
+      if (!Array.isArray(secRecipients) || secRecipients.length === 0) {
+        var defaultUserEmail = payload.userEmail || '';
+        if (defaultUserEmail) secRecipients = [defaultUserEmail, 'joseoneiber711@gmail.com', 'edwin.diaz@studiof.com.co'];
+        else secRecipients = ['joseoneiber711@gmail.com', 'edwin.diaz@studiof.com.co'];
+      }
+
+      var secSubject = '🚨 [SEGURIDAD STF] Bloqueo temporal por intentos fallidos - Usuario: ' + (payload.userNombre || payload.userId);
+      var secHtml = buildSecurityLockoutEmailHtml(payload);
+
+      try {
+        MailApp.sendEmail({
+          to: secRecipients.join(','),
+          subject: secSubject,
+          htmlBody: secHtml,
+          name: 'SEGURIDAD STF GROUP'
+        });
+        return createJsonResponse({ status: 'success', message: 'Alerta de seguridad enviada a ' + secRecipients.length + ' destinatarios' });
+      } catch (secMailErr) {
+        return createJsonResponse({ status: 'error', message: 'Error enviando correo: ' + secMailErr.toString() });
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // ACCIÓN 14: SEND_RECOVERY_OTP_EMAIL (Envío de Código OTP de Recuperación)
+    // -----------------------------------------------------------------------
+    if (action === 'SEND_RECOVERY_OTP_EMAIL') {
+      var otpRecipient = payload.recipient || '';
+      if (!otpRecipient) {
+        return createJsonResponse({ status: 'error', message: 'Destinatario de correo requerido para recuperación' });
+      }
+
+      var otpHtml = buildRecoveryOtpEmailHtml(payload);
+      var otpSubject = '🔑 [STF GROUP] Código de recuperación de contraseña: ' + (payload.otpCode || '');
+
+      try {
+        MailApp.sendEmail({
+          to: otpRecipient,
+          subject: otpSubject,
+          htmlBody: otpHtml,
+          name: 'SEGURIDAD STF GROUP'
+        });
+        return createJsonResponse({ status: 'success', message: 'Código de recuperación enviado con éxito' });
+      } catch (otpMailErr) {
+        return createJsonResponse({ status: 'error', message: 'Error enviando OTP: ' + otpMailErr.toString() });
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // ACCIÓN 15: SAVE_USER_PASSWORD (Guardar Contraseña en Script Properties)
+    // -----------------------------------------------------------------------
+    if (action === 'SAVE_USER_PASSWORD') {
+      var passUserId = String(payload.userId || '').trim().toLowerCase();
+      var passVal = String(payload.password || '').trim();
+      if (passUserId && passVal) {
+        var scriptProps = PropertiesService.getScriptProperties();
+        scriptProps.setProperty('STF_PASS_' + passUserId, passVal);
+        scriptProps.setProperty('STF_PASS_DATE_' + passUserId, Utilities.formatDate(new Date(), 'America/Bogota', 'd/M/yyyy HH:mm:ss'));
+        return createJsonResponse({ status: 'success', message: 'Contraseña actualizada en la nube para ' + passUserId });
+      }
+      return createJsonResponse({ status: 'error', message: 'Parámetros incompletos' });
+    }
+
     return createJsonResponse({ status: 'error', message: 'Acción POST no reconocida: ' + action });
   } catch (err) {
     return createJsonResponse({ status: 'error', message: err.toString() });
@@ -2583,3 +2650,124 @@ function repararEnlacesDriveColumnaMMenuAction() {
   var count = repararEnlacesDriveColumnaM(ss);
   SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se repararon y activaron como hipervínculos clickeables los enlaces de Google Drive en Columna M (' + count + ' celdas actualizadas)', '🚀 STF GROUP', 6);
 }
+
+/**
+ * =========================================================================
+ * PLANTILLAS DE CORREO DE SEGURIDAD (BLOQUEO Y RECUPERACIÓN DE CONTRASEÑA)
+ * =========================================================================
+ */
+
+function buildSecurityLockoutEmailHtml(payload) {
+  var uName = payload.userNombre || 'Usuario STF';
+  var uId = payload.userId || 'N/A';
+  var uArea = payload.userArea || 'CALIDAD';
+  var uRol = payload.userRol || 'OPERARIO';
+  var lockMin = payload.lockMinutes || 5;
+  var totalFail = payload.totalFailed || 3;
+  var fecha = payload.fecha || Utilities.formatDate(new Date(), 'America/Bogota', 'd/M/yyyy');
+  var hora = payload.hora || Utilities.formatDate(new Date(), 'America/Bogota', 'HH:mm:ss');
+  var appUrl = 'https://colchas.vercel.app';
+
+  return '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; background-color: #ffffff; border: 1px solid #fee2e2; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px rgba(220,38,38,0.08);">' +
+    '<div style="background-color: #991b1b; padding: 22px 24px; text-align: center; color: #ffffff;">' +
+      '<img src="https://colchas.vercel.app/logo-stf-dark.png" alt="STF GROUP S.A." width="200" style="display: block; margin: 0 auto 10px; max-width: 200px; filter: brightness(0) invert(1);" border="0">' +
+      '<div style="font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">ALERTA DE SEGURIDAD Y ACCESO</div>' +
+      '<div style="font-size: 10px; color: #fecaca; margin-top: 4px; font-weight: 600;">CONTROL DE CALIDAD DE COLCHAS</div>' +
+    '</div>' +
+
+    '<div style="padding: 24px 24px 20px;">' +
+      '<div style="background-color: #fef2f2; border: 1px solid #fecaca; border-left: 5px solid #dc2626; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">' +
+        '<div style="font-size: 14px; font-weight: 900; color: #991b1b; text-transform: uppercase; margin-bottom: 4px;">' +
+          '🔒 CUENTA BLOQUEADA TEMPORALMENTE' +
+        '</div>' +
+        '<div style="font-size: 12px; color: #7f1d1d; line-height: 1.5;">' +
+          'Se detectaron <strong>' + totalFail + ' intentos fallidos consecutivos</strong> de contraseña para este usuario. Por directriz de ciberseguridad, el acceso ha sido bloqueado por <strong>' + lockMin + ' minutos</strong>.' +
+        '</div>' +
+      '</div>' +
+
+      '<table style="width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 20px;">' +
+        '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+          '<td style="padding: 8px 0; font-weight: 800; color: #000000; width: 38%; text-transform: uppercase;">USUARIO AFECTADO:</td>' +
+          '<td style="padding: 8px 0; font-weight: 800; color: #1e293b;">' + uName + ' (' + uId + ')</td>' +
+        '</tr>' +
+        '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+          '<td style="padding: 8px 0; font-weight: 800; color: #000000; text-transform: uppercase;">ÁREA / ROL:</td>' +
+          '<td style="padding: 8px 0; font-weight: 600; color: #475569;">' + uArea + ' • ' + uRol + '</td>' +
+        '</tr>' +
+        '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+          '<td style="padding: 8px 0; font-weight: 800; color: #000000; text-transform: uppercase;">TIEMPO DE BLOQUEO:</td>' +
+          '<td style="padding: 8px 0; font-weight: 900; color: #dc2626;">' + lockMin + ' MINUTOS</td>' +
+        '</tr>' +
+        '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+          '<td style="padding: 8px 0; font-weight: 800; color: #000000; text-transform: uppercase;">FECHA Y HORA:</td>' +
+          '<td style="padding: 8px 0; font-weight: 600; color: #475569;">' + fecha + ' a las ' + hora + '</td>' +
+        '</tr>' +
+      '</table>' +
+
+      '<div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; font-size: 11.5px; color: #475569; line-height: 1.5; margin-bottom: 20px;">' +
+        '<strong>⚠️ Recomendación de Seguridad:</strong> Si usted no realizó estos intentos de inicio de sesión, es posible que otra persona esté intentando acceder a su cuenta. Le sugerimos ingresar al aplicativo y utilizar la opción <em>«¿Olvidaste tu contraseña?»</em> para establecer una nueva clave personal segura.' +
+      '</div>' +
+
+      '<div style="text-align: center;">' +
+        '<a href="' + appUrl + '" target="_blank" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; padding: 12px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(15,23,42,0.2);">' +
+          'ACCEDER A STF COLCHAS' +
+        '</a>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="background: #f8fafc; padding: 12px 18px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.4;">' +
+      '<strong style="color: #64748b;">STF GROUP S.A.</strong> • Protocolo de Ciberseguridad Textil<br>' +
+      '<span style="font-size: 9px; color: #cbd5e1;">Mensaje automático confidencial emitido por la plataforma oficial de calidad.</span>' +
+    '</div>' +
+  '</div>';
+}
+
+function buildRecoveryOtpEmailHtml(payload) {
+  var uName = payload.userNombre || 'Usuario STF';
+  var otp = payload.otpCode || '000000';
+  var expires = payload.expiresMinutes || 15;
+  var appUrl = 'https://colchas.vercel.app';
+
+  return '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">' +
+    '<div style="background-color: #0f172a; padding: 24px; text-align: center; color: #ffffff;">' +
+      '<img src="https://colchas.vercel.app/logo-stf-dark.png" alt="STF GROUP S.A." width="200" style="display: block; margin: 0 auto 10px; max-width: 200px; filter: brightness(0) invert(1);" border="0">' +
+      '<div style="font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #38bdf8;">RESTABLECIMIENTO DE CONTRASEÑA</div>' +
+      '<div style="font-size: 10px; color: #94a3b8; margin-top: 4px; font-weight: 600;">CONTROL DE CALIDAD DE COLCHAS</div>' +
+    '</div>' +
+
+    '<div style="padding: 26px 24px 22px;">' +
+      '<p style="font-size: 13.5px; color: #1e293b; line-height: 1.5; margin: 0 0 16px;">' +
+        'Hola <strong>' + uName + '</strong>, has solicitado restablecer tu contraseña de acceso a la plataforma <strong>STF Colchas</strong>.' +
+      '</p>' +
+
+      '<p style="font-size: 12px; color: #64748b; margin: 0 0 12px;">' +
+        'Utiliza el siguiente código de seguridad de 6 dígitos en la pantalla de recuperación:' +
+      '</p>' +
+
+      '<div style="background: #0f172a; border: 2px dashed #06b6d4; border-radius: 12px; padding: 18px 24px; text-align: center; margin: 0 0 20px;">' +
+        '<div style="font-family: \'JetBrains Mono\', Consolas, Monaco, monospace; font-size: 34px; font-weight: 900; letter-spacing: 8px; color: #38bdf8;">' +
+          otp +
+        '</div>' +
+        '<div style="font-size: 11px; font-weight: 700; color: #94a3b8; margin-top: 6px; letter-spacing: 0.5px;">' +
+          '⏰ VÁLIDO DURANTE ' + expires + ' MINUTOS' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 14px; font-size: 11.5px; color: #92400e; line-height: 1.5; margin-bottom: 20px;">' +
+        '<strong>🔒 Importante:</strong> Este código es personal, de un solo uso y confidencial. Ningún miembro de soporte técnico le solicitará este código.' +
+      '</div>' +
+
+      '<div style="text-align: center;">' +
+        '<a href="' + appUrl + '" target="_blank" style="display: inline-block; background-color: #0284c7; color: #ffffff; text-decoration: none; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; padding: 12px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(2,132,199,0.25);">' +
+          'IR AL APLICATIVO PARA INGRESAR CÓDIGO' +
+        '</a>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="background: #f8fafc; padding: 12px 18px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.4;">' +
+      '<strong style="color: #64748b;">STF GROUP S.A.</strong> • Seguridad de Acceso y Gestión de Identidad<br>' +
+      '<span style="font-size: 9px; color: #cbd5e1;">Si usted no solicitó este cambio, ignore este mensaje. Su contraseña actual seguirá protegida.</span>' +
+    '</div>' +
+  '</div>';
+}
+
