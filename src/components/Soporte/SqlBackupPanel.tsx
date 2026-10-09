@@ -104,9 +104,23 @@ export const SqlBackupPanel: React.FC<SqlBackupPanelProps> = ({
     }
   };
 
+  // En Google Sheets existen registros con la misma OP (sublotes o validaciones).
+  // La base de datos relacional PostgreSQL indexa y respalda OPs únicas mediante la clave UNIQUE 'op_codigo'.
+  const uniqueSheetsOps = React.useMemo(() => {
+    const set = new Set<string>();
+    solicitudes.forEach(s => {
+      const code = (s.op || '').trim().toUpperCase();
+      if (code && code !== 'OP-' && code !== 'OP-OP') {
+        set.add(code);
+      }
+    });
+    return set.size;
+  }, [solicitudes]);
+
   const sheetsTotal = solicitudes.length;
   const postgresTotal = health?.totalOpsInPostgres ?? 0;
-  const isDiff = sheetsTotal !== postgresTotal;
+  const pendingCount = Math.max(0, uniqueSheetsOps - postgresTotal);
+  const isDiff = pendingCount > 0;
 
   return (
     <div className="space-y-6">
@@ -218,7 +232,9 @@ export const SqlBackupPanel: React.FC<SqlBackupPanelProps> = ({
             <span className="text-3xl font-black text-zinc-900 dark:text-white">
               {sheetsTotal}
             </span>
-            <span className="text-xs font-mono text-zinc-500">OPs activas</span>
+            <span className="text-xs font-mono text-zinc-500">
+              filas ({uniqueSheetsOps} OPs únicas)
+            </span>
           </div>
           <div className="mt-2 text-[11px] font-mono text-zinc-500">
             Hoja: BASE_DE_DATOS
@@ -239,7 +255,7 @@ export const SqlBackupPanel: React.FC<SqlBackupPanelProps> = ({
           </div>
           <div className="mt-2 text-[11px] font-mono">
             {isDiff ? (
-              <span className="text-amber-500 font-bold">⚠️ Pendiente sincronizar ({Math.abs(sheetsTotal - postgresTotal)})</span>
+              <span className="text-amber-500 font-bold">⚠️ Pendiente sincronizar ({pendingCount})</span>
             ) : (
               <span className="text-emerald-500 font-bold">✅ 100% Sincronizado</span>
             )}

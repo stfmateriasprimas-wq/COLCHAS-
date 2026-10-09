@@ -267,28 +267,52 @@ export async function bulkSyncOpsToSql(
 
   for (let i = 0; i < ops.length; i += BATCH_SIZE) {
     const batch = ops.slice(i, i + BATCH_SIZE);
-    const opRecords = deduplicateByOpCodigo(batch.map(mapOpToSqlRecord));
-    const fotosRecords = deduplicateByOpCodigo(batch.map(mapFotosToSqlRecord));
+
+    // Mapeo defensivo: Si alguna OP individual tiene una propiedad anómala, no interrumpe el lote
+    const mappedOps = batch.map(op => {
+      try {
+        return mapOpToSqlRecord(op);
+      } catch (err) {
+        console.warn('[SQL Backup] Error mapeando OP:', op?.op, err);
+        return null;
+      }
+    }).filter((r): r is ReturnType<typeof mapOpToSqlRecord> => r !== null);
+
+    const mappedFotos = batch.map(op => {
+      try {
+        return mapFotosToSqlRecord(op);
+      } catch (err) {
+        console.warn('[SQL Backup] Error mapeando fotos de OP:', op?.op, err);
+        return null;
+      }
+    }).filter((r): r is ReturnType<typeof mapFotosToSqlRecord> => r !== null);
+
+    const opRecords = deduplicateByOpCodigo(mappedOps);
+    const fotosRecords = deduplicateByOpCodigo(mappedFotos);
 
     try {
       // 1. Guardar lote de OPs
-      const { error: batchOpError } = await supabase
-        .from('stf_colchas_ops')
-        .upsert(opRecords, { onConflict: 'op_codigo' });
+      if (opRecords.length > 0) {
+        const { error: batchOpError } = await supabase
+          .from('stf_colchas_ops')
+          .upsert(opRecords, { onConflict: 'op_codigo' });
 
-      if (batchOpError) {
-        errors.push(`Error en lote ${Math.floor(i / BATCH_SIZE) + 1} (OPs): ${batchOpError.message}`);
-      } else {
-        successfulOps += opRecords.length;
+        if (batchOpError) {
+          errors.push(`Error en lote ${Math.floor(i / BATCH_SIZE) + 1} (OPs): ${batchOpError.message}`);
+        } else {
+          successfulOps += opRecords.length;
+        }
       }
 
       // 2. Guardar lote de Fotos
-      const { error: batchFotosError } = await supabase
-        .from('stf_colchas_fotos')
-        .upsert(fotosRecords, { onConflict: 'op_codigo' });
+      if (fotosRecords.length > 0) {
+        const { error: batchFotosError } = await supabase
+          .from('stf_colchas_fotos')
+          .upsert(fotosRecords, { onConflict: 'op_codigo' });
 
-      if (batchFotosError) {
-        errors.push(`Error en lote ${Math.floor(i / BATCH_SIZE) + 1} (Fotos): ${batchFotosError.message}`);
+        if (batchFotosError) {
+          errors.push(`Error en lote ${Math.floor(i / BATCH_SIZE) + 1} (Fotos): ${batchFotosError.message}`);
+        }
       }
     } catch (batchErr: any) {
       errors.push(`Excepción en lote ${Math.floor(i / BATCH_SIZE) + 1}: ${batchErr?.message || batchErr}`);
