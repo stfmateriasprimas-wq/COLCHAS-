@@ -2,6 +2,9 @@ import { MonitoreoItem, SolicitudColcha, SectorType, DictamenType } from '../typ
 import { calculateWorkingDays } from './slaCalculator';
 import { getUsuariosList } from './authService';
 import { isOpDeleted } from './deletedOpsService';
+import { getOpStatusOverride, saveOpStatusOverride, clearOpStatusOverride } from './opStatusOverrideService';
+
+export { getOpStatusOverride, saveOpStatusOverride, clearOpStatusOverride };
 
 export const SPREADSHEET_ID = "1jTM8OG2u3bO9Cyrlyn3DJSnGcyLOzA8EWwxwOyWgXdc";
 export const BACKUP_SPREADSHEET_ID = "1qb9unBiGpV3QHgRtHonAAeyN0M8EQ4QhCan1Bnywx3M";
@@ -853,6 +856,7 @@ export function updateLocalOpStatus(
   dictamen?: DictamenType
 ): void {
   if (typeof window === 'undefined' || !opNumberOrId) return;
+  saveOpStatusOverride(opNumberOrId, nuevoEstado, nuevoArea, observaciones, dictamen);
   const cleanTarget = opNumberOrId.replace(/\D/g, '') || opNumberOrId.trim().toUpperCase();
   const current = getLocalCreatedOps();
   const updated = current.map(item => {
@@ -1302,6 +1306,12 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           cleanCsvObsColfactory = '';
         }
 
+        const statusOverride = getOpStatusOverride(cleanOp);
+        const effectiveEstado = statusOverride ? statusOverride.estado : estado;
+        const effectiveDictamen = (statusOverride && statusOverride.dictamen) ? statusOverride.dictamen : dictamen;
+        const effectiveArea = statusOverride ? statusOverride.areaActual : mapAreaName(effectiveEstado);
+        const effectiveObsCal = (statusOverride && statusOverride.observacionesCalidad) ? statusOverride.observacionesCalidad : (obsFinalStr || cleanCsvObsOperario);
+
         solicitudes.push({
           id: `op-row-${i}-${cleanOp.replace(/\W/g, '')}`,
           op: cleanOp,
@@ -1311,22 +1321,22 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
           color: r[4] || 'AZUL',
           rollos: Number(r[7]) || 1,
           lote: r[8] || '1',
-          estado: estado,
-          dictamen: dictamen,
+          estado: effectiveEstado,
+          dictamen: effectiveDictamen,
           inspector: (r[1] || '').trim() || 'INSPECTOR CALIDAD',
           fechaCreacion: fechaStr,
           observacionesOperario: cleanCsvObsOperario,
           observacionesLavanderia: cleanCsvObsColfactory,
-          observacionesCalidad: obsFinalStr || cleanCsvObsOperario,
+          observacionesCalidad: effectiveObsCal,
           fotoMuestraUrl: effectiveFoto1,
           fotoCalidadUrl: effectiveFoto2,
           driveFolderUrl: effectiveFolderUrl,
-          areaActual: mapAreaName(estado),
-          horasEnProceso: estado === 'FINALIZADO' ? 24 : horasHabiles,
-          diasHabiles: estado === 'FINALIZADO' ? 2 : diasHabiles,
-          limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
-          tieneRetraso: estado === 'FINALIZADO' ? false : tieneRetraso,
-          esRetrasoCritico: estado === 'FINALIZADO' ? false : esRetrasoCritico,
+          areaActual: effectiveArea,
+          horasEnProceso: effectiveEstado === 'FINALIZADO' ? 24 : horasHabiles,
+          diasHabiles: effectiveEstado === 'FINALIZADO' ? 2 : diasHabiles,
+          limiteSlaDias: effectiveEstado === 'LAVANDERIA' ? 2 : 1,
+          tieneRetraso: effectiveEstado === 'FINALIZADO' ? false : tieneRetraso,
+          esRetrasoCritico: effectiveEstado === 'FINALIZADO' ? false : esRetrasoCritico,
           emailUsuario: correoNotificadoCsv,
           mes: mesCsv
         });
@@ -1499,6 +1509,12 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               saveOpPhotosToCache(cleanOp, { foto1: effectiveFoto1, foto2: effectiveFoto2, folderUrl: effectiveFolderUrl });
             }
 
+            const statusOverride = getOpStatusOverride(cleanOp);
+            const effectiveEstado = statusOverride ? statusOverride.estado : estado;
+            const effectiveDictamen = (statusOverride && statusOverride.dictamen) ? statusOverride.dictamen : dictamen;
+            const effectiveArea = statusOverride ? statusOverride.areaActual : mapAreaName(effectiveEstado);
+            const effectiveObsCal = (statusOverride && statusOverride.observacionesCalidad) ? statusOverride.observacionesCalidad : (obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''));
+
             parsedList.push({
               id: `op-row-${idx + 1}-${cleanOp.replace(/\W/g, '')}`,
               op: cleanOp,
@@ -1508,22 +1524,22 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               color: colorRaw || 'AZUL',
               rollos: rollosRaw,
               lote: loteRaw,
-              estado: estado,
-              dictamen: dictamen,
+              estado: effectiveEstado,
+              dictamen: effectiveDictamen,
               inspector: inspectorRaw,
               fechaCreacion: fechaStr,
               observacionesOperario: obsOperarioRaw || '',
               observacionesLavanderia: obsColfactoryRaw || '',
-              observacionesCalidad: obsCalidadRaw || (dictamen === 'APROBADO' ? 'APROBADO' : ''),
+              observacionesCalidad: effectiveObsCal,
               fotoMuestraUrl: effectiveFoto1,
               fotoCalidadUrl: effectiveFoto2,
               driveFolderUrl: effectiveFolderUrl,
-              areaActual: mapAreaName(estado),
-              horasEnProceso: estado === 'FINALIZADO' ? 24 : horasHabiles,
-              diasHabiles: estado === 'FINALIZADO' ? 2 : diasHabiles,
-              limiteSlaDias: estado === 'LAVANDERIA' ? 2 : 1,
-              tieneRetraso: estado === 'FINALIZADO' ? false : tieneRetraso,
-              esRetrasoCritico: estado === 'FINALIZADO' ? false : esRetrasoCritico
+              areaActual: effectiveArea,
+              horasEnProceso: effectiveEstado === 'FINALIZADO' ? 24 : horasHabiles,
+              diasHabiles: effectiveEstado === 'FINALIZADO' ? 2 : diasHabiles,
+              limiteSlaDias: effectiveEstado === 'LAVANDERIA' ? 2 : 1,
+              tieneRetraso: effectiveEstado === 'FINALIZADO' ? false : tieneRetraso,
+              esRetrasoCritico: effectiveEstado === 'FINALIZADO' ? false : esRetrasoCritico
             });
           });
 

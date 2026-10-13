@@ -116,11 +116,16 @@ Este archivo define la lógica de negocio, arquitectura, flujos operativos y reg
 
 ---
 
-## 6. Arquitectura de Sincronización en Tiempo Real
+## 6. Arquitectura de Sincronización en Tiempo Real y Google Apps Script
 - **Lectura Rápida (0 ms)**: `https://docs.google.com/spreadsheets/d/<ID>/gviz/tq?tqx=out:csv&sheet=BASE_DE_DATOS`
 - **Escritura y Notificaciones**: Google Apps Script Web App (POST con acciones `CREATE_OP`, `TRANSFER_OP`, `UPDATE_DICTAMEN`, `UPDATE_OP_PHOTO`, `SYNC_ALERTAS`, `CLEAN_COLUMNS_KLMN`, `CLEAN_DRIVE_DUPLICATES`, `GET_OP_PHOTOS`).
 - **Respaldo Local**: `localStorage` (`STF_LOCAL_CREATED_OPS`) para disponibilidad inmediata antes de sincronizar.
 - **Payload QR Compacto**: Parámetro `?d=...` en Base64 con datos esenciales para escaneo offline o con conexión lenta.
+- **Automatización y Despliegue Local con Google Clasp**:
+  - Script ID oficial: `1xi8jRDAplD4cO7EQCsN_Cg1w5lgOxc_3QyRdsyLCD-f9K4l1Szx0n7NI`
+  - Configuración: `.clasp.json` (raíz apunta a `src/google-apps-script`).
+  - Módulos en `src/google-apps-script`: `01_Configuracion.js`, `02_MenuYTriggers.js`, `03_Endpoints.js`, `04_SheetsService.js`, `05_DriveService.js`, `06_EmailService.js`, `07_MantenimientoYSeguridad.js`.
+  - Comandos: `npm run gas:push` (sincronizar cambios locales a Google Cloud), `npm run gas:pull` (descargar cambios remotos), `npm run gas:deploy` (desplegar versión web app), `npm run gas:check` (validar sintaxis), `npm run gas:bundle` (compilar respaldo unificado).
 
 ---
 

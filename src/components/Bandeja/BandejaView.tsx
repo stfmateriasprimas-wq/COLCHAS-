@@ -25,7 +25,7 @@ interface BandejaViewProps {
   onViewDetail: (solicitud: SolicitudColcha) => void;
   onPrint: (solicitud: SolicitudColcha) => void;
   onDelete?: (solicitud: SolicitudColcha) => void;
-  onFinalizar?: (solicitud: SolicitudColcha) => void;
+  onFinalizar?: (solicitud: SolicitudColcha, customDictamen?: DictamenType, customObs?: string) => void;
   onUpdateOp?: (updated: SolicitudColcha) => void;
   onOpenQrScanner?: () => void;
   onNavigateTab: (tab: TabType) => void;

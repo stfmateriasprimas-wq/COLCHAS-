@@ -1,0 +1,13 @@
+# Ignore everything except script files and manifest
+**/**
+!appsscript.json
+!*.js
+!*.gs
+!*.html
+
+# Specific ignores
+_backup/**
+*.bak
+*.md
+*.csv
+*.txt

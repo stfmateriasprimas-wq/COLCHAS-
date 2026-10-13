@@ -19,7 +19,7 @@ interface SolicitudCardProps {
   onViewDetail: (solicitud: SolicitudColcha) => void;
   onPrint: (solicitud: SolicitudColcha) => void;
   onDelete?: (solicitud: SolicitudColcha) => void;
-  onFinalizar?: (solicitud: SolicitudColcha) => void;
+  onFinalizar?: (solicitud: SolicitudColcha, customDictamen?: DictamenType, customObs?: string) => void;
   onUpdateOp?: (updated: SolicitudColcha) => void;
   currentUser?: UsuarioSTF | null;
 }
@@ -269,6 +269,25 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   const [fotoPrenda2Preview, setFotoPrenda2Preview] = useState<string | null>(solicitud.fotoPrendaTerminada2Url || null);
   const [observacionesLavanderiaLocal, setObservacionesLavanderiaLocal] = useState(solicitud.observacionesLavanderia || '');
   const [observacionesCalidadLocal, setObservacionesCalidadLocal] = useState(solicitud.observacionesCalidad || '');
+  
+  // Estado local e interactivo para el apartado "EVALUADO Y ENVIADO"
+  const [veredictoEvaluado, setVeredictoEvaluado] = useState<DictamenType>(
+    (solicitud.dictamen as DictamenType) || 'APROBADO'
+  );
+  const [obsEvaluado, setObsEvaluado] = useState<string>(
+    solicitud.observacionesCalidad || 'Muestra evaluada y conforme según especificaciones técnicas.'
+  );
+  const [isFinalizandoLocal, setIsFinalizandoLocal] = useState<boolean>(false);
+
+  const PRESET_CONCEPTOS_EVALUACION = [
+    'TONO PAREJO',
+    'ENCOGE CONFORME',
+    'LIBERADO PARA PRODUCCIÓN',
+    'APROBADO EN GAMA TÉCNICA',
+    'RECHAZADO POR TONO DESVIADO',
+    'RECHAZADO POR REVIRADO'
+  ];
+
   const calidadFileInputRef = useRef<HTMLInputElement>(null);
   const directFileInputRef1 = useRef<HTMLInputElement>(null);
   const directFileInputRef2 = useRef<HTMLInputElement>(null);
@@ -300,7 +319,9 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
     if (solicitud.fotoPrendaTerminada2Url) setFotoPrenda2Preview(solicitud.fotoPrendaTerminada2Url);
     if (solicitud.observacionesLavanderia !== undefined) setObservacionesLavanderiaLocal(solicitud.observacionesLavanderia || '');
     if (solicitud.observacionesCalidad !== undefined) setObservacionesCalidadLocal(solicitud.observacionesCalidad || '');
-  }, [solicitud.fotoCalidadUrl, solicitud.fotoMuestraUrl, solicitud.fotoPrendaTerminada1Url, solicitud.fotoPrendaTerminada2Url, solicitud.observacionesLavanderia, solicitud.observacionesCalidad, solicitud.op]);
+    if (solicitud.dictamen) setVeredictoEvaluado(solicitud.dictamen as DictamenType);
+    if (solicitud.observacionesCalidad) setObsEvaluado(solicitud.observacionesCalidad);
+  }, [solicitud.fotoCalidadUrl, solicitud.fotoMuestraUrl, solicitud.fotoPrendaTerminada1Url, solicitud.fotoPrendaTerminada2Url, solicitud.observacionesLavanderia, solicitud.observacionesCalidad, solicitud.dictamen, solicitud.op]);
 
   // Escuchar eventos globales de resolución de fotos de OP en tiempo real
   useEffect(() => {
@@ -611,13 +632,15 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
       return;
     }
 
+    setIsFinalizandoLocal(true);
+    const finalDictamen = veredictoEvaluado || (solicitud.dictamen as DictamenType) || 'APROBADO';
+    const finalObs = (obsEvaluado || solicitud.observacionesCalidad || 'Orden evaluada, finalizada y liberada por Colfactory').trim();
+
     if (onFinalizar) {
-      onFinalizar(solicitud);
+      onFinalizar(solicitud, finalDictamen, finalObs);
     } else if (onDirectTransfer) {
-      const dictamen = solicitud.dictamen || 'APROBADO';
-      const obs = solicitud.observacionesCalidad || 'Orden finalizada y liberada por Colfactory';
       const foto = fotoCalidadUrlActual || solicitud.fotoCalidadUrl;
-      onDirectTransfer(solicitud.id, 'FINALIZADO', obs, dictamen, foto);
+      onDirectTransfer(solicitud.id, 'FINALIZADO', finalObs, finalDictamen, foto);
     }
   };
 
@@ -1534,35 +1557,116 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                     </span>
                   </h4>
                   <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400 font-mono">
-                    Auditoría de Calidad completada. Pendiente de finalización por parte de Factory.
+                    Auditoría de Calidad completada. Evaluación y finalización instantánea por parte de Factory.
                   </p>
                 </div>
               </div>
 
-              {/* Dictamen Badge */}
+              {/* Dictamen Badge Actual */}
               <div className="flex items-center gap-2">
                 <span className={`text-[11px] font-mono font-black px-3 py-1 rounded-xl border flex items-center gap-1.5 shadow-xs ${
-                  solicitud.dictamen === 'APROBADO'
+                  veredictoEvaluado === 'APROBADO'
                     ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-500/40'
-                    : solicitud.dictamen === 'APROBADO EN GAMA'
+                    : veredictoEvaluado === 'APROBADO EN GAMA'
                     ? 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-500/40'
                     : 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-500/40'
                 }`}>
-                  <span>{solicitud.dictamen === 'APROBADO' ? '✅' : solicitud.dictamen === 'APROBADO EN GAMA' ? '🎨' : '❌'}</span>
-                  <span>VEREDICTO: {solicitud.dictamen || 'APROBADO'}</span>
+                  <span>{veredictoEvaluado === 'APROBADO' ? '✅' : veredictoEvaluado === 'APROBADO EN GAMA' ? '🎨' : '❌'}</span>
+                  <span>VEREDICTO: {veredictoEvaluado}</span>
                 </span>
               </div>
             </div>
 
-            {/* Quality Summary Box */}
+            {/* Selector interactivo de Veredicto para Factory */}
+            {isFactoryUser(currentUser) && (
+              <div className="space-y-1.5">
+                <label className="text-[10.5px] font-bold text-teal-900 dark:text-teal-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                  <span>SELECCIONAR / CONFIRMAR VEREDICTO DE LIBERACIÓN:</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setVeredictoEvaluado('APROBADO')}
+                    className={`py-2.5 px-3 rounded-xl border font-mono font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      veredictoEvaluado === 'APROBADO'
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30 scale-[1.02]'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-emerald-400'
+                    }`}
+                  >
+                    <span>✅</span>
+                    <span>APROBADO</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVeredictoEvaluado('APROBADO EN GAMA')}
+                    className={`py-2.5 px-3 rounded-xl border font-mono font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      veredictoEvaluado === 'APROBADO EN GAMA'
+                        ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30 scale-[1.02]'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-purple-400'
+                    }`}
+                  >
+                    <span>🎨</span>
+                    <span>APROBADO EN GAMA</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVeredictoEvaluado('RECHAZADO')}
+                    className={`py-2.5 px-3 rounded-xl border font-mono font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      veredictoEvaluado === 'RECHAZADO'
+                        ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30 scale-[1.02]'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-rose-400'
+                    }`}
+                  >
+                    <span>❌</span>
+                    <span>RECHAZADO</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Quality Summary & Editable Box */}
             <div className="bg-white/80 dark:bg-zinc-950/60 border border-teal-200/80 dark:border-teal-500/30 rounded-2xl p-3.5 space-y-2">
               <div className="text-[10.5px] font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider font-mono flex items-center justify-between">
-                <span>CONCEPTO TÉCNICO DE CALIDAD:</span>
-                <span className="text-zinc-400 text-[10px] font-normal">AUDITORÍA STF</span>
+                <span>CONCEPTO TÉCNICO DE CALIDAD / DICTAMEN FINAL:</span>
+                <span className="text-zinc-400 text-[10px] font-normal">AUDITORÍA STF & FACTORY</span>
               </div>
-              <p className="text-xs font-mono text-zinc-800 dark:text-zinc-200 bg-teal-50/50 dark:bg-teal-950/30 p-2.5 rounded-xl border border-teal-200/50 dark:border-teal-500/20">
-                {solicitud.observacionesCalidad || 'Muestra evaluada y conforme según especificaciones técnicas.'}
-              </p>
+
+              {isFactoryUser(currentUser) ? (
+                <>
+                  <input
+                    type="text"
+                    value={obsEvaluado}
+                    onChange={(e) => setObsEvaluado(e.target.value)}
+                    placeholder="Escriba el concepto técnico o veredicto..."
+                    className="w-full bg-teal-50/50 dark:bg-zinc-900 border border-teal-300 dark:border-teal-600/50 rounded-xl p-2.5 text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-teal-500 transition shadow-2xs"
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {PRESET_CONCEPTOS_EVALUACION.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          if (obsEvaluado && !obsEvaluado.includes(tag)) {
+                            setObsEvaluado(`${obsEvaluado} - ${tag}`);
+                          } else {
+                            setObsEvaluado(tag);
+                          }
+                        }}
+                        className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-lg bg-teal-100/70 hover:bg-teal-200 text-teal-800 dark:bg-teal-950/60 dark:hover:bg-teal-900 dark:text-teal-300 border border-teal-300/60 dark:border-teal-800 transition cursor-pointer"
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs font-mono text-zinc-800 dark:text-zinc-200 bg-teal-50/50 dark:bg-teal-950/30 p-2.5 rounded-xl border border-teal-200/50 dark:border-teal-500/20">
+                  {obsEvaluado || 'Muestra evaluada y conforme según especificaciones técnicas.'}
+                </p>
+              )}
             </div>
 
             {/* Action Area: FACTORY ONLY BUTTON vs LOCKED INFO */}
@@ -1571,15 +1675,27 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
                 <button
                   type="button"
                   onClick={handleFinalizarColfactory}
-                  className="w-full group relative overflow-hidden bg-gradient-to-r from-teal-600 via-emerald-600 to-green-600 hover:from-teal-500 hover:to-emerald-500 text-white py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-600/25 active:scale-[0.99] border border-emerald-400/40"
-                  title="Finalizar OP y pasar a FINALIZADOS"
+                  disabled={isFinalizandoLocal}
+                  className="w-full group relative overflow-hidden bg-gradient-to-r from-teal-600 via-emerald-600 to-green-600 hover:from-teal-500 hover:to-emerald-500 text-white py-4 px-6 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-600/25 active:scale-[0.99] border border-emerald-400/40 disabled:opacity-75"
+                  title="Evaluar y finalizar OP inmediatamente a 0 ms"
                 >
-                  <CheckCircle2 className="w-5 h-5 text-emerald-100 group-hover:scale-125 transition-transform duration-200" />
-                  <span className="font-mono text-sm tracking-wide">FINALIZAR</span>
-                  <ArrowRight className="w-4 h-4 text-emerald-100 group-hover:translate-x-1 transition-transform duration-200" />
+                  {isFinalizandoLocal ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 text-emerald-100 animate-spin" />
+                      <span className="font-mono text-sm tracking-wide">EVALUANDO Y FINALIZANDO...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-100 group-hover:scale-125 transition-transform duration-200" />
+                      <span className="font-mono text-sm tracking-wide">
+                        ⚡ EVALUAR Y FINALIZAR AL INSTANTE ({veredictoEvaluado})
+                      </span>
+                      <ArrowRight className="w-4 h-4 text-emerald-100 group-hover:translate-x-1 transition-transform duration-200" />
+                    </>
+                  )}
                 </button>
                 <p className="text-center text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mt-2">
-                  ✓ Acceso exclusivo Colfactory (Factory). Al pulsar Finalizar, la OP pasa a FINALIZADOS y se liberará formalmente.
+                  ✓ Acceso exclusivo Colfactory (Factory). Al pulsar, la OP se evalúa y pasa inmediatamente a FINALIZADOS en 0 ms.
                 </p>
               </div>
             ) : (
@@ -1631,18 +1747,19 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             )}
 
             {/* BOTÓN FINALIZAR (EXCLUSIVO PERFIL FACTORY - OP EN EVALUADO) */}
-            {isFactoryUser(currentUser) && solicitud.estado === 'EVALUADO' && onFinalizar && (
+            {isFactoryUser(currentUser) && solicitud.estado === 'EVALUADO' && (onFinalizar || onDirectTransfer) && (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onFinalizar(solicitud);
+                  handleFinalizarColfactory();
                 }}
-                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-md hover:scale-105 active:scale-95 duration-150 font-mono"
-                title="Dar por finalizada esta OP y moverla a Finalizados (Exclusivo Factory)"
+                disabled={isFinalizandoLocal}
+                className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer shadow-md hover:scale-105 active:scale-95 duration-150 font-mono disabled:opacity-75"
+                title="Evaluar y finalizar esta OP al instante (Exclusivo Factory)"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-100" />
-                <span>FINALIZAR</span>
+                <span>FINALIZAR ({veredictoEvaluado})</span>
               </button>
             )}
 

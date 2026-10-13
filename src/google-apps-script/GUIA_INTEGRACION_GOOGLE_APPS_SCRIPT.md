@@ -102,19 +102,43 @@ Las evidencias fotográficas se organizan de forma 100% automática en Google Dr
 
 ---
 
-## 🚀 4. Instrucciones de Instalación y Actualización en Google Sheets:
+## 🚀 4. Flujo Automatizado con Google Clasp & Antigravity (Recomendado)
 
-1. **Abrir Apps Script**:
-   En tu hoja de cálculo, ve al menú superior: **Extensiones > Apps Script**.
-2. **Pegar el Código Maestro**:
-   Borra cualquier código anterior y pega el contenido completo del archivo [`Codigo.js`](file:///c:/Users/joseo/Downloads/remix_-stf-group---quality-control%20(6)/COLCHAS-/src/google-apps-script/Codigo.js). Guarda con **Ctrl + S** o el icono 💾.
-3. **Implementar / Actualizar como Web App**:
-   Haz clic en **Implementar > Administrar implementaciones**:
-   - Haz clic en el icono de **Lápiz (Editar)**.
-   - En **Versión**, selecciona **Nueva versión**.
-   - Haz clic en **Implementar**.
-   *(O si es la primera vez: **Implementar > Nueva implementación > Aplicación web**, Ejecutar como: Yo, Quién tiene acceso: Cualquier usuario).*
-4. **Verificar Menú en Google Sheets**:
-   Recarga la hoja de cálculo. En el menú superior **🚀 STF GROUP**, haz clic en:
-   `📁 Crear / Verificar Estructura en Google Drive (Mes y OPs)` para comprobar que las carpetas se creen correctamente.
+El sistema ahora está anclado directamente a Google Apps Script mediante **Google Clasp**:
+- **Script ID**: `1xi8jRDAplD4cO7EQCsN_Cg1w5lgOxc_3QyRdsyLCD-f9K4l1Szx0n7NI`
+- **Configuración**: `.clasp.json` (apunta a `src/google-apps-script`)
+
+### Comandos de Automatización:
+```bash
+# Sube todos los cambios locales directamente a Google Apps Script
+npm run gas:push
+
+# Descarga cualquier cambio realizado en la nube
+npm run gas:pull
+
+# Muestra el estado de sincronización de los archivos
+npm run gas:status
+
+# Abre directamente el editor web de Apps Script en tu navegador
+npm run gas:open
+
+# Valida la sintaxis JavaScript de todos los módulos
+npm run gas:check
+
+# Genera un archivo unificado maestro de respaldo en _backup/
+npm run gas:bundle
+
+# Despliega una nueva versión de la Web App automáticamente
+npm run gas:deploy
+```
+
+### Arquitectura Modular de Archivos:
+1. `01_Configuracion.js`: IDs, nombres de pestañas y encabezados oficiales.
+2. `02_MenuYTriggers.js`: Menú `COLCHAS STF 🚀` en Sheets, autorizaciones y disparador `onEdit`.
+3. `03_Endpoints.js`: Webhooks `doGet` y `doPost` (Router de Antigravity).
+4. `04_SheetsService.js`: Lectura/escritura en `BASE_DE_DATOS`, `MONITOREO` y `TRAZABILIDAD_TIEMPOS`.
+5. `05_DriveService.js`: Almacenamiento jerárquico de fotos y evidencias en Google Drive.
+6. `06_EmailService.js`: Flujos A, B y C de correo y lectura de `USUARIOS`.
+7. `07_MantenimientoYSeguridad.js`: Depuración de columnas K-N, reparación de links Drive y seguridad.
+
 

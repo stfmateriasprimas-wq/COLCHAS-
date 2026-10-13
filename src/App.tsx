@@ -53,6 +53,8 @@ import {
   getOpPhotosFromCache,
   saveOpPhotosToCache,
   isSamePhoto,
+  getOpStatusOverride,
+  saveOpStatusOverride,
   INITIAL_MONITOREO_DATA, 
   INITIAL_SOLICITUDES_DATA 
 } from './services/googleSheetsService';
@@ -445,23 +447,36 @@ export function App() {
           }
         });
 
-        // Enriquecer todas las OPs remotas con fotos cacheadas en memoria/disco para que el polling de Sheets no las borre
-        const enrichedRemote = activeOnly.map(remote => {
+        // Enriquecer todas las OPs remotas con fotos cacheadas y overrides de estado para que el polling de Sheets nunca las revierta
+        const enrichedRemote: SolicitudColcha[] = activeOnly.map(remote => {
           const cached = getOpPhotosFromCache(remote.op);
+          const override = getOpStatusOverride(remote.op);
           let f1 = remote.fotoMuestraUrl || cached?.foto1;
           let f2 = remote.fotoCalidadUrl || cached?.foto2;
           if (f1 && f2 && isSamePhoto(f1, f2)) {
             f1 = undefined;
           }
+
+          const effEstado = (override && override.estado) ? override.estado : remote.estado;
+          const effDictamen = (override && override.dictamen) ? override.dictamen : remote.dictamen;
+          const effArea = (override && override.areaActual) ? override.areaActual : remote.areaActual;
+          const effObsCal = (override && override.observacionesCalidad) ? override.observacionesCalidad : remote.observacionesCalidad;
+
           return {
             ...remote,
+            estado: effEstado,
+            dictamen: effDictamen,
+            areaActual: effArea,
+            observacionesCalidad: effObsCal,
+            tieneRetraso: effEstado === 'FINALIZADO' ? false : remote.tieneRetraso,
+            esRetrasoCritico: effEstado === 'FINALIZADO' ? false : remote.esRetrasoCritico,
             fotoMuestraUrl: f1,
             fotoCalidadUrl: f2,
             driveFolderUrl: remote.driveFolderUrl || cached?.folderUrl
           };
         });
 
-        const mergedLive = [...enrichedRemote];
+        const mergedLive: SolicitudColcha[] = [...enrichedRemote];
         localOps.forEach(loc => {
           const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
           const remoteIdx = mergedLive.findIndex(m => ((m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()) === cleanLocOp);
@@ -605,54 +620,73 @@ export function App() {
     } catch (e) {}
   };
 
-  const handleFinalizarOp = (solicitud: SolicitudColcha) => {
+  const handleFinalizarOp = (solicitud: SolicitudColcha, customDictamen?: DictamenType, customObs?: string) => {
     // REGLA INMUTABLE: La única forma de llevar una OP a FINALIZADO es que provenga del apartado EVALUADO Y ENVIADO
     if (solicitud.estado !== 'EVALUADO') {
       alert('⚠️ Acción restringida: Una orden solo puede ser llevada a FINALIZADO desde el nuevo apartado "EVALUADO Y ENVIADO".');
       return;
     }
-    setConfirmFinalizarOp(solicitud);
+    // Ejecución instantánea e inmediata a 0 ms
+    executeFinalizarOp(solicitud, customDictamen, customObs);
   };
 
-  const executeFinalizarOp = async (solicitud: SolicitudColcha) => {
+  const executeFinalizarOp = async (
+    solicitud: SolicitudColcha,
+    customDictamen?: DictamenType,
+    customObs?: string
+  ) => {
     const opNumber = solicitud.op;
-    const auditorName = currentUser ? currentUser.nombre : 'AUDITOR STF';
+    const auditorName = currentUser ? currentUser.nombre : 'COLFACTORY (FACTORY)';
 
-    const finalDictamen = (solicitud.dictamen || 'APROBADO') as DictamenType;
-    const finalObs = solicitud.observacionesCalidad || `Orden finalizada y liberada por ${auditorName}`;
+    const finalDictamen = (customDictamen || solicitud.dictamen || 'APROBADO') as DictamenType;
+    const finalObs = (customObs || solicitud.observacionesCalidad || `Orden evaluada, finalizada y liberada por ${auditorName}`).trim();
 
-    setSolicitudes(prev => prev.map(item => {
-      if (item.id === solicitud.id || item.op.trim().toUpperCase() === solicitud.op.trim().toUpperCase()) {
-        const { diasHabiles, horasHabiles } = calculateWorkingDays(item.fechaCreacion);
-        return {
-          ...item,
-          estado: 'FINALIZADO' as SectorType,
-          areaActual: 'CALIDAD PLANTA STF',
-          dictamen: finalDictamen,
-          diasHabiles,
-          horasEnProceso: horasHabiles,
-          tieneRetraso: false,
-          esRetrasoCritico: false,
-          fechaActualizacion: new Date().toISOString(),
-          observacionesCalidad: finalObs
-        };
-      }
-      return item;
-    }));
+    // 1. Inmediatamente en 0 ms: Actualizar solicitudes en memoria y caché local
+    let nextSolicitudes: SolicitudColcha[] = [];
+    setSolicitudes(prev => {
+      nextSolicitudes = prev.map(item => {
+        const itemDigits = item.op.replace(/\D/g, '');
+        const targetDigits = (opNumber || '').replace(/\D/g, '');
+        const isMatch = item.id === solicitud.id || 
+                        item.op.trim().toUpperCase() === opNumber.trim().toUpperCase() ||
+                        (targetDigits !== '' && itemDigits === targetDigits);
+        if (isMatch) {
+          const { diasHabiles, horasHabiles } = calculateWorkingDays(item.fechaCreacion);
+          return {
+            ...item,
+            estado: 'FINALIZADO' as SectorType,
+            areaActual: 'CALIDAD PLANTA STF',
+            dictamen: finalDictamen,
+            diasHabiles,
+            horasEnProceso: horasHabiles,
+            tieneRetraso: false,
+            esRetrasoCritico: false,
+            fechaActualizacion: new Date().toISOString(),
+            observacionesCalidad: finalObs
+          };
+        }
+        return item;
+      });
+      saveCachedSolicitudes(nextSolicitudes);
+      return nextSolicitudes;
+    });
 
-    // Depuración en tiempo real de la página ALERTAS de Google Sheets
-    removeOpFromAlertasSheet(opNumber);
+    // 2. Blindar estado en localStorage para que el polling de Sheets NUNCA lo revierta
+    saveOpStatusOverride(opNumber, 'FINALIZADO', 'CALIDAD PLANTA STF', finalObs, finalDictamen);
     updateLocalOpStatus(solicitud.id, 'FINALIZADO', 'CALIDAD PLANTA STF', finalObs, finalDictamen);
     if (opNumber) {
       updateLocalOpStatus(opNumber, 'FINALIZADO', 'CALIDAD PLANTA STF', finalObs, finalDictamen);
     }
 
-    notificationService.playAlertSound('EXITO');
+    // 3. Feedback auditivo y cierre de cualquier confirmación pendiente
+    try {
+      notificationService.playAlertSound('EXITO');
+    } catch (e) {}
     setConfirmFinalizarOp(null);
 
     // Registro forense para SOPORTE TEC.
     auditService.logAction(
-      currentUser || { id: 'auditor', nombre: auditorName, rol: 'ADMINISTRADOR', area: 'CALIDAD', email: '' },
+      currentUser || { id: 'factory', nombre: auditorName, rol: 'ADMINISTRADOR', area: 'LAVANDERÍA', email: '' },
       'DICTAMEN_CALIDAD',
       `Finalización y liberación inmediata de colcha ${opNumber} con veredicto ${finalDictamen}`,
       opNumber,
@@ -674,22 +708,10 @@ export function App() {
       ).catch(err => console.warn('Aviso: Cierre de timeline registrado localmente:', err));
     }
 
-    // Sincronización en vivo hacia Google Sheets (Página BASE_DE_DATOS)
-    if (opNumber) {
-      try {
-        const cachedPhoto = getOpPhotosFromCache(opNumber);
-        const photoToSend = solicitud.fotoCalidadUrl || cachedPhoto?.foto2 || '';
-        const colObsToSend = solicitud.observacionesLavanderia || '';
-        const dictRes = await pushDictamenToSheets(opNumber, finalDictamen, auditorName, finalObs, photoToSend, colObsToSend);
-        if (dictRes && (dictRes.driveUrl || dictRes.folderUrl)) {
-          updateLocalOpPhoto(opNumber, dictRes.driveUrl || photoToSend, true);
-        }
-      } catch (err) {
-        console.error("Error sincronizando dictamen final a Sheets:", err);
-      }
-    }
+    // Depuración en tiempo real de la página ALERTAS de Google Sheets
+    removeOpFromAlertasSheet(opNumber);
 
-    // Apertura automática del modal de etiqueta térmica en Fase 2 (Finalizado)
+    // 4. Apertura automática INMEDIATA del modal de etiqueta térmica en Fase 2 (Finalizado)
     const finalizedColcha: SolicitudColcha = {
       ...solicitud,
       estado: 'FINALIZADO',
@@ -698,6 +720,22 @@ export function App() {
       areaActual: 'CALIDAD PLANTA STF'
     };
     setSelectedColchaPrinter(finalizedColcha);
+
+    // 5. Sincronización en segundo plano con Google Sheets (No bloquea la UI en 0 ms)
+    if (opNumber) {
+      const cachedPhoto = getOpPhotosFromCache(opNumber);
+      const photoToSend = solicitud.fotoCalidadUrl || cachedPhoto?.foto2 || '';
+      const colObsToSend = solicitud.observacionesLavanderia || '';
+      pushDictamenToSheets(opNumber, finalDictamen, auditorName, finalObs, photoToSend, colObsToSend)
+        .then(dictRes => {
+          if (dictRes && (dictRes.driveUrl || dictRes.folderUrl)) {
+            updateLocalOpPhoto(opNumber, dictRes.driveUrl || photoToSend, true);
+          }
+        })
+        .catch(err => {
+          console.error("Error sincronizando dictamen final a Sheets en segundo plano:", err);
+        });
+    }
   };
 
   const handleRestoreOp = (restoredSol: SolicitudColcha) => {
@@ -902,45 +940,6 @@ export function App() {
       ).catch(err => console.warn('Aviso: Transición de timeline registrada localmente:', err));
     }
 
-    setSolicitudes(prev => prev.map(item => {
-      if (item.id === solicitudId) {
-        const areaMap: Record<SectorType, string> = {
-          PRE_SOLICITUD: 'CALIDAD 2F / ATELIER',
-          SOLICITADO: 'TRÁNSITO / DESPACHO',
-          LAVANDERIA: 'LAVANDERÍA COLFACTORY ZF',
-          CALIDAD: 'CALIDAD STF LABORATORIO',
-          EVALUADO: 'EVALUADO Y ENVIADO',
-          FINALIZADO: 'CALIDAD PLANTA STF'
-        };
-
-        const updated = {
-          ...item,
-          estado: nuevoEstado,
-          areaActual: areaMap[nuevoEstado],
-          dictamen: (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'EVALUADO') ? (dictamen || item.dictamen || 'APROBADO') : item.dictamen,
-          fotoCalidadUrl: fotoCalidad || item.fotoCalidadUrl,
-          fechaActualizacion: new Date().toISOString()
-        };
-
-        if (nuevaObservacion) {
-          if (item.estado === 'LAVANDERIA' || nuevoEstado === 'LAVANDERIA') {
-            updated.observacionesLavanderia = nuevaObservacion;
-          } else if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CALIDAD' || nuevoEstado === 'EVALUADO') {
-            updated.observacionesCalidad = nuevaObservacion;
-          }
-        }
-
-        const { diasHabiles, horasHabiles, tieneRetraso, esRetrasoCritico } = calculateWorkingDays(item.fechaCreacion);
-        updated.diasHabiles = diasHabiles;
-        updated.horasEnProceso = horasHabiles;
-        updated.tieneRetraso = tieneRetraso;
-        updated.esRetrasoCritico = esRetrasoCritico;
-
-        return updated;
-      }
-      return item;
-    }));
-
     const areaMap: Record<SectorType, string> = {
       PRE_SOLICITUD: 'CALIDAD 2F / ATELIER',
       SOLICITADO: 'TRÁNSITO / DESPACHO',
@@ -949,6 +948,52 @@ export function App() {
       EVALUADO: 'EVALUADO Y ENVIADO',
       FINALIZADO: 'CALIDAD PLANTA STF'
     };
+
+    let nextTransList: SolicitudColcha[] = [];
+    setSolicitudes(prev => {
+      nextTransList = prev.map(item => {
+        const itemDigits = item.op.replace(/\D/g, '');
+        const targetDigits = (opNumber || '').replace(/\D/g, '');
+        const isMatch = item.id === solicitudId || 
+                        item.op === solicitudId || 
+                        (opNumber && item.op.trim().toUpperCase() === opNumber.trim().toUpperCase()) ||
+                        (targetDigits !== '' && itemDigits === targetDigits);
+
+        if (isMatch) {
+          const updated = {
+            ...item,
+            estado: nuevoEstado,
+            areaActual: areaMap[nuevoEstado],
+            dictamen: (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'EVALUADO') ? (dictamen || item.dictamen || 'APROBADO') : item.dictamen,
+            fotoCalidadUrl: fotoCalidad || item.fotoCalidadUrl,
+            fechaActualizacion: new Date().toISOString()
+          };
+
+          if (nuevaObservacion) {
+            if (item.estado === 'LAVANDERIA' || nuevoEstado === 'LAVANDERIA') {
+              updated.observacionesLavanderia = nuevaObservacion;
+            } else if (nuevoEstado === 'FINALIZADO' || nuevoEstado === 'CALIDAD' || nuevoEstado === 'EVALUADO') {
+              updated.observacionesCalidad = nuevaObservacion;
+            }
+          }
+
+          const { diasHabiles, horasHabiles, tieneRetraso, esRetrasoCritico } = calculateWorkingDays(item.fechaCreacion);
+          updated.diasHabiles = diasHabiles;
+          updated.horasEnProceso = horasHabiles;
+          updated.tieneRetraso = nuevoEstado === 'FINALIZADO' ? false : tieneRetraso;
+          updated.esRetrasoCritico = nuevoEstado === 'FINALIZADO' ? false : esRetrasoCritico;
+
+          return updated;
+        }
+        return item;
+      });
+      saveCachedSolicitudes(nextTransList);
+      return nextTransList;
+    });
+
+    if (opNumber) {
+      saveOpStatusOverride(opNumber, nuevoEstado, areaMap[nuevoEstado], nuevaObservacion, dictamen);
+    }
     updateLocalOpStatus(solicitudId, nuevoEstado, areaMap[nuevoEstado], nuevaObservacion, dictamen);
     if (opNumber) {
       updateLocalOpStatus(opNumber, nuevoEstado, areaMap[nuevoEstado], nuevaObservacion, dictamen);
@@ -967,29 +1012,15 @@ export function App() {
 
     // Alertas sonoras y sincronización con Google Sheets
     if (nuevoEstado === 'FINALIZADO') {
-      notificationService.playAlertSound('EXITO');
+      try {
+        notificationService.playAlertSound('EXITO');
+      } catch (e) {}
       if (opNumber) {
         removeOpFromAlertasSheet(opNumber);
       }
-      if (opNumber && dictamen) {
-        const localOps = getLocalCreatedOps();
-        const localMatch = localOps.find(l => l.id === solicitudId || l.op.replace(/\D/g, '') === opNumber.replace(/\D/g, ''));
-        const photoToSend = fotoCalidad || targetItem?.fotoCalidadUrl || localMatch?.fotoCalidadUrl;
-        const colObsToSend = targetItem?.observacionesLavanderia || localMatch?.observacionesLavanderia || '';
-        const dictRes = await pushDictamenToSheets(opNumber, dictamen, currentUser?.nombre || 'AUDITOR STF', nuevaObservacion, photoToSend, colObsToSend);
-        if (dictRes && dictRes.driveUrl) {
-          updateLocalOpPhoto(opNumber, dictRes.driveUrl, true);
-          setSolicitudes(prev => prev.map(s => {
-            if (s.id === solicitudId || (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) === (opNumber.replace(/\D/g, '') || opNumber.trim().toUpperCase())) {
-              return { ...s, fotoCalidadUrl: dictRes.driveUrl };
-            }
-            return s;
-          }));
-        }
-      }
 
-      // Automatización: Abrir de inmediato el modal de impresión de la etiqueta final (Fase 2 / Finalizado)
-      const finalizedItem = solicitudes.find(s => s.id === solicitudId) || targetItem;
+      // Automatización: Abrir de inmediato el modal de impresión de la etiqueta final (Fase 2 / Finalizado) en 0 ms
+      const finalizedItem = nextTransList.find(s => s.id === solicitudId || s.op === opNumber) || targetItem;
       if (finalizedItem) {
         const finalizedColcha: SolicitudColcha = {
           ...finalizedItem,
@@ -1001,13 +1032,36 @@ export function App() {
         };
         setSelectedColchaPrinter(finalizedColcha);
       }
+
+      // Sincronización en segundo plano con Google Sheets
+      if (opNumber && dictamen) {
+        const localOps = getLocalCreatedOps();
+        const localMatch = localOps.find(l => l.id === solicitudId || l.op.replace(/\D/g, '') === opNumber.replace(/\D/g, ''));
+        const photoToSend = fotoCalidad || targetItem?.fotoCalidadUrl || localMatch?.fotoCalidadUrl;
+        const colObsToSend = targetItem?.observacionesLavanderia || localMatch?.observacionesLavanderia || '';
+        pushDictamenToSheets(opNumber, dictamen, currentUser?.nombre || 'AUDITOR STF', nuevaObservacion, photoToSend, colObsToSend)
+          .then(dictRes => {
+            if (dictRes && dictRes.driveUrl) {
+              updateLocalOpPhoto(opNumber, dictRes.driveUrl, true);
+              setSolicitudes(prev => prev.map(s => {
+                if (s.id === solicitudId || (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) === (opNumber.replace(/\D/g, '') || opNumber.trim().toUpperCase())) {
+                  return { ...s, fotoCalidadUrl: dictRes.driveUrl };
+                }
+                return s;
+              }));
+            }
+          })
+          .catch(err => {
+            console.error("Error sincronizando dictamen a Sheets en segundo plano:", err);
+          });
+      }
     } else {
       notificationService.playAlertSound('TRANSFERENCIA');
       if (opNumber) {
         const isFromLav = targetItem?.estado === 'LAVANDERIA';
         const isToLav = nuevoEstado === 'LAVANDERIA';
         const colObs = (isFromLav || isToLav) ? nuevaObservacion : targetItem?.observacionesLavanderia;
-        await pushTransferToSheets(
+        pushTransferToSheets(
           opNumber, 
           nuevoEstado, 
           currentUser?.nombre || 'OPERARIO STF', 
@@ -1016,7 +1070,9 @@ export function App() {
           colObs,
           dictamen,
           fotoCalidad
-        );
+        ).catch(err => {
+          console.warn('Error sincronizando transferencia a Sheets en segundo plano:', err);
+        });
       }
     }
   };
@@ -1537,7 +1593,7 @@ export function App() {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-black uppercase text-emerald-600 dark:text-emerald-400 font-mono">
-                    ¿Finalizar OP-{confirmFinalizarOp.op}?
+                    ¿Finalizar {confirmFinalizarOp.op.startsWith('OP-') ? confirmFinalizarOp.op : `OP-${confirmFinalizarOp.op}`}?
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-emerald-500 text-black uppercase">
                     LIBERACIÓN
