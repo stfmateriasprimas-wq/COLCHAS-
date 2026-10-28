@@ -3,7 +3,7 @@
  * STF GROUP S.A. - CONTROL DE CALIDAD DE COLCHAS & TRAZABILIDAD TEXTIL
  * SCRIPT MAESTRO UNIFICADO (GENERADO AUTOMÁTICAMENTE DESDE MÓDULOS)
  * =========================================================================
- * Fecha de generación: 2026-10-13T14:37:53.606Z
+ * Fecha de generación: 2026-10-27T21:28:58.338Z
  * =========================================================================
  */
 
@@ -604,16 +604,23 @@ function doPost(e) {
       // 1. Depurar filas vacías intermedias previas (compactación automática de la base de datos)
       cleanEmptyRowsInBaseDeDatos(ss);
 
-      // 2. BLINDAJE CONTRA DUPLICADOS: Verificar si la OP ya existe en BASE_DE_DATOS
+      // 2. BLINDAJE CONTRA DUPLICADOS EXACTOS (solo actualizar fila existente si se indica explícitamente y coincide OP + Referencia + Color)
       var existingRowIndex = -1;
       var lastRowBd = sheetBd.getLastRow();
-      if (lastRowBd > 1) {
-        var opValsCheck = sheetBd.getRange(2, 6, lastRowBd - 1, 1).getValues();
+      if (lastRowBd > 1 && payload.allowOverwriteDuplicate === true) {
+        var bdDataCheck = sheetBd.getRange(2, 1, lastRowBd - 1, 7).getValues(); // cols: Fecha(1), Insp(2), Tela(3), MT(4), Color(5), OP(6), Ref(7)
         var targetDigitsCheck = opVal.replace(/\D/g, '');
-        for (var cIdx = 0; cIdx < opValsCheck.length; cIdx++) {
-          var rowOpStr = String(opValsCheck[cIdx][0] || '').trim().toUpperCase();
+        var targetRefCheck = String(refVal || '').trim().toUpperCase();
+        var targetColorCheck = String(colorVal || '').trim().toUpperCase();
+        for (var cIdx = bdDataCheck.length - 1; cIdx >= 0; cIdx--) {
+          var rowOpStr = String(bdDataCheck[cIdx][5] || '').trim().toUpperCase();
           var rowDigitsCheck = rowOpStr.replace(/\D/g, '');
-          if (rowOpStr === opVal.toUpperCase() || (targetDigitsCheck && rowDigitsCheck && targetDigitsCheck === rowDigitsCheck)) {
+          var rowRefStr = String(bdDataCheck[cIdx][6] || '').trim().toUpperCase();
+          var rowColorStr = String(bdDataCheck[cIdx][4] || '').trim().toUpperCase();
+          var isOpMatch = (rowOpStr === opVal.toUpperCase() || (targetDigitsCheck && rowDigitsCheck && targetDigitsCheck === rowDigitsCheck));
+          var isRefMatch = (!targetRefCheck || !rowRefStr || targetRefCheck === rowRefStr);
+          var isColorMatch = (!targetColorCheck || !rowColorStr || targetColorCheck === rowColorStr);
+          if (isOpMatch && isRefMatch && isColorMatch) {
             existingRowIndex = cIdx + 2;
             break;
           }
@@ -629,10 +636,11 @@ function doPost(e) {
 
       // 4. Inserción atómica y prioritaria de los datos en BASE_DE_DATOS
       sheetBd.getRange(targetRow, 1, 1, newRow.length).setValues([newRow]);
+      SpreadsheetApp.flush();
 
       // 5. Inmediatamente depurar y eliminar la OP de la hoja MONITOREO
       normalizeAllOpCodesInBaseDeDatos(ss);
-      if (opVal) removeOpFromMonitoreoSheet(ss, opVal);
+      if (opVal) removeOpFromMonitoreoSheet(ss, opVal, refVal, colorVal);
       autoCleanMonitoreoFromBaseDeDatos(ss);
 
       // 6. Registrar evento inicial en TRAZABILIDAD_TIEMPOS
@@ -1533,36 +1541,35 @@ function getMonitoreoSheet(ss) {
   return ss.getSheetByName(SHEET_MONITOREO) || ss.getSheetByName('monitoreo');
 }
 
-function removeOpFromMonitoreoSheet(ss, op) {
+function removeOpFromMonitoreoSheet(ss, op, ref, color) {
   if (!op) return;
   var sheetMon = getMonitoreoSheet(ss);
   if (!sheetMon || sheetMon.getLastRow() <= 1) return;
   var cleanTarget = String(op).trim().toUpperCase();
   var cleanNoPrefix = cleanTarget.replace(/^OP-?/, '');
   var targetDigits = cleanNoPrefix.replace(/\D/g, '');
-  var targetInt = targetDigits ? parseInt(targetDigits, 10) : null;
+  var targetRef = String(ref || '').trim().toUpperCase();
+  var targetColor = String(color || '').trim().toUpperCase();
   var vals = sheetMon.getRange(2, 1, sheetMon.getLastRow() - 1, Math.max(5, sheetMon.getLastColumn())).getValues();
 
   for (var i = vals.length - 1; i >= 0; i--) {
-    var match = false;
-    for (var c = 0; c < vals[i].length; c++) {
-      var cv = String(vals[i][c] || '').trim().toUpperCase();
-      if (!cv) continue;
-      var cellNoPrefix = cv.replace(/^OP-?/, '');
-      var cellDigits = cellNoPrefix.replace(/\D/g, '');
-      var cellInt = cellDigits ? parseInt(cellDigits, 10) : null;
+    var cellColor = String(vals[i][2] || '').trim().toUpperCase();
+    var cellOp = String(vals[i][3] || '').trim().toUpperCase();
+    var cellRef = String(vals[i][4] || '').trim().toUpperCase();
+    var cellDigits = cellOp.replace(/\D/g, '');
 
-      if (
-        cv === cleanTarget ||
-        cellNoPrefix === cleanNoPrefix ||
-        (targetDigits && cellDigits && targetDigits === cellDigits) ||
-        (targetInt !== null && cellInt !== null && targetInt === cellInt)
-      ) {
-        match = true;
+    var isOpMatch = (cellOp === cleanTarget || cellOp.replace(/^OP-?/, '') === cleanNoPrefix || (targetDigits && cellDigits && targetDigits === cellDigits));
+    if (!isOpMatch) continue;
+
+    if (targetRef && cellRef) {
+      if (cellRef === targetRef && (!targetColor || !cellColor || cellColor === targetColor)) {
+        sheetMon.deleteRow(i + 2);
         break;
       }
+    } else {
+      sheetMon.deleteRow(i + 2);
+      break;
     }
-    if (match) sheetMon.deleteRow(i + 2);
   }
 }
 
@@ -1572,43 +1579,40 @@ function autoCleanMonitoreoFromBaseDeDatos(ss) {
     var sheetMon = getMonitoreoSheet(ss);
     if (!sheetBd || !sheetMon || sheetBd.getLastRow() <= 1 || sheetMon.getLastRow() <= 1) return 0;
 
-    var bdValues = sheetBd.getRange(2, 6, sheetBd.getLastRow() - 1, 1).getValues();
+    // Leer Color(5), OP(6) y Referencia(7) de BASE_DE_DATOS
+    var bdValues = sheetBd.getRange(2, 5, sheetBd.getLastRow() - 1, 3).getValues();
     var registeredMap = {};
     for (var b = 0; b < bdValues.length; b++) {
-      var opVal = String(bdValues[b][0] || '').trim().toUpperCase();
-      if (opVal) {
-        registeredMap[opVal] = true;
-        var cleanNoP = opVal.replace(/^OP-?/, '');
-        registeredMap[cleanNoP] = true;
-        var digits = cleanNoP.replace(/\D/g, '');
-        if (digits) {
-          registeredMap[digits] = true;
-          registeredMap[parseInt(digits, 10).toString()] = true;
-        }
+      var colorVal = String(bdValues[b][0] || '').trim().toUpperCase();
+      var opVal = String(bdValues[b][1] || '').trim().toUpperCase();
+      var refVal = String(bdValues[b][2] || '').trim().toUpperCase();
+      var digits = opVal.replace(/\D/g, '');
+      if (digits) {
+        if (refVal) registeredMap[digits + '__' + refVal] = true;
+        if (refVal && colorVal) registeredMap[digits + '__' + refVal + '__' + colorVal] = true;
+        if (!refVal && !colorVal) registeredMap[digits] = true;
       }
     }
 
     var monValues = sheetMon.getRange(2, 1, sheetMon.getLastRow() - 1, Math.max(5, sheetMon.getLastColumn())).getValues();
     var deletedCount = 0;
     for (var m = monValues.length - 1; m >= 0; m--) {
-      var isMatch = false;
-      for (var c = 0; c < monValues[m].length; c++) {
-        var cellVal = String(monValues[m][c] || '').trim().toUpperCase();
-        if (!cellVal) continue;
-        var cellClean = cellVal.replace(/^OP-?/, '');
-        var cellDigits = cellClean.replace(/\D/g, '');
-        var cellNum = cellDigits ? parseInt(cellDigits, 10).toString() : '';
+      var mColor = String(monValues[m][2] || '').trim().toUpperCase();
+      var mOp = String(monValues[m][3] || '').trim().toUpperCase();
+      var mRef = String(monValues[m][4] || '').trim().toUpperCase();
+      var mDigits = mOp.replace(/\D/g, '');
 
-        if (
-          registeredMap[cellVal] || 
-          registeredMap[cellClean] || 
-          (cellDigits && registeredMap[cellDigits]) ||
-          (cellNum && registeredMap[cellNum])
-        ) {
-          isMatch = true;
-          break;
-        }
+      if (!mDigits) continue;
+
+      var isMatch = false;
+      if (mRef && mColor && registeredMap[mDigits + '__' + mRef + '__' + mColor]) {
+        isMatch = true;
+      } else if (mRef && registeredMap[mDigits + '__' + mRef]) {
+        isMatch = true;
+      } else if (!mRef && registeredMap[mDigits]) {
+        isMatch = true;
       }
+
       if (isMatch) {
         sheetMon.deleteRow(m + 2);
         deletedCount++;

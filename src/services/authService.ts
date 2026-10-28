@@ -26,7 +26,7 @@ export const USUARIOS_STF_MAESTROS: UsuarioSTF[] = [
   { id: "8888", nombre: "PAOLA COLFACTORY", rol: "LAVANDERÍA", area: "LAVANDERÍA", email: "jefe.lavanderia@colfactory.com", isZonaFranca: false, telefono: "+57 319 012 3456", whatsapp: "573190123456" },
   { id: "1107529604", nombre: "DIDIER MUÑOZ", rol: "OPERARIO", area: "CALIDAD ZF", email: "", isZonaFranca: true, telefono: "+57 318 123 4567", whatsapp: "573181234567" },
   { id: "1114392241", nombre: "ANDRES FELIPE TASCON", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 314 567 8902", whatsapp: "573145678902" },
-  { id: "1004670524", nombre: "DILAN SOTO", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 310 678 9013", whatsapp: "573106789013" },
+  { id: "1004670524", nombre: "DILAN SOTO", rol: "OPERARIO", area: "CALIDAD ZF", email: "", isZonaFranca: true, telefono: "+57 310 678 9013", whatsapp: "573106789013" },
   { id: "1010159672", nombre: "JHON EYDER", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 311 789 0124", whatsapp: "573117890124" },
   { id: "1118309204", nombre: "STIVEN MAYA", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 313 890 1235", whatsapp: "573138901235" },
   { id: "1118309205", nombre: "WILMER MAYA", rol: "OPERARIO", area: "CALIDAD", email: "", isZonaFranca: false, telefono: "+57 313 890 1236", whatsapp: "573138901236" },
@@ -140,7 +140,8 @@ export function isUserFromZonaFranca(user?: UsuarioSTF | null): boolean {
     uname.includes('ATELIER') ||
     uid === '2222' ||
     uid === '1107529604' ||
-    uid === '1006099840'
+    uid === '1006099840' ||
+    uid === '1004670524'
   );
 }
 

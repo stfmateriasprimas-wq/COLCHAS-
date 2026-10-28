@@ -318,16 +318,23 @@ function doPost(e) {
       // 1. Depurar filas vacías intermedias previas (compactación automática de la base de datos)
       cleanEmptyRowsInBaseDeDatos(ss);
 
-      // 2. BLINDAJE CONTRA DUPLICADOS: Verificar si la OP ya existe en BASE_DE_DATOS
+      // 2. BLINDAJE CONTRA DUPLICADOS EXACTOS (solo actualizar fila existente si se indica explícitamente y coincide OP + Referencia + Color)
       var existingRowIndex = -1;
       var lastRowBd = sheetBd.getLastRow();
-      if (lastRowBd > 1) {
-        var opValsCheck = sheetBd.getRange(2, 6, lastRowBd - 1, 1).getValues();
+      if (lastRowBd > 1 && payload.allowOverwriteDuplicate === true) {
+        var bdDataCheck = sheetBd.getRange(2, 1, lastRowBd - 1, 7).getValues(); // cols: Fecha(1), Insp(2), Tela(3), MT(4), Color(5), OP(6), Ref(7)
         var targetDigitsCheck = opVal.replace(/\D/g, '');
-        for (var cIdx = 0; cIdx < opValsCheck.length; cIdx++) {
-          var rowOpStr = String(opValsCheck[cIdx][0] || '').trim().toUpperCase();
+        var targetRefCheck = String(refVal || '').trim().toUpperCase();
+        var targetColorCheck = String(colorVal || '').trim().toUpperCase();
+        for (var cIdx = bdDataCheck.length - 1; cIdx >= 0; cIdx--) {
+          var rowOpStr = String(bdDataCheck[cIdx][5] || '').trim().toUpperCase();
           var rowDigitsCheck = rowOpStr.replace(/\D/g, '');
-          if (rowOpStr === opVal.toUpperCase() || (targetDigitsCheck && rowDigitsCheck && targetDigitsCheck === rowDigitsCheck)) {
+          var rowRefStr = String(bdDataCheck[cIdx][6] || '').trim().toUpperCase();
+          var rowColorStr = String(bdDataCheck[cIdx][4] || '').trim().toUpperCase();
+          var isOpMatch = (rowOpStr === opVal.toUpperCase() || (targetDigitsCheck && rowDigitsCheck && targetDigitsCheck === rowDigitsCheck));
+          var isRefMatch = (!targetRefCheck || !rowRefStr || targetRefCheck === rowRefStr);
+          var isColorMatch = (!targetColorCheck || !rowColorStr || targetColorCheck === rowColorStr);
+          if (isOpMatch && isRefMatch && isColorMatch) {
             existingRowIndex = cIdx + 2;
             break;
           }
@@ -343,10 +350,11 @@ function doPost(e) {
 
       // 4. Inserción atómica y prioritaria de los datos en BASE_DE_DATOS
       sheetBd.getRange(targetRow, 1, 1, newRow.length).setValues([newRow]);
+      SpreadsheetApp.flush();
 
       // 5. Inmediatamente depurar y eliminar la OP de la hoja MONITOREO
       normalizeAllOpCodesInBaseDeDatos(ss);
-      if (opVal) removeOpFromMonitoreoSheet(ss, opVal);
+      if (opVal) removeOpFromMonitoreoSheet(ss, opVal, refVal, colorVal);
       autoCleanMonitoreoFromBaseDeDatos(ss);
 
       // 6. Registrar evento inicial en TRAZABILIDAD_TIEMPOS

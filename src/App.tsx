@@ -43,6 +43,7 @@ import {
   updateLocalOpStatus,
   updateLocalOpPhoto,
   markMonitoreoOpAsConsumed,
+  getConsumedMonitoreoOps,
   syncAllAlertasToSheets,
   removeOpFromAlertasSheet,
   deleteOpFromGoogleSheets,
@@ -392,30 +393,37 @@ export function App() {
       // Blindaje contra condición de carrera: asegurar que cualquier OP creada localmente nunca se pierda
       const localOps = getLocalCreatedOps().filter(loc => !isOpDeleted(loc.op));
 
-      // BLINDAJE INDUSTRIAL: Filtrar de Monitoreo cualquier OP que ya esté en BASE_DE_DATOS o en cola local
-      const registeredOpCodes = new Set<string>();
+      // BLINDAJE INDUSTRIAL INTELIGENTE:
+      // OPs y firmas consumidas en esta sesión en el navegador
+      const consumedOps = new Set(getConsumedMonitoreoOps().map(o => o.trim().toUpperCase()));
+
+      // Claves compuestas de órdenes existentes (OP + Referencia + Color)
+      // para no confundir colchas distintas que comparten el mismo número de orden base
+      const registeredColchaSignatures = new Set<string>();
+      const activePendingOpDigits = new Set<string>();
+
       baseDatosData.forEach(b => {
-        const opVal = (b.op || '').trim().toUpperCase();
-        if (opVal) {
-          registeredOpCodes.add(opVal);
-          registeredOpCodes.add(opVal.replace(/^OP-?/, ''));
-          const digits = opVal.replace(/\D/g, '');
-          if (digits) {
-            registeredOpCodes.add(digits);
-            registeredOpCodes.add(parseInt(digits, 10).toString());
+        const opDigits = (b.op || '').replace(/\D/g, '');
+        const refVal = (b.referencia || '').trim().toUpperCase();
+        const colorVal = (b.color || '').trim().toUpperCase();
+        if (opDigits) {
+          registeredColchaSignatures.add(`${opDigits}__${refVal}__${colorVal}`);
+          if (refVal) registeredColchaSignatures.add(`${opDigits}__${refVal}`);
+          // Si está activa (en proceso, no finalizada), registrar dígitos para evitar duplicados en curso
+          if (b.estado !== 'FINALIZADO') {
+            activePendingOpDigits.add(opDigits);
           }
         }
       });
+
       localOps.forEach(l => {
-        const opVal = (l.op || '').trim().toUpperCase();
-        if (opVal) {
-          registeredOpCodes.add(opVal);
-          registeredOpCodes.add(opVal.replace(/^OP-?/, ''));
-          const digits = opVal.replace(/\D/g, '');
-          if (digits) {
-            registeredOpCodes.add(digits);
-            registeredOpCodes.add(parseInt(digits, 10).toString());
-          }
+        const opDigits = (l.op || '').replace(/\D/g, '');
+        const refVal = (l.referencia || '').trim().toUpperCase();
+        const colorVal = (l.color || '').trim().toUpperCase();
+        if (opDigits) {
+          registeredColchaSignatures.add(`${opDigits}__${refVal}__${colorVal}`);
+          if (refVal) registeredColchaSignatures.add(`${opDigits}__${refVal}`);
+          activePendingOpDigits.add(opDigits);
         }
       });
 
@@ -424,13 +432,34 @@ export function App() {
         if (!opVal) return false;
         const noPrefix = opVal.replace(/^OP-?/, '');
         const digits = opVal.replace(/\D/g, '');
-        const intVal = digits ? parseInt(digits, 10).toString() : '';
-        return (
-          !registeredOpCodes.has(opVal) &&
-          !registeredOpCodes.has(noPrefix) &&
-          (!digits || !registeredOpCodes.has(digits)) &&
-          (!intVal || !registeredOpCodes.has(intVal))
-        );
+        const itemRef = (item.referencia || '').trim().toUpperCase();
+        const itemColor = (item.color || '').trim().toUpperCase();
+
+        // 1. Si el usuario ya la procesó en esta sesión local
+        if (
+          consumedOps.has(opVal) ||
+          consumedOps.has(noPrefix) ||
+          (digits && consumedOps.has(digits)) ||
+          (digits && itemRef && consumedOps.has(`${digits}__${itemRef}`)) ||
+          (digits && itemRef && itemColor && consumedOps.has(`${digits}__${itemRef}__${itemColor}`))
+        ) {
+          return false;
+        }
+
+        // 2. Si ya existe exactamente esta misma combinación en BASE_DE_DATOS o localOps
+        if (digits && itemRef && itemColor && registeredColchaSignatures.has(`${digits}__${itemRef}__${itemColor}`)) {
+          return false;
+        }
+        if (digits && itemRef && !itemColor && registeredColchaSignatures.has(`${digits}__${itemRef}`)) {
+          return false;
+        }
+
+        // 3. Si en Monitoreo no viene referencia pero la OP ya está activa en proceso
+        if (!itemRef && digits && activePendingOpDigits.has(digits)) {
+          return false;
+        }
+
+        return true;
       });
       setMonitoreoList(cleanMonitoreo);
 
@@ -438,12 +467,40 @@ export function App() {
         // Exclude OPs that have been deleted by Edwin into history
         const activeOnly = baseDatosData.filter(item => !isOpDeleted(item.op));
 
+        // Función auxiliar para determinar si dos colchas corresponden de manera 100% inequívoca a la misma muestra
+        const isExactSameColcha = (a: SolicitudColcha, b: SolicitudColcha) => {
+          if (a.id && b.id && a.id === b.id) return true;
+          const aOp = (a.op || '').replace(/\D/g, '') || a.op.trim().toUpperCase();
+          const bOp = (b.op || '').replace(/\D/g, '') || b.op.trim().toUpperCase();
+          if (aOp !== bOp) return false;
+
+          const aRef = (a.referencia || '').trim().toUpperCase().replace(/^(N\/A|S\/R|SR)$/i, '');
+          const bRef = (b.referencia || '').trim().toUpperCase().replace(/^(N\/A|S\/R|SR)$/i, '');
+          const aColor = (a.color || '').trim().toUpperCase();
+          const bColor = (b.color || '').trim().toUpperCase();
+
+          if (aRef && bRef) {
+            if (aRef !== bRef) return false;
+            if (aColor && bColor && aColor !== bColor) return false;
+            return true;
+          }
+          if ((aRef && !bRef) || (!aRef && bRef)) return false;
+
+          if (a.lote && b.lote && String(a.lote).trim().toUpperCase() !== String(b.lote).trim().toUpperCase()) {
+            return false;
+          }
+
+          if (b.estado === 'FINALIZADO' && a.estado !== 'FINALIZADO') return false;
+          if (a.estado === 'FINALIZADO' && b.estado !== 'FINALIZADO') return false;
+
+          return true;
+        };
+
         // Limpiar de localStorage localOps que ya están 100% confirmadas en Sheets
         localOps.forEach(loc => {
-          const cleanLoc = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
-          const isConfirmed = activeOnly.some(rem => ((rem.op || '').replace(/\D/g, '') || rem.op.trim().toUpperCase()) === cleanLoc);
+          const isConfirmed = activeOnly.some(rem => isExactSameColcha(loc, rem));
           if (isConfirmed) {
-            removeLocalCreatedOp(loc.op);
+            removeLocalCreatedOp(loc.op, loc.referencia, loc.color);
           }
         });
 
@@ -479,7 +536,8 @@ export function App() {
         const mergedLive: SolicitudColcha[] = [...enrichedRemote];
         localOps.forEach(loc => {
           const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
-          const remoteIdx = mergedLive.findIndex(m => ((m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase()) === cleanLocOp);
+          const remoteIdx = mergedLive.findIndex(m => isExactSameColcha(loc, m));
+
           const cached = getOpPhotosFromCache(cleanLocOp) || getOpPhotosFromCache(loc.op);
           if (remoteIdx === -1) {
             let f1 = loc.fotoMuestraUrl || cached?.foto1;
@@ -511,10 +569,7 @@ export function App() {
         });
 
         // Reintento resiliente automático en segundo plano para OPs locales aún no reflejadas en Sheets
-        const unconfirmedLocalOps = localOps.filter(loc => {
-          const cleanLoc = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
-          return !activeOnly.some(rem => ((rem.op || '').replace(/\D/g, '') || rem.op.trim().toUpperCase()) === cleanLoc);
-        });
+        const unconfirmedLocalOps = localOps.filter(loc => !activeOnly.some(rem => isExactSameColcha(loc, rem)));
 
         if (unconfirmedLocalOps.length > 0) {
           unconfirmedLocalOps.forEach(pendingOp => {
@@ -837,20 +892,56 @@ export function App() {
         nueva.observacionesOperario || nueva.observacionesLavanderia || ''
       ).catch(err => console.warn('Aviso: Inicio de timeline registrado localmente:', err));
 
-      const cleanTarget = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
       setSolicitudes(prev => {
-        const nextList = [nueva, ...prev.filter(s => (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) !== cleanTarget)];
+        const isMatch = (s: SolicitudColcha) => {
+          if (s.id && nueva.id && s.id === nueva.id) return true;
+          const sOp = (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase());
+          const nOp = (nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase());
+          if (sOp !== nOp) return false;
+
+          const sRef = (s.referencia || '').trim().toUpperCase().replace(/^(N\/A|S\/R|SR)$/i, '');
+          const nRef = (nueva.referencia || '').trim().toUpperCase().replace(/^(N\/A|S\/R|SR)$/i, '');
+          const sColor = (s.color || '').trim().toUpperCase();
+          const nColor = (nueva.color || '').trim().toUpperCase();
+
+          if (sRef && nRef) {
+            return sRef === nRef && (!sColor || !nColor || sColor === nColor);
+          }
+          if ((sRef && !nRef) || (!sRef && nRef)) return false;
+
+          if (s.lote && nueva.lote && String(s.lote).trim().toUpperCase() !== String(nueva.lote).trim().toUpperCase()) {
+            return false;
+          }
+          return s.estado === nueva.estado;
+        };
+        const nextList = [nueva, ...prev.filter(s => !isMatch(s))];
         saveCachedSolicitudes(nextList);
         return nextList;
       });
 
-      // Eliminar OP de la lista de Monitoreo en tiempo real (de 6 quedan 5)
-      const cleanOpNumber = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
+      // Eliminar OP de la lista de Monitoreo en tiempo real manteniendo otras colchas de la misma OP
       setMonitoreoList(prev => prev.filter(item => {
-        const cleanItemOp = (item.op || '').replace(/\D/g, '') || (item.op || '').trim().toUpperCase();
-        return cleanItemOp !== cleanOpNumber;
+        const itemOp = (item.op || '').replace(/\D/g, '') || (item.op || '').trim().toUpperCase();
+        const nOp = nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase();
+        if (itemOp !== nOp) return true;
+        const itemRef = (item.referencia || '').trim().toUpperCase();
+        const nRef = (nueva.referencia || '').trim().toUpperCase();
+        const itemColor = (item.color || '').trim().toUpperCase();
+        const nColor = (nueva.color || '').trim().toUpperCase();
+        if (itemRef && nRef && itemRef === nRef && (!itemColor || !nColor || itemColor === nColor)) {
+          return false;
+        }
+        if (!itemRef) return false;
+        return true;
       }));
       markMonitoreoOpAsConsumed(nueva.op);
+      const cleanDigitsNueva = nueva.op.replace(/\D/g, '');
+      if (cleanDigitsNueva && nueva.referencia) {
+        markMonitoreoOpAsConsumed(`${cleanDigitsNueva}__${nueva.referencia.trim().toUpperCase()}`);
+        if (nueva.color) {
+          markMonitoreoOpAsConsumed(`${cleanDigitsNueva}__${nueva.referencia.trim().toUpperCase()}__${nueva.color.trim().toUpperCase()}`);
+        }
+      }
 
       // Sincronización atómica hacia Google Sheets & Drive (BASE_DE_DATOS) en segundo plano
       pushSolicitudToSheets(nueva).then(res => {
@@ -858,7 +949,12 @@ export function App() {
           if (res.driveUrl) {
             updateLocalOpPhoto(nueva.op, res.driveUrl, false);
             setSolicitudes(prev => prev.map(s => {
-              if ((s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) === cleanTarget) {
+              const isTarget = s.id === nueva.id || (
+                (s.op.replace(/\D/g, '') || s.op.trim().toUpperCase()) === (nueva.op.replace(/\D/g, '') || nueva.op.trim().toUpperCase()) &&
+                (s.referencia || '').trim().toUpperCase() === (nueva.referencia || '').trim().toUpperCase() &&
+                (s.color || '').trim().toUpperCase() === (nueva.color || '').trim().toUpperCase()
+              );
+              if (isTarget) {
                 return { ...s, fotoMuestraUrl: res.driveUrl, driveFolderUrl: res.folderUrl };
               }
               return s;
@@ -1310,6 +1406,7 @@ export function App() {
             <SolicitudForm
               monitoreoList={monitoreoList}
               currentUser={currentUser}
+              solicitudes={solicitudes}
               onCancel={() => setActiveTab('dashboard')}
               onSubmit={handleAddNewSolicitud}
               onRefreshMonitoreo={() => loadAllLiveData(false)}

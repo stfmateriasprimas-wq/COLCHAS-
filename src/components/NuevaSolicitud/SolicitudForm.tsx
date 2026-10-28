@@ -1,12 +1,48 @@
 import React, { useState } from 'react';
-import { Camera, Printer, ArrowLeft, CheckCircle2, Trash2, Sliders, Sparkles, MapPin } from 'lucide-react';
+import { Camera, Printer, ArrowLeft, CheckCircle2, Trash2, Sliders, Sparkles, MapPin, Edit3 } from 'lucide-react';
 import { MonitoreoItem, SolicitudColcha, SectorType } from '../../types';
 import { SmartOpSearch } from './SmartOpSearch';
 import { UsuarioSTF, isUserFromZonaFranca, isCalidadUser } from '../../services/authService';
 import { compressImageFile, formatOpCode } from '../../services/googleSheetsService';
 
+// Catálogo Maestro de Telas Textiles Oficiales de STF Group
+export const STF_CATALOGO_TELAS: string[] = [
+  'TELA INDIGO UTOPIA',
+  'TELA INDIGO LARKANA',
+  'TELA INDIGO EGEO',
+  'TELA INDIGO MAIA',
+  'TELA INDIGO CORES',
+  'TELA INDIGO CORES STF',
+  'TELA INDIGO AKORA',
+  'TELA INDIGO WANG BLUE',
+  'TELA INDIGO WANG BLACK',
+  'TELA INDIGO PLATINUM CHINA',
+  'TELA INDIGO RAYON AGRAS',
+  'TELA TENCEL MALVINA',
+  'TELA TENCEL ROSHI',
+  'TELA INDIGO ALAMOS',
+  'TELA INDIGO ALBERTA',
+  'TELA INDIGO CARTAGENA',
+  'TELA INDIGO CHAMBRAY LIVIANO',
+  'TELA INDIGO CUSCO',
+  'TELA INDIGO LIMA',
+  'TELA INDIGO MEDITERRANEO',
+  'TELA INDIGO MIRAFLORES',
+  'TELA INDIGO MOSTAZA',
+  'TELA INDIGO MULUK',
+  'TELA INDIGO NANKIN',
+  'TELA INDIGO NOEL',
+  'TELA INDIGO PAKISTAN',
+  'TELA INDIGO RAYON BENKEI',
+  'TELA INDIGO RAYON PRAGA',
+  'TELA INDIGO TENCEL BENKEI',
+  'TELA INDIGO TENCEL BULMA',
+  'TELA INDIGO PRODIGY BLACK FABRICATO'
+];
+
 interface SolicitudFormProps {
   monitoreoList: MonitoreoItem[];
+  solicitudes?: SolicitudColcha[];
   currentUser?: UsuarioSTF | null;
   onCancel: () => void;
   onSubmit: (nuevaColcha: SolicitudColcha) => void;
@@ -16,6 +52,7 @@ interface SolicitudFormProps {
 
 export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   monitoreoList,
+  solicitudes = [],
   currentUser,
   onCancel,
   onSubmit,
@@ -23,6 +60,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   isSyncing = false
 }) => {
   const [tela, setTela] = useState('');
+  const [isManualTela, setIsManualTela] = useState(false);
   const [mt, setMt] = useState('');
   const [color, setColor] = useState('');
   const [op, setOp] = useState('');
@@ -37,8 +75,10 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   // - Perfil Calidad / Planta Principal -> SOLICITADO (En Tránsito a Lavandería ZF)
   // - Sede Zona Franca (Atelier ZF) -> PRE_SOLICITUD (Corte y preparación de muestra)
   const isZonaFranca = isUserFromZonaFranca(currentUser);
-  const initialEstado: SectorType = isZonaFranca ? 'PRE_SOLICITUD' : 'SOLICITADO';
-  const initialAreaName = isZonaFranca ? 'CALIDAD 2F / ATELIER' : 'TRÁNSITO / DESPACHO';
+  const [selectedDestinoStage, setSelectedDestinoStage] = useState<SectorType>(
+    isZonaFranca ? 'PRE_SOLICITUD' : 'SOLICITADO'
+  );
+  const currentAreaName = selectedDestinoStage === 'PRE_SOLICITUD' ? 'CALIDAD 2F / ATELIER' : 'TRÁNSITO / DESPACHO';
 
   // Parámetros técnicos textiles opcionales
   const [showTechnicalParams, setShowTechnicalParams] = useState(false);
@@ -48,15 +88,23 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
 
   const [isManualOp, setIsManualOp] = useState(false);
 
-  // Extract unique fabric names
-  const uniqueTelas = Array.from(new Set(monitoreoList.map(m => m.tela).filter(Boolean)));
+  // Catálogo completo de telas combinando: Monitoreo + Base de Datos + Catálogo Oficial
+  const availableTelas = React.useMemo(() => {
+    const set = new Set<string>();
+    monitoreoList.forEach(m => { if (m.tela && m.tela.trim()) set.add(m.tela.trim()); });
+    if (solicitudes && solicitudes.length > 0) {
+      solicitudes.forEach(s => { if (s.tela && s.tela.trim()) set.add(s.tela.trim()); });
+    }
+    STF_CATALOGO_TELAS.forEach(t => set.add(t));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [monitoreoList, solicitudes]);
 
   // OPs únicas disponibles para la tela seleccionada actualmente (deduplicadas y ordenadas)
   const availableOpsForTela = React.useMemo(() => {
     if (!tela) return [];
     const map = new Map<string, MonitoreoItem>();
     for (const m of monitoreoList) {
-      if (m.tela === tela && m.op && m.op.trim()) {
+      if (m.tela && m.tela.trim().toUpperCase() === tela.trim().toUpperCase() && m.op && m.op.trim()) {
         const formatted = formatOpCode(m.op.trim());
         if (!map.has(formatted)) {
           map.set(formatted, {
@@ -70,32 +118,40 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
   }, [monitoreoList, tela]);
 
   const handleSelectOpFromSearch = (item: MonitoreoItem) => {
-    setTela(item.tela);
-    setMt(item.mt);
-    setColor(item.color);
-    setOp(formatOpCode(item.op));
-    setReferencia(item.referencia);
-    setIsManualOp(false);
+    setTela(item.tela || 'TELA INDIGO');
+    setIsManualTela(false);
+    setMt(item.mt || 'MT-AUTO');
+    setColor(item.color || 'AZUL');
+    const formatted = item.op && item.op.trim() ? formatOpCode(item.op) : '';
+    setOp(formatted);
+    setReferencia(item.referencia || '');
+    // Si la OP de monitoreo no tiene número asignado, activar ingreso manual de OP
+    setIsManualOp(!formatted);
   };
 
   const handleTelaSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedTela = e.target.value;
+    if (selectedTela === '__MANUAL__') {
+      setIsManualTela(true);
+      setTela('');
+      return;
+    }
+
     setTela(selectedTela);
-    setIsManualOp(false);
+    setIsManualTela(false);
     
-    // Auto-seleccionar primera OP coincidente si existe
-    const matches = monitoreoList.filter(m => m.tela === selectedTela && m.op && m.op.trim());
-    if (matches.length > 0) {
-      const firstMatch = matches[0];
-      setMt(firstMatch.mt || 'MT-AUTO');
-      setColor(firstMatch.color || 'AZUL');
-      setOp(formatOpCode(firstMatch.op));
-      setReferencia(firstMatch.referencia || '');
-    } else {
-      setMt('');
-      setColor('');
-      setOp('');
-      setReferencia('');
+    // Auto-seleccionar primera OP coincidente solo si el usuario no ha ingresado una previamente
+    if (!isManualOp && !op.trim()) {
+      const matches = monitoreoList.filter(
+        m => m.tela && m.tela.trim().toUpperCase() === selectedTela.trim().toUpperCase() && m.op && m.op.trim()
+      );
+      if (matches.length > 0) {
+        const firstMatch = matches[0];
+        setMt(firstMatch.mt || 'MT-AUTO');
+        setColor(firstMatch.color || 'AZUL');
+        setOp(formatOpCode(firstMatch.op));
+        setReferencia(firstMatch.referencia || '');
+      }
     }
   };
 
@@ -108,7 +164,6 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
 
     if (!selectedOpValue) {
       setOp('');
-      setReferencia('');
       return;
     }
 
@@ -116,12 +171,13 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     setOp(formatted);
 
     const match = monitoreoList.find(
-      m => m.tela === tela && (m.op === selectedOpValue || formatOpCode(m.op) === formatted)
+      m => (m.tela && m.tela.trim().toUpperCase() === tela.trim().toUpperCase()) &&
+           (m.op === selectedOpValue || formatOpCode(m.op) === formatted)
     );
     if (match) {
       if (match.mt) setMt(match.mt);
       if (match.color) setColor(match.color);
-      setReferencia(match.referencia || '');
+      if (match.referencia) setReferencia(match.referencia);
     }
   };
 
@@ -129,7 +185,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       try {
-        const compressed = await compressImageFile(file, 650, 0.55);
+        const compressed = await compressImageFile(file, 440, 0.42);
         setPhotoUrl(compressed);
       } catch (err) {
         const reader = new FileReader();
@@ -160,19 +216,19 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
     return {
       id: `colcha-${Date.now()}`,
       op: formatOpCode(op || 'OP-MUESTRA'),
-      referencia: referencia || 'N/A',
+      referencia: referencia && referencia.trim() ? referencia.trim().toUpperCase() : 'S/R',
       tela: tela || 'TELA INDIGO',
       codigoMt: mt || 'MT-AUTO',
       color: color || 'AZUL',
       rollos: Number(rollos) || 1,
       lote: lote || '1',
-      estado: initialEstado,
+      estado: selectedDestinoStage,
       dictamen: 'PENDIENTE',
-      inspector: currentUser ? currentUser.nombre : (isZonaFranca ? 'CALIDAD ZF' : 'CALIDAD STF'),
+      inspector: currentUser ? currentUser.nombre : (selectedDestinoStage === 'PRE_SOLICITUD' ? 'CALIDAD ZF' : 'CALIDAD STF'),
       fechaCreacion: colombianNowStr,
-      observacionesOperario: finalObs || (isZonaFranca ? 'Muestra registrada en Atelier ZF (Zona Franca)' : 'Muestra solicitada por Calidad (Planta Principal) para despacho a Lavandería'),
+      observacionesOperario: finalObs || (selectedDestinoStage === 'PRE_SOLICITUD' ? 'Muestra registrada en Atelier ZF (Zona Franca)' : 'Muestra solicitada por Calidad (Planta Principal) para despacho a Lavandería'),
       fotoMuestraUrl: photoUrl || undefined,
-      areaActual: initialAreaName,
+      areaActual: currentAreaName,
       pruebas: {
         medidaInicialCm: Number(medidaInicial) || 25,
         encogimientoTramaPct: encogimientoTrama !== '' ? Number(encogimientoTrama) : undefined,
@@ -209,25 +265,30 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
       colcha.op = finalOp;
       colcha.tela = finalTela;
       colcha.rollos = finalRollos;
-      colcha.estado = initialEstado;
-      colcha.areaActual = initialAreaName;
+      colcha.estado = selectedDestinoStage;
+      colcha.areaActual = currentAreaName;
       if (currentUser) {
         colcha.inspector = currentUser.nombre;
       }
+      if (mt.trim()) colcha.codigoMt = mt.trim().toUpperCase();
+      if (color.trim()) colcha.color = color.trim().toUpperCase();
+      colcha.referencia = referencia.trim() ? referencia.trim().toUpperCase() : 'S/R';
 
       onSubmit(colcha);
     } catch (err) {
       setIsSubmitting(false);
       console.error("Error al registrar solicitud:", err);
-      alert("Error al procesar la solicitud.");
+      alert("Error al procesar la solicitud: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setTimeout(() => setIsSubmitting(false), 2000);
     }
   };
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 px-2 sm:px-4">
       
-      {/* Back button header */}
-      <div className="flex items-center justify-between">
+      {/* Back button header and Stage Selector */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <button
           onClick={onCancel}
           className="text-xs font-semibold text-zinc-400 hover:text-white dark:text-zinc-600 dark:hover:text-zinc-950 flex items-center gap-1.5 transition cursor-pointer"
@@ -236,19 +297,34 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
           <span>VOLVER AL PANEL DE CONTROL</span>
         </button>
         
-        {/* Dynamic User Origin Badge */}
-        <div className="flex items-center gap-2">
-          {isZonaFranca ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-cyan-950/80 dark:bg-cyan-100 text-cyan-300 dark:text-cyan-800 border border-cyan-500/50 dark:border-cyan-300">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-              <span>SEDE ZONA FRANCA (ATELIER) ➔ PRE-SOLICITUD</span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-950/80 dark:bg-amber-100 text-amber-300 dark:text-amber-800 border border-amber-500/50 dark:border-amber-300">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-              <span>PERFIL CALIDAD / PLANTA ➔ SOLICITADOS</span>
-            </span>
-          )}
+        {/* Selector interactivo de Destino Inicial de la Solicitud */}
+        <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-900 p-1 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+          <button
+            type="button"
+            onClick={() => setSelectedDestinoStage('PRE_SOLICITUD')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold transition-all cursor-pointer ${
+              selectedDestinoStage === 'PRE_SOLICITUD'
+                ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/30'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+            title="Registrar como muestra de Zona Franca (Atelier) en PRE-SOLICITUD"
+          >
+            <span className={`w-2 h-2 rounded-full ${selectedDestinoStage === 'PRE_SOLICITUD' ? 'bg-black animate-pulse' : 'bg-cyan-500'}`}></span>
+            <span>ATELIER ZF (PRE-SOLICITUD)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedDestinoStage('SOLICITADO')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold transition-all cursor-pointer ${
+              selectedDestinoStage === 'SOLICITADO'
+                ? 'bg-amber-500 text-black shadow-md shadow-amber-500/30'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+            title="Registrar como muestra de Calidad / Planta Principal en SOLICITADOS"
+          >
+            <span className={`w-2 h-2 rounded-full ${selectedDestinoStage === 'SOLICITADO' ? 'bg-black animate-pulse' : 'bg-amber-500'}`}></span>
+            <span>PLANTA / CALIDAD (SOLICITADOS)</span>
+          </button>
         </div>
       </div>
 
@@ -266,7 +342,7 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                   Registro de Nueva Solicitud
                 </h2>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                  {isZonaFranca 
+                  {selectedDestinoStage === 'PRE_SOLICITUD'
                     ? 'Muestra textil originada en Zona Franca (Atelier). Quedará registrada automáticamente en estado PRE-SOLICITUD para despacho a Lavandería ZF.'
                     : 'Muestra textil originada por Calidad (Planta Principal). Quedará registrada automáticamente en estado SOLICITADOS para que Lavandería pueda llamarla y cargarla en Lavandería.'}
                 </p>
@@ -299,50 +375,72 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
 
             {/* Tela Textil */}
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase mb-1">
-                Tela Textil STF <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={tela}
-                onChange={handleTelaSelectChange}
-                className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white focus:outline-none focus:border-amber-500 transition font-bold shadow-sm"
-              >
-                <option value="">-- SELECCIONE TELA --</option>
-                {uniqueTelas.map((t, i) => (
-                  <option key={i} value={t}>
-                    {t}
-                  </option>
-                ))}
-                {tela && !uniqueTelas.includes(tela) && (
-                  <option value={tela}>{tela}</option>
-                )}
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase">
+                  Tela Textil STF <span className="text-rose-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsManualTela(!isManualTela)}
+                  className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 hover:text-amber-500 hover:underline flex items-center gap-1 transition cursor-pointer"
+                >
+                  {isManualTela ? `📋 Ver catálogo de telas (${availableTelas.length})` : '✏️ Ingreso manual de tela'}
+                </button>
+              </div>
+
+              {isManualTela ? (
+                <input
+                  type="text"
+                  value={tela}
+                  onChange={(e) => setTela(e.target.value.toUpperCase())}
+                  placeholder="Ej: TELA INDIGO UTOPIA, TELA DRILL, etc."
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white focus:outline-none focus:border-amber-500 transition font-bold shadow-sm uppercase font-mono"
+                  required
+                />
+              ) : (
+                <select
+                  value={tela}
+                  onChange={handleTelaSelectChange}
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white focus:outline-none focus:border-amber-500 transition font-bold shadow-sm"
+                >
+                  <option value="">-- SELECCIONE TELA ({availableTelas.length} DISPONIBLES) --</option>
+                  {availableTelas.map((t, i) => (
+                    <option key={i} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                  {tela && !availableTelas.includes(tela) && (
+                    <option value={tela}>{tela}</option>
+                  )}
+                  <option value="__MANUAL__">✏️ Ingresar otra tela manualmente...</option>
+                </select>
+              )}
             </div>
 
             {/* MT & Color */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold tracking-wider text-zinc-500 dark:text-zinc-400 uppercase mb-1 font-mono">
+                <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase mb-1 font-mono">
                   Código Material (MT#)
                 </label>
                 <input
                   type="text"
                   value={mt}
-                  readOnly
-                  placeholder="Auto calculado"
-                  className="w-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-700 dark:text-zinc-300 font-mono font-bold focus:outline-none"
+                  onChange={(e) => setMt(e.target.value.toUpperCase())}
+                  placeholder="Ej: MT00216893 o MT-AUTO"
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white font-mono font-bold focus:outline-none focus:border-amber-500 shadow-sm"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold tracking-wider text-zinc-500 dark:text-zinc-400 uppercase mb-1 font-mono">
+                <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase mb-1 font-mono">
                   Color Textil
                 </label>
                 <input
                   type="text"
                   value={color}
-                  readOnly
-                  placeholder="Auto calculado"
-                  className="w-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none font-bold"
+                  onChange={(e) => setColor(e.target.value.toUpperCase())}
+                  placeholder="Ej: AZUL, CRUDO, NEGRO..."
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white font-bold focus:outline-none focus:border-amber-500 shadow-sm uppercase"
                 />
               </div>
             </div>
@@ -354,18 +452,17 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
                   <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase">
                     Orden de Producción (OP) <span className="text-rose-500">*</span>
                   </label>
-                  {availableOpsForTela.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsManualOp(!isManualOp);
-                        if (!isManualOp) setOp('');
-                      }}
-                      className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 hover:text-amber-500 hover:underline flex items-center gap-1 transition cursor-pointer"
-                    >
-                      {isManualOp ? `📋 Ver menú de OPs (${availableOpsForTela.length})` : '✏️ Ingreso manual'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsManualOp(!isManualOp);
+                    }}
+                    className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 hover:text-amber-500 hover:underline flex items-center gap-1 transition cursor-pointer"
+                  >
+                    {isManualOp && availableOpsForTela.length > 0 
+                      ? `📋 Ver menú de OPs (${availableOpsForTela.length})` 
+                      : '✏️ Ingreso manual de OP'}
+                  </button>
                 </div>
 
                 {availableOpsForTela.length > 0 && !isManualOp ? (
@@ -408,15 +505,15 @@ export const SolicitudForm: React.FC<SolicitudFormProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold tracking-wider text-zinc-500 dark:text-zinc-400 uppercase mb-1 font-mono">
+                <label className="block text-[11px] font-bold tracking-wider text-zinc-700 dark:text-zinc-300 uppercase mb-1 font-mono">
                   Referencia Prenda STF
                 </label>
                 <input
                   type="text"
                   value={referencia}
-                  readOnly
-                  placeholder="Auto de Monitoreo"
-                  className="w-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-700 dark:text-zinc-300 font-bold focus:outline-none"
+                  onChange={(e) => setReferencia(e.target.value.toUpperCase())}
+                  placeholder="Ej: S741609 o F741110"
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-950 dark:text-white font-bold focus:outline-none focus:border-amber-500 shadow-sm uppercase font-mono"
                 />
               </div>
             </div>

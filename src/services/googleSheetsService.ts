@@ -797,50 +797,127 @@ export function getLocalCreatedOps(): SolicitudColcha[] {
   return [];
 }
 
-export function removeLocalCreatedOp(opNumberOrId: string): void {
+export function removeLocalCreatedOp(opNumberOrId: string, ref?: string, color?: string): void {
   if (typeof window === 'undefined' || !opNumberOrId) return;
-  const cleanTarget = String(opNumberOrId).replace(/\D/g, '') || String(opNumberOrId).trim().toUpperCase();
-  const targetCleanOp = String(opNumberOrId).replace(/^OP-+/i, '').trim().toUpperCase();
-  
-  const current = getLocalCreatedOps();
-  const updated = current.filter(item => {
-    const cleanItemOp = String(item.op || '').replace(/\D/g, '') || String(item.op || '').trim().toUpperCase();
-    const itemClean = String(item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
-    const isMatch = item.id === opNumberOrId ||
-                    (cleanTarget !== '' && cleanItemOp === cleanTarget) ||
-                    (targetCleanOp !== '' && itemClean === targetCleanOp) ||
-                    isOpDeleted(item.op);
-    return !isMatch;
-  });
-  localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify(updated));
-  localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify(updated));
+  try {
+    const cleanTarget = String(opNumberOrId).replace(/\D/g, '') || String(opNumberOrId).trim().toUpperCase();
+    const targetCleanOp = String(opNumberOrId).replace(/^OP-+/i, '').trim().toUpperCase();
+    const cleanRef = (ref || '').trim().toUpperCase().replace(/^(N\/A|S\/R|SR)$/i, '');
+    const cleanColor = (color || '').trim().toUpperCase();
+    
+    const current = getLocalCreatedOps();
+    const updated = current.filter(item => {
+      if (item.id === opNumberOrId) return false;
+      if (isOpDeleted(item.op)) return false;
+      const cleanItemOp = String(item.op || '').replace(/\D/g, '') || String(item.op || '').trim().toUpperCase();
+      const itemClean = String(item.op || '').replace(/^OP-+/i, '').trim().toUpperCase();
+      const isOpMatch = (cleanTarget !== '' && cleanItemOp === cleanTarget) || (targetCleanOp !== '' && itemClean === targetCleanOp);
+      if (!isOpMatch) return true;
+
+      const itemRef = String(item.referencia || '').trim().toUpperCase().replace(/^(N\/A|S\/R|SR)$/i, '');
+      const itemColor = String(item.color || '').trim().toUpperCase();
+
+      if (cleanRef && itemRef) {
+        const isRefMatch = itemRef === cleanRef && (!cleanColor || !itemColor || itemColor === cleanColor);
+        return !isRefMatch;
+      }
+      if ((cleanRef && !itemRef) || (!cleanRef && itemRef)) {
+        return true;
+      }
+      return false;
+    });
+    localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify(updated));
+    localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify(updated));
+  } catch (e) {
+    console.warn('Error en removeLocalCreatedOp:', e);
+  }
+}
+
+export function isExactSameColcha(a: SolicitudColcha, b: SolicitudColcha): boolean {
+  if (a.id && b.id && a.id === b.id) return true;
+
+  const cleanOpA = (a.op || '').replace(/\D/g, '') || a.op.trim().toUpperCase();
+  const cleanOpB = (b.op || '').replace(/\D/g, '') || b.op.trim().toUpperCase();
+  if (!cleanOpA || cleanOpA !== cleanOpB) return false;
+
+  const cleanRefA = (a.referencia || '').trim().toUpperCase().replace(/^(REF-?|N\/A|S\/R|SR)$/i, '');
+  const cleanRefB = (b.referencia || '').trim().toUpperCase().replace(/^(REF-?|N\/A|S\/R|SR)$/i, '');
+  if (cleanRefA && cleanRefB && cleanRefA !== cleanRefB) {
+    return false;
+  }
+  if ((cleanRefA && !cleanRefB) || (!cleanRefA && cleanRefB)) {
+    return false;
+  }
+
+  // Si uno está FINALIZADO en base de datos remota pero el local es una solicitud recién creada en proceso,
+  // NO son la misma solicitud (es un nuevo ciclo/muestra de la misma tela u OP)
+  const isAInProcess = a.estado === 'SOLICITADO' || a.estado === 'PRE_SOLICITUD';
+  const isBFinalized = b.estado === 'FINALIZADO';
+  if (isAInProcess && isBFinalized) {
+    return false;
+  }
+  const isBInProcess = b.estado === 'SOLICITADO' || b.estado === 'PRE_SOLICITUD';
+  const isAFinalized = a.estado === 'FINALIZADO';
+  if (isBInProcess && isAFinalized) {
+    return false;
+  }
+
+  return true;
 }
 
 export function saveLocalCreatedOp(newOp: SolicitudColcha): void {
-  if (typeof window !== 'undefined') {
+  if (typeof window === 'undefined') return;
+  try {
     const current = getLocalCreatedOps();
-    const cleanTargetOp = newOp.op.replace(/\D/g, '') || newOp.op.trim().toUpperCase();
-    const filtered = current.filter(o => o.id !== newOp.id && (o.op.replace(/\D/g, '') || o.op.trim().toUpperCase()) !== cleanTargetOp);
-    localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify([newOp, ...filtered]));
-    localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify([newOp, ...filtered]));
+    const filtered = current.filter(o => !isExactSameColcha(o, newOp));
+
+    let opToStore = newOp;
+    if (newOp.fotoMuestraUrl && newOp.fotoMuestraUrl.startsWith('data:image/') && newOp.fotoMuestraUrl.length > 35000) {
+      opToStore = {
+        ...newOp,
+        fotoMuestraUrl: newOp.fotoMuestraUrl
+      };
+    }
+
+    try {
+      localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify([opToStore, ...filtered]));
+      localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify([opToStore, ...filtered]));
+    } catch (quotaErr) {
+      console.warn('QuotaExceeded al guardar en localStorage, podando datos pesados:', quotaErr);
+      const safeFiltered = filtered.slice(0, 10).map(item => ({
+        ...item,
+        fotoMuestraUrl: (item.fotoMuestraUrl && item.fotoMuestraUrl.startsWith('http')) ? item.fotoMuestraUrl : undefined,
+        fotoCalidadUrl: (item.fotoCalidadUrl && item.fotoCalidadUrl.startsWith('http')) ? item.fotoCalidadUrl : undefined
+      }));
+      const safeNewOp = {
+        ...newOp,
+        fotoMuestraUrl: (newOp.fotoMuestraUrl && newOp.fotoMuestraUrl.startsWith('http')) ? newOp.fotoMuestraUrl : undefined
+      };
+      localStorage.setItem(LOCAL_CREATED_OPS_KEY, JSON.stringify([safeNewOp, ...safeFiltered]));
+      localStorage.setItem('stf_colchas_local_created_ops', JSON.stringify([safeNewOp, ...safeFiltered]));
+    }
 
     // Sincronizar inmediatamente con caché persistente de fotos
-    if (newOp.fotoMuestraUrl || newOp.fotoCalidadUrl || newOp.driveFolderUrl) {
-      saveOpPhotosToCache(newOp.op, {
-        foto1: newOp.fotoMuestraUrl,
-        foto2: newOp.fotoCalidadUrl,
-        folderUrl: newOp.driveFolderUrl
-      });
-    }
+    try {
+      if (newOp.fotoMuestraUrl || newOp.fotoCalidadUrl || newOp.driveFolderUrl) {
+        saveOpPhotosToCache(newOp.op, {
+          foto1: newOp.fotoMuestraUrl,
+          foto2: newOp.fotoCalidadUrl,
+          folderUrl: newOp.driveFolderUrl
+        });
+      }
+    } catch (ePhoto) {}
 
     // Sincronizar inmediatamente la caché local para evitar cualquier borrado por condición de carrera
     try {
       const cached = getCachedSolicitudes();
-      const updatedCache = [newOp, ...cached.filter(c => (c.op.replace(/\D/g, '') || c.op.trim().toUpperCase()) !== cleanTargetOp)];
+      const updatedCache = [newOp, ...cached.filter(c => !isExactSameColcha(c, newOp))];
       saveCachedSolicitudes(updatedCache);
     } catch (e) {
       console.warn('Error syncing cache in saveLocalCreatedOp:', e);
     }
+  } catch (err) {
+    console.error('Error en saveLocalCreatedOp:', err);
   }
 }
 
@@ -1179,10 +1256,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
               const merged = [...parsedList];
               localOps.forEach(loc => {
                 const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
-                const remoteIdx = merged.findIndex(m => {
-                  const cleanRemoteOp = (m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase();
-                  return cleanRemoteOp === cleanLocOp;
-                });
+                const remoteIdx = merged.findIndex(m => isExactSameColcha(loc, m));
 
                 if (remoteIdx === -1) {
                   merged.unshift(loc);
@@ -1347,10 +1421,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
         const merged = [...solicitudes];
         localOps.forEach(loc => {
           const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
-          const remoteIdx = merged.findIndex(m => {
-            const cleanRemoteOp = (m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase();
-            return cleanRemoteOp === cleanLocOp;
-          });
+          const remoteIdx = merged.findIndex(m => isExactSameColcha(loc, m));
 
           if (remoteIdx === -1) {
             merged.unshift(loc);
@@ -1548,10 +1619,7 @@ export async function fetchBaseDeDatosSheet(): Promise<SolicitudColcha[]> {
             const merged = [...parsedList];
             localOps.forEach(loc => {
               const cleanLocOp = (loc.op || '').replace(/\D/g, '') || loc.op.trim().toUpperCase();
-              const remoteIdx = merged.findIndex(m => {
-                const cleanRemoteOp = (m.op || '').replace(/\D/g, '') || m.op.trim().toUpperCase();
-                return cleanRemoteOp === cleanLocOp;
-              });
+              const remoteIdx = merged.findIndex(m => isExactSameColcha(loc, m));
 
               if (remoteIdx === -1) {
                 merged.unshift(loc);
@@ -1879,6 +1947,7 @@ export async function pushSolicitudToSheets(payload: Partial<SolicitudColcha> & 
     ...payload,
     op: formattedOp,
     ...rowData,
+    allowOverwriteDuplicate: false,
     userEmails: targetRecipients,
     recipients: targetRecipients,
     correoNotificado: cleanEmailList,
