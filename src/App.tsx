@@ -145,7 +145,11 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<UsuarioSTF | null>(null);
 
   // Animación Intro Cinemática con sonido al acceder o recargar el aplicativo
+  // NOTA TEMPORAL: Desactivada temporalmente a petición del usuario. Cambiar a true para reactivarla.
+  const ENABLE_SPLASH_INTRO = false;
+
   const [showSplash, setShowSplash] = useState<boolean>(() => {
+    if (!ENABLE_SPLASH_INTRO) return false;
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       // Accesos directos por QR o vistas públicas no ejecutan splash
