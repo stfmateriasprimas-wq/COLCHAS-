@@ -36,6 +36,7 @@ export const USUARIOS_STF_MAESTROS: UsuarioSTF[] = [
   { id: "66997344", nombre: "SANDRA VANEGAS", rol: "LAVANDERÍA", area: "LAVANDERÍA", email: "sandra.vanegas@studiof.com.co", isZonaFranca: false, telefono: "+57 316 234 5679", whatsapp: "573162345679" },
   { id: "66826345", nombre: "ANA MILENA GARCIA", rol: "LAVANDERÍA", area: "LAVANDERÍA", email: "milena.garcia@studiof.com.co", isZonaFranca: false, telefono: "+57 319 345 6780", whatsapp: "573193456780" },
   { id: "1130643859", nombre: "JHONATAN PINZON", rol: "LAVANDERÍA", area: "LAVANDERÍA", email: "jonhatan.pinzon@studiof.com.co", isZonaFranca: false, telefono: "+57 318 456 7891", whatsapp: "573184567891" },
+  { id: "43102592", nombre: "SANDRA ROJO", rol: "OPERARIO", area: "CALIDAD", email: "sandra.rojo@studiof.com.co", isZonaFranca: false, telefono: "", whatsapp: "" },
   { id: "1073524622", nombre: "SOPORTE TEC.", rol: "OPERARIO", area: "CALIDAD", email: "joseoneiber711@gmail.com", isZonaFranca: false, telefono: "+57 311 679 5548", whatsapp: "573116795548" }
 ];
 
@@ -376,12 +377,31 @@ export function getUsuariosList(): UsuarioSTF[] {
 export async function syncUsuariosFromSheets(): Promise<UsuarioSTF[]> {
   try {
     const timestamp = Date.now();
-    const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${USUARIOS_GID}&t=${timestamp}`;
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) {
-      throw new Error(`HTTP error ${res.status}`);
+    // Probamos primero el endpoint GVIZ (más rápido y sin redirecciones 307) y luego fallback a export CSV
+    const endpoints = [
+      `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=USUARIOS&t=${timestamp}`,
+      `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${USUARIOS_GID}&t=${timestamp}`
+    ];
+
+    let csvText = '';
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (res.ok) {
+          csvText = await res.text();
+          if (csvText && csvText.includes('DOCUMENTO')) {
+            break;
+          }
+        }
+      } catch (e) {
+        // intentar siguiente endpoint
+      }
     }
-    const csvText = await res.text();
+
+    if (!csvText) {
+      throw new Error('No se pudo obtener datos de la hoja USUARIOS');
+    }
+
     const rows = parseCsvRows(csvText);
 
     if (rows && rows.length >= 2) {
