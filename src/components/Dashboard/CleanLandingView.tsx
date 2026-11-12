@@ -1,11 +1,11 @@
 import React from 'react';
 import { 
   PlusCircle, ClipboardList, BarChart3, Zap, 
-  Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity, ShieldCheck, ClipboardCheck, Target 
+  Clock, Send, Droplets, Microscope, CheckCircle2, ChevronRight, Activity, ShieldCheck, ClipboardCheck, Target, FileText 
 } from 'lucide-react';
 import { TabType } from '../Navigation';
 import { KpiMetrics, SectorType, SolicitudColcha } from '../../types';
-import { UsuarioSTF, isLavanderiaUser, isSoporteUser, canViewEvaluadoSection } from '../../services/authService';
+import { UsuarioSTF, isLavanderiaUser, isSoporteUser, isAdminUser, canViewEvaluadoSection } from '../../services/authService';
 
 interface CleanLandingViewProps {
   metrics: KpiMetrics;
@@ -13,6 +13,7 @@ interface CleanLandingViewProps {
   currentUser?: UsuarioSTF | null;
   onNavigate: (tab: TabType) => void;
   onSelectArea: (areaKey: SectorType | 'TOTAL' | 'EN_PROCESO') => void;
+  onOpenKpiReport?: () => void;
 }
 
 export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
@@ -20,7 +21,8 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
   solicitudes,
   currentUser,
   onNavigate,
-  onSelectArea
+  onSelectArea,
+  onOpenKpiReport
 }) => {
   const isLavanderia = isLavanderiaUser(currentUser);
   const showEvaluado = canViewEvaluadoSection(currentUser);
@@ -60,6 +62,19 @@ export const CleanLandingView: React.FC<CleanLandingViewProps> = ({
             <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-700 dark:text-zinc-300" />
             <span>BANDEJA DE SOLICITUDES</span>
           </button>
+
+          {/* BUTTON 3: EXCLUSIVO ADMINISTRADOR - REPORTE DE KPI GERENCIAL (PDF) */}
+          {isAdminUser(currentUser) && onOpenKpiReport && (
+            <button
+              type="button"
+              onClick={onOpenKpiReport}
+              className="w-full bg-gradient-to-r from-blue-700 via-indigo-600 to-emerald-600 hover:from-blue-600 hover:to-emerald-500 text-white border border-indigo-400/50 py-3 sm:py-3.5 px-4 sm:px-6 rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/50 active:scale-[0.99] group"
+              title="Generar y Exportar Reporte Ejecutivo de KPIs en PDF / Excel (Exclusivo Administrador)"
+            >
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-200 group-hover:scale-110 transition-transform" />
+              <span>REPORTE DE KPI (PDF / EXCEL)</span>
+            </button>
+          )}
 
           {/* BUTTON 3: EXCLUSIVO SOPORTE TÉCNICO - AUDITORÍA & HISTORIAL */}
           {isSoporteUser(currentUser) && (

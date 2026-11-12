@@ -29,6 +29,7 @@ const SoporteAuditoriaView = lazy(() => import('./components/Soporte/SoporteAudi
 const SqlBackupPanel = lazy(() => import('./components/Soporte/SqlBackupPanel').then(m => ({ default: m.SqlBackupPanel })));
 const QrScannerModal = lazy(() => import('./components/Scanner/QrScannerModal').then(m => ({ default: m.QrScannerModal })));
 const EditarOpFinalizadaModal = lazy(() => import('./components/Bandeja/EditarOpFinalizadaModal').then(m => ({ default: m.EditarOpFinalizadaModal })));
+const ReporteComiteModal = lazy(() => import('./components/Estadisticas/ReporteComiteModal').then(m => ({ default: m.ReporteComiteModal })));
 import { SubNavTabs } from './components/Navigation/SubNavTabs';
 import { 
   fetchMonitoreoSheet, 
@@ -179,6 +180,7 @@ export function App() {
   const [chatUnreadCount, setChatUnreadCount] = useState<number>(0);
   const [showQrScanner, setShowQrScanner] = useState<boolean>(false);
   const [editingOpFinalizada, setEditingOpFinalizada] = useState<SolicitudColcha | null>(null);
+  const [isReporteComiteOpen, setIsReporteComiteOpen] = useState<boolean>(false);
 
   // Ubicar y resaltar una OP en la bandeja operativa con animación glow
   const handleLocateInBandeja = (solicitud: SolicitudColcha) => {
@@ -1384,6 +1386,7 @@ export function App() {
         onOpenChat={() => setActiveTab('chat')}
         onOpenAuditoria={() => setActiveTab('soporte-auditoria')}
         onOpenQrScanner={() => setShowQrScanner(true)}
+        onOpenKpiReport={() => setIsReporteComiteOpen(true)}
         chatUnreadCount={chatUnreadCount}
         isSyncing={isSyncing}
         onManualSync={handleManualSync}
@@ -1401,6 +1404,7 @@ export function App() {
             currentUser={currentUser}
             onNavigate={(tab) => setActiveTab(tab)}
             onSelectArea={(areaKey) => setSelectedAreaForModal(areaKey)}
+            onOpenKpiReport={() => setIsReporteComiteOpen(true)}
           />
         )}
 
@@ -1776,6 +1780,18 @@ export function App() {
               });
               setEditingOpFinalizada(null);
             }}
+          />
+        </Suspense>
+      )}
+
+      {/* 11. MODAL REPORTE DE KPI GERENCIAL EN PDF / EXCEL (EXCLUSIVO ADMINISTRADOR EDWIN) */}
+      {isReporteComiteOpen && (
+        <Suspense fallback={null}>
+          <ReporteComiteModal
+            isOpen={isReporteComiteOpen}
+            onClose={() => setIsReporteComiteOpen(false)}
+            solicitudes={solicitudes}
+            currentUser={currentUser}
           />
         </Suspense>
       )}

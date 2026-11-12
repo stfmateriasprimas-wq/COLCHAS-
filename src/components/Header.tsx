@@ -1,6 +1,6 @@
 import React from 'react';
-import { Sun, Moon, LogOut, ArrowLeft, User, MessageSquare, ShieldCheck } from 'lucide-react';
-import { UsuarioSTF, isSoporteUser } from '../services/authService';
+import { Sun, Moon, LogOut, ArrowLeft, User, MessageSquare, ShieldCheck, FileText } from 'lucide-react';
+import { UsuarioSTF, isSoporteUser, isAdminUser } from '../services/authService';
 import { STFLogo } from './Common/STFLogo';
 
 interface HeaderProps {
@@ -14,6 +14,7 @@ interface HeaderProps {
   onOpenChat?: () => void;
   onOpenAuditoria?: () => void;
   onOpenQrScanner?: () => void;
+  onOpenKpiReport?: () => void;
   chatUnreadCount?: number;
   isSyncing?: boolean;
   onManualSync?: () => void;
@@ -31,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenChat,
   onOpenAuditoria,
   onOpenQrScanner,
+  onOpenKpiReport,
   chatUnreadCount = 0,
   isSyncing = false,
   onManualSync,
@@ -124,6 +126,24 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="relative flex h-1.5 w-1.5 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></span>
+                  </span>
+                </button>
+              )}
+
+              {/* BOTÓN EXCLUSIVO PARA ADMINISTRADOR: REPORTE GERENCIAL DE KPI (PDF / EXCEL) */}
+              {isAdminUser(currentUser) && onOpenKpiReport && (
+                <button
+                  type="button"
+                  onClick={onOpenKpiReport}
+                  className="relative group overflow-hidden px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 border border-indigo-400/80 hover:border-indigo-300 text-indigo-200 text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all duration-300 cursor-pointer shadow-[0_0_18px_rgba(99,102,241,0.35)] hover:shadow-[0_0_26px_rgba(99,102,241,0.65)] hover:scale-[1.04] active:scale-95 shrink-0 ring-1 ring-indigo-500/40"
+                  title="Generar y Exportar Reporte Ejecutivo de KPIs en PDF / Excel (Exclusivo Administrador)"
+                >
+                  <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-300 group-hover:text-white transition-colors drop-shadow-[0_0_8px_rgba(99,102,241,0.9)]" />
+                  <span className="font-mono tracking-wider font-black text-[9.5px] sm:text-xs text-white">
+                    REPORTE KPI
+                  </span>
+                  <span className="px-1 py-0.2 rounded text-[8px] font-mono font-black bg-indigo-500 text-white shadow-xs">
+                    PDF
                   </span>
                 </button>
               )}
