@@ -503,12 +503,12 @@ export function generateComitePdf(
   startY += 4;
 
   const distRows = [
-    ['Pre-Solicitud (Atelier ZF)', `${metrics.distribucion.preSolicitud.count} OPs`, `${metrics.distribucion.preSolicitud.metros.toLocaleString()} m`, `${metrics.distribucion.preSolicitud.pct}%`],
-    ['Tránsito / Despacho (Solicitado)', `${metrics.distribucion.solicitados.count} OPs`, `${metrics.distribucion.solicitados.metros.toLocaleString()} m`, `${metrics.distribucion.solicitados.pct}%`],
-    ['Lavandería (Colfactory ZF)', `${metrics.distribucion.lavanderia.count} OPs`, `${metrics.distribucion.lavanderia.metros.toLocaleString()} m`, `${metrics.distribucion.lavanderia.pct}%`],
-    ['Calidad STF (Laboratorio)', `${metrics.distribucion.calidad.count} OPs`, `${metrics.distribucion.calidad.metros.toLocaleString()} m`, `${metrics.distribucion.calidad.pct}%`],
-    ['Evaluado y Enviado (Colfactory)', `${metrics.distribucion.evaluado.count} OPs`, `${metrics.distribucion.evaluado.metros.toLocaleString()} m`, `${metrics.distribucion.evaluado.pct}%`],
-    ['Finalizados (Liberadas Conformes)', `${metrics.distribucion.finalizados.count} OPs`, `${metrics.distribucion.finalizados.metros.toLocaleString()} m`, `${metrics.distribucion.finalizados.pct}%`]
+    ['PRE - SOLICITUD', `${metrics.distribucion.preSolicitud.count} OPs`, `${metrics.distribucion.preSolicitud.metros.toLocaleString()} m`, `${metrics.distribucion.preSolicitud.pct}%`],
+    ['SOLICITADO', `${metrics.distribucion.solicitados.count} OPs`, `${metrics.distribucion.solicitados.metros.toLocaleString()} m`, `${metrics.distribucion.solicitados.pct}%`],
+    ['LAVANDERIA', `${metrics.distribucion.lavanderia.count} OPs`, `${metrics.distribucion.lavanderia.metros.toLocaleString()} m`, `${metrics.distribucion.lavanderia.pct}%`],
+    ['CALIDAD', `${metrics.distribucion.calidad.count} OPs`, `${metrics.distribucion.calidad.metros.toLocaleString()} m`, `${metrics.distribucion.calidad.pct}%`],
+    ['EVALUADO Y ENVIADO', `${metrics.distribucion.evaluado.count} OPs`, `${metrics.distribucion.evaluado.metros.toLocaleString()} m`, `${metrics.distribucion.evaluado.pct}%`],
+    ['FINALIZADOS', `${metrics.distribucion.finalizados.count} OPs`, `${metrics.distribucion.finalizados.metros.toLocaleString()} m`, `${metrics.distribucion.finalizados.pct}%`]
   ];
 
   autoTable(doc, {
@@ -679,12 +679,12 @@ export function generateComiteExcel(
     [''],
     ['2. DISTRIBUCIÓN POR ETAPA OPERATIVA (CUELLOS DE BOTELLA WIP)'],
     ['Etapa / Ubicación', 'Cantidad OPs', 'Metraje (m)', 'Participación (%)'],
-    ['Pre-Solicitud (Atelier ZF)', metrics.distribucion.preSolicitud.count, metrics.distribucion.preSolicitud.metros, `${metrics.distribucion.preSolicitud.pct}%`],
-    ['Tránsito / Despacho (Solicitados)', metrics.distribucion.solicitados.count, metrics.distribucion.solicitados.metros, `${metrics.distribucion.solicitados.pct}%`],
-    ['Lavandería (Colfactory ZF)', metrics.distribucion.lavanderia.count, metrics.distribucion.lavanderia.metros, `${metrics.distribucion.lavanderia.pct}%`],
-    ['Calidad (Laboratorio STF)', metrics.distribucion.calidad.count, metrics.distribucion.calidad.metros, `${metrics.distribucion.calidad.pct}%`],
-    ['Evaluado y Enviado (Colfactory)', metrics.distribucion.evaluado.count, metrics.distribucion.evaluado.metros, `${metrics.distribucion.evaluado.pct}%`],
-    ['Finalizados / Liberados', metrics.distribucion.finalizados.count, metrics.distribucion.finalizados.metros, `${metrics.distribucion.finalizados.pct}%`],
+    ['PRE - SOLICITUD', metrics.distribucion.preSolicitud.count, metrics.distribucion.preSolicitud.metros, `${metrics.distribucion.preSolicitud.pct}%`],
+    ['SOLICITADO', metrics.distribucion.solicitados.count, metrics.distribucion.solicitados.metros, `${metrics.distribucion.solicitados.pct}%`],
+    ['LAVANDERIA', metrics.distribucion.lavanderia.count, metrics.distribucion.lavanderia.metros, `${metrics.distribucion.lavanderia.pct}%`],
+    ['CALIDAD', metrics.distribucion.calidad.count, metrics.distribucion.calidad.metros, `${metrics.distribucion.calidad.pct}%`],
+    ['EVALUADO Y ENVIADO', metrics.distribucion.evaluado.count, metrics.distribucion.evaluado.metros, `${metrics.distribucion.evaluado.pct}%`],
+    ['FINALIZADOS', metrics.distribucion.finalizados.count, metrics.distribucion.finalizados.metros, `${metrics.distribucion.finalizados.pct}%`],
     [''],
     ['3. TOP FAMILIAS DE TELAS MÁS AUDITADAS'],
     ['Tela', 'Cantidad OPs', 'Metros Totales', '% del Volumen'],

@@ -83,8 +83,8 @@ export const ReporteComiteModal: React.FC<ReporteComiteModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200 select-none font-sans text-zinc-900 dark:text-zinc-100">
-      <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-[32px] max-w-4xl w-full max-h-[94vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 lg:p-6 animate-in fade-in duration-200 select-none font-sans text-zinc-900 dark:text-zinc-100">
+      <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-[28px] sm:rounded-[36px] max-w-6xl xl:max-w-7xl w-full max-h-[95vh] flex flex-col shadow-2xl overflow-hidden transition-all duration-200">
         
         {/* 1. TOP HEADER MATCHING IMAGE 2 */}
         <div className="p-5 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 bg-[#0c1322] text-white flex items-center justify-between gap-4">
@@ -239,7 +239,7 @@ export const ReporteComiteModal: React.FC<ReporteComiteModalProps> = ({
             {/* DROPDOWNS: ETAPA / UBICACIÓN & DICTAMEN DE CALIDAD */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               
-              {/* Dropdown 1: FILTRAR POR ETAPA / UBICACIÓN (Image 3) */}
+              {/* Dropdown 1: FILTRAR POR ETAPA / UBICACIÓN */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-mono font-bold uppercase text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-zinc-400" />
@@ -252,12 +252,12 @@ export const ReporteComiteModal: React.FC<ReporteComiteModalProps> = ({
                   className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-2xl px-4 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 font-bold focus:outline-none focus:border-indigo-500 transition cursor-pointer shadow-xs"
                 >
                   <option value="ALL">Todas las áreas y ubicaciones</option>
-                  <option value="PRE_SOLICITUD">Diseño ZF (Pre-Solicitud)</option>
-                  <option value="SOLICITADO">Tránsito / Solicitado</option>
-                  <option value="LAVANDERIA">Planta Lavandería ZF</option>
-                  <option value="CALIDAD">Laboratorio Calidad STF</option>
-                  <option value="EVALUADO">Evaluado y Enviado (Colfactory)</option>
-                  <option value="FINALIZADO">Finalizados / Dictaminados</option>
+                  <option value="PRE_SOLICITUD">PRE - SOLICITUD</option>
+                  <option value="SOLICITADO">SOLICITADO</option>
+                  <option value="LAVANDERIA">LAVANDERIA</option>
+                  <option value="CALIDAD">CALIDAD</option>
+                  <option value="EVALUADO">EVALUADO Y ENVIADO</option>
+                  <option value="FINALIZADO">FINALIZADOS</option>
                 </select>
               </div>
 
@@ -377,7 +377,53 @@ export const ReporteComiteModal: React.FC<ReporteComiteModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 3: BOTONES DE DESCARGA (EXCEL & PDF) */}
+          {/* SECTION 3: MATRIZ DE DISTRIBUCIÓN OPERATIVA EN VIVO */}
+          <div className="bg-white dark:bg-[#0f1420] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-cyan-500" />
+                <h3 className="text-xs font-black uppercase font-mono tracking-wider text-zinc-800 dark:text-zinc-200">
+                  DISTRIBUCIÓN REAL POR ETAPAS DEL SISTEMA (WIP & FLUJO)
+                </h3>
+              </div>
+              <span className="text-[11px] font-mono font-bold text-zinc-500">
+                Total acumulado: <strong className="text-zinc-900 dark:text-white font-mono">{metrics.totalMetros.toLocaleString()} metros</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
+              {[
+                { name: 'PRE - SOLICITUD', count: metrics.distribucion.preSolicitud.count, metros: metrics.distribucion.preSolicitud.metros, pct: metrics.distribucion.preSolicitud.pct, color: 'text-cyan-500', bar: 'bg-cyan-500' },
+                { name: 'SOLICITADO', count: metrics.distribucion.solicitados.count, metros: metrics.distribucion.solicitados.metros, pct: metrics.distribucion.solicitados.pct, color: 'text-amber-500', bar: 'bg-amber-500' },
+                { name: 'LAVANDERIA', count: metrics.distribucion.lavanderia.count, metros: metrics.distribucion.lavanderia.metros, pct: metrics.distribucion.lavanderia.pct, color: 'text-sky-500', bar: 'bg-sky-500' },
+                { name: 'CALIDAD', count: metrics.distribucion.calidad.count, metros: metrics.distribucion.calidad.metros, pct: metrics.distribucion.calidad.pct, color: 'text-purple-500', bar: 'bg-purple-500' },
+                { name: 'EVALUADO Y ENVIADO', count: metrics.distribucion.evaluado.count, metros: metrics.distribucion.evaluado.metros, pct: metrics.distribucion.evaluado.pct, color: 'text-teal-500', bar: 'bg-teal-500' },
+                { name: 'FINALIZADOS', count: metrics.distribucion.finalizados.count, metros: metrics.distribucion.finalizados.metros, pct: metrics.distribucion.finalizados.pct, color: 'text-emerald-500', bar: 'bg-emerald-500' }
+              ].map(stage => (
+                <div key={stage.name} className="bg-zinc-50 dark:bg-zinc-900/70 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl p-3 flex flex-col justify-between">
+                  <div>
+                    <span className={`text-[9px] font-mono font-black ${stage.color} tracking-tight block truncate`} title={stage.name}>
+                      {stage.name}
+                    </span>
+                    <div className="flex items-baseline gap-1 mt-1">
+                      <span className="text-lg font-black font-mono text-zinc-950 dark:text-white">
+                        {stage.count}
+                      </span>
+                      <span className="text-[9.5px] text-zinc-500 font-mono">OPs</span>
+                    </div>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono block">
+                      {stage.metros.toLocaleString()} m ({stage.pct}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-zinc-200 dark:bg-zinc-800 rounded-full h-1 mt-2 overflow-hidden">
+                    <div className={`${stage.bar} h-full rounded-full`} style={{ width: `${Math.min(100, stage.pct * 2)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* SECTION 4: BOTONES DE DESCARGA (EXCEL & PDF) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
             
             {/* CARD 1: REPORTE MATRIZ EXCEL */}
