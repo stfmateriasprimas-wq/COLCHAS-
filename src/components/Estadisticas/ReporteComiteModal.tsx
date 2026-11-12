@@ -290,61 +290,87 @@ export const ReporteComiteModal: React.FC<ReporteComiteModalProps> = ({
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-500" />
               <h3 className="text-xs font-black uppercase font-mono tracking-wider text-zinc-800 dark:text-zinc-200">
-                MÉTRICAS CLAVE DEL INFORME (PREVIEW LIVE)
+                INDICADORES CLAVE DEL INFORME (KPIS EN TIEMPO REAL)
               </h3>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               
               {/* Card 1: Total OPs */}
-              <div className="bg-white dark:bg-[#0f1420] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 shadow-xs">
-                <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">
-                  TOTAL OPS
+              <div className="bg-white dark:bg-[#0f1420] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
+                <span className="text-[9.5px] font-mono font-bold text-zinc-400 uppercase block">
+                  VOLUMEN
                 </span>
-                <span className="text-2xl font-black font-mono text-zinc-950 dark:text-white mt-1 block">
-                  {metrics.totalOps}
+                <span className="text-xl font-black font-mono text-zinc-950 dark:text-white mt-0.5 block">
+                  {metrics.totalOps} OPs
                 </span>
-                <span className="text-[10.5px] text-zinc-500 font-mono">
-                  {metrics.totalMetros} m de tela
-                </span>
-              </div>
-
-              {/* Card 2: Aprobadas / Liberadas */}
-              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-emerald-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 shadow-xs">
-                <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase block">
-                  APROBADAS / LIBERADAS
-                </span>
-                <span className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">
-                  {metrics.aprobados}
-                </span>
-                <span className="text-[10.5px] text-zinc-500 font-mono">
-                  {metrics.aprobados > 0 ? `${metrics.tasaAprobacion}%` : 'N/A'}
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  {metrics.totalMetros.toLocaleString()} m tela
                 </span>
               </div>
 
-              {/* Card 3: Rechazadas / Alertas */}
-              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-rose-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 shadow-xs">
-                <span className="text-[10px] font-mono font-bold text-rose-600 dark:text-rose-400 uppercase block">
-                  RECHAZADAS / ALERTAS
+              {/* Card 2: Tasa de Aprobación */}
+              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-emerald-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
+                <span className="text-[9.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase block">
+                  APROBACIÓN
                 </span>
-                <span className="text-2xl font-black font-mono text-rose-600 dark:text-rose-400 mt-1 block">
-                  {metrics.rechazados}
+                <span className="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+                  {metrics.tasaAprobacion}%
                 </span>
-                <span className="text-[10.5px] text-zinc-500 font-mono">
-                  Observación registrada
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  {metrics.aprobados} aprobadas
                 </span>
               </div>
 
-              {/* Card 4: Muestras en Flujo */}
-              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-blue-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 shadow-xs">
-                <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 uppercase block">
-                  MUESTRAS EN FLUJO
+              {/* Card 3: Cumplimiento SLA */}
+              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-blue-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
+                <span className="text-[9.5px] font-mono font-bold text-blue-600 dark:text-blue-400 uppercase block">
+                  SLA ≤ 3 DÍAS
                 </span>
-                <span className="text-2xl font-black font-mono text-blue-600 dark:text-blue-400 mt-1 block">
+                <span className="text-xl font-black font-mono text-blue-600 dark:text-blue-400 mt-0.5 block">
+                  {metrics.pctCumplimientoSla}%
+                </span>
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  {metrics.opsATiempo} a tiempo
+                </span>
+              </div>
+
+              {/* Card 4: OTIF */}
+              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-indigo-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
+                <span className="text-[9.5px] font-mono font-bold text-indigo-600 dark:text-indigo-400 uppercase block">
+                  ÍNDICE OTIF
+                </span>
+                <span className="text-xl font-black font-mono text-indigo-600 dark:text-indigo-400 mt-0.5 block">
+                  {metrics.pctOtif}%
+                </span>
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  On-Time & In-Full
+                </span>
+              </div>
+
+              {/* Card 5: Lead Time */}
+              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-cyan-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
+                <span className="text-[9.5px] font-mono font-bold text-cyan-600 dark:text-cyan-400 uppercase block">
+                  LEAD TIME
+                </span>
+                <span className="text-xl font-black font-mono text-cyan-600 dark:text-cyan-400 mt-0.5 block">
+                  {metrics.leadTimePromedioDias}d
+                </span>
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  Promedio ciclo
+                </span>
+              </div>
+
+              {/* Card 6: Activas / Rechazos */}
+              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-amber-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
+                <span className="text-[9.5px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase block">
+                  EN PROCESO
+                </span>
+                <span className="text-xl font-black font-mono text-zinc-950 dark:text-white mt-0.5 block">
                   {metrics.enProceso}
                 </span>
-                <span className="text-[10.5px] text-zinc-500 font-mono">
-                  En planta / tránsito
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  {metrics.rechazados} observadas
                 </span>
               </div>
 

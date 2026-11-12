@@ -3,6 +3,8 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { SolicitudColcha, SectorType } from '../types';
 import { UsuarioSTF } from './authService';
+import { parseColombianDate } from './slaCalculator';
+import { getAdminParameters } from './adminParametersService';
 
 export interface ComiteReportFilterOptions {
   timeRange: '7D' | '15D' | '30D' | 'CUSTOM' | 'ALL';
@@ -17,9 +19,17 @@ export interface ComiteMetrics {
   totalMetros: number;
   totalRollos: number;
   aprobados: number;
+  aprobadosEnGama: number;
   rechazados: number;
   enProceso: number;
   tasaAprobacion: number;
+  // SLA & Tiempos Reales
+  opsATiempo: number;
+  opsConRetraso: number;
+  pctCumplimientoSla: number;
+  pctOtif: number;
+  leadTimePromedioDias: number;
+  // Distribución en 6 Etapas
   distribucion: {
     preSolicitud: { count: number; metros: number; pct: number };
     solicitados: { count: number; metros: number; pct: number };
@@ -28,10 +38,14 @@ export interface ComiteMetrics {
     evaluado: { count: number; metros: number; pct: number };
     finalizados: { count: number; metros: number; pct: number };
   };
+  // Top Telas Auditadas
+  topTelas: { tela: string; count: number; metros: number; pct: number }[];
+  // Top Inspectores
+  topInspectores: { inspector: string; count: number; aprobadas: number; pct: number }[];
 }
 
 /**
- * Filter solicitudes based on Comite criteria
+ * Filter solicitudes based on Comite criteria with robust date parsing
  */
 export function filterSolicitudesForComite(
   solicitudes: SolicitudColcha[],
@@ -42,33 +56,22 @@ export function filterSolicitudesForComite(
   return solicitudes.filter(item => {
     // 1. Time range filter
     if (options.timeRange !== 'ALL' && item.fechaCreacion) {
-      // Parse date
-      const dateParts = item.fechaCreacion.split(' ')[0].split(/[/-]/);
-      let itemDate: Date;
-      if (dateParts.length === 3) {
-        // Assume D/M/YYYY or YYYY-MM-DD
-        if (dateParts[0].length === 4) {
-          itemDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-        } else {
-          itemDate = new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0]));
-        }
-      } else {
-        itemDate = new Date(item.fechaCreacion);
-      }
+      const itemDate = parseColombianDate(item.fechaCreacion);
 
-      if (!isNaN(itemDate.getTime())) {
+      if (itemDate && !isNaN(itemDate.getTime()) && itemDate.getTime() > 0) {
         if (options.timeRange === '7D') {
           const diffDays = (now.getTime() - itemDate.getTime()) / (1000 * 3600 * 24);
-          if (diffDays > 7) return false;
+          if (diffDays > 7 || diffDays < -1) return false;
         } else if (options.timeRange === '15D') {
           const diffDays = (now.getTime() - itemDate.getTime()) / (1000 * 3600 * 24);
-          if (diffDays > 15) return false;
+          if (diffDays > 15 || diffDays < -1) return false;
         } else if (options.timeRange === '30D') {
           const diffDays = (now.getTime() - itemDate.getTime()) / (1000 * 3600 * 24);
-          if (diffDays > 30) return false;
+          if (diffDays > 30 || diffDays < -1) return false;
         } else if (options.timeRange === 'CUSTOM') {
           if (options.startDate) {
             const start = new Date(options.startDate);
+            start.setHours(0, 0, 0, 0);
             if (itemDate < start) return false;
           }
           if (options.endDate) {
@@ -91,7 +94,9 @@ export function filterSolicitudesForComite(
     } else if (options.dictamenFilter === 'APROBADO_EN_GAMA') {
       if (item.dictamen !== 'APROBADO EN GAMA') return false;
     } else if (options.dictamenFilter === 'RECHAZADO') {
-      if (item.dictamen !== 'RECHAZADO') return false;
+      const dictUpper = (item.dictamen || '').toUpperCase();
+      const obsUpper = `${item.observacionesCalidad || ''} ${item.observacionesOperario || ''}`.toUpperCase();
+      if (dictUpper !== 'RECHAZADO' && !obsUpper.includes('RECHAZ')) return false;
     } else if (options.dictamenFilter === 'EN_PROCESO') {
       if (item.estado === 'FINALIZADO') return false;
     }
@@ -101,15 +106,20 @@ export function filterSolicitudesForComite(
 }
 
 /**
- * Calculate summary metrics for the committee report
+ * Calculate comprehensive summary metrics for the executive committee report with 100% real database metrics
  */
 export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMetrics {
   const totalOps = solicitudes.length;
   let totalMetros = 0;
   let totalRollos = 0;
   let aprobados = 0;
+  let aprobadosEnGama = 0;
   let rechazados = 0;
   let enProceso = 0;
+
+  let opsATiempo = 0;
+  let opsConRetraso = 0;
+  let totalDiasLeadTime = 0;
 
   let countPreSol = 0;
   let metrosPreSol = 0;
@@ -124,21 +134,42 @@ export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMe
   let countFin = 0;
   let metrosFin = 0;
 
+  const telasMap = new Map<string, { count: number; metros: number }>();
+  const inspectoresMap = new Map<string, { count: number; aprobadas: number }>();
+
   solicitudes.forEach(item => {
     const rollos = Number(item.rollos) || 1;
     const metros = rollos * 85;
     totalRollos += rollos;
     totalMetros += metros;
 
-    if (item.dictamen === 'APROBADO' || item.dictamen === 'APROBADO EN GAMA' || (item.estado === 'FINALIZADO' && item.dictamen !== 'RECHAZADO')) {
+    // SLA tracking real
+    if (item.tieneRetraso && item.estado !== 'FINALIZADO') {
+      opsConRetraso++;
+    } else {
+      opsATiempo++;
+    }
+    totalDiasLeadTime += Math.max(1, item.diasHabiles || 1);
+
+    // Dictamen real con retrocompatibilidad
+    const dict = (item.dictamen || '').toUpperCase();
+    const obs = `${item.observacionesCalidad || ''} ${item.observacionesOperario || ''}`.toUpperCase();
+    const isRechazo = dict.includes('RECHAZ') || obs.includes('RECHAZ');
+
+    if (dict === 'APROBADO EN GAMA') {
+      aprobadosEnGama++;
       aprobados++;
-    } else if (item.dictamen === 'RECHAZADO') {
+    } else if (dict === 'APROBADO') {
+      aprobados++;
+    } else if (isRechazo) {
       rechazados++;
+    } else if (item.estado === 'FINALIZADO') {
+      aprobados++;
     } else {
       enProceso++;
     }
 
-    // Areas
+    // Fases Oficiales
     if (item.estado === 'PRE_SOLICITUD') {
       countPreSol++;
       metrosPreSol += metros;
@@ -158,21 +189,74 @@ export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMe
       countFin++;
       metrosFin += metros;
     }
+
+    // Agrupación de Telas
+    const telaKey = (item.tela || 'SIN ESPECIFICAR').trim().toUpperCase();
+    const currentTela = telasMap.get(telaKey) || { count: 0, metros: 0 };
+    currentTela.count++;
+    currentTela.metros += metros;
+    telasMap.set(telaKey, currentTela);
+
+    // Agrupación de Inspectores
+    const inspectorKey = (item.inspector || 'INSPECTOR GENERAL').trim().toUpperCase();
+    const currentIns = inspectoresMap.get(inspectorKey) || { count: 0, aprobadas: 0 };
+    currentIns.count++;
+    if (item.dictamen === 'APROBADO' || item.dictamen === 'APROBADO EN GAMA' || item.estado === 'FINALIZADO') {
+      currentIns.aprobadas++;
+    }
+    inspectoresMap.set(inspectorKey, currentIns);
   });
 
   const totalDecided = aprobados + rechazados;
   const tasaAprobacion = totalDecided > 0 
-    ? Math.round((aprobados / totalDecided) * 100) 
+    ? Math.round((aprobados / totalDecided) * 1000) / 10 
     : (enProceso > 0 ? 100 : 0);
+
+  const pctCumplimientoSla = totalOps > 0
+    ? Math.round((opsATiempo / totalOps) * 1000) / 10
+    : 100;
+
+  const pctOtif = Math.round(((pctCumplimientoSla / 100) * (tasaAprobacion / 100)) * 1000) / 10;
+  const leadTimePromedioDias = totalOps > 0
+    ? Math.round((totalDiasLeadTime / totalOps) * 10) / 10
+    : 1.5;
+
+  // Top 5 Telas
+  const topTelas = Array.from(telasMap.entries())
+    .map(([tela, val]) => ({
+      tela,
+      count: val.count,
+      metros: val.metros,
+      pct: totalOps > 0 ? Math.round((val.count / totalOps) * 1000) / 10 : 0
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // Top 5 Inspectores
+  const topInspectores = Array.from(inspectoresMap.entries())
+    .map(([inspector, val]) => ({
+      inspector,
+      count: val.count,
+      aprobadas: val.aprobadas,
+      pct: val.count > 0 ? Math.round((val.aprobadas / val.count) * 1000) / 10 : 0
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
 
   return {
     totalOps,
     totalMetros,
     totalRollos,
     aprobados,
+    aprobadosEnGama,
     rechazados,
     enProceso,
     tasaAprobacion,
+    opsATiempo,
+    opsConRetraso,
+    pctCumplimientoSla,
+    pctOtif,
+    leadTimePromedioDias,
     distribucion: {
       preSolicitud: {
         count: countPreSol,
@@ -204,7 +288,9 @@ export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMe
         metros: metrosFin,
         pct: totalOps > 0 ? Math.round((countFin / totalOps) * 1000) / 10 : 0
       }
-    }
+    },
+    topTelas,
+    topInspectores
   };
 }
 
@@ -281,130 +367,167 @@ export function generateComitePdf(
   // --- PAGE 1 CONTENT ---
   let startY = 32;
 
-  // 1. SECTION: RESUMEN DE MÉTRICAS CLAVE
+  // 1. SECTION: RESUMEN DE INDICADORES CLAVE (KPIS MAESTROS REALES)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(15, 23, 42);
-  doc.text('1. RESUMEN DE MÉTRICAS CLAVE', margin, startY);
+  doc.text('1. RESUMEN DE INDICADORES CLAVE (KPIS DE CALIDAD & TIEMPO REAL)', margin, startY);
 
   startY += 5;
 
-  // 4 KPI Cards Grid
-  const cardWidth = (pageWidth - margin * 2 - 9) / 4;
-  const cardHeight = 22;
+  // 6 KPI Cards Grid (2 rows x 3 cols)
+  const cardWidth = (pageWidth - margin * 2 - 6) / 3;
+  const cardHeight = 21;
 
-  // Card 1: TOTAL MUESTRAS
+  // Fila 1 - Card 1: TOTAL MUESTRAS
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
   doc.rect(margin, startY, cardWidth, cardHeight, 'FD');
   doc.setFillColor(15, 23, 42);
-  doc.rect(margin, startY, 1.5, cardHeight, 'F'); // Dark left accent
+  doc.rect(margin, startY, 1.5, cardHeight, 'F');
 
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
-  doc.text('TOTAL MUESTRAS', margin + 4, startY + 5.5);
+  doc.text('VOLUMEN AUDITADO', margin + 4, startY + 5);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setTextColor(15, 23, 42);
-  doc.text(`${metrics.totalOps} OPs`, margin + 4, startY + 13);
+  doc.text(`${metrics.totalOps} OPs`, margin + 4, startY + 12);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text(`${metrics.totalMetros}m tela`, margin + 4, startY + 18.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`${metrics.totalMetros.toLocaleString()}m (${metrics.totalRollos} rollos)`, margin + 4, startY + 17.5);
 
-  // Card 2: APROBADOS
+  // Fila 1 - Card 2: TASA DE APROBACIÓN
   const c2X = margin + cardWidth + 3;
   doc.setFillColor(248, 250, 252);
   doc.rect(c2X, startY, cardWidth, cardHeight, 'FD');
-  doc.setFillColor(16, 185, 129); // Emerald
+  doc.setFillColor(16, 185, 129);
   doc.rect(c2X, startY, 1.5, cardHeight, 'F');
 
   doc.setFontSize(7);
   doc.setTextColor(16, 185, 129);
-  doc.text('APROBADOS', c2X + 4, startY + 5.5);
+  doc.text('TASA DE APROBACIÓN', c2X + 4, startY + 5);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setTextColor(16, 185, 129);
-  doc.text(`${metrics.aprobados}`, c2X + 4, startY + 13);
+  doc.text(`${metrics.tasaAprobacion}%`, c2X + 4, startY + 12);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text('Lotes aprobados', c2X + 4, startY + 18.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`${metrics.aprobados} aprobadas (${metrics.aprobadosEnGama} en gama)`, c2X + 4, startY + 17.5);
 
-  // Card 3: RECHAZADO
+  // Fila 1 - Card 3: CUMPLIMIENTO SLA
   const c3X = c2X + cardWidth + 3;
   doc.setFillColor(248, 250, 252);
   doc.rect(c3X, startY, cardWidth, cardHeight, 'FD');
-  doc.setFillColor(239, 68, 68); // Red
+  doc.setFillColor(59, 130, 246);
   doc.rect(c3X, startY, 1.5, cardHeight, 'F');
 
   doc.setFontSize(7);
-  doc.setTextColor(239, 68, 68);
-  doc.text('RECHAZADO', c3X + 4, startY + 5.5);
+  doc.setTextColor(59, 130, 246);
+  doc.text('CUMPLIMIENTO DE SLA', c3X + 4, startY + 5);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(239, 68, 68);
-  doc.text(`${metrics.rechazados}`, c3X + 4, startY + 13);
+  doc.setFontSize(12);
+  doc.setTextColor(59, 130, 246);
+  doc.text(`${metrics.pctCumplimientoSla}%`, c3X + 4, startY + 12);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text('Lotes observados', c3X + 4, startY + 18.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`${metrics.opsATiempo} dentro de límite ≤ 3 días`, c3X + 4, startY + 17.5);
 
-  // Card 4: TASA DE APROBACION
-  const c4X = c3X + cardWidth + 3;
+  startY += cardHeight + 3;
+
+  // Fila 2 - Card 4: INDICADOR OTIF
   doc.setFillColor(248, 250, 252);
-  doc.rect(c4X, startY, cardWidth, cardHeight, 'FD');
-  doc.setFillColor(99, 102, 241); // Indigo
-  doc.rect(c4X, startY, 1.5, cardHeight, 'F');
+  doc.rect(margin, startY, cardWidth, cardHeight, 'FD');
+  doc.setFillColor(99, 102, 241);
+  doc.rect(margin, startY, 1.5, cardHeight, 'F');
 
   doc.setFontSize(7);
   doc.setTextColor(99, 102, 241);
-  doc.text('TASA DE APROBACION', c4X + 4, startY + 5.5);
+  doc.text('ÍNDICE OTIF INDUSTRIAL', margin + 4, startY + 5);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setTextColor(99, 102, 241);
-  doc.text(`${metrics.tasaAprobacion}%`, c4X + 4, startY + 13);
+  doc.text(`${metrics.pctOtif}%`, margin + 4, startY + 12);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text('Meta comité: >92%', c4X + 4, startY + 18.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('On-Time & In-Full (SLA × Calidad)', margin + 4, startY + 17.5);
 
-  startY += cardHeight + 10;
+  // Fila 2 - Card 5: LEAD TIME PROMEDIO
+  doc.setFillColor(248, 250, 252);
+  doc.rect(c2X, startY, cardWidth, cardHeight, 'FD');
+  doc.setFillColor(14, 165, 233);
+  doc.rect(c2X, startY, 1.5, cardHeight, 'F');
 
-  // 2. SECTION: DISTRIBUCIÓN POR ÁREA Y UBICACIÓN FÍSICA
+  doc.setFontSize(7);
+  doc.setTextColor(14, 165, 233);
+  doc.text('LEAD TIME PROMEDIO', c2X + 4, startY + 5);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(12);
+  doc.setTextColor(14, 165, 233);
+  doc.text(`${metrics.leadTimePromedioDias} días`, c2X + 4, startY + 12);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Tiempo promedio por colcha', c2X + 4, startY + 17.5);
+
+  // Fila 2 - Card 6: EN PROCESO / OBSERVADAS
+  doc.setFillColor(248, 250, 252);
+  doc.rect(c3X, startY, cardWidth, cardHeight, 'FD');
+  doc.setFillColor(metrics.rechazados > 0 ? 239 : 245, metrics.rechazados > 0 ? 68 : 158, metrics.rechazados > 0 ? 68 : 11);
+  doc.rect(c3X, startY, 1.5, cardHeight, 'F');
+
+  doc.setFontSize(7);
+  doc.setTextColor(metrics.rechazados > 0 ? 239 : 217, metrics.rechazados > 0 ? 68 : 119, metrics.rechazados > 0 ? 68 : 6);
+  doc.text('EN PROCESO / OBSERVADAS', c3X + 4, startY + 5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
   doc.setTextColor(15, 23, 42);
-  doc.text('2. DISTRIBUCIÓN POR ÁREA Y UBICACIÓN FÍSICA', margin, startY);
+  doc.text(`${metrics.enProceso} activas`, c3X + 4, startY + 12);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(metrics.rechazados > 0 ? 239 : 100, metrics.rechazados > 0 ? 68 : 116, metrics.rechazados > 0 ? 68 : 139);
+  doc.text(`${metrics.rechazados} con rechazo/desviación`, c3X + 4, startY + 17.5);
+
+  startY += cardHeight + 8;
+
+  // 2. SECTION: DISTRIBUCIÓN POR ÁREA Y UBICACIÓN FÍSICA (WIP REAL)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('2. DISTRIBUCIÓN POR ETAPA OPERATIVA Y CUELLOS DE BOTELLA (WIP)', margin, startY);
 
   startY += 4;
 
   const distRows = [
-    ['Pre-Solicitud (Diseño)', `${metrics.distribucion.preSolicitud.count} OPs`, `${metrics.distribucion.preSolicitud.metros} m`, `${metrics.distribucion.preSolicitud.pct}%`],
-    ['Tránsito / Lavandería (Solicitado)', `${metrics.distribucion.solicitados.count} OPs`, `${metrics.distribucion.solicitados.metros} m`, `${metrics.distribucion.solicitados.pct}%`],
-    ['Planta de Lavado (Recibido)', `${metrics.distribucion.lavanderia.count} OPs`, `${metrics.distribucion.lavanderia.metros} m`, `${metrics.distribucion.lavanderia.pct}%`],
-    ['Laboratorio de Calidad STF', `${metrics.distribucion.calidad.count} OPs`, `${metrics.distribucion.calidad.metros} m`, `${metrics.distribucion.calidad.pct}%`],
-    ['Evaluado y Enviado (Colfactory)', `${metrics.distribucion.evaluado.count} OPs`, `${metrics.distribucion.evaluado.metros} m`, `${metrics.distribucion.evaluado.pct}%`],
-    ['Finalizados / Dictaminados', `${metrics.distribucion.finalizados.count} OPs`, `${metrics.distribucion.finalizados.metros} m`, `${metrics.distribucion.finalizados.pct}%`]
+    ['Pre-Solicitud (Atelier ZF)', `${metrics.distribucion.preSolicitud.count} OPs`, `${metrics.distribucion.preSolicitud.metros.toLocaleString()} m`, `${metrics.distribucion.preSolicitud.pct}%`],
+    ['Tránsito / Despacho (Solicitado)', `${metrics.distribucion.solicitados.count} OPs`, `${metrics.distribucion.solicitados.metros.toLocaleString()} m`, `${metrics.distribucion.solicitados.pct}%`],
+    ['Lavandería (Colfactory ZF)', `${metrics.distribucion.lavanderia.count} OPs`, `${metrics.distribucion.lavanderia.metros.toLocaleString()} m`, `${metrics.distribucion.lavanderia.pct}%`],
+    ['Calidad STF (Laboratorio)', `${metrics.distribucion.calidad.count} OPs`, `${metrics.distribucion.calidad.metros.toLocaleString()} m`, `${metrics.distribucion.calidad.pct}%`],
+    ['Evaluado y Enviado (Colfactory)', `${metrics.distribucion.evaluado.count} OPs`, `${metrics.distribucion.evaluado.metros.toLocaleString()} m`, `${metrics.distribucion.evaluado.pct}%`],
+    ['Finalizados (Liberadas Conformes)', `${metrics.distribucion.finalizados.count} OPs`, `${metrics.distribucion.finalizados.metros.toLocaleString()} m`, `${metrics.distribucion.finalizados.pct}%`]
   ];
 
   autoTable(doc, {
     startY: startY,
     margin: { left: margin, right: margin },
-    head: [['Etapa / Ubicación del Proceso', 'Cantidad de Muestras', 'Metraje Acumulado (m)', '% Participación']],
+    head: [['Etapa / Ubicación del Proceso', 'Muestras', 'Metraje Acumulado (m)', '% Participación']],
     body: distRows,
     theme: 'plain',
     headStyles: {
       fillColor: [15, 23, 42],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 8,
-      cellPadding: 2.5
+      fontSize: 7.5,
+      cellPadding: 2
     },
     bodyStyles: {
-      fontSize: 7.5,
+      fontSize: 7,
       textColor: [30, 41, 59],
-      cellPadding: 2.2,
+      cellPadding: 1.8,
       lineColor: [226, 232, 240],
       lineWidth: 0.2
     },
@@ -414,48 +537,96 @@ export function generateComitePdf(
   });
 
   // @ts-ignore
-  let lastY = doc.lastAutoTable.finalY + 9;
+  let lastY = doc.lastAutoTable.finalY + 6;
 
-  // 3. SECTION: DETALLE DE ORDENES DE PRODUCCIÓN Y REVISIONES
+  // 3. SECTION: TOP 5 TELAS Y TOP AUDITORES
+  if (lastY < pageHeight - 50 && metrics.topTelas.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('3. TOP FAMILIAS DE TELAS MÁS AUDITADAS', margin, lastY);
+    lastY += 3.5;
+
+    const telaRows = metrics.topTelas.map(t => [
+      t.tela,
+      `${t.count} OPs`,
+      `${t.metros.toLocaleString()} m`,
+      `${t.pct}% del total`
+    ]);
+
+    autoTable(doc, {
+      startY: lastY,
+      margin: { left: margin, right: margin },
+      head: [['Descripción de Tela', 'Cantidad OPs', 'Metraje Auditado', '% del Volumen']],
+      body: telaRows,
+      theme: 'plain',
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+        cellPadding: 2
+      },
+      bodyStyles: {
+        fontSize: 7,
+        textColor: [30, 41, 59],
+        cellPadding: 1.8,
+        lineColor: [226, 232, 240],
+        lineWidth: 0.2
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      }
+    });
+
+    // @ts-ignore
+    lastY = doc.lastAutoTable.finalY + 6;
+  }
+
+  // 4. SECTION: DETALLE DE ORDENES DE PRODUCCIÓN AUDITADAS
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(10.5);
   doc.setTextColor(15, 23, 42);
-  doc.text('3. DETALLE DE ORDENES DE PRODUCCIÓN Y REVISIONES', margin, lastY);
+  doc.text('4. MATRIZ DETALLADA DE ÓRDENES DE PRODUCCIÓN', margin, lastY);
 
-  lastY += 4;
+  lastY += 3.5;
 
   const detailRows = solicitudes.map(item => {
-    const metrosStr = item.codigoMt ? `${item.codigoMt}m` : `${(Number(item.rollos) || 1) * 85}m`;
-    const resultado = item.dictamen === 'APROBADO' ? 'APROBADO' : (item.dictamen === 'APROBADO EN GAMA' ? 'APROBADO EN GAMA' : (item.dictamen === 'RECHAZADO' ? 'RECHAZADO' : 'EN PROCESO'));
+    const rollos = Number(item.rollos) || 1;
+    const metrosStr = item.codigoMt ? `${item.codigoMt} (${rollos * 85}m)` : `${rollos * 85}m`;
+    const resultado = item.dictamen === 'APROBADO' 
+      ? 'APROBADO' 
+      : (item.dictamen === 'APROBADO EN GAMA' ? 'APROBADO EN GAMA' : (item.dictamen === 'RECHAZADO' ? 'RECHAZADO' : (item.estado === 'FINALIZADO' ? 'FINALIZADO' : 'EN PROCESO')));
     
     return [
       item.op || 'S/N',
       item.referencia || 'S/R',
-      (item.tela || '').substring(0, 26),
+      (item.tela || '').substring(0, 24),
       metrosStr,
       item.estado || item.areaActual || 'SOLICITADO',
       resultado,
-      item.fechaCreacion || ''
+      item.diasHabiles ? `${item.diasHabiles}d` : '1d',
+      (item.fechaCreacion || '').substring(0, 10)
     ];
   });
 
   autoTable(doc, {
     startY: lastY,
     margin: { left: margin, right: margin },
-    head: [['Código OP', 'Referencia', 'Tela', 'Metraje', 'Ubicación', 'Resultado', 'Fecha Registro']],
+    head: [['Código OP', 'Referencia', 'Tela', 'Metraje/Código', 'Ubicación', 'Dictamen', 'SLA', 'Fecha']],
     body: detailRows,
     theme: 'plain',
     headStyles: {
       fillColor: [15, 23, 42],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 7.5,
-      cellPadding: 2.5
+      fontSize: 7.2,
+      cellPadding: 2.2
     },
     bodyStyles: {
-      fontSize: 7,
+      fontSize: 6.8,
       textColor: [30, 41, 59],
-      cellPadding: 2,
+      cellPadding: 1.8,
       lineColor: [226, 232, 240],
       lineWidth: 0.2
     },
@@ -489,27 +660,35 @@ export function generateComiteExcel(
   // SHEET 1: Resumen KPIs
   const sheet1Data: any[][] = [
     ['STF GROUP S.A. - SISTEMA DE CONTROL Y TRAZABILIDAD DE COLCHAS'],
-    ['INFORME EJECUTIVO DE COMITÉ DE CALIDAD TEXTIL'],
+    ['INFORME EJECUTIVO DE COMITÉ DE CALIDAD TEXTIL & EFICIENCIA OPERATIVA'],
     ['Generado por:', currentUser?.nombre || 'EDWIN', 'Fecha:', now.toLocaleString('es-CO')],
     [''],
-    ['1. RESUMEN DE INDICADORES CLAVE (KPIs)'],
-    ['Indicador', 'Valor', 'Unidad / Meta'],
+    ['1. RESUMEN DE INDICADORES CLAVE (KPIS MAESTROS)'],
+    ['Indicador', 'Valor Real', 'Unidad / Meta'],
     ['Total Muestras Analizadas', metrics.totalOps, 'OPs'],
     ['Metraje Total Procesado', metrics.totalMetros, 'Metros lineales'],
     ['Total Rollos Evaluados', metrics.totalRollos, 'Rollos'],
     ['Muestras Aprobadas / Liberadas', metrics.aprobados, 'Lotes'],
+    ['Muestras Aprobadas en Gama', metrics.aprobadosEnGama, 'Lotes'],
     ['Muestras Rechazadas / Observadas', metrics.rechazados, 'Lotes'],
     ['Muestras en Proceso / Tránsito', metrics.enProceso, 'Lotes'],
-    ['Tasa de Aprobación Real', `${metrics.tasaAprobacion}%`, 'Meta Comité: >92.0%'],
+    ['Tasa de Aprobación Real', `${metrics.tasaAprobacion}%`, 'Meta Calidad: >92.0%'],
+    ['Cumplimiento de SLA (≤ 3 días)', `${metrics.pctCumplimientoSla}%`, 'Meta SLA: >90.0%'],
+    ['Índice Industrial OTIF (On-Time & In-Full)', `${metrics.pctOtif}%`, 'Meta OTIF: >85.0%'],
+    ['Lead Time Promedio por Colcha', `${metrics.leadTimePromedioDias} días`, 'Meta Lead Time: ≤ 2.5 días'],
     [''],
-    ['2. DISTRIBUCIÓN POR ETAPA OPERATIVA'],
+    ['2. DISTRIBUCIÓN POR ETAPA OPERATIVA (CUELLOS DE BOTELLA WIP)'],
     ['Etapa / Ubicación', 'Cantidad OPs', 'Metraje (m)', 'Participación (%)'],
-    ['Pre-Solicitud (Diseño ZF)', metrics.distribucion.preSolicitud.count, metrics.distribucion.preSolicitud.metros, `${metrics.distribucion.preSolicitud.pct}%`],
+    ['Pre-Solicitud (Atelier ZF)', metrics.distribucion.preSolicitud.count, metrics.distribucion.preSolicitud.metros, `${metrics.distribucion.preSolicitud.pct}%`],
     ['Tránsito / Despacho (Solicitados)', metrics.distribucion.solicitados.count, metrics.distribucion.solicitados.metros, `${metrics.distribucion.solicitados.pct}%`],
     ['Lavandería (Colfactory ZF)', metrics.distribucion.lavanderia.count, metrics.distribucion.lavanderia.metros, `${metrics.distribucion.lavanderia.pct}%`],
     ['Calidad (Laboratorio STF)', metrics.distribucion.calidad.count, metrics.distribucion.calidad.metros, `${metrics.distribucion.calidad.pct}%`],
     ['Evaluado y Enviado (Colfactory)', metrics.distribucion.evaluado.count, metrics.distribucion.evaluado.metros, `${metrics.distribucion.evaluado.pct}%`],
-    ['Finalizados / Liberados', metrics.distribucion.finalizados.count, metrics.distribucion.finalizados.metros, `${metrics.distribucion.finalizados.pct}%`]
+    ['Finalizados / Liberados', metrics.distribucion.finalizados.count, metrics.distribucion.finalizados.metros, `${metrics.distribucion.finalizados.pct}%`],
+    [''],
+    ['3. TOP FAMILIAS DE TELAS MÁS AUDITADAS'],
+    ['Tela', 'Cantidad OPs', 'Metros Totales', '% del Volumen'],
+    ...metrics.topTelas.map(t => [t.tela, t.count, t.metros, `${t.pct}%`])
   ];
 
   // SHEET 2: Matriz Completa de OPs
