@@ -178,7 +178,7 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Botón Amarillo Oficial: Solicitud Soporte */}
               <a
-                href="https://stfmateriasprimas-wq.github.io/STF-oficina-aplicativos/solicitud-soporte.html?sistema=colchas"
+                href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte.html?sistema=colchas"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ backgroundColor: '#facc15', color: '#09090b' }}

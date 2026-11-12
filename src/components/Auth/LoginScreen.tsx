@@ -1,36 +1,36 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  ShieldCheck, 
-  UserCheck, 
-  AlertCircle, 
-  Users, 
-  X, 
-  ArrowRight, 
-  KeyRound, 
-  Lock, 
-  Eye, 
-  EyeOff, 
-  CheckCircle2, 
+import {
+  ShieldCheck,
+  UserCheck,
+  AlertCircle,
+  Users,
+  X,
+  ArrowRight,
+  KeyRound,
+  Lock,
+  Eye,
+  EyeOff,
+  CheckCircle2,
   Shield,
   Clock,
   ShieldAlert,
   RefreshCw,
   Headset
 } from 'lucide-react';
-import { 
-  UsuarioSTF, 
-  getUsuariosList, 
-  subscribeUsuariosList, 
-  syncUsuariosFromSheets, 
-  userRequiresPassword, 
+import {
+  UsuarioSTF,
+  getUsuariosList,
+  subscribeUsuariosList,
+  syncUsuariosFromSheets,
+  userRequiresPassword,
   verifyUserPassword,
   isSoporteUser,
   isEdiazUser
 } from '../../services/authService';
-import { 
-  verifyUserCredentials, 
-  checkUserLockoutStatus, 
-  LockoutStatus 
+import {
+  verifyUserCredentials,
+  checkUserLockoutStatus,
+  LockoutStatus
 } from '../../services/securityAuthService';
 import { RecuperarPasswordModal } from './RecuperarPasswordModal';
 import { auditService } from '../../services/auditService';
@@ -136,7 +136,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
         setIsFlipped(true);
       } else {
         stopIntroSoundImmediately();
-        auditService.recordLogin(foundUser).catch(() => {});
+        auditService.recordLogin(foundUser).catch(() => { });
         onLoginSuccess(foundUser);
       }
     } else {
@@ -157,7 +157,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       setIsFlipped(true);
     } else {
       stopIntroSoundImmediately();
-      auditService.recordLogin(user).catch(() => {});
+      auditService.recordLogin(user).catch(() => { });
       onLoginSuccess(user);
     }
   };
@@ -187,8 +187,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
     // 2. Validar que no esté vacía
     if (!adminPassword.trim()) {
       const isSoporte = isSoporteUser(pendingAdminUser);
-      setAdminErrorMsg(isSoporte 
-        ? 'Por favor ingrese la contraseña de Soporte Técnico.' 
+      setAdminErrorMsg(isSoporte
+        ? 'Por favor ingrese la contraseña de Soporte Técnico.'
         : 'Por favor ingrese la contraseña de administrador.');
       setIsAdminShaking(true);
       setTimeout(() => setIsAdminShaking(false), 500);
@@ -203,7 +203,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       if (result.success) {
         setAdminErrorMsg('');
         stopIntroSoundImmediately();
-        auditService.recordLogin(pendingAdminUser).catch(() => {});
+        auditService.recordLogin(pendingAdminUser).catch(() => { });
         onLoginSuccess(pendingAdminUser);
       } else {
         setAdminErrorMsg(result.errorMessage || 'Contraseña incorrecta. Verifique sus credenciales.');
@@ -232,11 +232,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
 
   return (
     <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-4 overflow-hidden bg-zinc-950 font-sans select-none">
-      
+
       {/* Botón Flotante Superior: Solicitud Soporte Oficial STF */}
       <div className="absolute top-3 right-3 sm:top-5 sm:right-6 z-30">
         <a
-          href="https://stfmateriasprimas-wq.github.io/STF-oficina-aplicativos/solicitud-soporte.html?sistema=colchas"
+          href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte.html?sistema=colchas"
           target="_blank"
           rel="noopener noreferrer"
           style={{ backgroundColor: '#facc15', color: '#09090b' }}
@@ -249,19 +249,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       </div>
 
       {/* Background Official STF Headquarters Building Image with Light Darkening */}
-      <div 
+      <div
         className="absolute inset-0 z-0 bg-cover bg-center filter brightness-[0.55] contrast-[1.06] transition duration-1000 scale-100"
         style={{
           backgroundImage: `url('/assets/stf-hq-building.png')`
         }}
       />
-      
+
       {/* Elegant Light Darkening Gradient Overlays */}
       <div className="absolute inset-0 z-0 bg-gradient-to-t from-black/85 via-black/40 to-black/70" />
       <div className="absolute inset-0 z-0 bg-black/25 backdrop-blur-[1px]" />
 
       {/* Top Header 3D Chrome & Gold Transparent STF Logo */}
-      <div 
+      <div
         onClick={onReplayIntro}
         className="relative z-10 mb-5 sm:mb-8 text-center animate-in fade-in duration-500 flex flex-col items-center group cursor-pointer"
         title="Clic para reproducir la intro cinematográfica de STF Group"
@@ -277,19 +277,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       {/* 3D FLIP CARD CONTAINER (Rotación horizontal 180° en eje Y sin cambiar fondo) */}
       {/* ========================================================================= */}
       <div className="relative z-10 w-full max-w-[430px] perspective-1200">
-        <div 
-          className={`relative w-full preserve-3d transition-transform duration-700 ease-out ${
-            isFlipped ? 'rotate-y-180' : ''
-          }`}
+        <div
+          className={`relative w-full preserve-3d transition-transform duration-700 ease-out ${isFlipped ? 'rotate-y-180' : ''
+            }`}
         >
-          
+
           {/* ===================================================================== */}
           {/* CARA 1: FRONTAL - BIENVENIDO / ID DE USUARIO (0 GRADOS)               */}
           {/* ===================================================================== */}
-          <div className={`w-full min-h-[420px] sm:min-h-[440px] flex flex-col justify-between backface-hidden bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border border-white/20 hover:border-white/30 rounded-[32px] sm:rounded-[38px] p-6 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] text-white overflow-hidden group ${
-            isFlipped ? 'pointer-events-none' : ''
-          }`}>
-            
+          <div className={`w-full min-h-[420px] sm:min-h-[440px] flex flex-col justify-between backface-hidden bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border border-white/20 hover:border-white/30 rounded-[32px] sm:rounded-[38px] p-6 sm:p-9 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] text-white overflow-hidden group ${isFlipped ? 'pointer-events-none' : ''
+            }`}>
+
             {/* Inner Hairline Tech Border */}
             <div className="absolute inset-2 sm:inset-2.5 rounded-[26px] sm:rounded-[32px] border border-white/10 pointer-events-none" />
 
@@ -309,7 +307,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
 
             {/* Card Header */}
             <div className="text-center space-y-2 mb-7 relative z-10">
-              
+
               {/* Cyber Status Badge */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.06] border border-white/15 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
@@ -326,7 +324,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
 
             {/* Form */}
             <form onSubmit={handleLoginSubmit} className="space-y-5 relative z-10">
-              
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10.5px] font-mono font-bold uppercase tracking-wider text-zinc-300">
                   <label className="flex items-center gap-1.5 text-zinc-300">
@@ -412,14 +410,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
           {/* ===================================================================== */}
           {/* CARA 2: RESPALDO - CONTRASEÑA DE ADMINISTRADOR / SOPORTE (180 GRADOS) */}
           {/* ===================================================================== */}
-          <div className={`absolute inset-0 w-full h-full backface-hidden rotate-y-180 bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border rounded-[32px] sm:rounded-[38px] p-5 sm:p-7 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] text-white overflow-y-auto custom-scroll flex flex-col justify-between group ${
-            isSoporteUser(pendingAdminUser)
+          <div className={`absolute inset-0 w-full h-full backface-hidden rotate-y-180 bg-black/35 backdrop-blur-2xl backdrop-saturate-150 border rounded-[32px] sm:rounded-[38px] p-5 sm:p-7 shadow-[0_25px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.25)] text-white overflow-y-auto custom-scroll flex flex-col justify-between group ${isSoporteUser(pendingAdminUser)
               ? 'border-cyan-500/40 hover:border-cyan-400/70 shadow-[0_0_40px_rgba(6,182,212,0.12)]'
               : 'border-white/20 hover:border-amber-500/40'
-          } ${
-            !isFlipped ? 'pointer-events-none' : ''
-          }`}>
-            
+            } ${!isFlipped ? 'pointer-events-none' : ''
+            }`}>
+
             {/* Inner Hairline Tech Border */}
             <div className="absolute inset-2 sm:inset-2.5 rounded-[26px] sm:rounded-[32px] border border-white/10 pointer-events-none" />
 
@@ -434,19 +430,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
             </div>
 
             {/* Ambient Holographic Light Glows */}
-            <div className={`absolute -top-16 -right-16 w-36 h-36 rounded-full blur-3xl pointer-events-none transition duration-700 ${
-              isSoporteUser(pendingAdminUser) ? 'bg-cyan-500/20 group-hover:bg-cyan-500/30' : 'bg-amber-500/15 group-hover:bg-amber-500/25'
-            }`} />
-            <div className={`absolute -bottom-16 -left-16 w-36 h-36 rounded-full blur-3xl pointer-events-none transition duration-700 ${
-              isSoporteUser(pendingAdminUser) ? 'bg-blue-500/20 group-hover:bg-blue-500/30' : 'bg-cyan-500/15 group-hover:bg-cyan-500/25'
-            }`} />
+            <div className={`absolute -top-16 -right-16 w-36 h-36 rounded-full blur-3xl pointer-events-none transition duration-700 ${isSoporteUser(pendingAdminUser) ? 'bg-cyan-500/20 group-hover:bg-cyan-500/30' : 'bg-amber-500/15 group-hover:bg-amber-500/25'
+              }`} />
+            <div className={`absolute -bottom-16 -left-16 w-36 h-36 rounded-full blur-3xl pointer-events-none transition duration-700 ${isSoporteUser(pendingAdminUser) ? 'bg-blue-500/20 group-hover:bg-blue-500/30' : 'bg-cyan-500/15 group-hover:bg-cyan-500/25'
+              }`} />
 
             {/* Top Tech Laser Accent Line */}
-            <div className={`absolute top-0 left-0 right-0 h-[2px] opacity-80 ${
-              isSoporteUser(pendingAdminUser)
+            <div className={`absolute top-0 left-0 right-0 h-[2px] opacity-80 ${isSoporteUser(pendingAdminUser)
                 ? 'bg-gradient-to-r from-transparent via-cyan-400 to-transparent'
                 : 'bg-gradient-to-r from-transparent via-amber-400 to-transparent'
-            }`} />
+              }`} />
 
             {/* Return / Flip Back Button */}
             <button
@@ -460,18 +453,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
 
             {/* Header Back Face */}
             <div className="text-center space-y-1.5 mb-2.5 relative z-10">
-              
+
               {/* Cyber Status Badge */}
-              <div className={`inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md ${
-                isSoporteUser(pendingAdminUser)
+              <div className={`inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md ${isSoporteUser(pendingAdminUser)
                   ? 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-300'
                   : 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                  isSoporteUser(pendingAdminUser)
+                }`}>
+                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSoporteUser(pendingAdminUser)
                     ? 'bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]'
                     : 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]'
-                }`} />
+                  }`} />
                 <span>{isSoporteUser(pendingAdminUser) ? 'SOPORTE TÉCNICO OFICIAL' : 'ACCESO PROTEGIDO'}</span>
               </div>
 
@@ -485,7 +476,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
 
             {/* Form Back Face */}
             <form onSubmit={handleAdminPasswordSubmit} className={`space-y-3 relative z-10 ${isAdminShaking ? 'animate-shake' : ''}`}>
-              
+
               {/* ALERTA DE BLOQUEO ACTIVO CON TEMPORIZADOR MM:SS */}
               {lockoutStatus?.isLocked && (
                 <div className="bg-rose-950/90 border border-rose-500/80 rounded-2xl p-3 shadow-lg animate-in fade-in flex flex-col gap-1.5 backdrop-blur-md">
@@ -519,29 +510,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
                     <KeyRound className={`w-3.5 h-3.5 ${isSoporteUser(pendingAdminUser) ? 'text-cyan-400' : 'text-amber-400'}`} />
                     <span>{isSoporteUser(pendingAdminUser) ? 'CONTRASEÑA DE SOPORTE' : 'CONTRASEÑA DE ADMINISTRADOR'}</span>
                   </label>
-                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full border ${
-                    isSoporteUser(pendingAdminUser)
+                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full border ${isSoporteUser(pendingAdminUser)
                       ? 'text-cyan-300 bg-cyan-950/60 border-cyan-500/30'
                       : 'text-amber-400/90 bg-amber-950/60 border-amber-500/30'
-                  }`}>
+                    }`}>
                     STF {pendingAdminUser?.id?.toUpperCase() || 'EDÍAZ'}
                   </span>
                 </div>
 
-                <div className={`relative flex items-center bg-zinc-950/80 border rounded-2xl transition duration-200 shadow-inner group/input ${
-                  lockoutStatus?.isLocked 
-                    ? 'border-rose-800/80 opacity-60' 
+                <div className={`relative flex items-center bg-zinc-950/80 border rounded-2xl transition duration-200 shadow-inner group/input ${lockoutStatus?.isLocked
+                    ? 'border-rose-800/80 opacity-60'
                     : isSoporteUser(pendingAdminUser)
-                    ? 'border-zinc-700/80 focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/25'
-                    : 'border-zinc-700/80 focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/25'
-                }`}>
-                  <Lock className={`w-4 h-4 transition ml-4 shrink-0 ${
-                    lockoutStatus?.isLocked 
-                      ? 'text-rose-400' 
-                      : isSoporteUser(pendingAdminUser) 
-                      ? 'text-zinc-500 group-focus-within/input:text-cyan-400' 
-                      : 'text-zinc-500 group-focus-within/input:text-amber-400'
-                  }`} />
+                      ? 'border-zinc-700/80 focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/25'
+                      : 'border-zinc-700/80 focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/25'
+                  }`}>
+                  <Lock className={`w-4 h-4 transition ml-4 shrink-0 ${lockoutStatus?.isLocked
+                      ? 'text-rose-400'
+                      : isSoporteUser(pendingAdminUser)
+                        ? 'text-zinc-500 group-focus-within/input:text-cyan-400'
+                        : 'text-zinc-500 group-focus-within/input:text-amber-400'
+                    }`} />
                   <input
                     ref={passwordInputRef}
                     type={showAdminPassword ? 'text' : 'password'}
@@ -552,9 +540,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
                       setAdminErrorMsg('');
                     }}
                     placeholder={lockoutStatus?.isLocked ? 'ACCESO TEMPORALMENTE BLOQUEADO' : ''}
-                    className={`w-full bg-transparent px-3.5 py-3.5 text-base sm:text-sm text-white font-mono font-bold focus:outline-none ${
-                      lockoutStatus?.isLocked ? 'cursor-not-allowed placeholder-rose-400/60 text-xs' : 'placeholder-transparent'
-                    }`}
+                    className={`w-full bg-transparent px-3.5 py-3.5 text-base sm:text-sm text-white font-mono font-bold focus:outline-none ${lockoutStatus?.isLocked ? 'cursor-not-allowed placeholder-rose-400/60 text-xs' : 'placeholder-transparent'
+                      }`}
                   />
                   {!lockoutStatus?.isLocked && (
                     <button
@@ -654,7 +641,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       {showDirectoryModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            
+
             {/* Modal Header */}
             <div className="p-5 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between gap-4">
               <div>
@@ -703,13 +690,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
                   className="p-3.5 hover:bg-zinc-900/90 rounded-2xl cursor-pointer transition flex items-center justify-between text-xs gap-3 group"
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center text-xs font-black font-mono transition ${
-                      isSoporteUser(user)
+                    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center text-xs font-black font-mono transition ${isSoporteUser(user)
                         ? 'bg-cyan-950/70 border-cyan-500/50 text-cyan-300'
                         : isEdiazUser(user)
-                        ? 'bg-amber-950/70 border-amber-500/50 text-amber-300'
-                        : 'bg-zinc-900 border-zinc-800 text-emerald-400 group-hover:border-emerald-500/50'
-                    }`}>
+                          ? 'bg-amber-950/70 border-amber-500/50 text-amber-300'
+                          : 'bg-zinc-900 border-zinc-800 text-emerald-400 group-hover:border-emerald-500/50'
+                      }`}>
                       {isSoporteUser(user) ? 'SOP' : isEdiazUser(user) ? 'ADM' : user.id.substring(0, 4)}
                     </div>
                     <div>
@@ -718,11 +704,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
                           {user.nombre}
                         </span>
                         {userRequiresPassword(user) && (
-                          <span className={`text-[9.5px] font-bold font-mono px-2 py-0.5 rounded-full flex items-center gap-1 border ${
-                            isSoporteUser(user)
+                          <span className={`text-[9.5px] font-bold font-mono px-2 py-0.5 rounded-full flex items-center gap-1 border ${isSoporteUser(user)
                               ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40'
                               : 'bg-amber-950/80 text-amber-300 border-amber-500/40'
-                          }`}>
+                            }`}>
                             <Lock className="w-2.5 h-2.5" />
                             <span>CLAVE PROTEGIDA</span>
                           </span>
