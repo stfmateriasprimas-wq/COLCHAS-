@@ -181,12 +181,12 @@ export const Header: React.FC<HeaderProps> = ({
                 href="https://stfmateriasprimas-wq.github.io/STF-oficina-aplicativos/solicitud-soporte.html?sistema=colchas"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-zinc-950 border border-yellow-500/80 font-black text-[10px] sm:text-[11px] flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-[0_0_14px_rgba(250,204,21,0.5)] hover:scale-[1.03] shrink-0"
+                style={{ backgroundColor: '#facc15', color: '#09090b' }}
+                className="px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl border border-yellow-500 font-black text-[10.5px] sm:text-[11.5px] flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer shadow-md hover:brightness-105 active:scale-95 shrink-0 whitespace-nowrap z-20"
                 title="Abrir formulario oficial de Solicitud de Soporte Técnico STF"
               >
                 <Headset className="w-3.5 h-3.5 text-zinc-950 shrink-0" />
-                <span className="hidden sm:inline tracking-tight font-black">Solicitud Soporte</span>
-                <span className="inline sm:hidden tracking-tight font-black">Soporte</span>
+                <span className="tracking-tight font-black text-zinc-950">Solicitud Soporte</span>
               </a>
 
               {/* Theme Toggle */}
