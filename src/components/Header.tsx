@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, LogOut, ArrowLeft, User, MessageSquare, ShieldCheck, FileText } from 'lucide-react';
+import { Sun, Moon, LogOut, ArrowLeft, User, MessageSquare, ShieldCheck, FileText, Headset } from 'lucide-react';
 import { UsuarioSTF, isSoporteUser, isAdminUser } from '../services/authService';
 import { STFLogo } from './Common/STFLogo';
 
@@ -173,8 +173,21 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* RIGHT: Theme Switcher & Logout */}
+            {/* RIGHT: Solicitud Soporte, Theme Switcher & Logout */}
             <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 shrink-0">
+
+              {/* Botón Amarillo Oficial: Solicitud Soporte */}
+              <a
+                href="https://stfmateriasprimas-wq.github.io/STF-oficina-aplicativos/solicitud-soporte.html?sistema=colchas"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-zinc-950 border border-yellow-500/80 font-black text-[10px] sm:text-[11px] flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-[0_0_14px_rgba(250,204,21,0.5)] hover:scale-[1.03] shrink-0"
+                title="Abrir formulario oficial de Solicitud de Soporte Técnico STF"
+              >
+                <Headset className="w-3.5 h-3.5 text-zinc-950 shrink-0" />
+                <span className="hidden sm:inline tracking-tight font-black">Solicitud Soporte</span>
+                <span className="inline sm:hidden tracking-tight font-black">Soporte</span>
+              </a>
 
               {/* Theme Toggle */}
               <button
