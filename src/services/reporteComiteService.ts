@@ -42,6 +42,10 @@ export interface ComiteMetrics {
   topTelas: { tela: string; count: number; metros: number; pct: number }[];
   // Top Inspectores
   topInspectores: { inspector: string; count: number; aprobadas: number; pct: number }[];
+  // Distribución mensual de OPs (12 meses)
+  distribucionMensual: { mes: string; count: number }[];
+  // OPs críticas en riesgo
+  opsEnRiesgo: SolicitudColcha[];
 }
 
 /**
@@ -137,11 +141,30 @@ export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMe
   const telasMap = new Map<string, { count: number; metros: number }>();
   const inspectoresMap = new Map<string, { count: number; aprobadas: number }>();
 
+  const monthlyMap: Record<string, number> = {
+    'Ene': 0, 'Feb': 0, 'Mar': 0, 'Abr': 0, 'May': 0, 'Jun': 0,
+    'Jul': 0, 'Ago': 0, 'Sep': 0, 'Oct': 0, 'Nov': 0, 'Dic': 0
+  };
+  const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
   solicitudes.forEach(item => {
     const rollos = Number(item.rollos) || 1;
     const metros = rollos * 85;
     totalRollos += rollos;
     totalMetros += metros;
+
+    // Conteo por mes real
+    if (item.mes && item.mes >= 1 && item.mes <= 12) {
+      monthlyMap[monthNames[item.mes - 1]]++;
+    } else if (item.fechaCreacion) {
+      const dt = parseColombianDate(item.fechaCreacion);
+      if (dt && !isNaN(dt.getTime())) {
+        const mIdx = dt.getMonth();
+        if (mIdx >= 0 && mIdx < 12) {
+          monthlyMap[monthNames[mIdx]]++;
+        }
+      }
+    }
 
     // SLA tracking real
     if (item.tieneRetraso && item.estado !== 'FINALIZADO') {
@@ -243,6 +266,14 @@ export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMe
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
+  // OPs en riesgo activo (con retraso o prioridad de atención)
+  const opsEnRiesgo = solicitudes
+    .filter(s => s.estado !== 'FINALIZADO' && s.tieneRetraso)
+    .sort((a, b) => (b.diasHabiles || 0) - (a.diasHabiles || 0))
+    .slice(0, 10);
+
+  const distribucionMensual = monthNames.map(m => ({ mes: m, count: monthlyMap[m] || 0 }));
+
   return {
     totalOps,
     totalMetros,
@@ -290,7 +321,9 @@ export function calculateComiteMetrics(solicitudes: SolicitudColcha[]): ComiteMe
       }
     },
     topTelas,
-    topInspectores
+    topInspectores,
+    distribucionMensual,
+    opsEnRiesgo
   };
 }
 

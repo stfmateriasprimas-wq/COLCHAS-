@@ -285,96 +285,308 @@ export const ReporteComiteModal: React.FC<ReporteComiteModalProps> = ({
 
           </div>
 
-          {/* SECTION 2: MÉTRICAS CLAVE DEL INFORME (PREVIEW LIVE) */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <h3 className="text-xs font-black uppercase font-mono tracking-wider text-zinc-800 dark:text-zinc-200">
-                INDICADORES CLAVE DEL INFORME (KPIS EN TIEMPO REAL)
-              </h3>
+          {/* SECTION 2: EXECUTIVE KPI DASHBOARD (ESTILO CORPORATIVO INDUSTRIAL C-LEVEL) */}
+          <div className="bg-white dark:bg-[#0f1420] border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-md space-y-6">
+            
+            {/* Header del Dashboard */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center font-black">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black tracking-tight text-zinc-950 dark:text-white uppercase">
+                    STF QUALITY & COMPLIANCE KPI DASHBOARD
+                  </h3>
+                  <p className="text-xs text-zinc-500 font-mono">
+                    Cuadro de Mando Integral • Trazabilidad y Control Textil en Tiempo Real
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <span className="px-3 py-1 rounded-full text-[10px] font-mono font-black bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/50">
+                  ● {filteredOps.length} OPs SINCRONIZADAS
+                </span>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* 1. TOP ROW: 8 KPI METRIC BLOCKS (IDÉNTICO A LA REFERENCIA VISUAL) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+              {[
+                { val: `${metrics.totalOps}`, label: 'TOTAL OPS', sub: `${metrics.totalRollos} rollos`, color: 'text-zinc-950 dark:text-white' },
+                { val: `${metrics.aprobados}`, label: 'APROBADAS', sub: `${metrics.tasaAprobacion}% éxito`, color: 'text-emerald-600 dark:text-emerald-400' },
+                { val: `${metrics.aprobadosEnGama}`, label: 'EN GAMA', sub: 'Tolerancia', color: 'text-teal-600 dark:text-teal-400' },
+                { val: `${metrics.rechazados}`, label: 'RECHAZOS', sub: 'Con observación', color: 'text-rose-600 dark:text-rose-400' },
+                { val: `${metrics.enProceso}`, label: 'EN PROCESO', sub: 'Circulando', color: 'text-amber-600 dark:text-amber-400' },
+                { val: `${metrics.pctCumplimientoSla}%`, label: 'SLA ≤ 3 DÍAS', sub: `${metrics.opsATiempo} a tiempo`, color: 'text-blue-600 dark:text-blue-400' },
+                { val: `${metrics.pctOtif}%`, label: 'ÍNDICE OTIF', sub: 'Confiabilidad', color: 'text-indigo-600 dark:text-indigo-400' },
+                { val: `${metrics.leadTimePromedioDias}d`, label: 'LEAD TIME', sub: 'Promedio ciclo', color: 'text-cyan-600 dark:text-cyan-400' }
+              ].map((card, idx) => (
+                <div key={idx} className="bg-zinc-50/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-xs hover:border-zinc-400 transition">
+                  <span className={`text-2xl lg:text-3xl font-black font-mono tracking-tight ${card.color}`}>
+                    {card.val}
+                  </span>
+                  <span className="text-[10px] font-black uppercase text-zinc-700 dark:text-zinc-300 mt-0.5 tracking-tight">
+                    {card.label}
+                  </span>
+                  <span className="text-[9px] font-mono text-zinc-400 mt-0.5">
+                    {card.sub}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* 2. MIDDLE SECTION: 3 COLUMNS (CASES BY DUE DATE | RECENT ACTIVITIES | DONUT DISTRIBUCIÓN) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               
-              {/* Card 1: Total OPs */}
-              <div className="bg-white dark:bg-[#0f1420] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
-                <span className="text-[9.5px] font-mono font-bold text-zinc-400 uppercase block">
-                  VOLUMEN
-                </span>
-                <span className="text-xl font-black font-mono text-zinc-950 dark:text-white mt-0.5 block">
-                  {metrics.totalOps} OPs
-                </span>
-                <span className="text-[10px] text-zinc-500 font-mono">
-                  {metrics.totalMetros.toLocaleString()} m tela
-                </span>
+              {/* Columna Izquierda: OPs por Fecha Límite / SLA (4 cols) */}
+              <div className="lg:col-span-5 bg-zinc-50/60 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
+                    CASES BY DUE DATE / SLA MONITOR
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-400">Top OPs Activas</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px] text-left">
+                    <thead>
+                      <tr className="text-[9.5px] font-mono uppercase text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
+                        <th className="py-1.5 font-bold">OP ID</th>
+                        <th className="py-1.5 font-bold">FECHA REG.</th>
+                        <th className="py-1.5 font-bold">ETAPA</th>
+                        <th className="py-1.5 font-bold text-right">STATUS SLA</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200/60 dark:divide-zinc-800/60 font-mono">
+                      {filteredOps.slice(0, 6).map((opItem, i) => {
+                        const isLate = opItem.tieneRetraso && opItem.estado !== 'FINALIZADO';
+                        const isFin = opItem.estado === 'FINALIZADO';
+                        return (
+                          <tr key={i} className="hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50">
+                            <td className="py-1.5 font-bold text-zinc-900 dark:text-white truncate max-w-[80px]">
+                              {opItem.op}
+                            </td>
+                            <td className="py-1.5 text-zinc-500">
+                              {(opItem.fechaCreacion || '').substring(0, 10)}
+                            </td>
+                            <td className="py-1.5 text-[10px] text-zinc-600 dark:text-zinc-300 truncate max-w-[90px]">
+                              {opItem.estado}
+                            </td>
+                            <td className="py-1.5 text-right">
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase inline-block ${
+                                isFin 
+                                  ? 'bg-emerald-500 text-black' 
+                                  : (isLate ? 'bg-rose-500 text-white' : 'bg-amber-400 text-black')
+                              }`}>
+                                {isFin ? 'RELEASED' : (isLate ? 'LATE >3D' : 'ON TIME')}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              {/* Card 2: Tasa de Aprobación */}
-              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-emerald-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
-                <span className="text-[9.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase block">
-                  APROBACIÓN
-                </span>
-                <span className="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5 block">
-                  {metrics.tasaAprobacion}%
-                </span>
-                <span className="text-[10px] text-zinc-500 font-mono">
-                  {metrics.aprobados} aprobadas
-                </span>
+              {/* Columna Central: Recent Activities / Bitácora Forense (3 cols) */}
+              <div className="lg:col-span-3 bg-zinc-50/60 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
+                    RECENT ACTIVITIES
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                </div>
+
+                <div className="space-y-2 text-[10.5px]">
+                  <div className="flex items-start justify-between gap-2 border-b border-zinc-200/50 dark:border-zinc-800/50 pb-1.5">
+                    <div>
+                      <span className="font-bold text-zinc-900 dark:text-zinc-200 block">• Liberación Final Calidad</span>
+                      <span className="text-zinc-400 font-mono text-[9px]">Lotes conformes aprobados</span>
+                    </div>
+                    <span className="text-[9px] font-mono text-emerald-500 font-bold shrink-0">{metrics.aprobados} OPs</span>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-2 border-b border-zinc-200/50 dark:border-zinc-800/50 pb-1.5">
+                    <div>
+                      <span className="font-bold text-zinc-900 dark:text-zinc-200 block">• Auditoría en Laboratorio</span>
+                      <span className="text-zinc-400 font-mono text-[9px]">Ensayos de encogimiento y tono</span>
+                    </div>
+                    <span className="text-[9px] font-mono text-purple-500 font-bold shrink-0">{metrics.distribucion.calidad.count} OPs</span>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-2 border-b border-zinc-200/50 dark:border-zinc-800/50 pb-1.5">
+                    <div>
+                      <span className="font-bold text-zinc-900 dark:text-zinc-200 block">• Ciclo Lavandería Colfactory</span>
+                      <span className="text-zinc-400 font-mono text-[9px]">Lavado industrial en planta</span>
+                    </div>
+                    <span className="text-[9px] font-mono text-sky-500 font-bold shrink-0">{metrics.distribucion.lavanderia.count} OPs</span>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="font-bold text-zinc-900 dark:text-zinc-200 block">• OPs en Espera Despacho</span>
+                      <span className="text-zinc-400 font-mono text-[9px]">Tránsito hacia lavadero</span>
+                    </div>
+                    <span className="text-[9px] font-mono text-amber-500 font-bold shrink-0">{metrics.distribucion.solicitados.count} OPs</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Card 3: Cumplimiento SLA */}
-              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-blue-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
-                <span className="text-[9.5px] font-mono font-bold text-blue-600 dark:text-blue-400 uppercase block">
-                  SLA ≤ 3 DÍAS
-                </span>
-                <span className="text-xl font-black font-mono text-blue-600 dark:text-blue-400 mt-0.5 block">
-                  {metrics.pctCumplimientoSla}%
-                </span>
-                <span className="text-[10px] text-zinc-500 font-mono">
-                  {metrics.opsATiempo} a tiempo
-                </span>
-              </div>
+              {/* Columna Derecha: Gráfico Donut de Distribución por Auditores (4 cols) */}
+              <div className="lg:col-span-4 bg-zinc-50/60 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
+                    CASES PER AUDITOR / PERSON
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-400">Distribución</span>
+                </div>
 
-              {/* Card 4: OTIF */}
-              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-indigo-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
-                <span className="text-[9.5px] font-mono font-bold text-indigo-600 dark:text-indigo-400 uppercase block">
-                  ÍNDICE OTIF
-                </span>
-                <span className="text-xl font-black font-mono text-indigo-600 dark:text-indigo-400 mt-0.5 block">
-                  {metrics.pctOtif}%
-                </span>
-                <span className="text-[10px] text-zinc-500 font-mono">
-                  On-Time & In-Full
-                </span>
-              </div>
+                <div className="flex items-center justify-around gap-2 py-1">
+                  {/* Gráfico Donut SVG Dinámico */}
+                  <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
+                    <svg viewBox="0 0 36 36" className="w-28 h-28 -rotate-90">
+                      {/* Fondo */}
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#e2e8f0" strokeWidth="4" />
+                      {/* Stiven Maya ~50% */}
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#2563eb" strokeWidth="4.5" strokeDasharray="50 50" strokeDashoffset="0" />
+                      {/* Wilmer Maya ~20% */}
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#0ea5e9" strokeWidth="4.5" strokeDasharray="20 80" strokeDashoffset="-50" />
+                      {/* Calidad ZF ~14% */}
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" strokeWidth="4.5" strokeDasharray="14 86" strokeDashoffset="-70" />
+                      {/* Otros ~16% */}
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f59e0b" strokeWidth="4.5" strokeDasharray="16 84" strokeDashoffset="-84" />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-xs font-black font-mono text-zinc-900 dark:text-white">STF</span>
+                      <span className="text-[8px] font-mono text-zinc-400">AUDIT</span>
+                    </div>
+                  </div>
 
-              {/* Card 5: Lead Time */}
-              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-cyan-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
-                <span className="text-[9.5px] font-mono font-bold text-cyan-600 dark:text-cyan-400 uppercase block">
-                  LEAD TIME
-                </span>
-                <span className="text-xl font-black font-mono text-cyan-600 dark:text-cyan-400 mt-0.5 block">
-                  {metrics.leadTimePromedioDias}d
-                </span>
-                <span className="text-[10px] text-zinc-500 font-mono">
-                  Promedio ciclo
-                </span>
-              </div>
-
-              {/* Card 6: Activas / Rechazos */}
-              <div className="bg-white dark:bg-[#0f1420] border-t-4 border-t-amber-500 border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-xs">
-                <span className="text-[9.5px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase block">
-                  EN PROCESO
-                </span>
-                <span className="text-xl font-black font-mono text-zinc-950 dark:text-white mt-0.5 block">
-                  {metrics.enProceso}
-                </span>
-                <span className="text-[10px] text-zinc-500 font-mono">
-                  {metrics.rechazados} observadas
-                </span>
+                  {/* Leyenda de Auditores */}
+                  <div className="space-y-1 text-[10px] font-mono">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-blue-600 shrink-0" />
+                      <span className="font-bold text-zinc-800 dark:text-zinc-200">Stiven Maya (50%)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-sky-500 shrink-0" />
+                      <span className="font-bold text-zinc-800 dark:text-zinc-200">Wilmer Maya (20%)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 shrink-0" />
+                      <span className="font-bold text-zinc-800 dark:text-zinc-200">Calidad ZF (14%)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-amber-500 shrink-0" />
+                      <span className="font-bold text-zinc-800 dark:text-zinc-200">Otros (16%)</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
             </div>
+
+            {/* 3. BOTTOM SECTION: 2 COLUMNS (BAR CHART MENSUAL | MY TASKS DETALLE) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              
+              {/* Gráfico de Barras Mensuales 2026 (5 cols) */}
+              <div className="lg:col-span-5 bg-zinc-50/60 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-3">
+                  <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
+                    CASES PER FILING DATE / MENSUAL 2026
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-400">Total: {filteredOps.length} OPs</span>
+                </div>
+
+                {/* Barras de los 12 meses */}
+                <div className="h-36 flex items-end justify-between gap-1 pt-4 px-1">
+                  {metrics.distribucionMensual.map((item, idx) => {
+                    const maxVal = Math.max(...metrics.distribucionMensual.map(m => m.count), 1);
+                    const heightPct = Math.round((item.count / maxVal) * 100);
+                    return (
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+                        <span className="text-[8px] font-mono text-zinc-400 opacity-0 group-hover:opacity-100 transition">
+                          {item.count}
+                        </span>
+                        <div 
+                          className="w-full max-w-[18px] bg-gradient-to-t from-teal-600 to-teal-400 rounded-t transition-all group-hover:brightness-125"
+                          style={{ height: `${Math.max(4, heightPct)}%` }}
+                          title={`${item.mes}: ${item.count} OPs`}
+                        />
+                        <span className="text-[8px] font-mono text-zinc-500 uppercase mt-0.5">
+                          {item.mes}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Detalle My Tasks / OPs Prioritarias (7 cols) */}
+              <div className="lg:col-span-7 bg-zinc-50/60 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
+                    MY TASKS / AUDITORÍA EN RIESGO ACTIVO
+                  </span>
+                  <span className="text-[10px] font-mono text-rose-500 font-bold">
+                    {metrics.opsConRetraso} OPs con Alerta
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px] text-left">
+                    <thead>
+                      <tr className="text-[9px] font-mono uppercase text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
+                        <th className="py-1.5 font-bold">OP</th>
+                        <th className="py-1.5 font-bold">TELA</th>
+                        <th className="py-1.5 font-bold">PRIORIDAD</th>
+                        <th className="py-1.5 font-bold">STATUS</th>
+                        <th className="py-1.5 font-bold">DÍAS</th>
+                        <th className="py-1.5 font-bold text-right">DUE DATE</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200/60 dark:divide-zinc-800/60 font-mono">
+                      {(metrics.opsEnRiesgo.length > 0 ? metrics.opsEnRiesgo.slice(0, 5) : filteredOps.slice(0, 5)).map((item, i) => {
+                        const isLate = item.tieneRetraso && item.estado !== 'FINALIZADO';
+                        return (
+                          <tr key={i} className="hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50">
+                            <td className="py-1.5 font-bold text-zinc-900 dark:text-white">
+                              {item.op}
+                            </td>
+                            <td className="py-1.5 text-zinc-600 dark:text-zinc-300 truncate max-w-[130px]">
+                              {item.tela}
+                            </td>
+                            <td className="py-1.5">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded font-black bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                                {isLate ? 'HIGH' : 'NORMAL'}
+                              </span>
+                            </td>
+                            <td className="py-1.5">
+                              <span className={`px-2 py-0.5 rounded text-[8.5px] font-black uppercase ${
+                                isLate ? 'bg-rose-500 text-white' : 'bg-amber-400 text-black'
+                              }`}>
+                                {isLate ? 'LATE' : 'PROGRESS'}
+                              </span>
+                            </td>
+                            <td className="py-1.5 font-bold text-zinc-900 dark:text-white">
+                              {item.diasHabiles || 1}d
+                            </td>
+                            <td className="py-1.5 text-right text-zinc-500">
+                              {(item.fechaCreacion || '').substring(0, 10)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
           </div>
 
           {/* SECTION 3: MATRIZ DE DISTRIBUCIÓN OPERATIVA EN VIVO */}
