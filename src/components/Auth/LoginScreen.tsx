@@ -239,6 +239,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
           href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte?sistema=colchas"
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => {
+            e.preventDefault();
+            window.open('https://stf-oficina-aplicativos.vercel.app/solicitud-soporte?sistema=colchas', '_blank', 'noopener,noreferrer');
+          }}
           style={{ backgroundColor: '#facc15', color: '#09090b' }}
           className="px-3.5 py-2 rounded-xl border border-yellow-500 font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer shadow-[0_0_16px_rgba(250,204,21,0.45)] hover:brightness-105 active:scale-95 whitespace-nowrap"
           title="Abrir formulario oficial de Solicitud de Soporte Técnico STF"
@@ -638,6 +642,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
           href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte?sistema=colchas"
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => {
+            e.preventDefault();
+            window.open('https://stf-oficina-aplicativos.vercel.app/solicitud-soporte?sistema=colchas', '_blank', 'noopener,noreferrer');
+          }}
           style={{ backgroundColor: '#facc15', color: '#09090b' }}
           className="px-4 py-2 rounded-2xl border border-yellow-500 font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer shadow-lg hover:brightness-105 active:scale-95 whitespace-nowrap"
           title="Abrir formulario oficial de Solicitud de Soporte Técnico STF"
