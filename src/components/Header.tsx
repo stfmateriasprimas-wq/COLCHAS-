@@ -178,7 +178,7 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Botón Amarillo Oficial: Solicitud Soporte (Exclusivo en Fila 1 para Pantallas de Escritorio/Tablet >= sm) */}
               <a
-                href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte.html?sistema=colchas"
+                href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte?sistema=colchas"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ backgroundColor: '#facc15', color: '#09090b' }}
@@ -243,7 +243,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Botón Amarillo Solicitud Soporte en Móvil (Visible, legible y 100% libre de colisiones) */}
             <a
-              href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte.html?sistema=colchas"
+              href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte?sistema=colchas"
               target="_blank"
               rel="noopener noreferrer"
               style={{ backgroundColor: '#facc15', color: '#09090b' }}

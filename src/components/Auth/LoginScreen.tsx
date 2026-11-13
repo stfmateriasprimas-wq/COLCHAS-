@@ -236,7 +236,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       {/* Botón Flotante Superior: Solicitud Soporte Oficial STF (Solo en pantallas de escritorio >= sm) */}
       <div className="hidden sm:block absolute top-5 right-6 z-30">
         <a
-          href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte.html?sistema=colchas"
+          href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte?sistema=colchas"
           target="_blank"
           rel="noopener noreferrer"
           style={{ backgroundColor: '#facc15', color: '#09090b' }}
@@ -635,7 +635,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
       {/* Botón Amarillo Solicitud Soporte en Móvil (Ubicado debajo de la tarjeta, 100% visible y libre de la barra de estado) */}
       <div className="flex sm:hidden justify-center w-full mt-4 z-20">
         <a
-          href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte.html?sistema=colchas"
+          href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte?sistema=colchas"
           target="_blank"
           rel="noopener noreferrer"
           style={{ backgroundColor: '#facc15', color: '#09090b' }}
