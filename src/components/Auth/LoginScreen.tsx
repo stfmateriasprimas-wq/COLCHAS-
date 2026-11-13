@@ -233,17 +233,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
   return (
     <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-4 overflow-hidden bg-zinc-950 font-sans select-none">
 
-      {/* Botón Flotante Superior: Solicitud Soporte Oficial STF */}
-      <div className="absolute top-3 right-3 sm:top-5 sm:right-6 z-30">
+      {/* Botón Flotante Superior: Solicitud Soporte Oficial STF (Solo en pantallas de escritorio >= sm) */}
+      <div className="hidden sm:block absolute top-5 right-6 z-30">
         <a
           href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte.html?sistema=colchas"
           target="_blank"
           rel="noopener noreferrer"
           style={{ backgroundColor: '#facc15', color: '#09090b' }}
-          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border border-yellow-500 font-black text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer shadow-[0_0_16px_rgba(250,204,21,0.45)] hover:brightness-105 active:scale-95 whitespace-nowrap"
+          className="px-3.5 py-2 rounded-xl border border-yellow-500 font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer shadow-[0_0_16px_rgba(250,204,21,0.45)] hover:brightness-105 active:scale-95 whitespace-nowrap"
           title="Abrir formulario oficial de Solicitud de Soporte Técnico STF"
         >
-          <Headset className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-950 shrink-0" />
+          <Headset className="w-4 h-4 text-zinc-950 shrink-0" />
           <span className="font-black tracking-tight text-zinc-950">Solicitud Soporte</span>
         </a>
       </div>
@@ -632,8 +632,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRepl
         </div>
       </div>
 
+      {/* Botón Amarillo Solicitud Soporte en Móvil (Ubicado debajo de la tarjeta, 100% visible y libre de la barra de estado) */}
+      <div className="flex sm:hidden justify-center w-full mt-4 z-20">
+        <a
+          href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte.html?sistema=colchas"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ backgroundColor: '#facc15', color: '#09090b' }}
+          className="px-4 py-2 rounded-2xl border border-yellow-500 font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer shadow-lg hover:brightness-105 active:scale-95 whitespace-nowrap"
+          title="Abrir formulario oficial de Solicitud de Soporte Técnico STF"
+        >
+          <Headset className="w-3.5 h-3.5 text-zinc-950 shrink-0" />
+          <span className="font-black tracking-tight text-zinc-950">Solicitud Soporte</span>
+        </a>
+      </div>
+
       {/* Bottom Footer Info */}
-      <div className="relative z-10 mt-8 text-center text-[10px] text-zinc-500 font-mono">
+      <div className="relative z-10 mt-4 sm:mt-8 text-center text-[10px] text-zinc-500 font-mono">
         SISTEMA DE CONTROL Y TRAZABILIDAD DE COLCHAS STF GROUP S.A. © 2026
       </div>
 

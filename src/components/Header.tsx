@@ -173,16 +173,16 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* RIGHT: Solicitud Soporte, Theme Switcher & Logout */}
+            {/* RIGHT: Solicitud Soporte (Desktop), Theme Switcher & Logout */}
             <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 shrink-0">
 
-              {/* Botón Amarillo Oficial: Solicitud Soporte */}
+              {/* Botón Amarillo Oficial: Solicitud Soporte (Exclusivo en Fila 1 para Pantallas de Escritorio/Tablet >= sm) */}
               <a
                 href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte.html?sistema=colchas"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ backgroundColor: '#facc15', color: '#09090b' }}
-                className="px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl border border-yellow-500 font-black text-[10.5px] sm:text-[11.5px] flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer shadow-md hover:brightness-105 active:scale-95 shrink-0 whitespace-nowrap z-20"
+                className="hidden sm:inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-2xl border border-yellow-500 font-black text-[11px] transition-all duration-200 cursor-pointer shadow-md hover:brightness-105 active:scale-95 shrink-0 whitespace-nowrap z-20"
                 title="Abrir formulario oficial de Solicitud de Soporte Técnico STF"
               >
                 <Headset className="w-3.5 h-3.5 text-zinc-950 shrink-0" />
@@ -224,23 +224,36 @@ export const Header: React.FC<HeaderProps> = ({
 
           </div>
 
-          {/* ROW 2 ON MOBILE: Centered User Profile Badge with Clean Spacing (NO OVERLAP) */}
-          {currentUser && (
-            <div className="flex sm:hidden justify-center w-full pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80">
+          {/* ROW 2 ON MOBILE: User Profile Badge & Yellow Solicitud Soporte Button (Equilibrado sin desbordar) */}
+          <div className="flex sm:hidden items-center justify-between w-full pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80 px-0.5 gap-2">
+            {currentUser ? (
               <button
                 type="button"
                 onClick={onOpenProfileDirectory}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-50/80 text-emerald-950 dark:border-emerald-500/50 dark:bg-zinc-900/90 dark:text-zinc-200 text-[10px] font-medium font-mono hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer shadow-sm ring-1 ring-emerald-500/30 max-w-full"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-500/40 bg-emerald-50/80 text-emerald-950 dark:border-emerald-500/50 dark:bg-zinc-900/90 dark:text-zinc-200 text-[10px] font-medium font-mono hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer shadow-sm ring-1 ring-emerald-500/30 min-w-0 truncate max-w-[200px]"
                 title="Haz clic para cambiar de perfil de usuario en el sistema"
               >
                 <span className={`w-2 h-2 rounded-full ${getAreaDotColor(currentUser.area)} animate-pulse shrink-0`}></span>
-                <span className="font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight truncate">{currentUser.nombre}</span>
+                <span className="font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight truncate max-w-[95px]">{currentUser.nombre}</span>
                 <span className="text-zinc-400 dark:text-zinc-500">•</span>
-                <span className="text-zinc-700 dark:text-zinc-300 uppercase tracking-tight font-bold">{currentUser.area}</span>
+                <span className="text-zinc-700 dark:text-zinc-300 uppercase tracking-tight font-bold truncate max-w-[75px]">{currentUser.area}</span>
                 <User className="w-3 h-3 ml-0.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               </button>
-            </div>
-          )}
+            ) : <div />}
+
+            {/* Botón Amarillo Solicitud Soporte en Móvil (Visible, legible y 100% libre de colisiones) */}
+            <a
+              href="https://stf-oficina-aplicativos.vercel.app/solicitud-soporte.html?sistema=colchas"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ backgroundColor: '#facc15', color: '#09090b' }}
+              className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full border border-yellow-500 font-black text-[9.5px] shadow-sm hover:brightness-105 active:scale-95 shrink-0 whitespace-nowrap"
+              title="Abrir formulario oficial de Solicitud de Soporte Técnico STF"
+            >
+              <Headset className="w-3 h-3 text-zinc-950 shrink-0" />
+              <span className="tracking-tight font-black text-zinc-950">Solicitud Soporte</span>
+            </a>
+          </div>
 
         </div>
 
