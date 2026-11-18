@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, LogOut, ArrowLeft, User, MessageSquare, ShieldCheck, FileText, Headset } from 'lucide-react';
+import { Sun, Moon, LogOut, ArrowLeft, User, MessageSquare, ShieldCheck, FileText, Headset, Menu } from 'lucide-react';
 import { UsuarioSTF, isSoporteUser, isAdminUser } from '../services/authService';
 import { STFLogo } from './Common/STFLogo';
 
@@ -19,6 +19,7 @@ interface HeaderProps {
   isSyncing?: boolean;
   onManualSync?: () => void;
   totalOpsCount?: number;
+  onToggleMobileMenu?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,7 +37,8 @@ export const Header: React.FC<HeaderProps> = ({
   chatUnreadCount = 0,
   isSyncing = false,
   onManualSync,
-  totalOpsCount
+  totalOpsCount,
+  onToggleMobileMenu
 }) => {
   // Area semantic dot color
   const getAreaDotColor = (area?: string) => {
@@ -62,8 +64,20 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Top Row on Mobile: Perfect 3-column symmetrical grid (1fr auto 1fr) / Direct grid slots on Desktop */}
           <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full sm:contents">
             
-            {/* LEFT: Back Button & CHAT Button & AUDITORIA Button (SOPORTE) */}
+            {/* LEFT: Mobile Menu Button & Back Button & CHAT Button & AUDITORIA Button (SOPORTE) */}
             <div className="flex items-center justify-start gap-1 sm:gap-2.5 shrink-0">
+              {/* BOTÓN MENÚ LATERAL MÓVIL (< lg) */}
+              {onToggleMobileMenu && (
+                <button
+                  type="button"
+                  onClick={onToggleMobileMenu}
+                  className="lg:hidden w-7 h-7 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-white flex items-center justify-center transition cursor-pointer shadow-sm shrink-0"
+                  title="Abrir menú de navegación"
+                >
+                  <Menu className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
+                </button>
+              )}
+
               {showBackButton && (
                 <button
                   type="button"

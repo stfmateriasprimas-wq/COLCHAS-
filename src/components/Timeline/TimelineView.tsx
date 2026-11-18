@@ -572,15 +572,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 select-none pb-12 relative font-sans">
-      
-      {/* 1. SUB-NAVIGATION BAR */}
-      <SubNavTabs
-        activeTab="timeline"
-        onSelectTab={onNavigateTab}
-        totalHistorico={totalHistorico}
-        alertCount={inRetrasoCount}
-        solicitudes={solicitudes}
-      />
 
       {/* 2. TOP BANNER: LÍNEA DE TIEMPO Y EVALUACIÓN DE PROCESOS */}
       <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_25px_rgba(255,255,255,0.05)] space-y-6 text-zinc-950 dark:text-white">

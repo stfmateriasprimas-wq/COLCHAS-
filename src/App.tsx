@@ -30,7 +30,7 @@ const SqlBackupPanel = lazy(() => import('./components/Soporte/SqlBackupPanel').
 const QrScannerModal = lazy(() => import('./components/Scanner/QrScannerModal').then(m => ({ default: m.QrScannerModal })));
 const EditarOpFinalizadaModal = lazy(() => import('./components/Bandeja/EditarOpFinalizadaModal').then(m => ({ default: m.EditarOpFinalizadaModal })));
 const ReporteComiteModal = lazy(() => import('./components/Estadisticas/ReporteComiteModal').then(m => ({ default: m.ReporteComiteModal })));
-import { SubNavTabs } from './components/Navigation/SubNavTabs';
+import { Sidebar } from './components/Navigation/Sidebar';
 import { 
   fetchMonitoreoSheet, 
   fetchBaseDeDatosSheet, 
@@ -181,6 +181,8 @@ export function App() {
   const [showQrScanner, setShowQrScanner] = useState<boolean>(false);
   const [editingOpFinalizada, setEditingOpFinalizada] = useState<SolicitudColcha | null>(null);
   const [isReporteComiteOpen, setIsReporteComiteOpen] = useState<boolean>(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   // Ubicar y resaltar una OP en la bandeja operativa con animación glow
   const handleLocateInBandeja = (solicitud: SolicitudColcha) => {
@@ -1371,30 +1373,68 @@ export function App() {
     );
   }
 
+  // Cálculo dinámico para insignias del menú lateral (Sidebar)
+  const alertCount = solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length;
+  const liveCumplimientoPct = (() => {
+    if (solicitudes.length > 0) {
+      const sinRetraso = solicitudes.filter(s => s.estado === 'FINALIZADO' || !s.tieneRetraso).length;
+      return Math.round((sinRetraso / solicitudes.length) * 100);
+    }
+    return 73;
+  })();
+
+  const isOperationalView = activeTab !== 'dashboard';
+
   return (
     <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-[#06080c] text-zinc-100' : 'bg-[#f4f5f7] text-zinc-900'}`}>
       
-      {/* 1. Header with Centered Brand Logo, User Badge, Theme, Exit & Back Buttons */}
-      <Header
-        currentUser={currentUser}
-        isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(!isDarkMode)}
-        onLogout={handleLogout}
-        showBackButton={activeTab !== 'dashboard'}
-        onBackToDashboard={() => setActiveTab('dashboard')}
-        onOpenProfileDirectory={() => setIsProfileDirectoryOpen(true)}
-        onOpenChat={() => setActiveTab('chat')}
-        onOpenAuditoria={() => setActiveTab('soporte-auditoria')}
-        onOpenQrScanner={() => setShowQrScanner(true)}
-        onOpenKpiReport={() => setIsReporteComiteOpen(true)}
-        chatUnreadCount={chatUnreadCount}
-        isSyncing={isSyncing}
-        onManualSync={handleManualSync}
-        totalOpsCount={solicitudes.length}
-      />
+      {/* Estructura principal con Sidebar en vista operativa */}
+      <div className="flex min-h-screen w-full">
+        {/* SIDEBAR IZQUIERDO */}
+        {isOperationalView && (
+          <Sidebar
+            activeTab={activeTab}
+            onSelectTab={(tab) => {
+              setActiveTab(tab);
+              setIsMobileSidebarOpen(false);
+            }}
+            totalHistorico={solicitudes.length}
+            alertCount={alertCount}
+            liveCumplimientoPct={liveCumplimientoPct}
+            isDarkMode={isDarkMode}
+            onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+            onLogout={handleLogout}
+            currentUser={currentUser}
+            isOpenMobile={isMobileSidebarOpen}
+            onCloseMobile={() => setIsMobileSidebarOpen(false)}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          />
+        )}
 
-      {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto p-2.5 sm:p-6 space-y-4 sm:space-y-6">
+        {/* CONTENEDOR DERECHO CON HEADER Y VISTAS */}
+        <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
+          <Header
+            currentUser={currentUser}
+            isDarkMode={isDarkMode}
+            onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+            onLogout={handleLogout}
+            showBackButton={activeTab !== 'dashboard'}
+            onBackToDashboard={() => setActiveTab('dashboard')}
+            onOpenProfileDirectory={() => setIsProfileDirectoryOpen(true)}
+            onOpenChat={() => setActiveTab('chat')}
+            onOpenAuditoria={() => setActiveTab('soporte-auditoria')}
+            onOpenQrScanner={() => setShowQrScanner(true)}
+            onOpenKpiReport={() => setIsReporteComiteOpen(true)}
+            chatUnreadCount={chatUnreadCount}
+            isSyncing={isSyncing}
+            onManualSync={handleManualSync}
+            totalOpsCount={solicitudes.length}
+            onToggleMobileMenu={isOperationalView ? () => setIsMobileSidebarOpen(true) : undefined}
+          />
+
+          {/* Main Content Area */}
+          <main className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-6 space-y-4 sm:space-y-6">
         
         {/* VIEW 1: CLEAN LANDING DASHBOARD */}
         {activeTab === 'dashboard' && (
@@ -1555,14 +1595,6 @@ export function App() {
         {/* VIEW 10: RESPALDO PROFESIONAL SQL POSTGRESQL (EXCLUSIVO PERFIL SOPORTE TÉCNICO) */}
         {activeTab === 'sql-backup' && isSoporteUser(currentUser) && (
           <div className="animate-in fade-in duration-200 space-y-5">
-            <SubNavTabs
-              activeTab="sql-backup"
-              onSelectTab={(tab) => setActiveTab(tab)}
-              totalHistorico={metrics.totalHistorico}
-              alertCount={solicitudes.filter(s => s.tieneRetraso && s.estado !== 'FINALIZADO').length}
-              currentUser={currentUser}
-              solicitudes={solicitudes}
-            />
             <Suspense fallback={ViewLoadingFallback}>
               <SqlBackupPanel
                 currentUser={currentUser}
@@ -1574,6 +1606,8 @@ export function App() {
         )}
 
       </main>
+        </div>
+      </div>
 
       {/* AREA OPs POPUP MODAL */}
       <AreaOpsModal

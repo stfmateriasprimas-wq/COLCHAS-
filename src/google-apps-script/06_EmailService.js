@@ -1,4 +1,4 @@
-﻿/**
+/**
  * =========================================================================
  * 06_EmailService.js - Servicio de notificaciones por correo (Flujos A, B y C) y lectura de USUARIOS
  * SISTEMA STF GROUP - CONTROL DE CALIDAD DE COLCHAS & TRAZABILIDAD TEXTIL

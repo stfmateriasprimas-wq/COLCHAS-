@@ -135,16 +135,6 @@ export const MasterTable: React.FC<MasterTableProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 select-none pb-12 relative font-sans">
-      
-      {/* 1. SUB-NAVIGATION BAR (SOLICITUDES, BASE DE DATOS, ALERTAS, LÍNEA DE TIEMPO, ESTADÍSTICAS) */}
-      <SubNavTabs
-        activeTab="base-datos"
-        onSelectTab={onNavigateTab}
-        totalHistorico={totalHistorico}
-        alertCount={alertCount}
-        currentUser={currentUser}
-        solicitudes={solicitudes}
-      />
 
       {/* 2. CARD 1: BASE DE DATOS MAESTRA DE TRAZABILIDAD & MASTER KPIS */}
       <div className="bg-white dark:bg-[#0c1017] border border-zinc-200/90 dark:border-zinc-800 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-2xl space-y-5 text-zinc-950 dark:text-white transition-colors duration-200">

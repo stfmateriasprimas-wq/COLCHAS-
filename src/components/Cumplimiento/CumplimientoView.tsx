@@ -75,16 +75,6 @@ export const CumplimientoView: React.FC<CumplimientoViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 select-none pb-12 relative font-sans">
-      
-      {/* 1. SUB-NAVIGATION BAR (CON LA PESTAÑA CUMPLIMIENTO ACTIVA) */}
-      <SubNavTabs
-        activeTab="cumplimiento"
-        onSelectTab={onNavigateTab}
-        totalHistorico={metrics.totalHistorico}
-        alertCount={inRetrasoCount}
-        currentUser={currentUser}
-        solicitudes={solicitudes}
-      />
 
       {/* 2. TOP BANNER: CENTRO DE CONTROL DE CUMPLIMIENTO Y COBERTURA */}
       <div className="bg-white dark:bg-[#0c1017] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 shadow-[0_4px_25px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_30px_rgba(255,255,255,0.04)] space-y-6 text-zinc-950 dark:text-white transition-colors duration-200">

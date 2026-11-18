@@ -247,17 +247,6 @@ export const BandejaView: React.FC<BandejaViewProps> = ({
         />
       )}
 
-      {/* 1. SUB-NAVIGATION BAR (SOLICITUDES, BASE DE DATOS, ALERTAS, LÍNEA DE TIEMPO, ESTADÍSTICAS) */}
-      <SubNavTabs
-        activeTab="solicitudes"
-        onSelectTab={onNavigateTab}
-        totalHistorico={metrics.totalHistorico}
-        alertCount={alertCount}
-        currentUser={currentUser}
-        solicitudes={solicitudes}
-      />
-
-
       {/* 2. SEARCH BAR & SORT SELECTOR (BLOQUES 1 Y 2) */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 relative z-30" ref={searchContainerRef}>
         

@@ -221,16 +221,6 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 select-none pb-12 relative font-sans">
-      
-      {/* 1. SUB-NAVIGATION BAR (SOLICITUDES, BASE DE DATOS, ALERTAS, LÍNEA DE TIEMPO, ESTADÍSTICAS) */}
-      <SubNavTabs
-        activeTab="alertas"
-        onSelectTab={onNavigateTab}
-        totalHistorico={totalHistorico}
-        alertCount={allAlerts.length}
-        currentUser={currentUser}
-        solicitudes={solicitudes}
-      />
 
       {/* FEEDBACK BANNER FOR GOOGLE SHEETS ALERTAS SYNC (SIN BOTÓN COPIAR CSV) */}
       {syncFeedback && (
