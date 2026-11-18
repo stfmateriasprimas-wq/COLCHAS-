@@ -198,12 +198,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          {/* 2. LISTA DE NAVEGACIÓN VERTICAL CON ALINEACIÓN Y CENTRADO PERFECTO (ESPACIADO ELEGANTE) */}
-          <div className={`flex-1 min-h-0 overflow-y-auto no-scrollbar py-3 flex flex-col justify-center ${
+          {/* 2. LISTA DE NAVEGACIÓN VERTICAL: INICIA DIRECTAMENTE DEBAJO DE LA CABECERA (SIN ESPACIO MUERTO SUPERIOR) */}
+          <div className={`flex-1 min-h-0 overflow-y-auto no-scrollbar pt-2.5 pb-3 flex flex-col ${
             isCollapsed ? 'px-1 items-center' : 'px-2.5 sm:px-3'
           }`}>
-            <div className={`my-auto flex flex-col w-full ${
-              isCollapsed ? 'items-center gap-3' : 'gap-2 sm:gap-2.5'
+            <div className={`flex flex-col w-full ${
+              isCollapsed ? 'items-center gap-2.5' : 'gap-2 sm:gap-2.5'
             }`}>
               {menuItems.map(item => {
                 const isActive = activeTab === item.id;
