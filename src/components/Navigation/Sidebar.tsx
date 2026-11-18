@@ -11,8 +11,6 @@ import {
   Moon, 
   Sun, 
   LogOut, 
-  ChevronLeft, 
-  ChevronRight, 
   X
 } from 'lucide-react';
 import { TabType } from '../Navigation';
@@ -74,7 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Base de Datos',
       icon: <Database className="w-5 h-5 shrink-0" />,
       badge: totalHistorico > 0 ? totalHistorico : undefined,
-      badgeColor: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
+      badgeColor: 'bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700'
     },
     {
       id: 'alertas',
@@ -147,25 +145,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* TARJETA INTERIOR CON BORDES REDONDEADOS Y SOMBRA FLOTANTE ESTILO OFICINA TI */}
         <div className="w-full h-full rounded-3xl bg-white dark:bg-[#0c1017] border border-zinc-200/90 dark:border-zinc-800 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.02)] flex flex-col justify-between overflow-hidden">
           
-          {/* 1. CABECERA: CÍRCULO 'COL', TÍTULO 'COLCHAS' Y CONTROL DE COLAPSO */}
+          {/* 1. CABECERA: CÍRCULO 'COL' INTERACTIVO (CLIC PARA DESPLEGAR / GUARDAR) */}
           <div className={`border-b border-zinc-100 dark:border-zinc-800/80 flex items-center transition-all ${
             isCollapsed 
-              ? 'flex-col justify-center p-3 gap-2' 
+              ? 'justify-center p-3' 
               : 'justify-between p-4 sm:p-4.5 gap-3'
           }`}>
-            <div 
+            <button 
+              type="button"
               onClick={() => {
-                onSelectTab('solicitudes');
-                if (onCloseMobile) onCloseMobile();
+                if (onToggleCollapse) {
+                  onToggleCollapse();
+                }
               }}
-              className={`flex items-center min-w-0 cursor-pointer group ${
+              className={`flex items-center min-w-0 cursor-pointer group bg-transparent border-none text-left p-0 ${
                 isCollapsed ? 'justify-center' : 'gap-3'
               }`}
-              title="Ir a Bandeja de Solicitudes"
+              title={isCollapsed ? "Clic en COL para desplegar menú completo" : "Clic en COL para contraer menú lateral"}
             >
-              {/* CÍRCULO CON LA LETRA 'COL' TAL CUAL LA SEGUNDA IMAGEN */}
+              {/* CÍRCULO CON LA LETRA 'COL' TAL CUAL LA SEGUNDA IMAGEN (BOTÓN INTERACTIVO DE DESPLIEGUE) */}
               <div 
-                className="w-11 h-11 rounded-full border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-black font-mono text-xs flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(16,185,129,0.25)] ring-2 ring-emerald-500/20 group-hover:scale-105 transition-transform"
+                className="w-11 h-11 rounded-full border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-black font-mono text-xs flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(16,185,129,0.25)] ring-2 ring-emerald-500/20 group-hover:scale-110 group-hover:shadow-[0_0_22px_rgba(16,185,129,0.5)] group-active:scale-95 transition-all duration-200"
               >
                 COL
               </div>
@@ -181,42 +181,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </span>
                 </div>
               )}
-            </div>
+            </button>
 
-            {/* BOTÓN COLAPSAR EN DESKTOP / BOTÓN CERRAR EN MÓVIL */}
-            <div className="flex items-center">
-              {/* Móvil: Botón cerrar X */}
-              <button
-                type="button"
-                onClick={onCloseMobile}
-                className="lg:hidden p-2 rounded-xl text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-                title="Cerrar menú"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              {/* Desktop: Botón colapsar / expandir < > */}
-              {onToggleCollapse && (
-                <button
-                  type="button"
-                  onClick={onToggleCollapse}
-                  className="hidden lg:flex p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer shadow-2xs"
-                  title={isCollapsed ? "Expandir menú lateral" : "Colapsar menú lateral"}
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="w-4 h-4" />
-                  ) : (
-                    <ChevronLeft className="w-4 h-4" />
-                  )}
-                </button>
-              )}
-            </div>
+            {/* Móvil: Botón cerrar X para drawer en pantallas pequeñas */}
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="lg:hidden p-2 rounded-xl text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+              title="Cerrar menú"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          {/* 2. LISTA DE NAVEGACIÓN VERTICAL */}
-          <div className="flex-1 overflow-y-auto custom-scroll p-3 space-y-1.5">
+          {/* 2. LISTA DE NAVEGACIÓN VERTICAL CON ALINEACIÓN PERFECTA (SIN DESFASES) */}
+          <div className={`flex-1 overflow-y-auto custom-scroll p-3 space-y-2 ${
+            isCollapsed ? 'flex flex-col items-center' : ''
+          }`}>
             {menuItems.map(item => {
               const isActive = activeTab === item.id;
+              const tooltipLabel = item.badge !== undefined 
+                ? `${item.label} (${item.badge})` 
+                : item.label;
 
               return (
                 <button
@@ -226,20 +212,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onSelectTab(item.id);
                     if (onCloseMobile) onCloseMobile();
                   }}
-                  title={isCollapsed ? item.label : undefined}
+                  title={tooltipLabel}
                   className={`
-                    w-full relative flex items-center gap-3.5 px-3.5 py-3 rounded-2xl
-                    text-sm font-bold transition-all duration-200 cursor-pointer group
-                    ${isCollapsed ? 'justify-center px-2' : 'justify-between'}
+                    relative flex items-center transition-all duration-200 cursor-pointer group
+                    ${
+                      isCollapsed 
+                        ? 'w-11 h-11 justify-center rounded-2xl mx-auto' 
+                        : 'w-full justify-between px-3.5 py-3 rounded-2xl gap-3.5 text-sm font-bold'
+                    }
                     ${
                       isActive
-                        ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-lg shadow-blue-500/30 font-black scale-[1.02]'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800/70 border border-transparent'
+                        ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-lg shadow-blue-500/30 font-black'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/70 border border-transparent'
                     }
                   `}
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <span className={`shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                  <div className={`flex items-center min-w-0 ${isCollapsed ? 'justify-center' : 'gap-3.5'}`}>
+                    <span className={`shrink-0 transition-transform duration-200 group-hover:scale-110 flex items-center justify-center ${
                       isActive ? 'text-white' : 'text-zinc-400 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white'
                     }`}>
                       {item.icon}
@@ -252,41 +241,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                   </div>
 
-                  {/* INSIGNIAS DE CONTEO / CUMPLIMIENTO */}
+                  {/* INSIGNIAS DE CONTEO / CUMPLIMIENTO: POSICIONAMIENTO LIMPIO SIN TAPAR ICONO */}
                   {item.badge !== undefined && (
-                    <span className={`
-                      text-[10px] px-2 py-0.5 rounded-full font-mono font-black shrink-0 transition-all
-                      ${isCollapsed ? 'absolute top-1.5 right-1.5 text-[8.5px] px-1 py-0' : ''}
-                      ${
-                        isActive 
-                          ? 'bg-white text-blue-700 shadow-xs' 
-                          : (item.badgeColor || 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300')
-                      }
-                    `}>
-                      {item.badge}
-                    </span>
+                    isCollapsed ? (
+                      /* En modo colapsado: Micro-badge flotante en la esquina exterior sin tapar el icono central */
+                      <span className={`
+                        absolute -top-1 -right-1 text-[8px] font-mono font-black min-w-[17px] h-[17px] px-1
+                        rounded-full flex items-center justify-center shadow-sm ring-2 ring-white dark:ring-[#0c1017]
+                        ${
+                          isActive 
+                            ? 'bg-white text-blue-700 font-black' 
+                            : (item.badgeColor || 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100')
+                        }
+                      `}>
+                        {item.badge}
+                      </span>
+                    ) : (
+                      /* En modo expandido: Insignia a la derecha */
+                      <span className={`
+                        text-[10px] px-2 py-0.5 rounded-full font-mono font-black shrink-0 transition-all
+                        ${
+                          isActive 
+                            ? 'bg-white text-blue-700 shadow-xs' 
+                            : (item.badgeColor || 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300')
+                        }
+                      `}>
+                        {item.badge}
+                      </span>
+                    )
                   )}
                 </button>
               );
             })}
           </div>
 
-          {/* 3. PARTE INFERIOR: MODO OSCURO / CLARO Y CERRAR SESIÓN */}
-          <div className="p-3 border-t border-zinc-100 dark:border-zinc-800/80 space-y-1 bg-zinc-50/60 dark:bg-zinc-900/30">
+          {/* 3. PARTE INFERIOR: MODO OSCURO / CLARO Y CERRAR SESIÓN (ALINEACIÓN PERFECTA) */}
+          <div className={`p-3 border-t border-zinc-100 dark:border-zinc-800/80 space-y-1.5 bg-zinc-50/60 dark:bg-zinc-900/30 ${
+            isCollapsed ? 'flex flex-col items-center' : ''
+          }`}>
             
             {/* BOTÓN MODO OSCURO / MODO CLARO */}
             <button
               type="button"
               onClick={onToggleTheme}
-              title={isCollapsed ? (isDarkMode ? 'Modo Claro' : 'Modo Oscuro') : undefined}
+              title={isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}
               className={`
-                w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold
+                flex items-center text-xs sm:text-sm font-semibold
                 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-white dark:hover:bg-zinc-800/80
                 transition cursor-pointer group shadow-2xs hover:shadow-xs
-                ${isCollapsed ? 'justify-center px-2' : ''}
+                ${isCollapsed ? 'w-11 h-11 justify-center rounded-2xl mx-auto' : 'w-full gap-3.5 px-3.5 py-2.5 rounded-2xl'}
               `}
             >
-              <span className="shrink-0 transition-transform duration-200 group-hover:rotate-12">
+              <span className="shrink-0 transition-transform duration-200 group-hover:rotate-12 flex items-center justify-center">
                 {isDarkMode ? (
                   <Sun className="w-5 h-5 text-amber-500" />
                 ) : (
@@ -304,15 +310,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={onLogout}
-              title={isCollapsed ? 'Cerrar Sesión' : undefined}
+              title="Cerrar Sesión"
               className={`
-                w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold
+                flex items-center text-xs sm:text-sm font-semibold
                 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30
                 transition cursor-pointer group
-                ${isCollapsed ? 'justify-center px-2' : ''}
+                ${isCollapsed ? 'w-11 h-11 justify-center rounded-2xl mx-auto' : 'w-full gap-3.5 px-3.5 py-2.5 rounded-2xl'}
               `}
             >
-              <span className="shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5">
+              <span className="shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5 flex items-center justify-center">
                 <LogOut className="w-5 h-5 text-zinc-400 group-hover:text-rose-500" />
               </span>
               {!isCollapsed && (
