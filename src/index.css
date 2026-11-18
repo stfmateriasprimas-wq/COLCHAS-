@@ -52,13 +52,23 @@
   }
 }
 
-/* Margen de seguridad superior para barra de estado del teléfono (Hora, 4G, Batería, Notch) */
+/* Margen de seguridad superior para barra de estado del teléfono (Hora, 4G, Batería, Notch, Dynamic Island) */
 .pt-mobile-safe {
-  padding-top: max(calc(env(safe-area-inset-top, 0px) + 12px), 44px);
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 14px), 52px);
 }
-@media (min-width: 640px) {
+@media (min-width: 1024px) {
   .pt-mobile-safe {
-    padding-top: 0.75rem; /* 12px (sm:pt-3) en escritorio */
+    padding-top: 0.75rem; /* 12px (lg:pt-3) en escritorio */
+  }
+}
+
+/* Margen de seguridad inferior para la barra de navegación/gestos del teléfono (Home bar) */
+.pb-mobile-safe {
+  padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 10px), 20px);
+}
+@media (min-width: 1024px) {
+  .pb-mobile-safe {
+    padding-bottom: 0.75rem; /* 12px en escritorio */
   }
 }
 

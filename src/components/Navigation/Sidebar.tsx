@@ -126,18 +126,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {isOpenMobile && (
         <div 
           onClick={onCloseMobile}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 lg:hidden transition-opacity duration-300 animate-in fade-in"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-300 animate-in fade-in"
           aria-hidden="true"
         />
       )}
 
-      {/* CONTENEDOR PRINCIPAL DEL SIDEBAR (100% Fixed tanto en Desktop como en Móvil) */}
+      {/* CONTENEDOR PRINCIPAL DEL SIDEBAR (100% Fixed tanto en Desktop como en Móvil, con protección Safe Area) */}
       <aside
         className={`
-          fixed top-0 bottom-0 left-0 z-40
+          fixed top-0 bottom-0 left-0 z-50 lg:z-40
           ${isCollapsed ? 'lg:w-[76px] lg:min-w-[76px]' : 'lg:w-64 xl:w-72 lg:min-w-[16rem] xl:min-w-[18rem]'}
-          w-72 max-w-[85vw] h-screen max-h-screen shrink-0
-          p-2 sm:p-2.5 lg:p-3 pr-0 sm:pr-0 lg:pr-1
+          w-72 max-w-[85vw] h-[100dvh] max-h-[100dvh] shrink-0
+          pt-mobile-safe pb-mobile-safe px-2 sm:px-2.5 lg:p-3 lg:pr-1
           transition-all duration-300 ease-in-out select-none
           ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
@@ -145,7 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* TARJETA INTERIOR CON BORDES REDONDEADOS Y SOMBRA FLOTANTE ESTILO OFICINA TI */}
         <div className="w-full h-full rounded-3xl bg-white dark:bg-[#0c1017] border border-zinc-200/90 dark:border-zinc-800 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.02)] flex flex-col justify-between overflow-hidden">
           
-          {/* 1. CABECERA: CÍRCULO 'COL' INTERACTIVO (CLIC PARA DESPLEGAR / GUARDAR) */}
+          {/* 1. CABECERA: CÍRCULO 'COL' INTERACTIVO (CLIC PARA DESPLEGAR / GUARDAR EN DESKTOP) */}
           <div className={`border-b border-zinc-100 dark:border-zinc-800/80 flex items-center transition-all ${
             isCollapsed 
               ? 'justify-center p-3' 
@@ -154,6 +154,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button 
               type="button"
               onClick={() => {
+                // En móvil el drawer permanece completamente visible; el colapso solo opera en Desktop
+                if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                  return;
+                }
                 if (onToggleCollapse) {
                   onToggleCollapse();
                 }
