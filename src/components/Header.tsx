@@ -52,8 +52,8 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="px-2 sm:px-6 pt-mobile-safe pb-1.5 sm:pb-2 select-none">
-      <div className="max-w-7xl mx-auto rounded-2xl sm:rounded-3xl border px-2.5 sm:px-6 py-2 sm:py-3 transition-colors duration-200 bg-white border-zinc-200/90 text-zinc-900 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#0c1017] dark:border-zinc-800 dark:text-white dark:shadow-[0_4px_25px_rgba(255,255,255,0.06)]">
+    <header className="w-full px-2 sm:px-4 lg:px-6 pt-mobile-safe pb-1.5 sm:pb-2 select-none">
+      <div className="w-full rounded-2xl sm:rounded-3xl border px-2.5 sm:px-6 py-2 sm:py-3 transition-colors duration-200 bg-white border-zinc-200/90 text-zinc-900 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:bg-[#0c1017] dark:border-zinc-800 dark:text-white dark:shadow-[0_4px_25px_rgba(255,255,255,0.06)]">
         
         {/* Responsive Header Structure: 
             - Mobile (< sm): 2-tier layout with Row 1 (Logo, Actions) and Row 2 (Centered User Badge) so nothing overlaps or crowds.

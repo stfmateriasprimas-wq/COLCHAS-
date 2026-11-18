@@ -137,9 +137,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside
         className={`
           fixed top-0 bottom-0 left-0 z-50 lg:sticky lg:top-0 lg:h-screen
-          ${isCollapsed ? 'lg:w-20' : 'lg:w-64 xl:w-72'}
-          w-72 sm:w-80 h-screen max-h-screen
-          p-2.5 sm:p-3
+          ${isCollapsed ? 'lg:w-[76px] lg:min-w-[76px]' : 'lg:w-64 xl:w-72 lg:min-w-[16rem] xl:min-w-[18rem]'}
+          w-72 max-w-[85vw] h-screen max-h-screen shrink-0
+          p-2 sm:p-2.5 lg:p-3 pr-0 sm:pr-0 lg:pr-1
           transition-all duration-300 ease-in-out select-none
           ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
@@ -148,13 +148,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="w-full h-full rounded-3xl bg-white dark:bg-[#0c1017] border border-zinc-200/90 dark:border-zinc-800 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.02)] flex flex-col justify-between overflow-hidden">
           
           {/* 1. CABECERA: CÍRCULO 'COL', TÍTULO 'COLCHAS' Y CONTROL DE COLAPSO */}
-          <div className="p-4 sm:p-4.5 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between gap-3">
+          <div className={`border-b border-zinc-100 dark:border-zinc-800/80 flex items-center transition-all ${
+            isCollapsed 
+              ? 'flex-col justify-center p-3 gap-2' 
+              : 'justify-between p-4 sm:p-4.5 gap-3'
+          }`}>
             <div 
               onClick={() => {
                 onSelectTab('solicitudes');
                 if (onCloseMobile) onCloseMobile();
               }}
-              className="flex items-center gap-3 min-w-0 cursor-pointer group"
+              className={`flex items-center min-w-0 cursor-pointer group ${
+                isCollapsed ? 'justify-center' : 'gap-3'
+              }`}
               title="Ir a Bandeja de Solicitudes"
             >
               {/* CÍRCULO CON LA LETRA 'COL' TAL CUAL LA SEGUNDA IMAGEN */}

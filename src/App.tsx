@@ -1429,8 +1429,8 @@ export function App() {
             onToggleMobileMenu={() => setIsMobileSidebarOpen(true)}
           />
 
-          {/* Main Content Area */}
-          <main className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-6 space-y-4 sm:space-y-6">
+          {/* Main Content Area: Ocupa todo el ancho restante sin espacios muertos */}
+          <main className="flex-1 w-full px-2 sm:px-4 lg:px-6 py-2.5 sm:py-4 space-y-4 sm:space-y-6">
         
         {/* VIEW 1: CLEAN LANDING DASHBOARD */}
         {activeTab === 'dashboard' && (
