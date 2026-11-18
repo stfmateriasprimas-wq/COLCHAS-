@@ -198,85 +198,95 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          {/* 2. LISTA DE NAVEGACIÓN VERTICAL CON ALINEACIÓN PERFECTA (SIN DESFASES) */}
-          <div className={`flex-1 overflow-y-auto custom-scroll p-3 space-y-2 ${
-            isCollapsed ? 'flex flex-col items-center' : ''
-          }`}>
-            {menuItems.map(item => {
-              const isActive = activeTab === item.id;
-              const tooltipLabel = item.badge !== undefined 
-                ? `${item.label} (${item.badge})` 
-                : item.label;
+          {/* 2. LISTA DE NAVEGACIÓN VERTICAL CON ALINEACIÓN Y CENTRADO PERFECTO (ESPACIADO ELEGANTE) */}
+          <div className="flex-1 min-h-0 overflow-y-auto custom-scroll px-2.5 py-3 lg:px-3 flex flex-col justify-center">
+            <div className={`my-auto flex flex-col w-full ${
+              isCollapsed ? 'items-center gap-3' : 'gap-2 sm:gap-2.5'
+            }`}>
+              {menuItems.map(item => {
+                const isActive = activeTab === item.id;
+                const tooltipLabel = item.badge !== undefined 
+                  ? `${item.label} (${item.badge})` 
+                  : item.label;
 
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    onSelectTab(item.id);
-                    if (onCloseMobile) onCloseMobile();
-                  }}
-                  title={tooltipLabel}
-                  className={`
-                    relative flex items-center transition-all duration-200 cursor-pointer group
-                    ${
-                      isCollapsed 
-                        ? 'w-11 h-11 justify-center rounded-2xl mx-auto' 
-                        : 'w-full justify-between px-3.5 py-3 rounded-2xl gap-3.5 text-sm font-bold'
-                    }
-                    ${
-                      isActive
-                        ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-lg shadow-blue-500/30 font-black'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/70 border border-transparent'
-                    }
-                  `}
-                >
-                  <div className={`flex items-center min-w-0 ${isCollapsed ? 'justify-center' : 'gap-3.5'}`}>
-                    <span className={`shrink-0 transition-transform duration-200 group-hover:scale-110 flex items-center justify-center ${
-                      isActive ? 'text-white' : 'text-zinc-400 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white'
-                    }`}>
-                      {item.icon}
-                    </span>
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      onSelectTab(item.id);
+                      if (onCloseMobile) onCloseMobile();
+                    }}
+                    title={tooltipLabel}
+                    className={`
+                      relative transition-all duration-200 cursor-pointer group
+                      ${
+                        isCollapsed 
+                          ? 'w-12 py-2 min-h-[50px] rounded-2xl mx-auto flex flex-col items-center justify-center gap-1' 
+                          : 'w-full flex items-center justify-between px-3.5 py-3 rounded-2xl gap-3.5 text-sm font-bold'
+                      }
+                      ${
+                        isActive
+                          ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-lg shadow-blue-500/30 font-black'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/70 border border-transparent'
+                      }
+                    `}
+                  >
+                    {isCollapsed ? (
+                      /* MODO COLAPSADO: ICONO CENTRADO ARRIBA Y NUMERITO UBICADO DIRECTAMENTE DEBAJO TAL COMO INDICA EL USUARIO */
+                      <>
+                        <span className={`shrink-0 transition-transform duration-200 group-hover:scale-110 flex items-center justify-center ${
+                          isActive ? 'text-white' : 'text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white'
+                        }`}>
+                          {item.icon}
+                        </span>
 
-                    {!isCollapsed && (
-                      <span className="truncate tracking-wide">
-                        {item.label}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* INSIGNIAS DE CONTEO / CUMPLIMIENTO: POSICIONAMIENTO LIMPIO SIN TAPAR ICONO */}
-                  {item.badge !== undefined && (
-                    isCollapsed ? (
-                      /* En modo colapsado: Micro-badge flotante en la esquina exterior sin tapar el icono central */
-                      <span className={`
-                        absolute -top-1 -right-1 text-[8px] font-mono font-black min-w-[17px] h-[17px] px-1
-                        rounded-full flex items-center justify-center shadow-sm ring-2 ring-white dark:ring-[#0c1017]
-                        ${
-                          isActive 
-                            ? 'bg-white text-blue-700 font-black' 
-                            : (item.badgeColor || 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100')
-                        }
-                      `}>
-                        {item.badge}
-                      </span>
+                        {item.badge !== undefined && (
+                          <span className={`
+                            text-[8px] font-mono font-black px-1.5 py-0.5 rounded-full leading-none tracking-tight shadow-2xs
+                            ${
+                              isActive 
+                                ? 'bg-white text-blue-700 font-black' 
+                                : (item.badgeColor || 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700/80')
+                            }
+                          `}>
+                            {item.badge}
+                          </span>
+                        )}
+                      </>
                     ) : (
-                      /* En modo expandido: Insignia a la derecha */
-                      <span className={`
-                        text-[10px] px-2 py-0.5 rounded-full font-mono font-black shrink-0 transition-all
-                        ${
-                          isActive 
-                            ? 'bg-white text-blue-700 shadow-xs' 
-                            : (item.badgeColor || 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300')
-                        }
-                      `}>
-                        {item.badge}
-                      </span>
-                    )
-                  )}
-                </button>
-              );
-            })}
+                      /* MODO EXPANDIDO: ICONO + TEXTO A LA IZQUIERDA, INSIGNIA A LA DERECHA */
+                      <>
+                        <div className="flex items-center min-w-0 gap-3.5">
+                          <span className={`shrink-0 transition-transform duration-200 group-hover:scale-110 flex items-center justify-center ${
+                            isActive ? 'text-white' : 'text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white'
+                          }`}>
+                            {item.icon}
+                          </span>
+
+                          <span className="truncate tracking-wide">
+                            {item.label}
+                          </span>
+                        </div>
+
+                        {item.badge !== undefined && (
+                          <span className={`
+                            text-[10px] px-2 py-0.5 rounded-full font-mono font-black shrink-0 transition-all
+                            ${
+                              isActive 
+                                ? 'bg-white text-blue-700 shadow-xs' 
+                                : (item.badgeColor || 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300')
+                            }
+                          `}>
+                            {item.badge}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* 3. PARTE INFERIOR: MODO OSCURO / CLARO Y CERRAR SESIÓN (ALINEACIÓN PERFECTA) */}
@@ -293,7 +303,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 flex items-center text-xs sm:text-sm font-semibold
                 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-white dark:hover:bg-zinc-800/80
                 transition cursor-pointer group shadow-2xs hover:shadow-xs
-                ${isCollapsed ? 'w-11 h-11 justify-center rounded-2xl mx-auto' : 'w-full gap-3.5 px-3.5 py-2.5 rounded-2xl'}
+                ${isCollapsed ? 'w-12 h-11 justify-center rounded-2xl mx-auto' : 'w-full gap-3.5 px-3.5 py-2.5 rounded-2xl'}
               `}
             >
               <span className="shrink-0 transition-transform duration-200 group-hover:rotate-12 flex items-center justify-center">
@@ -319,7 +329,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 flex items-center text-xs sm:text-sm font-semibold
                 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30
                 transition cursor-pointer group
-                ${isCollapsed ? 'w-11 h-11 justify-center rounded-2xl mx-auto' : 'w-full gap-3.5 px-3.5 py-2.5 rounded-2xl'}
+                ${isCollapsed ? 'w-12 h-11 justify-center rounded-2xl mx-auto' : 'w-full gap-3.5 px-3.5 py-2.5 rounded-2xl'}
               `}
             >
               <span className="shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5 flex items-center justify-center">
