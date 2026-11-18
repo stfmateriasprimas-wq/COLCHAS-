@@ -131,13 +131,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* CONTENEDOR PRINCIPAL DEL SIDEBAR (100% Fixed tanto en Desktop como en Móvil, con protección Safe Area) */}
+      {/* CONTENEDOR PRINCIPAL DEL SIDEBAR (100% Fixed tanto en Desktop como en Móvil, con protección Safe Area y centrado simétrico) */}
       <aside
         className={`
           fixed top-0 bottom-0 left-0 z-50 lg:z-40
           ${isCollapsed ? 'lg:w-[76px] lg:min-w-[76px]' : 'lg:w-64 xl:w-72 lg:min-w-[16rem] xl:min-w-[18rem]'}
           w-72 max-w-[85vw] h-[100dvh] max-h-[100dvh] shrink-0
-          pt-mobile-safe pb-mobile-safe px-2 sm:px-2.5 lg:p-3 lg:pr-1
+          pt-mobile-safe pb-mobile-safe px-2 sm:px-2.5 lg:px-2.5 lg:py-3
           transition-all duration-300 ease-in-out select-none
           ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
@@ -148,7 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* 1. CABECERA: CÍRCULO 'COL' INTERACTIVO (CLIC PARA DESPLEGAR / GUARDAR EN DESKTOP) */}
           <div className={`border-b border-zinc-100 dark:border-zinc-800/80 flex items-center transition-all ${
             isCollapsed 
-              ? 'justify-center p-3' 
+              ? 'justify-center p-2.5' 
               : 'justify-between p-4 sm:p-4.5 gap-3'
           }`}>
             <button 
@@ -199,7 +199,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* 2. LISTA DE NAVEGACIÓN VERTICAL CON ALINEACIÓN Y CENTRADO PERFECTO (ESPACIADO ELEGANTE) */}
-          <div className="flex-1 min-h-0 overflow-y-auto custom-scroll px-2.5 py-3 lg:px-3 flex flex-col justify-center">
+          <div className={`flex-1 min-h-0 overflow-y-auto no-scrollbar py-3 flex flex-col justify-center ${
+            isCollapsed ? 'px-1 items-center' : 'px-2.5 sm:px-3'
+          }`}>
             <div className={`my-auto flex flex-col w-full ${
               isCollapsed ? 'items-center gap-3' : 'gap-2 sm:gap-2.5'
             }`}>
@@ -222,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       relative transition-all duration-200 cursor-pointer group
                       ${
                         isCollapsed 
-                          ? 'w-12 py-2 min-h-[50px] rounded-2xl mx-auto flex flex-col items-center justify-center gap-1' 
+                          ? 'w-11 py-1.5 min-h-[46px] rounded-2xl mx-auto flex flex-col items-center justify-center gap-0.5' 
                           : 'w-full flex items-center justify-between px-3.5 py-3 rounded-2xl gap-3.5 text-sm font-bold'
                       }
                       ${
@@ -233,7 +235,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     `}
                   >
                     {isCollapsed ? (
-                      /* MODO COLAPSADO: ICONO CENTRADO ARRIBA Y NUMERITO UBICADO DIRECTAMENTE DEBAJO TAL COMO INDICA EL USUARIO */
+                      /* MODO COLAPSADO: ICONO CENTRADO ARRIBA Y NUMERITO UBICADO DIRECTAMENTE DEBAJO 100% CENTRADO */
                       <>
                         <span className={`shrink-0 transition-transform duration-200 group-hover:scale-110 flex items-center justify-center ${
                           isActive ? 'text-white' : 'text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white'
@@ -290,8 +292,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* 3. PARTE INFERIOR: MODO OSCURO / CLARO Y CERRAR SESIÓN (ALINEACIÓN PERFECTA) */}
-          <div className={`p-3 border-t border-zinc-100 dark:border-zinc-800/80 space-y-1.5 bg-zinc-50/60 dark:bg-zinc-900/30 ${
-            isCollapsed ? 'flex flex-col items-center' : ''
+          <div className={`py-3 border-t border-zinc-100 dark:border-zinc-800/80 space-y-1.5 bg-zinc-50/60 dark:bg-zinc-900/30 ${
+            isCollapsed ? 'px-1 flex flex-col items-center' : 'p-3'
           }`}>
             
             {/* BOTÓN MODO OSCURO / MODO CLARO */}
@@ -303,7 +305,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 flex items-center text-xs sm:text-sm font-semibold
                 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-white dark:hover:bg-zinc-800/80
                 transition cursor-pointer group shadow-2xs hover:shadow-xs
-                ${isCollapsed ? 'w-12 h-11 justify-center rounded-2xl mx-auto' : 'w-full gap-3.5 px-3.5 py-2.5 rounded-2xl'}
+                ${isCollapsed ? 'w-11 h-11 justify-center rounded-2xl mx-auto' : 'w-full gap-3.5 px-3.5 py-2.5 rounded-2xl'}
               `}
             >
               <span className="shrink-0 transition-transform duration-200 group-hover:rotate-12 flex items-center justify-center">
@@ -329,7 +331,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 flex items-center text-xs sm:text-sm font-semibold
                 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30
                 transition cursor-pointer group
-                ${isCollapsed ? 'w-12 h-11 justify-center rounded-2xl mx-auto' : 'w-full gap-3.5 px-3.5 py-2.5 rounded-2xl'}
+                ${isCollapsed ? 'w-11 h-11 justify-center rounded-2xl mx-auto' : 'w-full gap-3.5 px-3.5 py-2.5 rounded-2xl'}
               `}
             >
               <span className="shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5 flex items-center justify-center">
