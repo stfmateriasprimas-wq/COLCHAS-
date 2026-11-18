@@ -1,5 +1,6 @@
 import React from 'react';
 import { 
+  Home,
   Layers, 
   Database, 
   AlertTriangle, 
@@ -59,6 +60,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     badgeColor?: string;
   }[] = [
     {
+      id: 'dashboard',
+      label: 'Inicio',
+      icon: <Home className="w-5 h-5 shrink-0" />
+    },
+    {
       id: 'solicitudes',
       label: 'Solicitudes',
       icon: <Layers className="w-5 h-5 shrink-0" />
@@ -68,14 +74,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Base de Datos',
       icon: <Database className="w-5 h-5 shrink-0" />,
       badge: totalHistorico > 0 ? totalHistorico : undefined,
-      badgeColor: 'bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700'
+      badgeColor: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
     },
     {
       id: 'alertas',
       label: 'Alertas',
       icon: <AlertTriangle className="w-5 h-5 shrink-0" />,
       badge: alertCount > 0 ? alertCount : undefined,
-      badgeColor: 'bg-rose-500 text-white border border-rose-400 font-bold shadow-sm animate-pulse'
+      badgeColor: 'bg-rose-500 text-white border border-rose-400 font-bold shadow-xs animate-pulse'
     },
     {
       id: 'timeline',
@@ -127,188 +133,189 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* CONTENEDOR PRINCIPAL DEL SIDEBAR */}
+      {/* CONTENEDOR PRINCIPAL DEL SIDEBAR (Sticky en Desktop, Drawer en Móvil) */}
       <aside
         className={`
-          fixed top-0 bottom-0 left-0 z-50 lg:static
+          fixed top-0 bottom-0 left-0 z-50 lg:sticky lg:top-0 lg:h-screen
           ${isCollapsed ? 'lg:w-20' : 'lg:w-64 xl:w-72'}
           w-72 sm:w-80 h-screen max-h-screen
-          bg-white dark:bg-[#0c1017]
-          border-r border-zinc-200/90 dark:border-zinc-800/90
-          shadow-2xl lg:shadow-none
-          flex flex-col justify-between
+          p-2.5 sm:p-3
           transition-all duration-300 ease-in-out select-none
           ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        {/* PARTE SUPERIOR: CABECERA CON CÍRCULO (COL), TÍTULO 'COLCHAS' Y BOTÓN COLAPSAR */}
-        <div className="p-4 sm:p-5 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between gap-3">
-          <div 
-            onClick={() => {
-              onSelectTab('dashboard');
-              if (onCloseMobile) onCloseMobile();
-            }}
-            className="flex items-center gap-3 min-w-0 cursor-pointer group"
-            title="Ir al Menú Principal / Dashboard"
-          >
-            {/* CÍRCULO CON LA LETRA 'COL' TAL CUAL LA SEGUNDA IMAGEN */}
+        {/* TARJETA INTERIOR CON BORDES REDONDEADOS Y SOMBRA FLOTANTE ESTILO OFICINA TI */}
+        <div className="w-full h-full rounded-3xl bg-white dark:bg-[#0c1017] border border-zinc-200/90 dark:border-zinc-800 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.02)] flex flex-col justify-between overflow-hidden">
+          
+          {/* 1. CABECERA: CÍRCULO 'COL', TÍTULO 'COLCHAS' Y CONTROL DE COLAPSO */}
+          <div className="p-4 sm:p-4.5 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between gap-3">
             <div 
-              className="w-11 h-11 rounded-full border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-black font-mono text-xs flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(16,185,129,0.25)] ring-2 ring-emerald-500/20 group-hover:scale-105 transition-transform"
+              onClick={() => {
+                onSelectTab('solicitudes');
+                if (onCloseMobile) onCloseMobile();
+              }}
+              className="flex items-center gap-3 min-w-0 cursor-pointer group"
+              title="Ir a Bandeja de Solicitudes"
             >
-              COL
+              {/* CÍRCULO CON LA LETRA 'COL' TAL CUAL LA SEGUNDA IMAGEN */}
+              <div 
+                className="w-11 h-11 rounded-full border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-black font-mono text-xs flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(16,185,129,0.25)] ring-2 ring-emerald-500/20 group-hover:scale-105 transition-transform"
+              >
+                COL
+              </div>
+
+              {/* TÍTULO Y SUBTÍTULO (OCULTO EN MODO COLAPSADO DESKTOP) */}
+              {!isCollapsed && (
+                <div className="flex flex-col min-w-0 transition-opacity duration-200">
+                  <span className="font-black text-lg tracking-tight text-zinc-950 dark:text-white uppercase font-sans truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    Colchas
+                  </span>
+                  <span className="text-[9.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest truncate">
+                    Control de Calidad
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* TÍTULO Y SUBTÍTULO (OCULTO EN MODO COLAPSADO DESKTOP) */}
-            {!isCollapsed && (
-              <div className="flex flex-col min-w-0 transition-opacity duration-200">
-                <span className="font-black text-lg tracking-tight text-zinc-950 dark:text-white uppercase font-sans truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  Colchas
-                </span>
-                <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest truncate">
-                  Control de Calidad
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* BOTÓN COLAPSAR EN DESKTOP / BOTÓN CERRAR EN MÓVIL */}
-          <div className="flex items-center">
-            {/* Móvil: Botón cerrar X */}
-            <button
-              type="button"
-              onClick={onCloseMobile}
-              className="lg:hidden p-2 rounded-xl text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-              title="Cerrar menú"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Desktop: Botón colapsar / expandir < > */}
-            {onToggleCollapse && (
+            {/* BOTÓN COLAPSAR EN DESKTOP / BOTÓN CERRAR EN MÓVIL */}
+            <div className="flex items-center">
+              {/* Móvil: Botón cerrar X */}
               <button
                 type="button"
-                onClick={onToggleCollapse}
-                className="hidden lg:flex p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer shadow-xs"
-                title={isCollapsed ? "Expandir menú lateral" : "Colapsar menú lateral"}
+                onClick={onCloseMobile}
+                className="lg:hidden p-2 rounded-xl text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                title="Cerrar menú"
               >
-                {isCollapsed ? (
-                  <ChevronRight className="w-4 h-4" />
-                ) : (
-                  <ChevronLeft className="w-4 h-4" />
-                )}
+                <X className="w-5 h-5" />
               </button>
-            )}
+
+              {/* Desktop: Botón colapsar / expandir < > */}
+              {onToggleCollapse && (
+                <button
+                  type="button"
+                  onClick={onToggleCollapse}
+                  className="hidden lg:flex p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer shadow-2xs"
+                  title={isCollapsed ? "Expandir menú lateral" : "Colapsar menú lateral"}
+                >
+                  {isCollapsed ? (
+                    <ChevronRight className="w-4 h-4" />
+                  ) : (
+                    <ChevronLeft className="w-4 h-4" />
+                  )}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* PARTE CENTRAL: LISTA DE NAVEGACIÓN VERTICAL */}
-        <div className="flex-1 overflow-y-auto custom-scroll p-3 sm:p-4 space-y-1.5">
-          {menuItems.map(item => {
-            const isActive = activeTab === item.id;
+          {/* 2. LISTA DE NAVEGACIÓN VERTICAL */}
+          <div className="flex-1 overflow-y-auto custom-scroll p-3 space-y-1.5">
+            {menuItems.map(item => {
+              const isActive = activeTab === item.id;
 
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  onSelectTab(item.id);
-                  if (onCloseMobile) onCloseMobile();
-                }}
-                title={isCollapsed ? item.label : undefined}
-                className={`
-                  w-full relative flex items-center gap-3.5 px-3.5 py-3 rounded-2xl
-                  text-sm font-bold transition-all duration-200 cursor-pointer group
-                  ${isCollapsed ? 'justify-center px-2' : 'justify-between'}
-                  ${
-                    isActive
-                      ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-lg shadow-blue-500/30 font-black'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/70 border border-transparent'
-                  }
-                `}
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <span className={`shrink-0 transition-transform duration-200 group-hover:scale-110 ${
-                    isActive ? 'text-white' : 'text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white'
-                  }`}>
-                    {item.icon}
-                  </span>
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    onSelectTab(item.id);
+                    if (onCloseMobile) onCloseMobile();
+                  }}
+                  title={isCollapsed ? item.label : undefined}
+                  className={`
+                    w-full relative flex items-center gap-3.5 px-3.5 py-3 rounded-2xl
+                    text-sm font-bold transition-all duration-200 cursor-pointer group
+                    ${isCollapsed ? 'justify-center px-2' : 'justify-between'}
+                    ${
+                      isActive
+                        ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-lg shadow-blue-500/30 font-black scale-[1.02]'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800/70 border border-transparent'
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <span className={`shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                      isActive ? 'text-white' : 'text-zinc-400 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white'
+                    }`}>
+                      {item.icon}
+                    </span>
 
-                  {!isCollapsed && (
-                    <span className="truncate tracking-wide">
-                      {item.label}
+                    {!isCollapsed && (
+                      <span className="truncate tracking-wide">
+                        {item.label}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* INSIGNIAS DE CONTEO / CUMPLIMIENTO */}
+                  {item.badge !== undefined && (
+                    <span className={`
+                      text-[10px] px-2 py-0.5 rounded-full font-mono font-black shrink-0 transition-all
+                      ${isCollapsed ? 'absolute top-1.5 right-1.5 text-[8.5px] px-1 py-0' : ''}
+                      ${
+                        isActive 
+                          ? 'bg-white text-blue-700 shadow-xs' 
+                          : (item.badgeColor || 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300')
+                      }
+                    `}>
+                      {item.badge}
                     </span>
                   )}
-                </div>
+                </button>
+              );
+            })}
+          </div>
 
-                {/* INSIGNIAS DE CONTEO / CUMPLIMIENTO */}
-                {item.badge !== undefined && (
-                  <span className={`
-                    text-[10px] px-2 py-0.5 rounded-full font-mono font-black shrink-0 transition-all
-                    ${isCollapsed ? 'absolute top-1.5 right-1.5 text-[8.5px] px-1 py-0' : ''}
-                    ${
-                      isActive 
-                        ? 'bg-white text-blue-700 shadow-sm' 
-                        : (item.badgeColor || 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300')
-                    }
-                  `}>
-                    {item.badge}
-                  </span>
+          {/* 3. PARTE INFERIOR: MODO OSCURO / CLARO Y CERRAR SESIÓN */}
+          <div className="p-3 border-t border-zinc-100 dark:border-zinc-800/80 space-y-1 bg-zinc-50/60 dark:bg-zinc-900/30">
+            
+            {/* BOTÓN MODO OSCURO / MODO CLARO */}
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              title={isCollapsed ? (isDarkMode ? 'Modo Claro' : 'Modo Oscuro') : undefined}
+              className={`
+                w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold
+                text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-white dark:hover:bg-zinc-800/80
+                transition cursor-pointer group shadow-2xs hover:shadow-xs
+                ${isCollapsed ? 'justify-center px-2' : ''}
+              `}
+            >
+              <span className="shrink-0 transition-transform duration-200 group-hover:rotate-12">
+                {isDarkMode ? (
+                  <Sun className="w-5 h-5 text-amber-500" />
+                ) : (
+                  <Moon className="w-5 h-5 text-indigo-500" />
                 )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* PARTE INFERIOR: MODO OSCURO / CLARO Y CERRAR SESIÓN (TAL CUAL LA IMAGEN 1) */}
-        <div className="p-3 sm:p-4 border-t border-zinc-100 dark:border-zinc-800/80 space-y-1.5 bg-zinc-50/50 dark:bg-zinc-900/20">
-          
-          {/* BOTÓN MODO OSCURO / MODO CLARO */}
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            title={isCollapsed ? (isDarkMode ? 'Modo Claro' : 'Modo Oscuro') : undefined}
-            className={`
-              w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold
-              text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/70
-              transition cursor-pointer group
-              ${isCollapsed ? 'justify-center px-2' : ''}
-            `}
-          >
-            <span className="shrink-0 transition-transform duration-200 group-hover:rotate-12">
-              {isDarkMode ? (
-                <Sun className="w-5 h-5 text-amber-500" />
-              ) : (
-                <Moon className="w-5 h-5 text-indigo-500" />
+              </span>
+              {!isCollapsed && (
+                <span className="truncate">
+                  {isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}
+                </span>
               )}
-            </span>
-            {!isCollapsed && (
-              <span className="truncate">
-                {isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}
-              </span>
-            )}
-          </button>
+            </button>
 
-          {/* BOTÓN CERRAR SESIÓN */}
-          <button
-            type="button"
-            onClick={onLogout}
-            title={isCollapsed ? 'Cerrar Sesión' : undefined}
-            className={`
-              w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold
-              text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30
-              transition cursor-pointer group
-              ${isCollapsed ? 'justify-center px-2' : ''}
-            `}
-          >
-            <span className="shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5">
-              <LogOut className="w-5 h-5 text-zinc-400 group-hover:text-rose-500" />
-            </span>
-            {!isCollapsed && (
-              <span className="truncate font-bold">
-                Cerrar Sesión
+            {/* BOTÓN CERRAR SESIÓN */}
+            <button
+              type="button"
+              onClick={onLogout}
+              title={isCollapsed ? 'Cerrar Sesión' : undefined}
+              className={`
+                w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold
+                text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30
+                transition cursor-pointer group
+                ${isCollapsed ? 'justify-center px-2' : ''}
+              `}
+            >
+              <span className="shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5">
+                <LogOut className="w-5 h-5 text-zinc-400 group-hover:text-rose-500" />
               </span>
-            )}
-          </button>
+              {!isCollapsed && (
+                <span className="truncate font-bold">
+                  Cerrar Sesión
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </aside>
     </>

@@ -165,7 +165,7 @@ export function App() {
 
   const hasProcessedUrlOpRef = React.useRef(false);
 
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabType>('solicitudes');
   const [monitoreoList, setMonitoreoList] = useState<MonitoreoItem[]>(INITIAL_MONITOREO_DATA);
   const [solicitudes, setSolicitudes] = useState<SolicitudColcha[]>(() => getCachedSolicitudes());
   const [isSyncing, setIsSyncing] = useState(false);
@@ -1383,34 +1383,30 @@ export function App() {
     return 73;
   })();
 
-  const isOperationalView = activeTab !== 'dashboard';
-
   return (
     <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-[#06080c] text-zinc-100' : 'bg-[#f4f5f7] text-zinc-900'}`}>
       
-      {/* Estructura principal con Sidebar en vista operativa */}
+      {/* Estructura unificada: Menú Lateral Izquierdo desplegado automáticamente en desktop */}
       <div className="flex min-h-screen w-full">
         {/* SIDEBAR IZQUIERDO */}
-        {isOperationalView && (
-          <Sidebar
-            activeTab={activeTab}
-            onSelectTab={(tab) => {
-              setActiveTab(tab);
-              setIsMobileSidebarOpen(false);
-            }}
-            totalHistorico={solicitudes.length}
-            alertCount={alertCount}
-            liveCumplimientoPct={liveCumplimientoPct}
-            isDarkMode={isDarkMode}
-            onToggleTheme={() => setIsDarkMode(!isDarkMode)}
-            onLogout={handleLogout}
-            currentUser={currentUser}
-            isOpenMobile={isMobileSidebarOpen}
-            onCloseMobile={() => setIsMobileSidebarOpen(false)}
-            isCollapsed={isSidebarCollapsed}
-            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          />
-        )}
+        <Sidebar
+          activeTab={activeTab}
+          onSelectTab={(tab) => {
+            setActiveTab(tab);
+            setIsMobileSidebarOpen(false);
+          }}
+          totalHistorico={solicitudes.length}
+          alertCount={alertCount}
+          liveCumplimientoPct={liveCumplimientoPct}
+          isDarkMode={isDarkMode}
+          onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+          onLogout={handleLogout}
+          currentUser={currentUser}
+          isOpenMobile={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
 
         {/* CONTENEDOR DERECHO CON HEADER Y VISTAS */}
         <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
@@ -1419,8 +1415,8 @@ export function App() {
             isDarkMode={isDarkMode}
             onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             onLogout={handleLogout}
-            showBackButton={activeTab !== 'dashboard'}
-            onBackToDashboard={() => setActiveTab('dashboard')}
+            showBackButton={activeTab !== 'solicitudes' && activeTab !== 'dashboard'}
+            onBackToDashboard={() => setActiveTab('solicitudes')}
             onOpenProfileDirectory={() => setIsProfileDirectoryOpen(true)}
             onOpenChat={() => setActiveTab('chat')}
             onOpenAuditoria={() => setActiveTab('soporte-auditoria')}
@@ -1430,7 +1426,7 @@ export function App() {
             isSyncing={isSyncing}
             onManualSync={handleManualSync}
             totalOpsCount={solicitudes.length}
-            onToggleMobileMenu={isOperationalView ? () => setIsMobileSidebarOpen(true) : undefined}
+            onToggleMobileMenu={() => setIsMobileSidebarOpen(true)}
           />
 
           {/* Main Content Area */}
