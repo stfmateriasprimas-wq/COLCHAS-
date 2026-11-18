@@ -131,10 +131,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* CONTENEDOR PRINCIPAL DEL SIDEBAR (Sticky en Desktop, Drawer en Móvil) */}
+      {/* CONTENEDOR PRINCIPAL DEL SIDEBAR (100% Fixed tanto en Desktop como en Móvil) */}
       <aside
         className={`
-          fixed top-0 bottom-0 left-0 z-50 lg:sticky lg:top-0 lg:h-screen
+          fixed top-0 bottom-0 left-0 z-40
           ${isCollapsed ? 'lg:w-[76px] lg:min-w-[76px]' : 'lg:w-64 xl:w-72 lg:min-w-[16rem] xl:min-w-[18rem]'}
           w-72 max-w-[85vw] h-screen max-h-screen shrink-0
           p-2 sm:p-2.5 lg:p-3 pr-0 sm:pr-0 lg:pr-1

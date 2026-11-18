@@ -1404,7 +1404,15 @@ export function App() {
     <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-[#06080c] text-zinc-100' : 'bg-[#f4f5f7] text-zinc-900'}`}>
       
       {/* Estructura unificada: Menú Lateral Izquierdo desplegado automáticamente en desktop */}
-      <div className="flex min-h-screen w-full">
+      <div className="flex min-h-screen w-full relative">
+        {/* ESPACIADOR EN DESKTOP PARA EL SIDEBAR FIJO (Garantiza que el contenido no quede tapado por aside fixed) */}
+        <div 
+          className={`shrink-0 hidden lg:block transition-all duration-300 pointer-events-none ${
+            isSidebarCollapsed ? 'lg:w-[76px]' : 'lg:w-64 xl:w-72'
+          }`} 
+          aria-hidden="true" 
+        />
+
         {/* SIDEBAR IZQUIERDO */}
         <Sidebar
           activeTab={activeTab}
