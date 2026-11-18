@@ -182,7 +182,24 @@ export function App() {
   const [editingOpFinalizada, setEditingOpFinalizada] = useState<SolicitudColcha | null>(null);
   const [isReporteComiteOpen, setIsReporteComiteOpen] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('stf_colchas_sidebar_collapsed');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('stf_colchas_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Ubicar y resaltar una OP en la bandeja operativa con animación glow
   const handleLocateInBandeja = (solicitud: SolicitudColcha) => {
@@ -1405,7 +1422,7 @@ export function App() {
           isOpenMobile={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
           isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onToggleCollapse={handleToggleSidebarCollapse}
         />
 
         {/* CONTENEDOR DERECHO CON HEADER Y VISTAS */}
