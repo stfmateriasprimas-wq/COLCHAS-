@@ -309,6 +309,10 @@ export const SlaAlertsList: React.FC<SlaAlertsListProps> = ({
               <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-300 font-sans">
                 Hay <strong className="text-zinc-950 dark:text-white font-bold">{allAlerts.length} órdenes</strong> que superan el límite de <strong className="text-rose-600 dark:text-rose-400 font-bold">3 días laborales</strong> sin haber avanzado de área en el proceso de planta.
               </p>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-700 dark:text-amber-300 text-[10.5px] sm:text-xs font-mono font-bold mt-1">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
+                <span>⏸️ Envío automático de alertas (7:00 AM) pausado temporalmente por revisión de trazabilidad</span>
+              </div>
             </div>
           </div>
 

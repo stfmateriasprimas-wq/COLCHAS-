@@ -1076,6 +1076,18 @@ function doPost(e) {
       return createJsonResponse({ status: 'success', sentCount: uniqueAlertMails.length });
     }
 
+    // ACCIÓN: PAUSE_ALERTAS_EMAIL (Pausar envíos automáticos de alertas SLA)
+    if (action === 'PAUSE_ALERTAS_EMAIL') {
+      var resPause = pausarEnvioAutomaticoAlertas();
+      return createJsonResponse(resPause);
+    }
+
+    // ACCIÓN: RESUME_ALERTAS_EMAIL (Reanudar envíos automáticos de alertas SLA)
+    if (action === 'RESUME_ALERTAS_EMAIL') {
+      reanudarEnvioAutomaticoAlertas();
+      return createJsonResponse({ status: 'success', message: 'Envío automático de alertas SLA reactivado exitosamente.' });
+    }
+
     // 13. CLEAN_COLUMNS_KLMN
     if (action === 'CLEAN_COLUMNS_KLMN') {
       var cleanedCount = cleanColumnsKLMN(ss);

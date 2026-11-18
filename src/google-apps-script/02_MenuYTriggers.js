@@ -40,6 +40,8 @@ function onOpen() {
     .addItem('⚡ Sincronizar y Alimentar Hoja ALERTAS', 'syncAlertasFromBaseDeDatos')
     .addItem('👥 Ver Destinatarios de la Hoja USUARIOS', 'verUsuariosMenuAction')
     .addItem('📧 Enviar Correo de Prueba (Verificar Conexión)', 'probarPermisosYEnvioCorreo')
+    .addItem('⏸️ Pausar Envío Automático Diario de Alertas', 'pausarEnvioAutomaticoAlertasMenuAction')
+    .addItem('▶️ Reanudar Envío Automático Diario (7:00 AM)', 'reanudarEnvioAutomaticoAlertasMenuAction')
     .addItem('🚨 Enviar Reporte Matutino SLA Ahora Mismo', 'enviarReporteDiarioAutomaticoSLA')
     .addItem('⏰ Programar Envío Automático Diario (7:00 AM)', 'instalarActivadorDiario7AM')
     .addItem('🗑️ Auto-Eliminar OPs ya Realizadas de MONITOREO', 'cleanMonitoreoMenuAction')
@@ -65,6 +67,15 @@ function cleanEmptyRowsMenuAction() {
   var ss = getTargetSpreadsheet();
   var count = cleanEmptyRowsInBaseDeDatos(ss);
   SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se eliminaron ' + count + ' filas vacías intermedias y se compactó BASE_DE_DATOS.', '🚀 STF GROUP', 6);
+}
+
+function pausarEnvioAutomaticoAlertasMenuAction() {
+  var res = pausarEnvioAutomaticoAlertas();
+  SpreadsheetApp.getActiveSpreadsheet().toast('⏸️ ' + res.message, '🚀 STF GROUP', 7);
+}
+
+function reanudarEnvioAutomaticoAlertasMenuAction() {
+  reanudarEnvioAutomaticoAlertas();
 }
 
 /**

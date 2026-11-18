@@ -7,6 +7,12 @@ import { getOpStatusOverride, saveOpStatusOverride, clearOpStatusOverride } from
 export { getOpStatusOverride, saveOpStatusOverride, clearOpStatusOverride };
 
 export const SPREADSHEET_ID = "1jTM8OG2u3bO9Cyrlyn3DJSnGcyLOzA8EWwxwOyWgXdc";
+
+/**
+ * Bandera maestra de pausa del envío automático de alertas SLA por correo
+ * En pausa a partir de hoy hasta nueva orden por revisión de trazabilidad.
+ */
+export const PAUSAR_ENVIO_AUTOMATICO_ALERTAS = true;
 export const BACKUP_SPREADSHEET_ID = "1qb9unBiGpV3QHgRtHonAAeyN0M8EQ4QhCan1Bnywx3M";
 
 // URL Oficial de la API Google Apps Script implementada

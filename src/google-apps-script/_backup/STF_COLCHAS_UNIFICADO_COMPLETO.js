@@ -3,7 +3,7 @@
  * STF GROUP S.A. - CONTROL DE CALIDAD DE COLCHAS & TRAZABILIDAD TEXTIL
  * SCRIPT MAESTRO UNIFICADO (GENERADO AUTOMÁTICAMENTE DESDE MÓDULOS)
  * =========================================================================
- * Fecha de generación: 2026-10-27T21:28:58.338Z
+ * Fecha de generación: 2026-11-18T11:48:55.895Z
  * =========================================================================
  */
 
@@ -37,6 +37,13 @@ var SHEET_TRAZABILIDAD = "TRAZABILIDAD_TIEMPOS";
 var DRIVE_FOLDER_NAME = "STF_COLCHAS_EVIDENCIAS";
 var TARGET_DRIVE_FOLDER_ID = ""; // Opcional: ID de carpeta específica en Drive
 var TARGET_DRIVE_SPREADSHEET_OR_FOLDER_ID = "";
+
+/**
+ * BANDERA MAESTRA DE CONTROL DE ENVÍO AUTOMÁTICO DE ALERTAS:
+ * true  = PAUSADO TEMPORALMENTE (No se despachan correos automáticos de alertas SLA)
+ * false = ACTIVO
+ */
+var PAUSAR_ENVIO_AUTOMATICO_ALERTAS = true;
 
 var ALERTAS_HEADERS = [
   "OP", "REFERENCIA", "TELA", "COLOR", "METROS (MT)", "AREA ACTUAL",
@@ -100,6 +107,8 @@ function onOpen() {
     .addItem('⚡ Sincronizar y Alimentar Hoja ALERTAS', 'syncAlertasFromBaseDeDatos')
     .addItem('👥 Ver Destinatarios de la Hoja USUARIOS', 'verUsuariosMenuAction')
     .addItem('📧 Enviar Correo de Prueba (Verificar Conexión)', 'probarPermisosYEnvioCorreo')
+    .addItem('⏸️ Pausar Envío Automático Diario de Alertas', 'pausarEnvioAutomaticoAlertasMenuAction')
+    .addItem('▶️ Reanudar Envío Automático Diario (7:00 AM)', 'reanudarEnvioAutomaticoAlertasMenuAction')
     .addItem('🚨 Enviar Reporte Matutino SLA Ahora Mismo', 'enviarReporteDiarioAutomaticoSLA')
     .addItem('⏰ Programar Envío Automático Diario (7:00 AM)', 'instalarActivadorDiario7AM')
     .addItem('🗑️ Auto-Eliminar OPs ya Realizadas de MONITOREO', 'cleanMonitoreoMenuAction')
@@ -125,6 +134,15 @@ function cleanEmptyRowsMenuAction() {
   var ss = getTargetSpreadsheet();
   var count = cleanEmptyRowsInBaseDeDatos(ss);
   SpreadsheetApp.getActiveSpreadsheet().toast('✅ Se eliminaron ' + count + ' filas vacías intermedias y se compactó BASE_DE_DATOS.', '🚀 STF GROUP', 6);
+}
+
+function pausarEnvioAutomaticoAlertasMenuAction() {
+  var res = pausarEnvioAutomaticoAlertas();
+  SpreadsheetApp.getActiveSpreadsheet().toast('⏸️ ' + res.message, '🚀 STF GROUP', 7);
+}
+
+function reanudarEnvioAutomaticoAlertasMenuAction() {
+  reanudarEnvioAutomaticoAlertas();
 }
 
 /**
@@ -1362,6 +1380,18 @@ function doPost(e) {
       return createJsonResponse({ status: 'success', sentCount: uniqueAlertMails.length });
     }
 
+    // ACCIÓN: PAUSE_ALERTAS_EMAIL (Pausar envíos automáticos de alertas SLA)
+    if (action === 'PAUSE_ALERTAS_EMAIL') {
+      var resPause = pausarEnvioAutomaticoAlertas();
+      return createJsonResponse(resPause);
+    }
+
+    // ACCIÓN: RESUME_ALERTAS_EMAIL (Reanudar envíos automáticos de alertas SLA)
+    if (action === 'RESUME_ALERTAS_EMAIL') {
+      reanudarEnvioAutomaticoAlertas();
+      return createJsonResponse({ status: 'success', message: 'Envío automático de alertas SLA reactivado exitosamente.' });
+    }
+
     // 13. CLEAN_COLUMNS_KLMN
     if (action === 'CLEAN_COLUMNS_KLMN') {
       var cleanedCount = cleanColumnsKLMN(ss);
@@ -2116,7 +2146,7 @@ function getOrCreateDriveFolder() {
   return getRootDriveFolder();
 }
 
-/**
+﻿/**
  * =========================================================================
  * 06_EmailService.js - Servicio de notificaciones por correo (Flujos A, B y C) y lectura de USUARIOS
  * SISTEMA STF GROUP - CONTROL DE CALIDAD DE COLCHAS & TRAZABILIDAD TEXTIL
@@ -2574,6 +2604,13 @@ function probarPermisosYEnvioCorreo() {
  * Función que ejecuta el Disparador de las 7:00 AM todos los días hábiles
  */
 function enviarReporteDiarioAutomaticoSLA() {
+  // VERIFICAR PAUSA MAESTRA DE ALERTAS AUTOMÁTICAS (HASTA NUEVA ORDEN)
+  var propPausa = PropertiesService.getScriptProperties().getProperty('PAUSAR_ALERTAS_AUTOMATICAS');
+  if (PAUSAR_ENVIO_AUTOMATICO_ALERTAS || propPausa === 'true') {
+    Logger.log('⏸️ [PAUSA ACTIVA]: El envío automático matutino de correos de alertas SLA se encuentra PAUSADO TEMPORALMENTE hasta nueva orden por revisión de trazabilidad.');
+    return;
+  }
+
   var ss = getTargetSpreadsheet();
   autoCleanMonitoreoFromBaseDeDatos(ss);
 
@@ -2669,6 +2706,42 @@ function instalarActivadorDiario7AM() {
       '4. Haz clic en "Revisar permisos" > Selecciona tu cuenta > "Configuración avanzada" > "Ir a... (no seguro)" > "Permitir".',
       SpreadsheetApp.getUi().ButtonSet.OK
     );
+  }
+}
+
+/**
+ * Pausa oficial del envío automático diario de alertas SLA
+ * Elimina cualquier activador de las 7:00 AM activo y activa la bandera de pausa
+ */
+function pausarEnvioAutomaticoAlertas() {
+  try {
+    var triggers = ScriptApp.getProjectTriggers();
+    var count = 0;
+    for (var i = 0; i < triggers.length; i++) {
+      if (triggers[i].getHandlerFunction() === 'enviarReporteDiarioAutomaticoSLA') {
+        ScriptApp.deleteTrigger(triggers[i]);
+        count++;
+      }
+    }
+    PropertiesService.getScriptProperties().setProperty('PAUSAR_ALERTAS_AUTOMATICAS', 'true');
+    Logger.log('⏸️ Envío automático de alertas SLA pausado. Triggers eliminados: ' + count);
+    return { status: 'success', message: 'Envío automático de alertas SLA pausado (triggers eliminados: ' + count + ')' };
+  } catch (err) {
+    Logger.log('Error pausando activadores: ' + err);
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+/**
+ * Reanudar envío automático diario de alertas SLA (para cuando se ordene reactivar)
+ */
+function reanudarEnvioAutomaticoAlertas() {
+  try {
+    PropertiesService.getScriptProperties().deleteProperty('PAUSAR_ALERTAS_AUTOMATICAS');
+    instalarActivadorDiario7AM();
+    SpreadsheetApp.getActiveSpreadsheet().toast('▶️ Envío automático de alertas reactivado exitosamente a las 7:00 AM.', '🚀 STF GROUP', 6);
+  } catch (err) {
+    Logger.log('Error reanudando activador: ' + err);
   }
 }
 

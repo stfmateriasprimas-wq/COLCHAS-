@@ -29,6 +29,13 @@ var DRIVE_FOLDER_NAME = "STF_COLCHAS_EVIDENCIAS";
 var TARGET_DRIVE_FOLDER_ID = ""; // Opcional: ID de carpeta específica en Drive
 var TARGET_DRIVE_SPREADSHEET_OR_FOLDER_ID = "";
 
+/**
+ * BANDERA MAESTRA DE CONTROL DE ENVÍO AUTOMÁTICO DE ALERTAS:
+ * true  = PAUSADO TEMPORALMENTE (No se despachan correos automáticos de alertas SLA)
+ * false = ACTIVO
+ */
+var PAUSAR_ENVIO_AUTOMATICO_ALERTAS = true;
+
 var ALERTAS_HEADERS = [
   "OP", "REFERENCIA", "TELA", "COLOR", "METROS (MT)", "AREA ACTUAL",
   "FECHA SOLICITUD", "DÍAS HÁBILES EN ÁREA", "DÍAS RETRASO (>3 DÍAS)",
