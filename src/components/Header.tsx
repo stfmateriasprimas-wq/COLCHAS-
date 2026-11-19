@@ -94,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   type="button"
                   onClick={onOpenChat}
-                  className="relative group overflow-hidden px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#002f23] via-[#014d38] to-[#00281e] border border-emerald-400/70 hover:border-emerald-300 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2.5 transition-all duration-300 cursor-pointer shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:shadow-[0_0_26px_rgba(16,185,129,0.65)] hover:scale-[1.04] active:scale-95 shrink-0 ring-1 ring-emerald-500/40"
+                  className="relative group overflow-hidden px-2 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#002f23] via-[#014d38] to-[#00281e] border border-emerald-400/70 hover:border-emerald-300 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2.5 transition-all duration-300 cursor-pointer shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:shadow-[0_0_26px_rgba(16,185,129,0.65)] hover:scale-[1.04] active:scale-95 shrink-0 ring-1 ring-emerald-500/40"
                   title="Abrir Chat Corporativo STF en Tiempo Real"
                 >
                   {/* Reflejo Shimmer Holográfico Cybernetic */}
@@ -102,11 +102,11 @@ export const Header: React.FC<HeaderProps> = ({
 
                   {/* Icono con resplandor neón */}
                   <div className="relative flex items-center justify-center shrink-0">
-                    <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-300 group-hover:text-white transition-colors drop-shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+                    <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-300 group-hover:text-white transition-colors drop-shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
                   </div>
 
-                  {/* Texto Futurista de Alta Tecnología */}
-                  <span className="font-mono tracking-wider font-black text-[9.5px] sm:text-xs text-white drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]">
+                  {/* Texto Futurista de Alta Tecnología (Oculto en móvil para optimizar espacio visual) */}
+                  <span className="hidden sm:inline font-mono tracking-wider font-black text-[9.5px] sm:text-xs text-white drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]">
                     CHAT
                   </span>
 
@@ -164,10 +164,10 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* CENTER: Centered STF GROUP Logo (with user badge on desktop) */}
-            <div className="flex flex-col items-center justify-center space-y-1 sm:space-y-1.5 py-0.5 justify-self-center text-center px-1.5 sm:px-2 shrink-0">
+            <div className="flex flex-col items-center justify-center space-y-1 sm:space-y-1.5 py-0.5 justify-self-center text-center px-1 sm:px-2 shrink-0">
               <STFLogo
                 isWhite={isDarkMode}
-                className="h-7 sm:h-12 md:h-16 w-28 sm:w-60 md:w-80 max-w-[115px] sm:max-w-none transition-all duration-300"
+                className="h-9 sm:h-12 md:h-16 w-36 sm:w-60 md:w-80 max-w-[155px] sm:max-w-none transition-all duration-300"
               />
 
               {/* User badge on desktop (hidden on mobile row 1, rendered in row 2 below) */}
